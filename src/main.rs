@@ -28,8 +28,15 @@ impl Handler for NeovimHandler {
         Ok(Value::Nil)
     }
 
-    async fn handle_notify(&self, name: String, _args: Vec<Value>, _neovim: Neovim<Self::Writer>) {
+    async fn handle_notify(&self, name: String, args: Vec<Value>, _neovim: Neovim<Self::Writer>) {
         println!("Notify: {name}");
+        for arg in args {
+            println!();
+            println!("{arg:?}");
+        }
+        println!();
+        println!();
+        println!();
     }
 }
 
@@ -100,7 +107,7 @@ async fn main() {
     neovim.ui_attach(512, 512, &options).await.unwrap();
 
     tokio::spawn(async move {
-        neovim.input("iThings and stuff<esc>").await.unwrap();
+        neovim.input("iThings<esc>").await.unwrap();
     });
 
     match io_handle.await {
