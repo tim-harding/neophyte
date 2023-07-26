@@ -16,19 +16,19 @@ fn main() {
     encoder.set_depth(png::BitDepth::Eight);
     let mut w = encoder.write_header().unwrap();
 
-    let mut data = [0u8; 256 * 512 * 3];
-    for x in 0..512 {
-        for y in 0..256 {
-            let p = (y * 512 + x) * 3;
-            data[p] = x as u8;
-            data[p + 1] = y as u8;
-        }
-    }
+    let mut data = [255u8; 256 * 512 * 3];
+    // for x in 0..512 {
+    //     for y in 0..256 {
+    //         let p = (y * 512 + x) * 3;
+    //         data[p] = x as u8;
+    //         data[p + 1] = y as u8;
+    //     }
+    // }
 
     let font_path = Path::new(r"/usr/share/fonts/TTF/CaskaydiaCoveNerdFont-Regular.ttf");
     let font_data = fs::read(&font_path).unwrap();
     let font = Font::try_from_vec(font_data).unwrap();
-    let height = 12.4f32;
+    let height = 48f32;
     let pixel_height = height.ceil() as usize;
 
     let scale = Scale {
@@ -47,11 +47,20 @@ fn main() {
 
     println!("Width: {width}, height: {pixel_height}");
     for glyph in glyphs {
-        glyph.draw(|x, y, v| {
-            let p = y as usize * 512 + x as usize;
-            data[p] = ((data[p] as f32) * v) as u8;
-            data[p + 1] = ((data[p + 1] as f32) * v) as u8;
-        });
+        if let Some(bb) = glyph.pixel_bounding_box() {
+            glyph.draw(|x, y, v| {
+                let x = (x as i32 + bb.min.x) as usize;
+                let y = (y as i32 + bb.min.y) as usize;
+                if x > 512 || y > 256 {
+                    return;
+                }
+                let v = 1.0 - v;
+                let p = (y as usize * 512 + x as usize) * 3;
+                data[p] = ((data[p] as f32) * v) as u8;
+                data[p + 1] = ((data[p + 1] as f32) * v) as u8;
+                data[p + 2] = ((data[p + 2] as f32) * v) as u8;
+            });
+        }
     }
 
     w.write_image_data(&data).unwrap();
