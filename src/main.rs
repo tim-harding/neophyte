@@ -17,13 +17,13 @@ fn main() {
     let mut w = encoder.write_header().unwrap();
 
     let mut data = [255u8; 256 * 512 * 3];
-    // for x in 0..512 {
-    //     for y in 0..256 {
-    //         let p = (y * 512 + x) * 3;
-    //         data[p] = x as u8;
-    //         data[p + 1] = y as u8;
-    //     }
-    // }
+    for x in 0..512 {
+        for y in 0..256 {
+            let p = (y * 512 + x) * 3;
+            data[p] = x as u8;
+            data[p + 1] = y as u8;
+        }
+    }
 
     let font_path = Path::new(r"/usr/share/fonts/TTF/CaskaydiaCoveNerdFont-Regular.ttf");
     let font_data = fs::read(&font_path).unwrap();
