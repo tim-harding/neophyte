@@ -6,3 +6,7 @@ edition = "2021"
 [dependencies]
 rusttype = "0.9.3"
 png = "0.17.9"
+nvim-rs = { version = "0.5.0", features = ['use_tokio']}
+async-trait = "0.1.72"
+tokio = { version = "1.29.1", features = ['rt-multi-thread', 'io-std', 'macros'] }
+tokio-util = "0.7.8"

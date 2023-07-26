@@ -1,12 +1,40 @@
+use async_trait::async_trait;
+use nvim_rs::{compat::tokio::Compat, Handler, Neovim, UiAttachOptions, Value};
 use png::Encoder;
 use rusttype::{point, Font, Scale};
 use std::{
     fs::{self, File},
     io::BufWriter,
     path::Path,
+    process::Stdio,
 };
+use tokio::process::{ChildStdin, Command};
+use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
-fn main() {
+#[derive(Clone)]
+struct NeovimHandler {}
+
+#[async_trait]
+impl Handler for NeovimHandler {
+    type Writer = Compat<ChildStdin>;
+
+    async fn handle_request(
+        &self,
+        name: String,
+        _args: Vec<Value>,
+        _neovim: Neovim<Self::Writer>,
+    ) -> Result<Value, Value> {
+        println!("Request: {name}");
+        Ok(Value::Nil)
+    }
+
+    async fn handle_notify(&self, name: String, _args: Vec<Value>, _neovim: Neovim<Self::Writer>) {
+        println!("Notify: {name}");
+    }
+}
+
+#[tokio::main]
+async fn main() {
     let path = Path::new(r"/home/tim/temp.png");
     let file = File::create(path).unwrap();
     let ref mut w = BufWriter::new(file);
@@ -53,6 +81,37 @@ fn main() {
             });
         }
     }
+
+    let mut child = Command::new("nvim")
+        .arg("--embed")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    let handler = NeovimHandler {};
+    let reader = child.stdout.take().unwrap();
+    let writer = child.stdin.take().unwrap();
+    let (neovim, io) = Neovim::new(reader.compat(), writer.compat_write(), handler);
+    let io_handle = tokio::spawn(io);
+
+    let mut options = UiAttachOptions::new();
+    options.set_linegrid_external(true);
+    neovim.ui_attach(512, 512, &options).await.unwrap();
+
+    tokio::spawn(async move {
+        neovim.input("iThings and stuff<esc>").await.unwrap();
+    });
+
+    match io_handle.await {
+        Err(join_error) => eprintln!("Error joining IO loop: '{}'", join_error),
+        Ok(Err(error)) => {
+            if !error.is_channel_closed() {
+                eprintln!("Error: '{}'", error);
+            }
+        }
+        Ok(Ok(())) => {}
+    };
 
     w.write_image_data(&data).unwrap();
 }
