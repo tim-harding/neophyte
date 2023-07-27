@@ -1,4 +1,4 @@
-use super::util::parse_u64;
+use super::util::{parse_array, parse_u64};
 use nvim_rs::Value;
 
 #[derive(Debug, Copy, Clone)]
@@ -14,20 +14,18 @@ impl TryFrom<Value> for DefaultColorsSet {
     type Error = DefaultColorsSetParseError;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
-        match value {
-            Value::Array(array) => {
-                let mut iter = array.into_iter().map(parse_u64);
-                let mut next = || iter.next().flatten().ok_or(DefaultColorsSetParseError);
-                Ok(Self {
-                    rgb_fg: next()?,
-                    rgb_bg: next()?,
-                    rgb_sp: next()?,
-                    cterm_fg: next()?,
-                    cterm_bg: next()?,
-                })
-            }
-            _ => Err(DefaultColorsSetParseError),
-        }
+        let inner = move || -> Option<Self> {
+            let mut iter = parse_array(value)?.into_iter().map(parse_u64);
+            let mut next = || iter.next().flatten();
+            Some(Self {
+                rgb_fg: next()?,
+                rgb_bg: next()?,
+                rgb_sp: next()?,
+                cterm_fg: next()?,
+                cterm_bg: next()?,
+            })
+        };
+        inner().ok_or(DefaultColorsSetParseError)
     }
 }
 
