@@ -27,3 +27,10 @@ pub fn parse_array(value: Value) -> Option<Vec<Value>> {
         _ => None,
     }
 }
+
+pub fn parse_map(value: Value) -> Option<Vec<(Value, Value)>> {
+    match value {
+        Value::Map(map) => Some(map),
+        _ => None,
+    }
+}

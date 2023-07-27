@@ -2,6 +2,7 @@ mod default_colors_set;
 mod grid_clear;
 mod grid_destroy;
 mod grid_resize;
+mod hl_attr_define;
 mod option_set;
 mod set_title;
 mod util;
@@ -11,6 +12,7 @@ use self::{
     grid_clear::{GridClear, GridClearParseError},
     grid_destroy::{GridDestroy, GridDestroyParseError},
     grid_resize::{GridResize, GridResizeParseError},
+    hl_attr_define::{HlAttrDefine, HlAttrDefineParseError},
     option_set::{OptionSet, OptionSetParseError},
     set_title::{SetTitle, SetTitleParseError},
     util::parse_array,
@@ -26,6 +28,7 @@ pub enum Event {
     GridClear(GridClear),
     GridDestroy(GridDestroy),
     DefaultColorsSet(DefaultColorsSet),
+    HlAttrDefine(HlAttrDefine),
 }
 
 macro_rules! event_from {
@@ -44,6 +47,7 @@ event_from!(OptionSet);
 event_from!(GridClear);
 event_from!(GridDestroy);
 event_from!(DefaultColorsSet);
+event_from!(HlAttrDefine);
 
 impl TryFrom<Value> for Event {
     type Error = EventParseError;
@@ -61,6 +65,7 @@ impl TryFrom<Value> for Event {
             "grid_clear" => Ok(GridClear::try_from(next()?)?.into()),
             "grid_destroy" => Ok(GridDestroy::try_from(next()?)?.into()),
             "default_colors_set" => Ok(DefaultColorsSet::try_from(next()?)?.into()),
+            "hl_attr_define" => Ok(HlAttrDefine::try_from(iter)?.into()),
             _ => Err(EventParseError::UnknownEvent(event_name)),
         }
     }
@@ -84,4 +89,6 @@ pub enum EventParseError {
     GridDestroy(#[from] GridDestroyParseError),
     #[error("{0}")]
     DefaultColorsSet(#[from] DefaultColorsSetParseError),
+    #[error("{0}")]
+    HlAttrDefine(#[from] HlAttrDefineParseError),
 }

@@ -57,6 +57,7 @@ async fn main() {
 
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
+    options.set_hlstate_external(true);
     neovim.ui_attach(512, 512, &options).await.unwrap();
 
     tokio::spawn(async move {
