@@ -34,7 +34,7 @@ impl Handler for NeovimHandler {
             match Event::try_from(arg) {
                 Ok(event) => println!("{event:?}"),
                 Err(e) => match e {
-                    EventParseError::UnknownEvent => eprintln!("Unknown event: {name}"),
+                    EventParseError::UnknownEvent(name) => eprintln!("Unknown event: {name}"),
                     _ => eprintln!("{e}"),
                 },
             }
@@ -147,7 +147,7 @@ impl TryFrom<Value> for Event {
                     Value::String(s) => match s.as_str() {
                         Some(s) => match s {
                             "grid_resize" => Ok(Self::GridResize(GridResize::try_from(args)?)),
-                            _ => Err(EventParseError::UnknownEvent),
+                            _ => Err(EventParseError::UnknownEvent(s.to_string())),
                         },
                         None => Err(EventParseError::Malformed),
                     },
@@ -159,12 +159,12 @@ impl TryFrom<Value> for Event {
     }
 }
 
-#[derive(Debug, Clone, Copy, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 enum EventParseError {
     #[error("Event is malformed")]
     Malformed,
-    #[error("Received an unrecognized event name")]
-    UnknownEvent,
+    #[error("Received an unrecognized event name: {0}")]
+    UnknownEvent(String),
     #[error("{0}")]
     GridResize(#[from] GridResizeParseError),
 }
