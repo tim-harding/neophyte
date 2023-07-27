@@ -1,21 +1,39 @@
+mod grid_clear;
 mod grid_resize;
 mod option_set;
 mod set_title;
 mod util;
-
 use self::{
+    grid_clear::{GridClear, GridClearParseError},
     grid_resize::{GridResize, GridResizeParseError},
     option_set::{OptionSet, OptionSetParseError},
     set_title::{SetTitle, SetTitleParseError},
 };
 use nvim_rs::Value;
+use std::vec::IntoIter;
 
 #[derive(Debug, Clone)]
 pub enum Event {
     GridResize(GridResize),
     SetTitle(SetTitle),
     OptionSet(OptionSet),
+    GridClear(GridClear),
 }
+
+macro_rules! event_from {
+    ($x:ident) => {
+        impl From<$x> for Event {
+            fn from(value: $x) -> Self {
+                Self::$x(value)
+            }
+        }
+    };
+}
+
+event_from!(GridResize);
+event_from!(SetTitle);
+event_from!(OptionSet);
+event_from!(GridClear);
 
 impl TryFrom<Value> for Event {
     type Error = EventParseError;
@@ -25,16 +43,16 @@ impl TryFrom<Value> for Event {
             Value::Array(array) => {
                 let mut iter = array.into_iter();
                 let event_name = iter.next().ok_or(EventParseError::Malformed)?;
+                fn try_next(mut iter: IntoIter<Value>) -> Result<Value, EventParseError> {
+                    iter.next().ok_or(EventParseError::Malformed)
+                }
                 match event_name {
                     Value::String(s) => match s.as_str() {
                         Some(s) => match s {
-                            "grid_resize" => Ok(Self::GridResize(GridResize::try_from(
-                                iter.next().ok_or(EventParseError::Malformed)?,
-                            )?)),
-                            "set_title" => Ok(Self::SetTitle(SetTitle::try_from(
-                                iter.next().ok_or(EventParseError::Malformed)?,
-                            )?)),
-                            "option_set" => Ok(Self::OptionSet(OptionSet::try_from(iter)?)),
+                            "grid_resize" => Ok(GridResize::try_from(try_next(iter)?)?.into()),
+                            "set_title" => Ok(SetTitle::try_from(try_next(iter)?)?.into()),
+                            "option_set" => Ok(OptionSet::try_from(iter)?.into()),
+                            "grid_clear" => Ok(GridClear::try_from(try_next(iter)?)?.into()),
                             _ => Err(EventParseError::UnknownEvent(s.to_string())),
                         },
                         None => Err(EventParseError::Malformed),
@@ -59,4 +77,6 @@ pub enum EventParseError {
     SetTitle(#[from] SetTitleParseError),
     #[error("{0}")]
     OptionSet(#[from] OptionSetParseError),
+    #[error("{0}")]
+    GridClear(#[from] GridClearParseError),
 }
