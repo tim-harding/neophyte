@@ -1,6 +1,8 @@
-use std::vec::IntoIter;
+mod util;
 
+use self::util::{parse_bool, parse_string, parse_u64};
 use nvim_rs::Value;
+use std::vec::IntoIter;
 
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -239,24 +241,3 @@ impl TryFrom<IntoIter<Value>> for OptionSet {
 #[derive(Debug, Clone, Copy, thiserror::Error)]
 #[error("Failed to parse option_set event")]
 pub struct OptionSetParseError;
-
-fn parse_bool(value: Value) -> Option<bool> {
-    match value {
-        Value::Boolean(b) => Some(b),
-        _ => None,
-    }
-}
-
-fn parse_string(value: Value) -> Option<String> {
-    match value {
-        Value::String(s) => s.into_str(),
-        _ => None,
-    }
-}
-
-fn parse_u64(value: Value) -> Option<u64> {
-    match value {
-        Value::Integer(n) => n.as_u64(),
-        _ => None,
-    }
-}
