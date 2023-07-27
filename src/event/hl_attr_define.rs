@@ -38,8 +38,9 @@ pub struct HlAttr {
     pub rgb_attr: Attributes,
     /// Highlights in terminal 256-color codes
     pub cterm_attr: Attributes,
-    /// A semantic description of the highlights active in a cell
-    pub info: Info,
+    /// A semantic description of the highlights active in a cell. Ordered by priority from low to
+    /// high.
+    pub info: Vec<Info>,
 }
 
 impl TryFrom<Value> for HlAttr {
@@ -53,7 +54,11 @@ impl TryFrom<Value> for HlAttr {
             id: parse_u64(next()?).ok_or(HlAttrError)?,
             rgb_attr: Attributes::try_from(next()?)?,
             cterm_attr: Attributes::try_from(next()?)?,
-            info: Info::try_from(next()?)?,
+            info: parse_array(next()?)
+                .ok_or(HlAttrError)?
+                .into_iter()
+                .map(Info::try_from)
+                .collect::<Result<Vec<_>, _>>()?,
         })
     }
 }
@@ -151,26 +156,39 @@ impl Debug for Attributes {
 pub struct Info {
     pub kind: Kind,
     /// Highlight name from highlight-groups. Only for "ui" kind.
-    pub ui_name: String,
+    pub ui_name: Option<String>,
     /// Name of the
-    pub hi_name: String,
-    /// Highlight group where the used attributes are defined.
-    pub r#final: String,
+    pub hi_name: Option<String>,
     /// Unique numeric id representing this item.
-    pub id: String,
+    pub id: Option<u64>,
 }
 
 impl TryFrom<Value> for Info {
     type Error = HlAttrDefineParseError;
 
-    fn try_from(_value: Value) -> Result<Self, Self::Error> {
-        // TODO: Implement
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        use HlAttrDefineParseError::Info as InfoError;
+        let mut kind = None;
+        let mut ui_name = None;
+        let mut hi_name = None;
+        let mut id = None;
+        let map = parse_map(value).ok_or(InfoError)?;
+        for (k, v) in map {
+            let k = parse_string(k).ok_or(InfoError)?;
+            match k.as_str() {
+                "kind" => kind = Some(Kind::try_from(v)?),
+                "ui_name" => ui_name = Some(parse_string(v).ok_or(InfoError)?),
+                "hi_name" => hi_name = Some(parse_string(v).ok_or(InfoError)?),
+                "id" => id = Some(parse_u64(v).ok_or(InfoError)?),
+                _ => eprintln!("Unrecognized hlstate keyword: {k}"),
+            }
+        }
+        let kind = kind.ok_or(InfoError)?;
         Ok(Self {
-            kind: Kind::Ui,
-            ui_name: Default::default(),
-            hi_name: Default::default(),
-            r#final: Default::default(),
-            id: Default::default(),
+            kind,
+            ui_name,
+            hi_name,
+            id,
         })
     }
 }
