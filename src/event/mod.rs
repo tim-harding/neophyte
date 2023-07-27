@@ -17,7 +17,6 @@ use self::{
 };
 use crate::event::util::parse_string;
 use nvim_rs::Value;
-use std::vec::IntoIter;
 
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -53,17 +52,15 @@ impl TryFrom<Value> for Event {
         let array = parse_array(value).ok_or(EventParseError::Malformed)?;
         let mut iter = array.into_iter();
         let event_name = iter.next().ok_or(EventParseError::Malformed)?;
-        fn try_next(mut iter: IntoIter<Value>) -> Result<Value, EventParseError> {
-            iter.next().ok_or(EventParseError::Malformed)
-        }
+        let mut next = || iter.next().ok_or(EventParseError::Malformed);
         let event_name = parse_string(event_name).ok_or(EventParseError::Malformed)?;
         match event_name.as_str() {
-            "grid_resize" => Ok(GridResize::try_from(try_next(iter)?)?.into()),
-            "set_title" => Ok(SetTitle::try_from(try_next(iter)?)?.into()),
+            "grid_resize" => Ok(GridResize::try_from(next()?)?.into()),
+            "set_title" => Ok(SetTitle::try_from(next()?)?.into()),
             "option_set" => Ok(OptionSet::try_from(iter)?.into()),
-            "grid_clear" => Ok(GridClear::try_from(try_next(iter)?)?.into()),
-            "grid_destroy" => Ok(GridDestroy::try_from(try_next(iter)?)?.into()),
-            "default_colors_set" => Ok(DefaultColorsSet::try_from(try_next(iter)?)?.into()),
+            "grid_clear" => Ok(GridClear::try_from(next()?)?.into()),
+            "grid_destroy" => Ok(GridDestroy::try_from(next()?)?.into()),
+            "default_colors_set" => Ok(DefaultColorsSet::try_from(next()?)?.into()),
             _ => Err(EventParseError::UnknownEvent(event_name)),
         }
     }
