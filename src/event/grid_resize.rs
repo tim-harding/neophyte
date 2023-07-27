@@ -1,4 +1,4 @@
-use super::util::parse_u64;
+use super::util::{parse_array, parse_u64};
 use nvim_rs::Value;
 
 #[derive(Debug, Clone, Copy)]
@@ -12,20 +12,15 @@ impl TryFrom<Value> for GridResize {
     type Error = GridResizeParseError;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
-        match value {
-            Value::Array(array) => {
-                let mut iter = array.into_iter().map(parse_u64).flatten();
-                let grid = iter.next().ok_or(GridResizeParseError)?;
-                let width = iter.next().ok_or(GridResizeParseError)?;
-                let height = iter.next().ok_or(GridResizeParseError)?;
-                Ok(Self {
-                    grid,
-                    width,
-                    height,
-                })
-            }
-            _ => Err(GridResizeParseError),
-        }
+        let inner = move || -> Option<Self> {
+            let mut iter = parse_array(value)?.into_iter().map(parse_u64).flatten();
+            Some(Self {
+                grid: iter.next()?,
+                width: iter.next()?,
+                height: iter.next()?,
+            })
+        };
+        inner().ok_or(GridResizeParseError)
     }
 }
 
