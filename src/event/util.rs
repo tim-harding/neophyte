@@ -1,4 +1,5 @@
 use nvim_rs::Value;
+use std::fmt::{Debug, DebugStruct};
 
 pub fn parse_bool(value: Value) -> Option<bool> {
     match value {
@@ -32,5 +33,11 @@ pub fn parse_map(value: Value) -> Option<Vec<(Value, Value)>> {
     match value {
         Value::Map(map) => Some(map),
         _ => None,
+    }
+}
+
+pub fn maybe_field<T: Debug>(s: &mut DebugStruct, name: &str, field: Option<T>) {
+    if let Some(t) = field {
+        s.field(name, &t);
     }
 }

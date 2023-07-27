@@ -1,8 +1,11 @@
-use super::util::{parse_array, parse_bool, parse_string, parse_u64};
+use super::util::{maybe_field, parse_array, parse_bool, parse_string, parse_u64};
 use nvim_rs::Value;
-use std::vec::IntoIter;
+use std::{
+    fmt::{Debug, DebugStruct},
+    vec::IntoIter,
+};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct OptionSet {
     arabicshape: Option<bool>,
     ambiwidth: Option<String>,
@@ -74,6 +77,38 @@ impl TryFrom<IntoIter<Value>> for OptionSet {
             Some(out)
         };
         inner().ok_or(OptionSetParseError)
+    }
+}
+
+impl Debug for OptionSet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut s = f.debug_struct("OptionSet");
+        maybe_field(&mut s, "arabicshape", self.arabicshape);
+        maybe_field(&mut s, "ambiwidth", self.ambiwidth.as_ref());
+        maybe_field(&mut s, "emoji", self.emoji);
+        maybe_field(&mut s, "guifont", self.guifont.as_ref());
+        maybe_field(&mut s, "guifontwide", self.guifontwide.as_ref());
+        maybe_field(&mut s, "linespace", self.linespace);
+        maybe_field(&mut s, "mousefocus", self.mousefocus);
+        maybe_field(&mut s, "mousemoveevent", self.mousemoveevent);
+        maybe_field(&mut s, "pumblend", self.pumblend);
+        maybe_field(&mut s, "showtabline", self.showtabline);
+        maybe_field(&mut s, "termguicolors", self.termguicolors);
+        maybe_field(&mut s, "ext_cmdline", self.ext_cmdline);
+        maybe_field(&mut s, "ext_hlstate", self.ext_hlstate);
+        maybe_field(&mut s, "ext_linegrid", self.ext_linegrid);
+        maybe_field(&mut s, "ext_messages", self.ext_messages);
+        maybe_field(&mut s, "ext_multigrid", self.ext_multigrid);
+        maybe_field(&mut s, "ext_popupmenu", self.ext_popupmenu);
+        maybe_field(&mut s, "ext_tabline", self.ext_tabline);
+        maybe_field(&mut s, "ext_termcolors", self.ext_termcolors);
+        maybe_field(&mut s, "term_name", self.term_name.as_ref());
+        maybe_field(&mut s, "term_colors", self.term_colors);
+        maybe_field(&mut s, "term_background", self.term_background);
+        maybe_field(&mut s, "stdin_fd", self.stdin_fd);
+        maybe_field(&mut s, "stdin_tty", self.stdin_tty);
+        maybe_field(&mut s, "stdout_tty", self.stdout_tty);
+        s.finish()
     }
 }
 

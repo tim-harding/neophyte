@@ -1,6 +1,6 @@
-use super::util::{parse_array, parse_bool, parse_map, parse_string, parse_u64};
+use super::util::{maybe_field, parse_array, parse_bool, parse_map, parse_string, parse_u64};
 use nvim_rs::Value;
-use std::vec::IntoIter;
+use std::{fmt::Debug, vec::IntoIter};
 
 #[derive(Debug, Clone)]
 pub struct HlAttrDefine {
@@ -58,7 +58,7 @@ impl TryFrom<Value> for HlAttr {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Clone, Copy, Default)]
 pub struct Attributes {
     /// foreground color.
     pub foreground: Option<u64>,
@@ -124,6 +124,27 @@ impl TryFrom<Value> for Attributes {
     }
 }
 
+impl Debug for Attributes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut s = f.debug_struct("Attributes");
+        maybe_field(&mut s, "foreground", self.foreground);
+        maybe_field(&mut s, "background", self.background);
+        maybe_field(&mut s, "special", self.special);
+        maybe_field(&mut s, "reverse", self.reverse);
+        maybe_field(&mut s, "italic", self.italic);
+        maybe_field(&mut s, "bold", self.bold);
+        maybe_field(&mut s, "strikethrough", self.strikethrough);
+        maybe_field(&mut s, "underline", self.underline);
+        maybe_field(&mut s, "undercurl", self.undercurl);
+        maybe_field(&mut s, "underdouble", self.underdouble);
+        maybe_field(&mut s, "underdotted", self.underdotted);
+        maybe_field(&mut s, "underdashed", self.underdashed);
+        maybe_field(&mut s, "altfont", self.altfont);
+        maybe_field(&mut s, "blend", self.blend);
+        s.finish()
+    }
+}
+
 /// A semantic description of the highlights active in a cell. Activated by the ext_hlstate
 /// extension.
 #[derive(Debug, Clone)]
@@ -142,7 +163,7 @@ pub struct Info {
 impl TryFrom<Value> for Info {
     type Error = HlAttrDefineParseError;
 
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
+    fn try_from(_value: Value) -> Result<Self, Self::Error> {
         // TODO: Implement
         Ok(Self {
             kind: Kind::Ui,
