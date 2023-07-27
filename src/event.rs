@@ -1,8 +1,9 @@
 use nvim_rs::Value;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Event {
     GridResize(GridResize),
+    SetTitle(SetTitle),
 }
 
 impl TryFrom<Value> for Event {
@@ -17,6 +18,9 @@ impl TryFrom<Value> for Event {
                     Value::String(s) => match s.as_str() {
                         Some(s) => match s {
                             "grid_resize" => Ok(Self::GridResize(GridResize::try_from(
+                                iter.next().ok_or(EventParseError::Malformed)?,
+                            )?)),
+                            "set_title" => Ok(Self::SetTitle(SetTitle::try_from(
                                 iter.next().ok_or(EventParseError::Malformed)?,
                             )?)),
                             _ => Err(EventParseError::UnknownEvent(s.to_string())),
@@ -39,10 +43,12 @@ pub enum EventParseError {
     UnknownEvent(String),
     #[error("{0}")]
     GridResize(#[from] GridResizeParseError),
+    #[error("{0}")]
+    SetTitle(#[from] SetTitleParseError),
 }
 
 #[derive(Debug, Clone, Copy)]
-struct GridResize {
+pub struct GridResize {
     pub grid: u64,
     pub width: u64,
     pub height: u64,
@@ -78,4 +84,30 @@ fn pos_int(value: Value) -> Option<u64> {
 
 #[derive(Debug, Clone, Copy, thiserror::Error)]
 #[error("Failed to parse grid_resize event")]
-struct GridResizeParseError;
+pub struct GridResizeParseError;
+
+#[derive(Debug, Clone)]
+pub struct SetTitle(Vec<String>);
+
+impl TryFrom<Value> for SetTitle {
+    type Error = SetTitleParseError;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        let titles: Option<Vec<_>> = match value {
+            Value::Array(array) => array
+                .into_iter()
+                .map(|value| match value {
+                    Value::String(s) => s.into_str(),
+                    _ => None,
+                })
+                .collect(),
+            _ => None,
+        };
+        let titles = titles.ok_or(SetTitleParseError)?;
+        Ok(Self(titles))
+    }
+}
+
+#[derive(Debug, Clone, Copy, thiserror::Error)]
+#[error("Failed to parse set_title event")]
+pub struct SetTitleParseError;
