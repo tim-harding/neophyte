@@ -1,10 +1,13 @@
 mod grid_clear;
+mod grid_destroy;
 mod grid_resize;
 mod option_set;
 mod set_title;
 mod util;
+
 use self::{
     grid_clear::{GridClear, GridClearParseError},
+    grid_destroy::{GridDestroy, GridDestroyParseError},
     grid_resize::{GridResize, GridResizeParseError},
     option_set::{OptionSet, OptionSetParseError},
     set_title::{SetTitle, SetTitleParseError},
@@ -18,6 +21,7 @@ pub enum Event {
     SetTitle(SetTitle),
     OptionSet(OptionSet),
     GridClear(GridClear),
+    GridDestroy(GridDestroy),
 }
 
 macro_rules! event_from {
@@ -34,6 +38,7 @@ event_from!(GridResize);
 event_from!(SetTitle);
 event_from!(OptionSet);
 event_from!(GridClear);
+event_from!(GridDestroy);
 
 impl TryFrom<Value> for Event {
     type Error = EventParseError;
@@ -53,6 +58,7 @@ impl TryFrom<Value> for Event {
                             "set_title" => Ok(SetTitle::try_from(try_next(iter)?)?.into()),
                             "option_set" => Ok(OptionSet::try_from(iter)?.into()),
                             "grid_clear" => Ok(GridClear::try_from(try_next(iter)?)?.into()),
+                            "grid_destroy" => Ok(GridDestroy::try_from(try_next(iter)?)?.into()),
                             _ => Err(EventParseError::UnknownEvent(s.to_string())),
                         },
                         None => Err(EventParseError::Malformed),
@@ -79,4 +85,6 @@ pub enum EventParseError {
     OptionSet(#[from] OptionSetParseError),
     #[error("{0}")]
     GridClear(#[from] GridClearParseError),
+    #[error("{0}")]
+    GridDestroy(#[from] GridDestroyParseError),
 }
