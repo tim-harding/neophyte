@@ -1,14 +1,14 @@
 use super::util::parse_u64;
 use nvim_rs::Value;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct GridClear {
-    pub grid: u64,
+    pub grids: Vec<u64>,
 }
 
 impl GridClear {
-    pub fn new(grid: u64) -> Self {
-        Self { grid }
+    pub fn new(grids: Vec<u64>) -> Self {
+        Self { grids }
     }
 }
 
@@ -16,7 +16,13 @@ impl TryFrom<Value> for GridClear {
     type Error = GridClearParseError;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
-        Ok(Self::new(parse_u64(value).ok_or(GridClearParseError)?))
+        match value {
+            Value::Array(array) => {
+                let grids: Option<Vec<_>> = array.into_iter().map(parse_u64).collect();
+                Ok(Self::new(grids.ok_or(GridClearParseError)?))
+            }
+            _ => Err(GridClearParseError),
+        }
     }
 }
 
