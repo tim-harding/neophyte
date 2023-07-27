@@ -139,14 +139,12 @@ impl TryFrom<Value> for Event {
             Value::Array(array) => {
                 let mut iter = array.into_iter();
                 let event_name = iter.next().ok_or(EventParseError::Malformed)?;
-                let args = iter.next().ok_or(EventParseError::Malformed)?;
-                if !iter.next().is_none() {
-                    return Err(EventParseError::Malformed);
-                }
                 match event_name {
                     Value::String(s) => match s.as_str() {
                         Some(s) => match s {
-                            "grid_resize" => Ok(Self::GridResize(GridResize::try_from(args)?)),
+                            "grid_resize" => Ok(Self::GridResize(GridResize::try_from(
+                                iter.next().ok_or(EventParseError::Malformed)?,
+                            )?)),
                             _ => Err(EventParseError::UnknownEvent(s.to_string())),
                         },
                         None => Err(EventParseError::Malformed),
