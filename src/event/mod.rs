@@ -13,7 +13,9 @@ use self::{
     grid_resize::{GridResize, GridResizeParseError},
     option_set::{OptionSet, OptionSetParseError},
     set_title::{SetTitle, SetTitleParseError},
+    util::parse_array,
 };
+use crate::event::util::parse_string;
 use nvim_rs::Value;
 use std::vec::IntoIter;
 
@@ -48,32 +50,21 @@ impl TryFrom<Value> for Event {
     type Error = EventParseError;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
-        match value {
-            Value::Array(array) => {
-                let mut iter = array.into_iter();
-                let event_name = iter.next().ok_or(EventParseError::Malformed)?;
-                fn try_next(mut iter: IntoIter<Value>) -> Result<Value, EventParseError> {
-                    iter.next().ok_or(EventParseError::Malformed)
-                }
-                match event_name {
-                    Value::String(s) => match s.as_str() {
-                        Some(s) => match s {
-                            "grid_resize" => Ok(GridResize::try_from(try_next(iter)?)?.into()),
-                            "set_title" => Ok(SetTitle::try_from(try_next(iter)?)?.into()),
-                            "option_set" => Ok(OptionSet::try_from(iter)?.into()),
-                            "grid_clear" => Ok(GridClear::try_from(try_next(iter)?)?.into()),
-                            "grid_destroy" => Ok(GridDestroy::try_from(try_next(iter)?)?.into()),
-                            "default_colors_set" => {
-                                Ok(DefaultColorsSet::try_from(try_next(iter)?)?.into())
-                            }
-                            _ => Err(EventParseError::UnknownEvent(s.to_string())),
-                        },
-                        None => Err(EventParseError::Malformed),
-                    },
-                    _ => Err(EventParseError::Malformed),
-                }
-            }
-            _ => Err(EventParseError::Malformed),
+        let array = parse_array(value).ok_or(EventParseError::Malformed)?;
+        let mut iter = array.into_iter();
+        let event_name = iter.next().ok_or(EventParseError::Malformed)?;
+        fn try_next(mut iter: IntoIter<Value>) -> Result<Value, EventParseError> {
+            iter.next().ok_or(EventParseError::Malformed)
+        }
+        let event_name = parse_string(event_name).ok_or(EventParseError::Malformed)?;
+        match event_name.as_str() {
+            "grid_resize" => Ok(GridResize::try_from(try_next(iter)?)?.into()),
+            "set_title" => Ok(SetTitle::try_from(try_next(iter)?)?.into()),
+            "option_set" => Ok(OptionSet::try_from(iter)?.into()),
+            "grid_clear" => Ok(GridClear::try_from(try_next(iter)?)?.into()),
+            "grid_destroy" => Ok(GridDestroy::try_from(try_next(iter)?)?.into()),
+            "default_colors_set" => Ok(DefaultColorsSet::try_from(try_next(iter)?)?.into()),
+            _ => Err(EventParseError::UnknownEvent(event_name)),
         }
     }
 }

@@ -20,3 +20,10 @@ pub fn parse_u64(value: Value) -> Option<u64> {
         _ => None,
     }
 }
+
+pub fn parse_array(value: Value) -> Option<Vec<Value>> {
+    match value {
+        Value::Array(array) => Some(array),
+        _ => None,
+    }
+}
