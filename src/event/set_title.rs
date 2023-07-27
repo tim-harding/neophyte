@@ -1,3 +1,4 @@
+use super::util::{parse_array, parse_string};
 use nvim_rs::Value;
 
 #[derive(Debug, Clone)]
@@ -7,18 +8,12 @@ impl TryFrom<Value> for SetTitle {
     type Error = SetTitleParseError;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
-        let titles: Option<Vec<_>> = match value {
-            Value::Array(array) => array
-                .into_iter()
-                .map(|value| match value {
-                    Value::String(s) => s.into_str(),
-                    _ => None,
-                })
-                .collect(),
-            _ => None,
+        let inner = || -> Option<Self> {
+            let titles: Option<Vec<_>> =
+                parse_array(value)?.into_iter().map(parse_string).collect();
+            Some(Self(titles?))
         };
-        let titles = titles.ok_or(SetTitleParseError)?;
-        Ok(Self(titles))
+        inner().ok_or(SetTitleParseError)
     }
 }
 
