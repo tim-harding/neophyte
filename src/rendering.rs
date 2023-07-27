@@ -6,6 +6,7 @@ use std::{
     path::Path,
 };
 
+#[allow(unused)]
 pub fn render() {
     let path = Path::new(r"/home/tim/temp.png");
     let file = File::create(path).unwrap();
