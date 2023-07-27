@@ -5,7 +5,10 @@ use crate::event::{Event, EventParseError};
 use async_trait::async_trait;
 use nvim_rs::{compat::tokio::Compat, Handler, Neovim, UiAttachOptions, Value};
 use std::process::Stdio;
-use tokio::process::{ChildStdin, Command};
+use tokio::{
+    process::{ChildStdin, Command},
+    runtime::Builder,
+};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
 #[derive(Clone)]
@@ -40,8 +43,16 @@ impl Handler for NeovimHandler {
     }
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
+    let rt = Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("Failed to create Tokio runtime");
+
+    rt.block_on(async_main());
+}
+
+async fn async_main() {
     let mut child = Command::new("nvim")
         .arg("--embed")
         .stdin(Stdio::piped())
