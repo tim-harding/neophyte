@@ -96,9 +96,7 @@ impl TryFrom<Value> for CursorShape {
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
         let inner = move || -> Option<Self> {
-            let s = parse_string(value)?;
-            println!("----------------- {s} -----------------");
-            match s.as_str() {
+            match parse_string(value)?.as_str() {
                 "block" => Some(Self::Block),
                 "horizontal" => Some(Self::Horizontal),
                 "vertical" => Some(Self::Vertical),
