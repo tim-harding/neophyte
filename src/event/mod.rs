@@ -5,6 +5,7 @@ mod grid_resize;
 mod hl_attr_define;
 mod mode_change;
 mod option_set;
+mod set_icon;
 mod set_title;
 mod util;
 
@@ -16,6 +17,7 @@ use self::{
     hl_attr_define::{HlAttrDefine, HlAttrDefineParseError},
     mode_change::{ModeChange, ModeChangeParseError},
     option_set::{OptionSet, OptionSetParseError},
+    set_icon::{SetIcon, SetIconParseError},
     set_title::{SetTitle, SetTitleParseError},
     util::parse_array,
 };
@@ -26,6 +28,7 @@ use nvim_rs::Value;
 pub enum Event {
     GridResize(GridResize),
     SetTitle(SetTitle),
+    SetIcon(SetIcon),
     OptionSet(OptionSet),
     GridClear(GridClear),
     GridDestroy(GridDestroy),
@@ -57,6 +60,7 @@ macro_rules! event_from {
 
 event_from!(GridResize);
 event_from!(SetTitle);
+event_from!(SetIcon);
 event_from!(OptionSet);
 event_from!(GridClear);
 event_from!(GridDestroy);
@@ -76,6 +80,7 @@ impl TryFrom<Value> for Event {
         match event_name.as_str() {
             "grid_resize" => Ok(GridResize::try_from(next()?)?.into()),
             "set_title" => Ok(SetTitle::try_from(next()?)?.into()),
+            "set_icon" => Ok(SetIcon::try_from(next()?)?.into()),
             "option_set" => Ok(OptionSet::try_from(iter)?.into()),
             "grid_clear" => Ok(GridClear::try_from(next()?)?.into()),
             "grid_destroy" => Ok(GridDestroy::try_from(next()?)?.into()),
@@ -108,6 +113,8 @@ pub enum EventParseError {
     GridResize(#[from] GridResizeParseError),
     #[error("{0}")]
     SetTitle(#[from] SetTitleParseError),
+    #[error("{0}")]
+    SetIcon(#[from] SetIconParseError),
     #[error("{0}")]
     OptionSet(#[from] OptionSetParseError),
     #[error("{0}")]
