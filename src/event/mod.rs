@@ -1,5 +1,6 @@
 mod default_colors_set;
 mod grid_clear;
+mod grid_cursor_goto;
 mod grid_destroy;
 mod grid_resize;
 mod hl_attr_define;
@@ -14,6 +15,7 @@ mod util;
 use self::{
     default_colors_set::{DefaultColorsSet, DefaultColorsSetParseError},
     grid_clear::{GridClear, GridClearParseError},
+    grid_cursor_goto::{GridCursorGoto, GridCursorGotoParseError},
     grid_destroy::{GridDestroy, GridDestroyParseError},
     grid_resize::{GridResize, GridResizeParseError},
     hl_attr_define::{HlAttrDefine, HlAttrDefineParseError},
@@ -41,6 +43,7 @@ pub enum Event {
     ModeChange(ModeChange),
     ModeInfoSet(ModeInfoSet),
     HlGroupSet(HlGroupSet),
+    GridCursorGoto(GridCursorGoto),
     Clear,
     EolClear,
     MouseOn,
@@ -75,6 +78,7 @@ event_from!(HlAttrDefine);
 event_from!(ModeChange);
 event_from!(ModeInfoSet);
 event_from!(HlGroupSet);
+event_from!(GridCursorGoto);
 
 impl TryFrom<Value> for Event {
     type Error = EventParseError;
@@ -97,6 +101,7 @@ impl TryFrom<Value> for Event {
             "mode_change" => Ok(ModeChange::try_from(next()?)?.into()),
             "mode_info_set" => Ok(ModeInfoSet::try_from(next()?)?.into()),
             "hl_group_set" => Ok(HlGroupSet::try_from(iter)?.into()),
+            "grid_cursor_goto" => Ok(GridCursorGoto::try_from(next()?)?.into()),
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
             "mouse_on" => Ok(Self::MouseOn),
@@ -141,4 +146,6 @@ pub enum EventParseError {
     ModeInfoSet(#[from] ModeInfoSetParseError),
     #[error("{0}")]
     HlGroupSet(#[from] HlGroupSetParseError),
+    #[error("{0}")]
+    GridCursorGoto(#[from] GridCursorGotoParseError),
 }
