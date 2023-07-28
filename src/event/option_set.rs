@@ -1,9 +1,6 @@
 use super::util::{maybe_field, parse_array, parse_bool, parse_string, parse_u64};
 use nvim_rs::Value;
-use std::{
-    fmt::{Debug, DebugStruct},
-    vec::IntoIter,
-};
+use std::{fmt::Debug, vec::IntoIter};
 
 #[derive(Clone, Default)]
 pub struct OptionSet {
