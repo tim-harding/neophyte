@@ -29,6 +29,17 @@ pub enum Event {
     GridDestroy(GridDestroy),
     DefaultColorsSet(DefaultColorsSet),
     HlAttrDefine(HlAttrDefine),
+    Clear,
+    EolClear,
+    MouseOn,
+    MouseOff,
+    BusyStart,
+    BusyStop,
+    Suspend,
+    UpdateMenu,
+    Bell,
+    VisualBell,
+    Flush,
 }
 
 macro_rules! event_from {
@@ -66,6 +77,17 @@ impl TryFrom<Value> for Event {
             "grid_destroy" => Ok(GridDestroy::try_from(next()?)?.into()),
             "default_colors_set" => Ok(DefaultColorsSet::try_from(next()?)?.into()),
             "hl_attr_define" => Ok(HlAttrDefine::try_from(iter)?.into()),
+            "clear" => Ok(Self::Clear),
+            "eol_clear" => Ok(Self::EolClear),
+            "mouse_on" => Ok(Self::MouseOn),
+            "mouse_off" => Ok(Self::MouseOff),
+            "busy_start" => Ok(Self::BusyStart),
+            "busy_stop" => Ok(Self::BusyStop),
+            "suspend" => Ok(Self::Suspend),
+            "update_menu" => Ok(Self::UpdateMenu),
+            "bell" => Ok(Self::Bell),
+            "visual_bell" => Ok(Self::VisualBell),
+            "flush" => Ok(Self::Flush),
             _ => Err(EventParseError::UnknownEvent(event_name)),
         }
     }
