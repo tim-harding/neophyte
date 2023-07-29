@@ -1,7 +1,7 @@
 mod event;
 mod rendering;
 
-use crate::event::{Event, EventParseError};
+use crate::event::Event;
 use async_trait::async_trait;
 use nvim_rs::{compat::tokio::Compat, Handler, Neovim, UiAttachOptions, Value};
 use std::process::Stdio;
@@ -34,7 +34,7 @@ impl Handler for NeovimHandler {
             match Event::try_from(arg) {
                 Ok(event) => println!("{event:?}"),
                 Err(e) => match e {
-                    EventParseError::UnknownEvent(name) => eprintln!("Unknown event: {name}"),
+                    event::Error::UnknownEvent(name) => eprintln!("Unknown event: {name}"),
                     _ => eprintln!("{e}"),
                 },
             }

@@ -92,17 +92,13 @@ event_from_vec!(GridLine);
 fn single<T: Into<Event>>(
     mut iter: IntoIter<Value>,
     f: fn(Value) -> Option<T>,
-    e: EventParseError,
-) -> Result<Event, EventParseError> {
-    let next = iter.next().ok_or(EventParseError::Malformed)?;
+    e: Error,
+) -> Result<Event, Error> {
+    let next = iter.next().ok_or(Error::Malformed)?;
     Ok(f(next).ok_or(e)?.into())
 }
 
-fn multi<T>(
-    iter: IntoIter<Value>,
-    f: fn(Value) -> Option<T>,
-    e: EventParseError,
-) -> Result<Event, EventParseError>
+fn multi<T>(iter: IntoIter<Value>, f: fn(Value) -> Option<T>, e: Error) -> Result<Event, Error>
 where
     Vec<T>: Into<Event>,
 {
@@ -111,34 +107,28 @@ where
 }
 
 impl TryFrom<Value> for Event {
-    type Error = EventParseError;
+    type Error = Error;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
-        let array = parse_array(value).ok_or(EventParseError::Malformed)?;
+        let array = parse_array(value).ok_or(Error::Malformed)?;
         let mut iter = array.into_iter();
-        let event_name = iter.next().ok_or(EventParseError::Malformed)?;
-        let event_name = parse_string(event_name).ok_or(EventParseError::Malformed)?;
+        let event_name = iter.next().ok_or(Error::Malformed)?;
+        let event_name = parse_string(event_name).ok_or(Error::Malformed)?;
         match event_name.as_str() {
-            "grid_resize" => single(iter, GridResize::parse, EventParseError::GridResize),
-            "set_title" => single(iter, SetTitle::parse, EventParseError::SetTitle),
-            "set_icon" => single(iter, SetIcon::parse, EventParseError::SetIcon),
-            "option_set" => multi(iter, OptionSet::parse, EventParseError::OptionSet),
-            "grid_clear" => single(iter, GridClear::parse, EventParseError::GridClear),
-            "grid_destroy" => single(iter, GridDestroy::parse, EventParseError::GridDestroy),
-            "default_colors_set" => single(
-                iter,
-                DefaultColorsSet::parse,
-                EventParseError::DefaultColorsSet,
-            ),
-            "hl_attr_define" => multi(iter, HlAttrDefine::parse, EventParseError::HlAttrDefine),
-            "mode_change" => single(iter, ModeChange::parse, EventParseError::ModeChange),
-            "mode_info_set" => multi(iter, ModeInfoSet::parse, EventParseError::ModeInfoSet),
-            "hl_group_set" => multi(iter, HlGroupSet::parse, EventParseError::HlGroupSet),
-            "grid_cursor_goto" => {
-                single(iter, GridCursorGoto::parse, EventParseError::GridCursorGoto)
-            }
-            "grid_scroll" => single(iter, GridScroll::parse, EventParseError::GridScroll),
-            "grid_line" => multi(iter, GridLine::parse, EventParseError::GridLine),
+            "grid_resize" => single(iter, GridResize::parse, Error::GridResize),
+            "set_title" => single(iter, SetTitle::parse, Error::SetTitle),
+            "set_icon" => single(iter, SetIcon::parse, Error::SetIcon),
+            "option_set" => multi(iter, OptionSet::parse, Error::OptionSet),
+            "grid_clear" => single(iter, GridClear::parse, Error::GridClear),
+            "grid_destroy" => single(iter, GridDestroy::parse, Error::GridDestroy),
+            "default_colors_set" => single(iter, DefaultColorsSet::parse, Error::DefaultColorsSet),
+            "hl_attr_define" => multi(iter, HlAttrDefine::parse, Error::HlAttrDefine),
+            "mode_change" => single(iter, ModeChange::parse, Error::ModeChange),
+            "mode_info_set" => multi(iter, ModeInfoSet::parse, Error::ModeInfoSet),
+            "hl_group_set" => multi(iter, HlGroupSet::parse, Error::HlGroupSet),
+            "grid_cursor_goto" => single(iter, GridCursorGoto::parse, Error::GridCursorGoto),
+            "grid_scroll" => single(iter, GridScroll::parse, Error::GridScroll),
+            "grid_line" => multi(iter, GridLine::parse, Error::GridLine),
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
             "mouse_on" => Ok(Self::MouseOn),
@@ -150,13 +140,13 @@ impl TryFrom<Value> for Event {
             "bell" => Ok(Self::Bell),
             "visual_bell" => Ok(Self::VisualBell),
             "flush" => Ok(Self::Flush),
-            _ => Err(EventParseError::UnknownEvent(event_name)),
+            _ => Err(Error::UnknownEvent(event_name)),
         }
     }
 }
 
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum EventParseError {
+pub enum Error {
     #[error("Event is malformed")]
     Malformed,
     #[error("Received an unrecognized event name: {0}")]
