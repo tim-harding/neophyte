@@ -1,38 +1,10 @@
 use super::util::{maybe_field, parse_array, parse_bool, parse_map, parse_string, parse_u64};
 use nvim_rs::Value;
-use std::{fmt::Debug, vec::IntoIter};
-
-#[derive(Debug, Clone)]
-pub struct HlAttrDefine {
-    pub hl_attrs: Vec<HlAttr>,
-}
-
-impl TryFrom<IntoIter<Value>> for HlAttrDefine {
-    type Error = HlAttrDefineParseError;
-
-    fn try_from(values: IntoIter<Value>) -> Result<Self, Self::Error> {
-        let hl_attrs: Result<Vec<_>, _> = values.into_iter().map(HlAttr::try_from).collect();
-        Ok(Self {
-            hl_attrs: hl_attrs?,
-        })
-    }
-}
-
-#[derive(Debug, Clone, Copy, thiserror::Error)]
-pub enum HlAttrDefineParseError {
-    #[error("Error parsing HlAttr")]
-    HlAttr,
-    #[error("Error parsing Attributes")]
-    Attributes,
-    #[error("Error parsing Info")]
-    Info,
-    #[error("Error parsing Kind")]
-    Kind,
-}
+use std::fmt::Debug;
 
 /// Add a highlight with id to the highlight table
 #[derive(Debug, Clone)]
-pub struct HlAttr {
+pub struct HlAttrDefine {
     pub id: u64,
     /// Highlights in RGB format
     pub rgb_attr: Attributes,
@@ -43,22 +15,17 @@ pub struct HlAttr {
     pub info: Vec<Info>,
 }
 
-impl TryFrom<Value> for HlAttr {
-    type Error = HlAttrDefineParseError;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        use HlAttrDefineParseError::HlAttr as HlAttrError;
-        let mut iter = parse_array(value).ok_or(HlAttrError)?.into_iter();
-        let mut next = move || iter.next().ok_or(HlAttrError);
-        Ok(Self {
-            id: parse_u64(next()?).ok_or(HlAttrError)?,
-            rgb_attr: Attributes::try_from(next()?)?,
-            cterm_attr: Attributes::try_from(next()?)?,
-            info: parse_array(next()?)
-                .ok_or(HlAttrError)?
+impl HlAttrDefine {
+    pub fn parse(value: Value) -> Option<Self> {
+        let mut iter = parse_array(value)?.into_iter();
+        Some(Self {
+            id: parse_u64(iter.next()?)?,
+            rgb_attr: Attributes::parse(iter.next()?)?,
+            cterm_attr: Attributes::parse(iter.next()?)?,
+            info: parse_array(iter.next()?)?
                 .into_iter()
-                .map(Info::try_from)
-                .collect::<Result<Vec<_>, _>>()?,
+                .map(Info::parse)
+                .collect::<Option<Vec<_>>>()?,
         })
     }
 }
@@ -96,36 +63,31 @@ pub struct Attributes {
     pub blend: Option<u64>,
 }
 
-impl TryFrom<Value> for Attributes {
-    type Error = HlAttrDefineParseError;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        let inner = move || -> Option<Self> {
-            let mut out = Self::default();
-            for pair in parse_map(value)? {
-                let (k, v) = pair;
-                let k = parse_string(k)?;
-                match k.as_str() {
-                    "foreground" => out.foreground = Some(parse_u64(v)?),
-                    "background" => out.background = Some(parse_u64(v)?),
-                    "special" => out.special = Some(parse_u64(v)?),
-                    "reverse" => out.reverse = Some(parse_bool(v)?),
-                    "italic" => out.italic = Some(parse_bool(v)?),
-                    "bold" => out.bold = Some(parse_bool(v)?),
-                    "strikethrough" => out.strikethrough = Some(parse_bool(v)?),
-                    "underline" => out.underline = Some(parse_bool(v)?),
-                    "undercurl" => out.undercurl = Some(parse_bool(v)?),
-                    "underdouble" => out.underdouble = Some(parse_bool(v)?),
-                    "underdotted" => out.underdotted = Some(parse_bool(v)?),
-                    "underdashed" => out.underdashed = Some(parse_bool(v)?),
-                    "altfont" => out.altfont = Some(parse_bool(v)?),
-                    "blend" => out.blend = Some(parse_u64(v)?),
-                    _ => eprintln!("Unknown highlight attribute: {k}"),
-                }
+impl Attributes {
+    pub fn parse(value: Value) -> Option<Self> {
+        let mut out = Self::default();
+        for pair in parse_map(value)? {
+            let (k, v) = pair;
+            let k = parse_string(k)?;
+            match k.as_str() {
+                "foreground" => out.foreground = Some(parse_u64(v)?),
+                "background" => out.background = Some(parse_u64(v)?),
+                "special" => out.special = Some(parse_u64(v)?),
+                "reverse" => out.reverse = Some(parse_bool(v)?),
+                "italic" => out.italic = Some(parse_bool(v)?),
+                "bold" => out.bold = Some(parse_bool(v)?),
+                "strikethrough" => out.strikethrough = Some(parse_bool(v)?),
+                "underline" => out.underline = Some(parse_bool(v)?),
+                "undercurl" => out.undercurl = Some(parse_bool(v)?),
+                "underdouble" => out.underdouble = Some(parse_bool(v)?),
+                "underdotted" => out.underdotted = Some(parse_bool(v)?),
+                "underdashed" => out.underdashed = Some(parse_bool(v)?),
+                "altfont" => out.altfont = Some(parse_bool(v)?),
+                "blend" => out.blend = Some(parse_u64(v)?),
+                _ => eprintln!("Unknown highlight attribute: {k}"),
             }
-            Some(out)
-        };
-        inner().ok_or(HlAttrDefineParseError::Attributes)
+        }
+        Some(out)
     }
 }
 
@@ -163,29 +125,25 @@ pub struct Info {
     pub id: Option<u64>,
 }
 
-impl TryFrom<Value> for Info {
-    type Error = HlAttrDefineParseError;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        use HlAttrDefineParseError::Info as InfoError;
+impl Info {
+    pub fn parse(value: Value) -> Option<Self> {
         let mut kind = None;
         let mut ui_name = None;
         let mut hi_name = None;
         let mut id = None;
-        let map = parse_map(value).ok_or(InfoError)?;
+        let map = parse_map(value)?;
         for (k, v) in map {
-            let k = parse_string(k).ok_or(InfoError)?;
+            let k = parse_string(k)?;
             match k.as_str() {
-                "kind" => kind = Some(Kind::try_from(v)?),
-                "ui_name" => ui_name = Some(parse_string(v).ok_or(InfoError)?),
-                "hi_name" => hi_name = Some(parse_string(v).ok_or(InfoError)?),
-                "id" => id = Some(parse_u64(v).ok_or(InfoError)?),
+                "kind" => kind = Some(Kind::parse(v)?),
+                "ui_name" => ui_name = Some(parse_string(v)?),
+                "hi_name" => hi_name = Some(parse_string(v)?),
+                "id" => id = Some(parse_u64(v)?),
                 _ => eprintln!("Unrecognized hlstate keyword: {k}"),
             }
         }
-        let kind = kind.ok_or(InfoError)?;
-        Ok(Self {
-            kind,
+        Some(Self {
+            kind: kind?,
             ui_name,
             hi_name,
             id,
@@ -205,19 +163,14 @@ pub enum Kind {
     Terminal,
 }
 
-impl TryFrom<Value> for Kind {
-    type Error = HlAttrDefineParseError;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        let inner = move || -> Option<Self> {
-            let s = parse_string(value)?;
-            match s.as_str() {
-                "ui" => Some(Self::Ui),
-                "syntax" => Some(Self::Syntax),
-                "terminal" => Some(Self::Terminal),
-                _ => None,
-            }
-        };
-        inner().ok_or(HlAttrDefineParseError::Kind)
+impl Kind {
+    pub fn parse(value: Value) -> Option<Self> {
+        let s = parse_string(value)?;
+        match s.as_str() {
+            "ui" => Some(Self::Ui),
+            "syntax" => Some(Self::Syntax),
+            "terminal" => Some(Self::Terminal),
+            _ => None,
+        }
     }
 }

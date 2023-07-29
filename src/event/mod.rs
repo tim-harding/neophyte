@@ -2,6 +2,7 @@ mod default_colors_set;
 mod grid_clear;
 mod grid_cursor_goto;
 mod grid_destroy;
+mod grid_line;
 mod grid_resize;
 mod grid_scroll;
 mod hl_attr_define;
@@ -14,39 +15,32 @@ mod set_title;
 mod util;
 
 use self::{
-    default_colors_set::{DefaultColorsSet, DefaultColorsSetParseError},
-    grid_clear::{GridClear, GridClearParseError},
-    grid_cursor_goto::{GridCursorGoto, GridCursorGotoParseError},
-    grid_destroy::{GridDestroy, GridDestroyParseError},
-    grid_resize::{GridResize, GridResizeParseError},
-    grid_scroll::{GridScroll, GridScrollParseError},
-    hl_attr_define::{HlAttrDefine, HlAttrDefineParseError},
-    hl_group_set::{HlGroupSet, HlGroupSetParseError},
-    mode_change::{ModeChange, ModeChangeParseError},
-    mode_info_set::{ModeInfoSet, ModeInfoSetParseError},
-    option_set::{OptionSet, OptionSetParseError},
-    set_icon::{SetIcon, SetIconParseError},
-    set_title::{SetTitle, SetTitleParseError},
-    util::parse_array,
+    default_colors_set::DefaultColorsSet, grid_clear::GridClear, grid_cursor_goto::GridCursorGoto,
+    grid_destroy::GridDestroy, grid_line::GridLine, grid_resize::GridResize,
+    grid_scroll::GridScroll, hl_attr_define::HlAttrDefine, hl_group_set::HlGroupSet,
+    mode_change::ModeChange, mode_info_set::ModeInfoSet, option_set::OptionSet, set_icon::SetIcon,
+    set_title::SetTitle, util::parse_array,
 };
 use crate::event::util::parse_string;
 use nvim_rs::Value;
+use std::vec::IntoIter;
 
 #[derive(Debug, Clone)]
 pub enum Event {
     GridResize(GridResize),
     SetTitle(SetTitle),
     SetIcon(SetIcon),
-    OptionSet(OptionSet),
+    OptionSet(Vec<OptionSet>),
     GridClear(GridClear),
     GridDestroy(GridDestroy),
     DefaultColorsSet(DefaultColorsSet),
-    HlAttrDefine(HlAttrDefine),
+    HlAttrDefine(Vec<HlAttrDefine>),
     ModeChange(ModeChange),
-    ModeInfoSet(ModeInfoSet),
-    HlGroupSet(HlGroupSet),
+    ModeInfoSet(Vec<ModeInfoSet>),
+    HlGroupSet(Vec<HlGroupSet>),
     GridCursorGoto(GridCursorGoto),
     GridScroll(GridScroll),
+    GridLine(Vec<GridLine>),
     Clear,
     EolClear,
     MouseOn,
@@ -70,19 +64,51 @@ macro_rules! event_from {
     };
 }
 
+macro_rules! event_from_vec {
+    ($x:ident) => {
+        impl From<Vec<$x>> for Event {
+            fn from(value: Vec<$x>) -> Self {
+                Self::$x(value)
+            }
+        }
+    };
+}
+
 event_from!(GridResize);
 event_from!(SetTitle);
 event_from!(SetIcon);
-event_from!(OptionSet);
+event_from_vec!(OptionSet);
 event_from!(GridClear);
 event_from!(GridDestroy);
 event_from!(DefaultColorsSet);
-event_from!(HlAttrDefine);
+event_from_vec!(HlAttrDefine);
 event_from!(ModeChange);
-event_from!(ModeInfoSet);
-event_from!(HlGroupSet);
+event_from_vec!(ModeInfoSet);
+event_from_vec!(HlGroupSet);
 event_from!(GridCursorGoto);
 event_from!(GridScroll);
+event_from_vec!(GridLine);
+
+fn single<T: Into<Event>>(
+    mut iter: IntoIter<Value>,
+    f: fn(Value) -> Option<T>,
+    e: EventParseError,
+) -> Result<Event, EventParseError> {
+    let next = iter.next().ok_or(EventParseError::Malformed)?;
+    Ok(f(next).ok_or(e)?.into())
+}
+
+fn multi<T>(
+    iter: IntoIter<Value>,
+    f: fn(Value) -> Option<T>,
+    e: EventParseError,
+) -> Result<Event, EventParseError>
+where
+    Vec<T>: Into<Event>,
+{
+    let mapped: Option<Vec<_>> = iter.map(f).collect();
+    Ok(mapped.ok_or(e)?.into())
+}
 
 impl TryFrom<Value> for Event {
     type Error = EventParseError;
@@ -91,22 +117,28 @@ impl TryFrom<Value> for Event {
         let array = parse_array(value).ok_or(EventParseError::Malformed)?;
         let mut iter = array.into_iter();
         let event_name = iter.next().ok_or(EventParseError::Malformed)?;
-        let mut next = || iter.next().ok_or(EventParseError::Malformed);
         let event_name = parse_string(event_name).ok_or(EventParseError::Malformed)?;
         match event_name.as_str() {
-            "grid_resize" => Ok(GridResize::try_from(next()?)?.into()),
-            "set_title" => Ok(SetTitle::try_from(next()?)?.into()),
-            "set_icon" => Ok(SetIcon::try_from(next()?)?.into()),
-            "option_set" => Ok(OptionSet::try_from(iter)?.into()),
-            "grid_clear" => Ok(GridClear::try_from(next()?)?.into()),
-            "grid_destroy" => Ok(GridDestroy::try_from(next()?)?.into()),
-            "default_colors_set" => Ok(DefaultColorsSet::try_from(next()?)?.into()),
-            "hl_attr_define" => Ok(HlAttrDefine::try_from(iter)?.into()),
-            "mode_change" => Ok(ModeChange::try_from(next()?)?.into()),
-            "mode_info_set" => Ok(ModeInfoSet::try_from(next()?)?.into()),
-            "hl_group_set" => Ok(HlGroupSet::try_from(iter)?.into()),
-            "grid_cursor_goto" => Ok(GridCursorGoto::try_from(next()?)?.into()),
-            "grid_scroll" => Ok(GridScroll::try_from(next()?)?.into()),
+            "grid_resize" => single(iter, GridResize::parse, EventParseError::GridResize),
+            "set_title" => single(iter, SetTitle::parse, EventParseError::SetTitle),
+            "set_icon" => single(iter, SetIcon::parse, EventParseError::SetIcon),
+            "option_set" => multi(iter, OptionSet::parse, EventParseError::OptionSet),
+            "grid_clear" => single(iter, GridClear::parse, EventParseError::GridClear),
+            "grid_destroy" => single(iter, GridDestroy::parse, EventParseError::GridDestroy),
+            "default_colors_set" => single(
+                iter,
+                DefaultColorsSet::parse,
+                EventParseError::DefaultColorsSet,
+            ),
+            "hl_attr_define" => multi(iter, HlAttrDefine::parse, EventParseError::HlAttrDefine),
+            "mode_change" => single(iter, ModeChange::parse, EventParseError::ModeChange),
+            "mode_info_set" => multi(iter, ModeInfoSet::parse, EventParseError::ModeInfoSet),
+            "hl_group_set" => multi(iter, HlGroupSet::parse, EventParseError::HlGroupSet),
+            "grid_cursor_goto" => {
+                single(iter, GridCursorGoto::parse, EventParseError::GridCursorGoto)
+            }
+            "grid_scroll" => single(iter, GridScroll::parse, EventParseError::GridScroll),
+            "grid_line" => multi(iter, GridLine::parse, EventParseError::GridLine),
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
             "mouse_on" => Ok(Self::MouseOn),
@@ -129,30 +161,32 @@ pub enum EventParseError {
     Malformed,
     #[error("Received an unrecognized event name: {0}")]
     UnknownEvent(String),
-    #[error("{0}")]
-    GridResize(#[from] GridResizeParseError),
-    #[error("{0}")]
-    SetTitle(#[from] SetTitleParseError),
-    #[error("{0}")]
-    SetIcon(#[from] SetIconParseError),
-    #[error("{0}")]
-    OptionSet(#[from] OptionSetParseError),
-    #[error("{0}")]
-    GridClear(#[from] GridClearParseError),
-    #[error("{0}")]
-    GridDestroy(#[from] GridDestroyParseError),
-    #[error("{0}")]
-    DefaultColorsSet(#[from] DefaultColorsSetParseError),
-    #[error("{0}")]
-    HlAttrDefine(#[from] HlAttrDefineParseError),
-    #[error("{0}")]
-    ModeChange(#[from] ModeChangeParseError),
-    #[error("{0}")]
-    ModeInfoSet(#[from] ModeInfoSetParseError),
-    #[error("{0}")]
-    HlGroupSet(#[from] HlGroupSetParseError),
-    #[error("{0}")]
-    GridCursorGoto(#[from] GridCursorGotoParseError),
-    #[error("{0}")]
-    GridScroll(#[from] GridScrollParseError),
+    #[error("Failed to parse grid_resize event")]
+    GridResize,
+    #[error("Failed to parse set_title event")]
+    SetTitle,
+    #[error("Failed to parse set_icon event")]
+    SetIcon,
+    #[error("Failed to parse option_set event")]
+    OptionSet,
+    #[error("Failed to parse grid_clear event")]
+    GridClear,
+    #[error("Failed to parse grid_destroy event")]
+    GridDestroy,
+    #[error("Failed to parse default_colors_set event")]
+    DefaultColorsSet,
+    #[error("Failed to parse hl_attr_define event")]
+    HlAttrDefine,
+    #[error("Failed to parse mode_change event")]
+    ModeChange,
+    #[error("Failed to parse mode_info_set event")]
+    ModeInfoSet,
+    #[error("Failed to parse hl_group_set event")]
+    HlGroupSet,
+    #[error("Failed to parse grid_cursor_goto event")]
+    GridCursorGoto,
+    #[error("Failed to parse grid_scroll event")]
+    GridScroll,
+    #[error("Failed to parse grid_line event")]
+    GridLine,
 }

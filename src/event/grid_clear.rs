@@ -12,18 +12,9 @@ impl GridClear {
     }
 }
 
-impl TryFrom<Value> for GridClear {
-    type Error = GridClearParseError;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        let inner = move || -> Option<Self> {
-            let grids: Option<Vec<_>> = parse_array(value)?.into_iter().map(parse_u64).collect();
-            Some(Self::new(grids?))
-        };
-        inner().ok_or(GridClearParseError)
+impl GridClear {
+    pub fn parse(value: Value) -> Option<Self> {
+        let grids: Option<Vec<_>> = parse_array(value)?.into_iter().map(parse_u64).collect();
+        Some(Self::new(grids?))
     }
 }
-
-#[derive(Debug, Clone, Copy, thiserror::Error)]
-#[error("Failed to parse grid_clear event")]
-pub struct GridClearParseError;

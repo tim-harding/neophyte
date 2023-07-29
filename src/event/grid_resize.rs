@@ -8,22 +8,13 @@ pub struct GridResize {
     pub height: u64,
 }
 
-impl TryFrom<Value> for GridResize {
-    type Error = GridResizeParseError;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        let inner = move || -> Option<Self> {
-            let mut iter = parse_array(value)?.into_iter().map(parse_u64).flatten();
-            Some(Self {
-                grid: iter.next()?,
-                width: iter.next()?,
-                height: iter.next()?,
-            })
-        };
-        inner().ok_or(GridResizeParseError)
+impl GridResize {
+    pub fn parse(value: Value) -> Option<Self> {
+        let mut iter = parse_array(value)?.into_iter().map(parse_u64).flatten();
+        Some(Self {
+            grid: iter.next()?,
+            width: iter.next()?,
+            height: iter.next()?,
+        })
     }
 }
-
-#[derive(Debug, Clone, Copy, thiserror::Error)]
-#[error("Failed to parse grid_resize event")]
-pub struct GridResizeParseError;

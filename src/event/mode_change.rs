@@ -7,21 +7,12 @@ pub struct ModeChange {
     pub mode_idx: u64,
 }
 
-impl TryFrom<Value> for ModeChange {
-    type Error = ModeChangeParseError;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        let inner = move || -> Option<Self> {
-            let mut iter = parse_array(value)?.into_iter();
-            Some(Self {
-                mode: parse_string(iter.next()?)?,
-                mode_idx: parse_u64(iter.next()?)?,
-            })
-        };
-        inner().ok_or(ModeChangeParseError)
+impl ModeChange {
+    pub fn parse(value: Value) -> Option<Self> {
+        let mut iter = parse_array(value)?.into_iter();
+        Some(Self {
+            mode: parse_string(iter.next()?)?,
+            mode_idx: parse_u64(iter.next()?)?,
+        })
     }
 }
-
-#[derive(Debug, Clone, Copy, thiserror::Error)]
-#[error("Error parsing mode_change event")]
-pub struct ModeChangeParseError;

@@ -12,18 +12,9 @@ impl GridDestroy {
     }
 }
 
-impl TryFrom<Value> for GridDestroy {
-    type Error = GridDestroyParseError;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        let inner = move || -> Option<Self> {
-            let grids: Option<Vec<_>> = parse_array(value)?.into_iter().map(parse_u64).collect();
-            Some(Self::new(grids?))
-        };
-        inner().ok_or(GridDestroyParseError)
+impl GridDestroy {
+    pub fn parse(value: Value) -> Option<Self> {
+        let grids: Option<Vec<_>> = parse_array(value)?.into_iter().map(parse_u64).collect();
+        Some(Self::new(grids?))
     }
 }
-
-#[derive(Debug, Clone, Copy, thiserror::Error)]
-#[error("Failed to parse grid_destroy event")]
-pub struct GridDestroyParseError;

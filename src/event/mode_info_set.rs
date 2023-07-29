@@ -8,22 +8,16 @@ pub struct ModeInfoSet {
     pub mode_info: Vec<ModeInfo>,
 }
 
-impl TryFrom<Value> for ModeInfoSet {
-    type Error = ModeInfoSetParseError;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        let inner = move || -> Option<Self> {
-            let mut iter = parse_array(value)?.into_iter();
-            Some(Self {
-                cursor_style_enabled: parse_bool(iter.next()?)?,
-                mode_info: parse_array(iter.next()?)?
-                    .into_iter()
-                    .map(ModeInfo::try_from)
-                    .collect::<Result<Vec<_>, _>>()
-                    .ok()?,
-            })
-        };
-        inner().ok_or(ModeInfoSetParseError)
+impl ModeInfoSet {
+    pub fn parse(value: Value) -> Option<Self> {
+        let mut iter = parse_array(value)?.into_iter();
+        Some(Self {
+            cursor_style_enabled: parse_bool(iter.next()?)?,
+            mode_info: parse_array(iter.next()?)?
+                .into_iter()
+                .map(ModeInfo::parse)
+                .collect::<Option<Vec<_>>>()?,
+        })
     }
 }
 
@@ -40,31 +34,26 @@ pub struct ModeInfo {
     pub name: Option<String>,
 }
 
-impl TryFrom<Value> for ModeInfo {
-    type Error = ModeInfoSetParseError;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        let inner = move || -> Option<Self> {
-            let mut out = Self::default();
-            let value = parse_map(value)?;
-            for (k, v) in value {
-                let k = parse_string(k)?;
-                match k.as_str() {
-                    "cursor_shape" => out.cursor_shape = Some(CursorShape::try_from(v).ok()?),
-                    "cell_percentage" => out.cell_percentage = Some(parse_u64(v)?),
-                    "blinkwait" => out.blinkwait = Some(parse_u64(v)?),
-                    "blinkon" => out.blinkon = Some(parse_u64(v)?),
-                    "blinkoff" => out.blinkoff = Some(parse_u64(v)?),
-                    "attr_id" => out.attr_id = Some(parse_u64(v)?),
-                    "attr_id_lm" => out.attr_id_lm = Some(parse_u64(v)?),
-                    "short_name" => out.short_name = Some(parse_string(v)?),
-                    "name" => out.name = Some(parse_string(v)?),
-                    _ => eprintln!("Unknown mode_info_set key: {k}"),
-                }
+impl ModeInfo {
+    pub fn parse(value: Value) -> Option<Self> {
+        let mut out = Self::default();
+        let value = parse_map(value)?;
+        for (k, v) in value {
+            let k = parse_string(k)?;
+            match k.as_str() {
+                "cursor_shape" => out.cursor_shape = Some(CursorShape::parse(v)?),
+                "cell_percentage" => out.cell_percentage = Some(parse_u64(v)?),
+                "blinkwait" => out.blinkwait = Some(parse_u64(v)?),
+                "blinkon" => out.blinkon = Some(parse_u64(v)?),
+                "blinkoff" => out.blinkoff = Some(parse_u64(v)?),
+                "attr_id" => out.attr_id = Some(parse_u64(v)?),
+                "attr_id_lm" => out.attr_id_lm = Some(parse_u64(v)?),
+                "short_name" => out.short_name = Some(parse_string(v)?),
+                "name" => out.name = Some(parse_string(v)?),
+                _ => eprintln!("Unknown mode_info_set key: {k}"),
             }
-            Some(out)
-        };
-        inner().ok_or(ModeInfoSetParseError)
+        }
+        Some(out)
     }
 }
 
@@ -91,22 +80,13 @@ pub enum CursorShape {
     Vertical,
 }
 
-impl TryFrom<Value> for CursorShape {
-    type Error = ModeInfoSetParseError;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        let inner = move || -> Option<Self> {
-            match parse_string(value)?.as_str() {
-                "block" => Some(Self::Block),
-                "horizontal" => Some(Self::Horizontal),
-                "vertical" => Some(Self::Vertical),
-                _ => None,
-            }
-        };
-        inner().ok_or(ModeInfoSetParseError)
+impl CursorShape {
+    pub fn parse(value: Value) -> Option<Self> {
+        match parse_string(value)?.as_str() {
+            "block" => Some(Self::Block),
+            "horizontal" => Some(Self::Horizontal),
+            "vertical" => Some(Self::Vertical),
+            _ => None,
+        }
     }
 }
-
-#[derive(Debug, Clone, Copy, thiserror::Error)]
-#[error("Failed to parse mode_info_set event")]
-pub struct ModeInfoSetParseError;

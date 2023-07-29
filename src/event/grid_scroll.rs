@@ -12,26 +12,17 @@ pub struct GridScroll {
     pub cols: u64,
 }
 
-impl TryFrom<Value> for GridScroll {
-    type Error = GridScrollParseError;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        let inner = move || -> Option<Self> {
-            let mut iter = parse_array(value)?.into_iter();
-            Some(Self {
-                grid: parse_u64(iter.next()?)?,
-                top: parse_u64(iter.next()?)?,
-                bot: parse_u64(iter.next()?)?,
-                left: parse_u64(iter.next()?)?,
-                right: parse_u64(iter.next()?)?,
-                rows: parse_u64(iter.next()?)?,
-                cols: parse_u64(iter.next()?)?,
-            })
-        };
-        inner().ok_or(GridScrollParseError)
+impl GridScroll {
+    pub fn parse(value: Value) -> Option<Self> {
+        let mut iter = parse_array(value)?.into_iter();
+        Some(Self {
+            grid: parse_u64(iter.next()?)?,
+            top: parse_u64(iter.next()?)?,
+            bot: parse_u64(iter.next()?)?,
+            left: parse_u64(iter.next()?)?,
+            right: parse_u64(iter.next()?)?,
+            rows: parse_u64(iter.next()?)?,
+            cols: parse_u64(iter.next()?)?,
+        })
     }
 }
-
-#[derive(Debug, Clone, Copy, thiserror::Error)]
-#[error("Failed to parse grid_scroll event")]
-pub struct GridScrollParseError;
