@@ -1,5 +1,6 @@
 use super::util::{
-    maybe_field, maybe_other_field, parse_array, parse_bool, parse_map, parse_string, parse_u64,
+    map_array, maybe_field, maybe_other_field, parse_array, parse_bool, parse_map, parse_string,
+    parse_u64,
 };
 use nvim_rs::Value;
 use std::fmt::{self, Debug, Formatter};
@@ -24,10 +25,7 @@ impl HlAttrDefine {
             id: parse_u64(iter.next()?)?,
             rgb_attr: Attributes::parse(iter.next()?)?,
             cterm_attr: Attributes::parse(iter.next()?)?,
-            info: parse_array(iter.next()?)?
-                .into_iter()
-                .map(Info::parse)
-                .collect::<Option<Vec<_>>>()?,
+            info: map_array(iter.next()?, Info::parse)?,
         })
     }
 }

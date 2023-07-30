@@ -1,4 +1,4 @@
-use super::util::{parse_array, parse_string, parse_u64};
+use super::util::{map_array, parse_array, parse_string, parse_u64};
 use nvim_rs::Value;
 
 /// Redraw a continuous part of a row on a grid.
@@ -23,10 +23,7 @@ impl GridLine {
             grid: parse_u64(iter.next()?)?,
             row: parse_u64(iter.next()?)?,
             col_start: parse_u64(iter.next()?)?,
-            cells: parse_array(iter.next()?)?
-                .into_iter()
-                .map(Cell::parse)
-                .collect::<Option<Vec<_>>>()?,
+            cells: map_array(iter.next()?, Cell::parse)?,
         })
     }
 }

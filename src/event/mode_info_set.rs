@@ -1,5 +1,6 @@
 use super::util::{
-    maybe_field, maybe_other_field, parse_array, parse_bool, parse_map, parse_string, parse_u64,
+    map_array, maybe_field, maybe_other_field, parse_array, parse_bool, parse_map, parse_string,
+    parse_u64,
 };
 use nvim_rs::Value;
 use std::fmt::{self, Debug, Formatter};
@@ -18,10 +19,7 @@ impl ModeInfoSet {
         let mut iter = parse_array(value)?.into_iter();
         Some(Self {
             cursor_style_enabled: parse_bool(iter.next()?)?,
-            mode_info: parse_array(iter.next()?)?
-                .into_iter()
-                .map(ModeInfo::parse)
-                .collect::<Option<Vec<_>>>()?,
+            mode_info: map_array(iter.next()?, ModeInfo::parse)?,
         })
     }
 }

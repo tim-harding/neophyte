@@ -8,6 +8,8 @@ mod hl_group_set;
 mod mode_change;
 mod mode_info_set;
 mod option_set;
+mod tabline_update;
+mod types;
 mod util;
 mod win_viewport;
 
@@ -22,6 +24,7 @@ use self::{
     mode_change::ModeChange,
     mode_info_set::ModeInfoSet,
     option_set::OptionSet,
+    tabline_update::TablineUpdate,
     util::{parse_array, parse_u64},
     win_viewport::WinViewport,
 };
@@ -46,6 +49,7 @@ pub enum Event {
     GridScroll(GridScroll),
     GridLine(Vec<GridLine>),
     WinViewport(WinViewport),
+    TablineUpdate(TablineUpdate),
     Clear,
     EolClear,
     MouseOn,
@@ -90,6 +94,7 @@ event_from!(GridCursorGoto);
 event_from!(GridScroll);
 event_from_vec!(GridLine);
 event_from!(WinViewport);
+event_from!(TablineUpdate);
 
 fn single<T: Into<Event>>(
     mut iter: IntoIter<Value>,
@@ -162,6 +167,7 @@ impl TryFrom<Value> for Event {
             "grid_scroll" => single(iter, GridScroll::parse, Error::GridScroll),
             "grid_line" => multi(iter, GridLine::parse, Error::GridLine),
             "win_viewport" => single(iter, WinViewport::parse, Error::WinViewport),
+            "tabline_update" => single(iter, TablineUpdate::parse, Error::TablineUpdate),
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
             "mouse_on" => Ok(Self::MouseOn),
@@ -214,4 +220,6 @@ pub enum Error {
     GridLine,
     #[error("Failed to parse win_viewport event")]
     WinViewport,
+    #[error("Failed to parse tabline_update event")]
+    TablineUpdate,
 }

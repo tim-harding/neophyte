@@ -36,6 +36,10 @@ pub fn parse_array(value: Value) -> Option<Vec<Value>> {
     }
 }
 
+pub fn map_array<T>(value: Value, f: fn(Value) -> Option<T>) -> Option<Vec<T>> {
+    parse_array(value)?.into_iter().map(f).collect()
+}
+
 pub fn parse_map(value: Value) -> Option<Vec<(Value, Value)>> {
     match value {
         Value::Map(map) => Some(map),
