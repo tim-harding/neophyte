@@ -1,12 +1,17 @@
-use super::util::{parse_array, parse_u64};
+use super::{
+    types::Window,
+    util::{parse_array, parse_u64},
+};
 use nvim_rs::Value;
 
 /// Indicates the range of buffer text displayed in the window, as well as the
 /// cursor position in the buffer.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct WinViewport {
     /// The grid to update
     pub grid: u64,
+    /// The window to update
+    pub win: Window,
     // TODO: What are topline and botline?
     pub topline: u64,
     /// One past the last line of buffer text. If there are filler lines past
@@ -30,11 +35,11 @@ impl WinViewport {
     pub fn parse(value: Value) -> Option<Self> {
         let mut iter = parse_array(value)?.into_iter();
         let grid = parse_u64(iter.next()?)?;
-        // TODO: How does the win argument work?
-        let _win = iter.next()?;
+        let win = Window::parse(iter.next()?)?;
         let mut next = || parse_u64(iter.next()?);
         Some(Self {
             grid,
+            win,
             topline: next()?,
             botline: next()?,
             curline: next()?,

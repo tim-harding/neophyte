@@ -43,6 +43,13 @@ pub fn parse_map(value: Value) -> Option<Vec<(Value, Value)>> {
     }
 }
 
+pub fn parse_ext(value: Value, expected_type: i8) -> Option<Vec<u8>> {
+    match value {
+        Value::Ext(type_id, data) => (type_id == expected_type).then_some(data),
+        _ => None,
+    }
+}
+
 pub fn maybe_field<T: Debug>(s: &mut DebugStruct, name: &str, field: Option<T>) {
     if let Some(t) = field {
         s.field(name, &t);
