@@ -1,7 +1,5 @@
 mod default_colors_set;
-mod grid_clear;
 mod grid_cursor_goto;
-mod grid_destroy;
 mod grid_line;
 mod grid_resize;
 mod grid_scroll;
@@ -10,16 +8,20 @@ mod hl_group_set;
 mod mode_change;
 mod mode_info_set;
 mod option_set;
-mod set_icon;
-mod set_title;
 mod util;
 
 use self::{
-    default_colors_set::DefaultColorsSet, grid_clear::GridClear, grid_cursor_goto::GridCursorGoto,
-    grid_destroy::GridDestroy, grid_line::GridLine, grid_resize::GridResize,
-    grid_scroll::GridScroll, hl_attr_define::HlAttrDefine, hl_group_set::HlGroupSet,
-    mode_change::ModeChange, mode_info_set::ModeInfoSet, option_set::OptionSet, set_icon::SetIcon,
-    set_title::SetTitle, util::parse_array,
+    default_colors_set::DefaultColorsSet,
+    grid_cursor_goto::GridCursorGoto,
+    grid_line::GridLine,
+    grid_resize::GridResize,
+    grid_scroll::GridScroll,
+    hl_attr_define::HlAttrDefine,
+    hl_group_set::HlGroupSet,
+    mode_change::ModeChange,
+    mode_info_set::ModeInfoSet,
+    option_set::OptionSet,
+    util::{parse_array, parse_u64},
 };
 use crate::event::util::parse_string;
 use nvim_rs::Value;
@@ -28,11 +30,11 @@ use std::vec::IntoIter;
 #[derive(Debug, Clone)]
 pub enum Event {
     GridResize(GridResize),
-    SetTitle(SetTitle),
-    SetIcon(SetIcon),
+    SetTitle(Vec<String>),
+    SetIcon(Vec<String>),
     OptionSet(Vec<OptionSet>),
-    GridClear(GridClear),
-    GridDestroy(GridDestroy),
+    GridClear(Vec<u64>),
+    GridDestroy(Vec<u64>),
     DefaultColorsSet(DefaultColorsSet),
     HlAttrDefine(Vec<HlAttrDefine>),
     ModeChange(ModeChange),
@@ -75,11 +77,7 @@ macro_rules! event_from_vec {
 }
 
 event_from!(GridResize);
-event_from!(SetTitle);
-event_from!(SetIcon);
 event_from_vec!(OptionSet);
-event_from!(GridClear);
-event_from!(GridDestroy);
 event_from!(DefaultColorsSet);
 event_from_vec!(HlAttrDefine);
 event_from!(ModeChange);
@@ -95,7 +93,7 @@ fn single<T: Into<Event>>(
     e: Error,
 ) -> Result<Event, Error> {
     let next = iter.next().ok_or(Error::Malformed)?;
-    Ok(f(next).ok_or(e)?.into())
+    f(next).ok_or(e).map(Into::into)
 }
 
 fn multi<T>(iter: IntoIter<Value>, f: fn(Value) -> Option<T>, e: Error) -> Result<Event, Error>
@@ -103,7 +101,21 @@ where
     Vec<T>: Into<Event>,
 {
     let mapped: Option<Vec<_>> = iter.map(f).collect();
-    Ok(mapped.ok_or(e)?.into())
+    mapped.ok_or(e).map(Into::into)
+}
+
+fn multi_u64(iter: IntoIter<Value>, f: fn(Vec<u64>) -> Event, e: Error) -> Result<Event, Error> {
+    let grids: Option<Vec<_>> = iter.map(parse_u64).collect();
+    grids.ok_or(e).map(f)
+}
+
+fn multi_string(
+    iter: IntoIter<Value>,
+    f: fn(Vec<String>) -> Event,
+    e: Error,
+) -> Result<Event, Error> {
+    let grids: Option<Vec<_>> = iter.map(parse_string).collect();
+    grids.ok_or(e).map(f)
 }
 
 impl TryFrom<Value> for Event {
@@ -116,11 +128,11 @@ impl TryFrom<Value> for Event {
         let event_name = parse_string(event_name).ok_or(Error::Malformed)?;
         match event_name.as_str() {
             "grid_resize" => single(iter, GridResize::parse, Error::GridResize),
-            "set_title" => single(iter, SetTitle::parse, Error::SetTitle),
-            "set_icon" => single(iter, SetIcon::parse, Error::SetIcon),
+            "set_title" => multi_string(iter, Self::SetTitle, Error::SetTitle),
+            "set_icon" => multi_string(iter, Self::SetIcon, Error::SetIcon),
             "option_set" => multi(iter, OptionSet::parse, Error::OptionSet),
-            "grid_clear" => single(iter, GridClear::parse, Error::GridClear),
-            "grid_destroy" => single(iter, GridDestroy::parse, Error::GridDestroy),
+            "grid_clear" => multi_u64(iter, Event::GridClear, Error::GridClear),
+            "grid_destroy" => multi_u64(iter, Event::GridDestroy, Error::GridDestroy),
             "default_colors_set" => single(iter, DefaultColorsSet::parse, Error::DefaultColorsSet),
             "hl_attr_define" => multi(iter, HlAttrDefine::parse, Error::HlAttrDefine),
             "mode_change" => single(iter, ModeChange::parse, Error::ModeChange),
