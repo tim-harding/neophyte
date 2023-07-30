@@ -2,6 +2,9 @@ use super::util::{maybe_field, parse_array, parse_bool, parse_string, parse_u64}
 use nvim_rs::Value;
 use std::fmt::Debug;
 
+// TODO: Refactor as an enum
+
+/// UI-related option change
 #[derive(Clone, Default)]
 pub struct OptionSet {
     arabicshape: Option<bool>,

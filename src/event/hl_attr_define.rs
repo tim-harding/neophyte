@@ -1,6 +1,6 @@
 use super::util::{maybe_field, parse_array, parse_bool, parse_map, parse_string, parse_u64};
 use nvim_rs::Value;
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Formatter};
 
 /// Add a highlight with id to the highlight table
 #[derive(Debug, Clone)]
@@ -10,8 +10,8 @@ pub struct HlAttrDefine {
     pub rgb_attr: Attributes,
     /// Highlights in terminal 256-color codes
     pub cterm_attr: Attributes,
-    /// A semantic description of the highlights active in a cell. Ordered by priority from low to
-    /// high.
+    /// A semantic description of the highlights active in a cell. Ordered by
+    /// priority from low to high.
     pub info: Vec<Info>,
 }
 
@@ -30,6 +30,8 @@ impl HlAttrDefine {
     }
 }
 
+/// Attributes of a highlight attribute definition. Colors may be given in RGB
+/// or terminal 256-color.
 #[derive(Clone, Copy, Default)]
 pub struct Attributes {
     /// foreground color.
@@ -58,8 +60,8 @@ pub struct Attributes {
     pub underdashed: Option<bool>,
     /// alternative font.
     pub altfont: Option<bool>,
-    /// Blend level (0-100). Could be used by UIs to support blending floating windows to the
-    /// background or to signal a transparent cursor
+    /// Blend level (0-100). Could be used by UIs to support blending floating
+    /// windows to the background or to signal a transparent cursor
     pub blend: Option<u64>,
 }
 
@@ -92,7 +94,7 @@ impl Attributes {
 }
 
 impl Debug for Attributes {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut s = f.debug_struct("Attributes");
         maybe_field(&mut s, "foreground", self.foreground);
         maybe_field(&mut s, "background", self.background);
@@ -112,8 +114,8 @@ impl Debug for Attributes {
     }
 }
 
-/// A semantic description of the highlights active in a cell. Activated by the ext_hlstate
-/// extension.
+/// A semantic description of the highlights active in a cell. Activated by the
+/// ext_hlstate extension.
 #[derive(Debug, Clone)]
 pub struct Info {
     pub kind: Kind,
@@ -155,11 +157,11 @@ impl Info {
 pub enum Kind {
     /// Builtin UI highlight.
     Ui,
-    /// Highlight applied to a buffer by a syntax declaration or other runtime/plugin functionality
-    /// such as nvim_buf_add_highlight()
+    /// Highlight applied to a buffer by a syntax declaration or other
+    /// runtime/plugin functionality such as nvim_buf_add_highlight()
     Syntax,
-    /// highlight from a process running in a terminal-emulator. Contains no further semantic
-    /// information.
+    /// highlight from a process running in a terminal-emulator. Contains no
+    /// further semantic information.
     Terminal,
 }
 

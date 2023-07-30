@@ -1,10 +1,14 @@
 use super::util::{parse_array, parse_u64};
 use nvim_rs::Value;
 
+/// Set the current grid and cursor position
 #[derive(Clone, Copy, Debug)]
 pub struct GridCursorGoto {
+    /// The current grid
     pub grid: u64,
+    /// The cursor position row
     pub row: u64,
+    /// The cursor position column
     pub column: u64,
 }
 

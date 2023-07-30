@@ -2,9 +2,12 @@ use super::util::{maybe_field, parse_array, parse_bool, parse_map, parse_string,
 use nvim_rs::Value;
 use std::fmt::Debug;
 
+/// Information about editor modes. These will be used by the mode_change event.
 #[derive(Debug, Clone)]
 pub struct ModeInfoSet {
+    /// Whether the UI should set the cursor style
     pub cursor_style_enabled: bool,
+    /// Information about different modes
     pub mode_info: Vec<ModeInfo>,
 }
 
@@ -21,17 +24,27 @@ impl ModeInfoSet {
     }
 }
 
+/// Information about a mode
 #[derive(Clone, Default)]
 pub struct ModeInfo {
-    pub cursor_shape: Option<CursorShape>,
-    pub cell_percentage: Option<u64>,
-    pub blinkwait: Option<u64>,
-    pub blinkon: Option<u64>,
-    pub blinkoff: Option<u64>,
-    pub attr_id: Option<u64>,
-    pub attr_id_lm: Option<u64>,
-    pub short_name: Option<String>,
+    /// The mode name
     pub name: Option<String>,
+    /// Mode code name, such as 'n' or 'v'.
+    pub short_name: Option<String>,
+    /// The cursor shape
+    pub cursor_shape: Option<CursorShape>,
+    /// Cell percentage occupied by the cursor
+    pub cell_percentage: Option<u64>,
+    /// Milliseconds delay before the cursor starts blinking
+    pub blinkwait: Option<u64>,
+    /// Milliseconds that the cursor is shown when blinking
+    pub blinkon: Option<u64>,
+    /// Milliseconds that the cursor is hidden when blinking
+    pub blinkoff: Option<u64>,
+    /// Cursor attribute ID defined by an hl_attr_define event
+    pub attr_id: Option<u64>,
+    /// Cursor attribute ID when langmap is active
+    pub attr_id_lm: Option<u64>,
 }
 
 impl ModeInfo {

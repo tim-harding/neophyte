@@ -1,12 +1,18 @@
 use super::util::{parse_array, parse_u64};
 use nvim_rs::Value;
 
+/// Sets the default foreground, background, and special colors.
 #[derive(Debug, Copy, Clone)]
 pub struct DefaultColorsSet {
+    /// Foreground in RGB
     pub rgb_fg: u64,
+    /// Background in RGB
     pub rgb_bg: u64,
+    /// Special color in RGB
     pub rgb_sp: u64,
+    /// Foreground for 256-color terminals
     pub cterm_fg: u64,
+    /// Background for 256-color terminals
     pub cterm_bg: u64,
 }
 
