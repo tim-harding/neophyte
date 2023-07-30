@@ -1,6 +1,6 @@
 use super::{
     types::Window,
-    util::{parse_array, parse_u64},
+    util::{parse_array, parse_i64, parse_u64},
 };
 use nvim_rs::Value;
 
@@ -28,7 +28,7 @@ pub struct WinViewport {
     /// this purpose it only counts "virtual" or "displayed" lines, so folds
     /// only count as one line. When scrolling more than a full screen it is an
     /// approximate value.
-    pub scroll_delta: u64,
+    pub scroll_delta: i64,
 }
 
 impl WinViewport {
@@ -36,16 +36,15 @@ impl WinViewport {
         let mut iter = parse_array(value)?.into_iter();
         let grid = parse_u64(iter.next()?)?;
         let win = Window::parse(iter.next()?)?;
-        let mut next = || parse_u64(iter.next()?);
         Some(Self {
             grid,
             win,
-            topline: next()?,
-            botline: next()?,
-            curline: next()?,
-            curcol: next()?,
-            line_count: next()?,
-            scroll_delta: next()?,
+            topline: parse_u64(iter.next()?)?,
+            botline: parse_u64(iter.next()?)?,
+            curline: parse_u64(iter.next()?)?,
+            curcol: parse_u64(iter.next()?)?,
+            line_count: parse_u64(iter.next()?)?,
+            scroll_delta: parse_i64(iter.next()?)?,
         })
     }
 }
