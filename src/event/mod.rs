@@ -30,11 +30,11 @@ use std::vec::IntoIter;
 #[derive(Debug, Clone)]
 pub enum Event {
     GridResize(GridResize),
-    SetTitle(Vec<String>),
-    SetIcon(Vec<String>),
+    SetTitle(String),
+    SetIcon(String),
     OptionSet(Vec<OptionSet>),
-    GridClear(Vec<u64>),
-    GridDestroy(Vec<u64>),
+    GridClear(u64),
+    GridDestroy(u64),
     DefaultColorsSet(DefaultColorsSet),
     HlAttrDefine(Vec<HlAttrDefine>),
     ModeChange(ModeChange),
@@ -104,18 +104,34 @@ where
     mapped.ok_or(e).map(Into::into)
 }
 
-fn multi_u64(iter: IntoIter<Value>, f: fn(Vec<u64>) -> Event, e: Error) -> Result<Event, Error> {
-    let grids: Option<Vec<_>> = iter.map(parse_u64).collect();
-    grids.ok_or(e).map(f)
+fn single_u64(mut iter: IntoIter<Value>, f: fn(u64) -> Event, e: Error) -> Result<Event, Error> {
+    iter.next()
+        .map(parse_array)
+        .flatten()
+        .ok_or(Error::Malformed)?
+        .into_iter()
+        .next()
+        .map(parse_u64)
+        .flatten()
+        .map(f)
+        .ok_or(e)
 }
 
-fn multi_string(
-    iter: IntoIter<Value>,
-    f: fn(Vec<String>) -> Event,
+fn single_string(
+    mut iter: IntoIter<Value>,
+    f: fn(String) -> Event,
     e: Error,
 ) -> Result<Event, Error> {
-    let grids: Option<Vec<_>> = iter.map(parse_string).collect();
-    grids.ok_or(e).map(f)
+    iter.next()
+        .map(parse_array)
+        .flatten()
+        .ok_or(Error::Malformed)?
+        .into_iter()
+        .next()
+        .map(parse_string)
+        .flatten()
+        .map(f)
+        .ok_or(e)
 }
 
 impl TryFrom<Value> for Event {
@@ -128,11 +144,11 @@ impl TryFrom<Value> for Event {
         let event_name = parse_string(event_name).ok_or(Error::Malformed)?;
         match event_name.as_str() {
             "grid_resize" => single(iter, GridResize::parse, Error::GridResize),
-            "set_title" => multi_string(iter, Self::SetTitle, Error::SetTitle),
-            "set_icon" => multi_string(iter, Self::SetIcon, Error::SetIcon),
+            "set_title" => single_string(iter, Self::SetTitle, Error::SetTitle),
+            "set_icon" => single_string(iter, Self::SetIcon, Error::SetIcon),
             "option_set" => multi(iter, OptionSet::parse, Error::OptionSet),
-            "grid_clear" => multi_u64(iter, Event::GridClear, Error::GridClear),
-            "grid_destroy" => multi_u64(iter, Event::GridDestroy, Error::GridDestroy),
+            "grid_clear" => single_u64(iter, Event::GridClear, Error::GridClear),
+            "grid_destroy" => single_u64(iter, Event::GridDestroy, Error::GridDestroy),
             "default_colors_set" => single(iter, DefaultColorsSet::parse, Error::DefaultColorsSet),
             "hl_attr_define" => multi(iter, HlAttrDefine::parse, Error::HlAttrDefine),
             "mode_change" => single(iter, ModeChange::parse, Error::ModeChange),
