@@ -38,7 +38,7 @@ pub enum Event {
     DefaultColorsSet(DefaultColorsSet),
     HlAttrDefine(Vec<HlAttrDefine>),
     ModeChange(ModeChange),
-    ModeInfoSet(Vec<ModeInfoSet>),
+    ModeInfoSet(ModeInfoSet),
     HlGroupSet(Vec<HlGroupSet>),
     GridCursorGoto(GridCursorGoto),
     GridScroll(GridScroll),
@@ -81,7 +81,7 @@ event_from_vec!(OptionSet);
 event_from!(DefaultColorsSet);
 event_from_vec!(HlAttrDefine);
 event_from!(ModeChange);
-event_from_vec!(ModeInfoSet);
+event_from!(ModeInfoSet);
 event_from_vec!(HlGroupSet);
 event_from!(GridCursorGoto);
 event_from!(GridScroll);
@@ -136,7 +136,7 @@ impl TryFrom<Value> for Event {
             "default_colors_set" => single(iter, DefaultColorsSet::parse, Error::DefaultColorsSet),
             "hl_attr_define" => multi(iter, HlAttrDefine::parse, Error::HlAttrDefine),
             "mode_change" => single(iter, ModeChange::parse, Error::ModeChange),
-            "mode_info_set" => multi(iter, ModeInfoSet::parse, Error::ModeInfoSet),
+            "mode_info_set" => single(iter, ModeInfoSet::parse, Error::ModeInfoSet),
             "hl_group_set" => multi(iter, HlGroupSet::parse, Error::HlGroupSet),
             "grid_cursor_goto" => single(iter, GridCursorGoto::parse, Error::GridCursorGoto),
             "grid_scroll" => single(iter, GridScroll::parse, Error::GridScroll),
