@@ -67,8 +67,13 @@ async fn async_main() {
     let io_handle = tokio::spawn(io);
 
     let mut options = UiAttachOptions::new();
-    options.set_linegrid_external(true);
+    options.set_cmdline_external(true);
     options.set_hlstate_external(true);
+    options.set_linegrid_external(true);
+    options.set_messages_external(true);
+    options.set_multigrid_external(true);
+    options.set_popupmenu_external(true);
+    options.set_tabline_external(true);
     neovim.ui_attach(10, 10, &options).await.unwrap();
 
     tokio::spawn(async move {

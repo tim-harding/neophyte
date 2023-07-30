@@ -1,4 +1,6 @@
-use super::util::{maybe_field, parse_array, parse_bool, parse_map, parse_string, parse_u64};
+use super::util::{
+    maybe_field, maybe_other_field, parse_array, parse_bool, parse_map, parse_string, parse_u64,
+};
 use nvim_rs::Value;
 use std::fmt::{self, Debug, Formatter};
 
@@ -32,7 +34,7 @@ impl HlAttrDefine {
 
 /// Attributes of a highlight attribute definition. Colors may be given in RGB
 /// or terminal 256-color.
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Default)]
 pub struct Attributes {
     /// foreground color.
     pub foreground: Option<u64>,
@@ -63,6 +65,8 @@ pub struct Attributes {
     /// Blend level (0-100). Could be used by UIs to support blending floating
     /// windows to the background or to signal a transparent cursor
     pub blend: Option<u64>,
+    /// Options not enumerated in the UI documentation
+    pub other: Vec<(String, Value)>,
 }
 
 impl Attributes {
@@ -86,7 +90,7 @@ impl Attributes {
                 "underdashed" => out.underdashed = Some(parse_bool(v)?),
                 "altfont" => out.altfont = Some(parse_bool(v)?),
                 "blend" => out.blend = Some(parse_u64(v)?),
-                _ => eprintln!("Unknown highlight attribute: {k}"),
+                _ => out.other.push((k, v)),
             }
         }
         Some(out)
@@ -110,6 +114,7 @@ impl Debug for Attributes {
         maybe_field(&mut s, "underdashed", self.underdashed);
         maybe_field(&mut s, "altfont", self.altfont);
         maybe_field(&mut s, "blend", self.blend);
+        maybe_other_field(&mut s, &self.other);
         s.finish()
     }
 }

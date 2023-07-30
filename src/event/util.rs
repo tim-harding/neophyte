@@ -48,3 +48,9 @@ pub fn maybe_field<T: Debug>(s: &mut DebugStruct, name: &str, field: Option<T>) 
         s.field(name, &t);
     }
 }
+
+pub fn maybe_other_field(s: &mut DebugStruct, field: &[(String, Value)]) {
+    if !field.is_empty() {
+        s.field("other", &field);
+    }
+}

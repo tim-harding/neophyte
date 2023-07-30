@@ -1,6 +1,8 @@
-use super::util::{maybe_field, parse_array, parse_bool, parse_map, parse_string, parse_u64};
+use super::util::{
+    maybe_field, maybe_other_field, parse_array, parse_bool, parse_map, parse_string, parse_u64,
+};
 use nvim_rs::Value;
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Formatter};
 
 /// Information about editor modes. These will be used by the mode_change event.
 #[derive(Debug, Clone)]
@@ -45,6 +47,8 @@ pub struct ModeInfo {
     pub attr_id: Option<u64>,
     /// Cursor attribute ID when langmap is active
     pub attr_id_lm: Option<u64>,
+    /// Options not enumerated in the UI documentation
+    pub other: Vec<(String, Value)>,
 }
 
 impl ModeInfo {
@@ -63,7 +67,7 @@ impl ModeInfo {
                 "attr_id_lm" => out.attr_id_lm = Some(parse_u64(v)?),
                 "short_name" => out.short_name = Some(parse_string(v)?),
                 "name" => out.name = Some(parse_string(v)?),
-                _ => eprintln!("Unknown mode_info_set key: {k}"),
+                _ => out.other.push((k, v)),
             }
         }
         Some(out)
@@ -71,7 +75,7 @@ impl ModeInfo {
 }
 
 impl Debug for ModeInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut s = f.debug_struct("ModeInfo");
         maybe_field(&mut s, "cursor_shape", self.cursor_shape);
         maybe_field(&mut s, "cell_percentage", self.cell_percentage);
@@ -82,6 +86,7 @@ impl Debug for ModeInfo {
         maybe_field(&mut s, "attr_id_lm", self.attr_id_lm);
         maybe_field(&mut s, "short_name", self.short_name.as_ref());
         maybe_field(&mut s, "name", self.name.as_ref());
+        maybe_other_field(&mut s, &self.other);
         s.finish()
     }
 }
