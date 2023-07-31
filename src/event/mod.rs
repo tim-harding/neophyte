@@ -1,3 +1,4 @@
+mod cmdline_show;
 mod default_colors_set;
 mod grid_cursor_goto;
 mod grid_line;
@@ -14,6 +15,7 @@ mod util;
 mod win_viewport;
 
 use self::{
+    cmdline_show::CmdlineShow,
     default_colors_set::DefaultColorsSet,
     grid_cursor_goto::GridCursorGoto,
     grid_line::GridLine,
@@ -53,6 +55,7 @@ pub enum Event {
     TablineUpdate(Vec<TablineUpdate>),
     MsgShowmode(Vec<MessageContent>),
     MsgShowcmd(Vec<MessageContent>),
+    CmdlineShow(Vec<CmdlineShow>),
     Clear,
     EolClear,
     MouseOn,
@@ -89,6 +92,7 @@ event_from!(GridScroll);
 event_from!(GridLine);
 event_from!(WinViewport);
 event_from!(TablineUpdate);
+event_from!(CmdlineShow);
 
 fn unique<T>(
     iter: IntoIter<Value>,
@@ -151,6 +155,7 @@ impl TryFrom<Value> for Event {
                 Self::MsgShowcmd,
                 Error::MsgShowcmd,
             ),
+            "cmdline_show" => unique(iter, CmdlineShow::parse, Error::CmdlineShow),
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
             "mouse_on" => Ok(Self::MouseOn),
@@ -211,4 +216,6 @@ pub enum Error {
     MsgShowmode,
     #[error("Failed to parse msg_showcmd event")]
     MsgShowcmd,
+    #[error("Failed to parse cmdline_show event")]
+    CmdlineShow,
 }

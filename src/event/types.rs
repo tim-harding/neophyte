@@ -29,7 +29,7 @@ msgpack_ext!(Tabpage, 2);
 
 #[derive(Debug, Clone)]
 pub struct MessageContent {
-    chunks: Vec<MessageContentChunk>,
+    pub chunks: Vec<MessageContentChunk>,
 }
 
 impl MessageContent {
