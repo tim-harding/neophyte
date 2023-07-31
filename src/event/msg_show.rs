@@ -1,5 +1,5 @@
 use super::{
-    message_content::MessageContent,
+    message_content::Content,
     util::{Parse, Values},
 };
 use nvim_rs::Value;
@@ -7,7 +7,7 @@ use nvim_rs::Value;
 #[derive(Debug, Clone)]
 pub struct MsgShow {
     pub kind: Kind,
-    pub content: MessageContent,
+    pub content: Content,
     pub replace_last: bool,
 }
 

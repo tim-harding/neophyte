@@ -28,7 +28,7 @@ use self::{
     cmdline_pos::CmdlinePos, cmdline_show::CmdlineShow, cmdline_special_char::CmdlineSpecialChar,
     default_colors_set::DefaultColorsSet, grid_cursor_goto::GridCursorGoto, grid_line::GridLine,
     grid_resize::GridResize, grid_scroll::GridScroll, hl_attr_define::HlAttrDefine,
-    hl_group_set::HlGroupSet, message_content::MessageContent, mode_change::ModeChange,
+    hl_group_set::HlGroupSet, message_content::Content, mode_change::ModeChange,
     mode_info_set::ModeInfoSet, msg_set_pos::MsgSetPos, msg_show::MsgShow, option_set::OptionSet,
     popupmenu_show::PopupmenuShow, tabline_update::TablineUpdate, util::Parse, util::Values,
     win_external_position::WinExternalPos, win_extmark::WinExtmark, win_float_pos::WinFloatPos,
@@ -57,12 +57,12 @@ pub enum Event {
     GridLine(Vec<GridLine>),
     WinViewport(Vec<WinViewport>),
     TablineUpdate(Vec<TablineUpdate>),
-    MsgShowmode(Vec<MessageContent>),
-    MsgShowcmd(Vec<MessageContent>),
+    MsgShowmode(Vec<Content>),
+    MsgShowcmd(Vec<Content>),
     CmdlineShow(Vec<CmdlineShow>),
     WinPos(Vec<WinPos>),
     WinFloatPos(Vec<WinFloatPos>),
-    MsgRuler(Vec<MessageContent>),
+    MsgRuler(Vec<Content>),
     WinHide(Vec<u64>),
     WinClose(Vec<u64>),
     WinExternalPos(Vec<WinExternalPos>),
@@ -70,6 +70,8 @@ pub enum Event {
     MsgShow(Vec<MsgShow>),
     WinExtmark(Vec<WinExtmark>),
     PopupmenuSelect(Vec<i64>),
+    CmdlineBlockShow(Vec<Vec<Content>>),
+    CmdlineBlockAppend(Vec<Content>),
     Clear,
     EolClear,
     MouseOn,
@@ -175,6 +177,10 @@ impl TryFrom<Value> for Event {
             "popupmenu_show" => unique::<PopupmenuShow>(iter, Error::PopupmenuShow),
             "cmdline_special_char" => unique::<CmdlineSpecialChar>(iter, Error::CmdlineSpecialChar),
             "popupmenu_select" => shared(iter, Self::PopupmenuSelect, Error::PopupmenuSelect),
+            "cmdline_block_show" => shared(iter, Self::CmdlineBlockShow, Error::CmdlineBlockShow),
+            "cmdline_block_append" => {
+                shared(iter, Self::CmdlineBlockAppend, Error::CmdlineBlockAppend)
+            }
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
             "mouse_on" => Ok(Self::MouseOn),
@@ -264,4 +270,8 @@ pub enum Error {
     PopupmenuShow,
     #[error("Failed to parse cmdline_special_char event")]
     CmdlineSpecialChar,
+    #[error("Failed to parse cmdline_block_show event")]
+    CmdlineBlockShow,
+    #[error("Failed to parse cmdline_block_append event")]
+    CmdlineBlockAppend,
 }

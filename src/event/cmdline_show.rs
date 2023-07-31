@@ -1,12 +1,12 @@
 use super::{
-    message_content::MessageContent,
+    message_content::Content,
     util::{Parse, Values},
 };
 use nvim_rs::Value;
 
 #[derive(Debug, Clone)]
 pub struct CmdlineShow {
-    pub content: MessageContent,
+    pub content: Content,
     pub pos: u64,
     pub firstc: String,
     pub prompt: String,
