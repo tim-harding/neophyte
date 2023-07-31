@@ -1,4 +1,4 @@
-use super::util::{map_array, parse_ext, Parse, Values};
+use super::util::{parse_ext, MaybeInto, Parse, Values};
 use nvim_rs::Value;
 
 macro_rules! msgpack_ext {
@@ -26,7 +26,7 @@ pub struct MessageContent {
 impl Parse for MessageContent {
     fn parse(value: Value) -> Option<Self> {
         Some(Self {
-            chunks: map_array(value, MessageContentChunk::parse)?,
+            chunks: value.maybe_into()?,
         })
     }
 }

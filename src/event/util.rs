@@ -61,7 +61,7 @@ impl Parse for Value {
 
 impl<T: Parse> Parse for Vec<T> {
     fn parse(value: Value) -> Option<Self> {
-        map_array(value, T::parse)
+        Values::new(value)?.map()
     }
 }
 
@@ -95,10 +95,6 @@ where
     fn maybe_into(self) -> Option<U> {
         U::maybe_from(self)
     }
-}
-
-pub fn map_array<T>(value: Value, f: fn(Value) -> Option<T>) -> Option<Vec<T>> {
-    Vec::parse(value)?.into_iter().map(f).collect()
 }
 
 pub fn parse_map(value: Value) -> Option<Vec<(Value, Value)>> {
