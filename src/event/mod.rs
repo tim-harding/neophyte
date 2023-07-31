@@ -84,6 +84,7 @@ pub enum Event {
     VisualBell,
     Flush,
     CmdlineHide,
+    CmdlineBlockHide,
     PopupmenuHide,
 }
 
@@ -194,6 +195,7 @@ impl TryFrom<Value> for Event {
             "flush" => Ok(Self::Flush),
             // TODO: This event receives an undocumented u64 argument. Investigate.
             "cmdline_hide" => Ok(Self::CmdlineHide),
+            "cmdline_block_hide" => Ok(Self::CmdlineBlockHide),
             "popupmenu_hide" => Ok(Self::PopupmenuHide),
             _ => Err(Error::UnknownEvent(event_name)),
         }
