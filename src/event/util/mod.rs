@@ -8,29 +8,13 @@ use std::{
     vec::IntoIter,
 };
 
-pub trait MaybeFrom<T>: Sized {
-    fn maybe_from(value: T) -> Option<Self>;
-}
-
-impl<T> MaybeFrom<Value> for T
-where
-    T: Parse,
-{
-    fn maybe_from(value: Value) -> Option<Self> {
-        Self::parse(value)
-    }
-}
-
 pub trait MaybeInto<T>: Sized {
     fn maybe_into(self) -> Option<T>;
 }
 
-impl<T, U> MaybeInto<U> for T
-where
-    U: MaybeFrom<T>,
-{
-    fn maybe_into(self) -> Option<U> {
-        U::maybe_from(self)
+impl<T: Parse> MaybeInto<T> for Value {
+    fn maybe_into(self) -> Option<T> {
+        T::parse(self)
     }
 }
 
