@@ -13,6 +13,7 @@ mod mode_info_set;
 mod option_set;
 mod tabline_update;
 mod util;
+mod win_external_position;
 mod win_float_pos;
 mod win_pos;
 mod win_viewport;
@@ -23,7 +24,8 @@ use self::{
     grid_scroll::GridScroll, hl_attr_define::HlAttrDefine, hl_group_set::HlGroupSet,
     message_content::MessageContent, mode_change::ModeChange, mode_info_set::ModeInfoSet,
     option_set::OptionSet, tabline_update::TablineUpdate, util::Parse, util::Values,
-    win_float_pos::WinFloatPos, win_pos::WinPos, win_viewport::WinViewport,
+    win_external_position::WinExternalPos, win_float_pos::WinFloatPos, win_pos::WinPos,
+    win_viewport::WinViewport,
 };
 use nvim_rs::Value;
 
@@ -53,6 +55,7 @@ pub enum Event {
     MsgRuler(Vec<MessageContent>),
     WinHide(Vec<u64>),
     WinClose(Vec<u64>),
+    WinExternalPos(Vec<WinExternalPos>),
     Clear,
     EolClear,
     MouseOn,
@@ -92,6 +95,7 @@ event_from!(TablineUpdate);
 event_from!(CmdlineShow);
 event_from!(WinPos);
 event_from!(WinFloatPos);
+event_from!(WinExternalPos);
 
 fn unique<T: Parse>(iter: Values, error: Error) -> Result<Event, Error>
 where
@@ -142,6 +146,7 @@ impl TryFrom<Value> for Event {
             "msg_ruler" => shared(iter, Self::MsgRuler, Error::MsgRuler),
             "win_hide" => shared(iter, Self::WinHide, Error::WinHide),
             "win_close" => shared(iter, Self::WinClose, Error::WinClose),
+            "win_external_pos" => unique::<WinExternalPos>(iter, Error::WinExternalPos),
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
             "mouse_on" => Ok(Self::MouseOn),
@@ -214,4 +219,6 @@ pub enum Error {
     WinHide,
     #[error("Failed to parse win_close event")]
     WinClose,
+    #[error("Failed to parse win_external_pos event")]
+    WinExternalPos,
 }
