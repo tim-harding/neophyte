@@ -1,6 +1,6 @@
 use super::{
+    messagepack_ext_types::{Buffer, Tabpage},
     parse::Parse,
-    types::{Buffer, Tabpage},
     util::{parse_map, MaybeInto, Values},
 };
 use nvim_rs::Value;

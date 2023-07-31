@@ -6,12 +6,13 @@ mod grid_resize;
 mod grid_scroll;
 mod hl_attr_define;
 mod hl_group_set;
+mod message_content;
+mod messagepack_ext_types;
 mod mode_change;
 mod mode_info_set;
 mod option_set;
 mod parse;
 mod tabline_update;
-mod types;
 mod util;
 mod win_float_pos;
 mod win_pos;
@@ -21,9 +22,9 @@ use self::{
     cmdline_show::CmdlineShow, default_colors_set::DefaultColorsSet,
     grid_cursor_goto::GridCursorGoto, grid_line::GridLine, grid_resize::GridResize,
     grid_scroll::GridScroll, hl_attr_define::HlAttrDefine, hl_group_set::HlGroupSet,
-    mode_change::ModeChange, mode_info_set::ModeInfoSet, option_set::OptionSet, parse::Parse,
-    tabline_update::TablineUpdate, types::MessageContent, util::Values, win_float_pos::WinFloatPos,
-    win_pos::WinPos, win_viewport::WinViewport,
+    message_content::MessageContent, mode_change::ModeChange, mode_info_set::ModeInfoSet,
+    option_set::OptionSet, parse::Parse, tabline_update::TablineUpdate, util::Values,
+    win_float_pos::WinFloatPos, win_pos::WinPos, win_viewport::WinViewport,
 };
 use nvim_rs::Value;
 
