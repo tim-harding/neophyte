@@ -14,6 +14,7 @@ mod mode_info_set;
 mod msg_set_pos;
 mod msg_show;
 mod option_set;
+mod popupmenu_show;
 mod tabline_update;
 mod util;
 mod win_external_position;
@@ -28,7 +29,7 @@ use self::{
     grid_scroll::GridScroll, hl_attr_define::HlAttrDefine, hl_group_set::HlGroupSet,
     message_content::MessageContent, mode_change::ModeChange, mode_info_set::ModeInfoSet,
     msg_set_pos::MsgSetPos, msg_show::MsgShow, option_set::OptionSet,
-    tabline_update::TablineUpdate, util::Parse, util::Values,
+    popupmenu_show::PopupmenuShow, tabline_update::TablineUpdate, util::Parse, util::Values,
     win_external_position::WinExternalPos, win_extmark::WinExtmark, win_float_pos::WinFloatPos,
     win_pos::WinPos, win_viewport::WinViewport,
 };
@@ -36,6 +37,7 @@ use nvim_rs::Value;
 
 #[derive(Debug, Clone)]
 pub enum Event {
+    PopupmenuShow(Vec<PopupmenuShow>),
     CmdlinePos(Vec<CmdlinePos>),
     GridResize(Vec<GridResize>),
     SetTitle(Vec<String>),
@@ -91,6 +93,7 @@ macro_rules! event_from {
     };
 }
 
+event_from!(PopupmenuShow);
 event_from!(CmdlinePos);
 event_from!(GridResize);
 event_from!(OptionSet);
@@ -166,6 +169,7 @@ impl TryFrom<Value> for Event {
             "msg_show" => unique::<MsgShow>(iter, Error::MsgShow),
             "win_extmark" => unique::<WinExtmark>(iter, Error::WinExtmark),
             "cmdline_pos" => unique::<CmdlinePos>(iter, Error::CmdlinePos),
+            "popupmenu_show" => unique::<PopupmenuShow>(iter, Error::PopupmenuShow),
             "popupmenu_select" => shared(iter, Self::PopupmenuSelect, Error::PopupmenuSelect),
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
@@ -252,4 +256,6 @@ pub enum Error {
     CmdlinePos,
     #[error("Failed to parse popupmenu_select event")]
     PopupmenuSelect,
+    #[error("Failed to parse popupmenu_show event")]
+    PopupmenuShow,
 }
