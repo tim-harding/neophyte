@@ -12,7 +12,7 @@ fn vec_to_handle(vec: Vec<u8>) -> u64 {
 
 macro_rules! msgpack_ext {
     ($x:ident, $n:expr) => {
-        #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
         pub struct $x(u64);
 
         impl $x {

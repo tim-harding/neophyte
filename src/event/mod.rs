@@ -12,6 +12,7 @@ mod option_set;
 mod tabline_update;
 mod types;
 mod util;
+mod win_pos;
 mod win_viewport;
 
 use self::{
@@ -29,6 +30,7 @@ use self::{
     tabline_update::TablineUpdate,
     types::MessageContent,
     util::{parse_array, parse_u64},
+    win_pos::WinPos,
     win_viewport::WinViewport,
 };
 use crate::event::util::parse_string;
@@ -56,6 +58,7 @@ pub enum Event {
     MsgShowmode(Vec<MessageContent>),
     MsgShowcmd(Vec<MessageContent>),
     CmdlineShow(Vec<CmdlineShow>),
+    WinPos(Vec<WinPos>),
     Clear,
     EolClear,
     MouseOn,
@@ -93,6 +96,7 @@ event_from!(GridLine);
 event_from!(WinViewport);
 event_from!(TablineUpdate);
 event_from!(CmdlineShow);
+event_from!(WinPos);
 
 fn unique<T>(
     iter: IntoIter<Value>,
@@ -156,6 +160,7 @@ impl TryFrom<Value> for Event {
                 Error::MsgShowcmd,
             ),
             "cmdline_show" => unique(iter, CmdlineShow::parse, Error::CmdlineShow),
+            "win_pos" => unique(iter, WinPos::parse, Error::WinPos),
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
             "mouse_on" => Ok(Self::MouseOn),
@@ -218,4 +223,6 @@ pub enum Error {
     MsgShowcmd,
     #[error("Failed to parse cmdline_show event")]
     CmdlineShow,
+    #[error("Failed to parse win_pos event")]
+    WinPos,
 }
