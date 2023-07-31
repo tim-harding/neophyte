@@ -16,6 +16,7 @@ mod option_set;
 mod tabline_update;
 mod util;
 mod win_external_position;
+mod win_extmark;
 mod win_float_pos;
 mod win_pos;
 mod win_viewport;
@@ -27,8 +28,8 @@ use self::{
     message_content::MessageContent, mode_change::ModeChange, mode_info_set::ModeInfoSet,
     msg_set_pos::MsgSetPos, msg_show::MsgShow, option_set::OptionSet,
     tabline_update::TablineUpdate, util::Parse, util::Values,
-    win_external_position::WinExternalPos, win_float_pos::WinFloatPos, win_pos::WinPos,
-    win_viewport::WinViewport,
+    win_external_position::WinExternalPos, win_extmark::WinExtmark, win_float_pos::WinFloatPos,
+    win_pos::WinPos, win_viewport::WinViewport,
 };
 use nvim_rs::Value;
 
@@ -61,6 +62,7 @@ pub enum Event {
     WinExternalPos(Vec<WinExternalPos>),
     MsgSetPos(Vec<MsgSetPos>),
     MsgShow(Vec<MsgShow>),
+    WinExtmark(Vec<WinExtmark>),
     Clear,
     EolClear,
     MouseOn,
@@ -103,6 +105,7 @@ event_from!(WinFloatPos);
 event_from!(WinExternalPos);
 event_from!(MsgSetPos);
 event_from!(MsgShow);
+event_from!(WinExtmark);
 
 fn unique<T: Parse>(iter: Values, error: Error) -> Result<Event, Error>
 where
@@ -156,6 +159,7 @@ impl TryFrom<Value> for Event {
             "win_external_pos" => unique::<WinExternalPos>(iter, Error::WinExternalPos),
             "msg_set_pos" => unique::<MsgSetPos>(iter, Error::MsgSetPos),
             "msg_show" => unique::<MsgShow>(iter, Error::MsgShow),
+            "win_extmark" => unique::<WinExtmark>(iter, Error::WinExtmark),
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
             "mouse_on" => Ok(Self::MouseOn),
@@ -234,4 +238,6 @@ pub enum Error {
     MsgSetPos,
     #[error("Failed to parse msg_show event")]
     MsgShow,
+    #[error("Failed to parse win_extmark event")]
+    WinExtmark,
 }
