@@ -25,7 +25,7 @@ use self::{
     mode_info_set::ModeInfoSet,
     option_set::OptionSet,
     tabline_update::TablineUpdate,
-    types::MessageContentChunk,
+    types::MessageContent,
     util::{parse_array, parse_u64},
     win_viewport::WinViewport,
 };
@@ -35,24 +35,24 @@ use std::vec::IntoIter;
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    GridResize(GridResize),
-    SetTitle(String),
-    SetIcon(String),
+    GridResize(Vec<GridResize>),
+    SetTitle(Vec<String>),
+    SetIcon(Vec<String>),
     OptionSet(Vec<OptionSet>),
-    GridClear(u64),
-    GridDestroy(u64),
-    DefaultColorsSet(DefaultColorsSet),
+    GridClear(Vec<u64>),
+    GridDestroy(Vec<u64>),
+    DefaultColorsSet(Vec<DefaultColorsSet>),
     HlAttrDefine(Vec<HlAttrDefine>),
-    ModeChange(ModeChange),
-    ModeInfoSet(ModeInfoSet),
-    HlGroupSet(HlGroupSet),
-    GridCursorGoto(GridCursorGoto),
-    GridScroll(GridScroll),
+    ModeChange(Vec<ModeChange>),
+    ModeInfoSet(Vec<ModeInfoSet>),
+    HlGroupSet(Vec<HlGroupSet>),
+    GridCursorGoto(Vec<GridCursorGoto>),
+    GridScroll(Vec<GridScroll>),
     GridLine(Vec<GridLine>),
-    WinViewport(WinViewport),
-    TablineUpdate(TablineUpdate),
-    MsgShowmode(Vec<Vec<MessageContentChunk>>),
-    MsgShowcmd(Vec<Vec<MessageContentChunk>>),
+    WinViewport(Vec<WinViewport>),
+    TablineUpdate(Vec<TablineUpdate>),
+    MsgShowmode(Vec<MessageContent>),
+    MsgShowcmd(Vec<MessageContent>),
     Clear,
     EolClear,
     MouseOn,
@@ -68,16 +68,6 @@ pub enum Event {
 
 macro_rules! event_from {
     ($x:ident) => {
-        impl From<$x> for Event {
-            fn from(value: $x) -> Self {
-                Self::$x(value)
-            }
-        }
-    };
-}
-
-macro_rules! event_from_vec {
-    ($x:ident) => {
         impl From<Vec<$x>> for Event {
             fn from(value: Vec<$x>) -> Self {
                 Self::$x(value)
@@ -87,79 +77,40 @@ macro_rules! event_from_vec {
 }
 
 event_from!(GridResize);
-event_from_vec!(OptionSet);
+event_from!(OptionSet);
 event_from!(DefaultColorsSet);
-event_from_vec!(HlAttrDefine);
+event_from!(HlAttrDefine);
 event_from!(ModeChange);
 event_from!(ModeInfoSet);
 event_from!(HlGroupSet);
 event_from!(GridCursorGoto);
 event_from!(GridScroll);
-event_from_vec!(GridLine);
+event_from!(GridLine);
 event_from!(WinViewport);
 event_from!(TablineUpdate);
 
-fn single<T: Into<Event>>(
-    mut iter: IntoIter<Value>,
-    f: fn(Value) -> Option<T>,
-    e: Error,
-) -> Result<Event, Error> {
-    let next = iter.next().ok_or(Error::Malformed)?;
-    f(next).ok_or(e).map(Into::into)
-}
-
-fn multi<T>(iter: IntoIter<Value>, f: fn(Value) -> Option<T>, e: Error) -> Result<Event, Error>
+fn unique<T>(
+    iter: IntoIter<Value>,
+    parser: fn(Value) -> Option<T>,
+    error: Error,
+) -> Result<Event, Error>
 where
     Vec<T>: Into<Event>,
 {
-    let mapped: Option<Vec<_>> = iter.map(f).collect();
-    mapped.ok_or(e).map(Into::into)
+    let mapped: Option<Vec<_>> = iter.map(parser).collect();
+    mapped.ok_or(error).map(Into::into)
 }
 
-fn single_u64(mut iter: IntoIter<Value>, f: fn(u64) -> Event, e: Error) -> Result<Event, Error> {
-    iter.next()
-        .map(parse_array)
-        .flatten()
-        .ok_or(Error::Malformed)?
-        .into_iter()
-        .next()
-        .map(parse_u64)
-        .flatten()
-        .map(f)
-        .ok_or(e)
-}
-
-fn single_string(
-    mut iter: IntoIter<Value>,
-    f: fn(String) -> Event,
-    e: Error,
-) -> Result<Event, Error> {
-    iter.next()
-        .map(parse_array)
-        .flatten()
-        .ok_or(Error::Malformed)?
-        .into_iter()
-        .next()
-        .map(parse_string)
-        .flatten()
-        .map(f)
-        .ok_or(e)
-}
-
-fn showmode_showcmd(
+fn shared<T>(
     iter: IntoIter<Value>,
-    f: fn(Vec<Vec<MessageContentChunk>>) -> Event,
-    e: Error,
+    parser: fn(Value) -> Option<T>,
+    event_variant: fn(Vec<T>) -> Event,
+    error: Error,
 ) -> Result<Event, Error> {
-    let events: Option<Vec<_>> = iter
-        .map(|value| -> Option<Vec<MessageContentChunk>> {
-            parse_array(parse_array(value)?.into_iter().next()?)?
-                .into_iter()
-                .map(MessageContentChunk::parse)
-                .collect()
-        })
+    let events: Option<Vec<T>> = iter
+        .map(|v| parser(parse_array(v)?.into_iter().next()?))
         .collect();
-    events.map(f).ok_or(e)
+    events.map(event_variant).ok_or(error)
 }
 
 impl TryFrom<Value> for Event {
@@ -171,24 +122,34 @@ impl TryFrom<Value> for Event {
         let event_name = iter.next().ok_or(Error::Malformed)?;
         let event_name = parse_string(event_name).ok_or(Error::Malformed)?;
         match event_name.as_str() {
-            "grid_resize" => single(iter, GridResize::parse, Error::GridResize),
-            "set_title" => single_string(iter, Self::SetTitle, Error::SetTitle),
-            "set_icon" => single_string(iter, Self::SetIcon, Error::SetIcon),
-            "option_set" => multi(iter, OptionSet::parse, Error::OptionSet),
-            "grid_clear" => single_u64(iter, Event::GridClear, Error::GridClear),
-            "grid_destroy" => single_u64(iter, Event::GridDestroy, Error::GridDestroy),
-            "default_colors_set" => single(iter, DefaultColorsSet::parse, Error::DefaultColorsSet),
-            "hl_attr_define" => multi(iter, HlAttrDefine::parse, Error::HlAttrDefine),
-            "mode_change" => single(iter, ModeChange::parse, Error::ModeChange),
-            "mode_info_set" => single(iter, ModeInfoSet::parse, Error::ModeInfoSet),
-            "hl_group_set" => single(iter, HlGroupSet::parse, Error::HlGroupSet),
-            "grid_cursor_goto" => single(iter, GridCursorGoto::parse, Error::GridCursorGoto),
-            "grid_scroll" => single(iter, GridScroll::parse, Error::GridScroll),
-            "grid_line" => multi(iter, GridLine::parse, Error::GridLine),
-            "win_viewport" => single(iter, WinViewport::parse, Error::WinViewport),
-            "tabline_update" => single(iter, TablineUpdate::parse, Error::TablineUpdate),
-            "msg_showmode" => showmode_showcmd(iter, Self::MsgShowmode, Error::MsgShowmode),
-            "msg_showcmd" => showmode_showcmd(iter, Self::MsgShowcmd, Error::MsgShowcmd),
+            "grid_resize" => unique(iter, GridResize::parse, Error::GridResize),
+            "set_title" => shared(iter, parse_string, Self::SetTitle, Error::SetTitle),
+            "set_icon" => shared(iter, parse_string, Self::SetIcon, Error::SetIcon),
+            "option_set" => unique(iter, OptionSet::parse, Error::OptionSet),
+            "grid_clear" => shared(iter, parse_u64, Event::GridClear, Error::GridClear),
+            "grid_destroy" => shared(iter, parse_u64, Event::GridDestroy, Error::GridDestroy),
+            "default_colors_set" => unique(iter, DefaultColorsSet::parse, Error::DefaultColorsSet),
+            "hl_attr_define" => unique(iter, HlAttrDefine::parse, Error::HlAttrDefine),
+            "mode_change" => unique(iter, ModeChange::parse, Error::ModeChange),
+            "mode_info_set" => unique(iter, ModeInfoSet::parse, Error::ModeInfoSet),
+            "hl_group_set" => unique(iter, HlGroupSet::parse, Error::HlGroupSet),
+            "grid_cursor_goto" => unique(iter, GridCursorGoto::parse, Error::GridCursorGoto),
+            "grid_scroll" => unique(iter, GridScroll::parse, Error::GridScroll),
+            "grid_line" => unique(iter, GridLine::parse, Error::GridLine),
+            "win_viewport" => unique(iter, WinViewport::parse, Error::WinViewport),
+            "tabline_update" => unique(iter, TablineUpdate::parse, Error::TablineUpdate),
+            "msg_showmode" => shared(
+                iter,
+                MessageContent::parse,
+                Self::MsgShowmode,
+                Error::MsgShowmode,
+            ),
+            "msg_showcmd" => shared(
+                iter,
+                MessageContent::parse,
+                Self::MsgShowcmd,
+                Error::MsgShowcmd,
+            ),
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
             "mouse_on" => Ok(Self::MouseOn),

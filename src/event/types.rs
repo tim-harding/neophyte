@@ -28,6 +28,21 @@ msgpack_ext!(Window, 1);
 msgpack_ext!(Tabpage, 2);
 
 #[derive(Debug, Clone)]
+pub struct MessageContent {
+    chunks: Vec<MessageContentChunk>,
+}
+
+impl MessageContent {
+    pub fn parse(value: Value) -> Option<Self> {
+        let chunks: Option<Vec<_>> = parse_array(value)?
+            .into_iter()
+            .map(MessageContentChunk::parse)
+            .collect();
+        Some(Self { chunks: chunks? })
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct MessageContentChunk {
     pub attr_id: u64,
     pub text_chunk: String,
