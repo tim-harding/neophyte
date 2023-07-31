@@ -1,4 +1,4 @@
-use super::util::ValueIter;
+use super::util::{Parse, ValueIter};
 use nvim_rs::Value;
 
 /// The built-in highlight group name was set to use the attributes hl_id
@@ -13,8 +13,8 @@ pub struct HlGroupSet {
     pub hl_id: u64,
 }
 
-impl HlGroupSet {
-    pub fn parse(value: Value) -> Option<Self> {
+impl Parse for HlGroupSet {
+    fn parse(value: Value) -> Option<Self> {
         let mut iter = ValueIter::new(value)?;
         Some(Self {
             name: iter.next()?,

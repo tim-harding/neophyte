@@ -11,8 +11,8 @@ pub struct ModeInfoSet {
     pub mode_info: Vec<ModeInfo>,
 }
 
-impl ModeInfoSet {
-    pub fn parse(value: Value) -> Option<Self> {
+impl Parse for ModeInfoSet {
+    fn parse(value: Value) -> Option<Self> {
         let mut iter = ValueIter::new(value)?;
         Some(Self {
             cursor_style_enabled: iter.next()?,

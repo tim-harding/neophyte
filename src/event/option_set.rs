@@ -65,8 +65,8 @@ pub enum OptionSet {
     Other { name: String, value: Value },
 }
 
-impl OptionSet {
-    pub fn parse(value: Value) -> Option<Self> {
+impl Parse for OptionSet {
+    fn parse(value: Value) -> Option<Self> {
         let mut iter = ValueIter::new(value)?;
         let name: String = iter.next()?;
         Some(match name.as_str() {

@@ -17,8 +17,8 @@ pub struct HlAttrDefine {
     pub info: Vec<Info>,
 }
 
-impl HlAttrDefine {
-    pub fn parse(value: Value) -> Option<Self> {
+impl Parse for HlAttrDefine {
+    fn parse(value: Value) -> Option<Self> {
         let mut iter = parse_array(value)?.into_iter();
         Some(Self {
             id: parse_u64(iter.next()?)?,
@@ -66,8 +66,8 @@ pub struct Attributes {
     pub other: Vec<(String, Value)>,
 }
 
-impl Attributes {
-    pub fn parse(value: Value) -> Option<Self> {
+impl Parse for Attributes {
+    fn parse(value: Value) -> Option<Self> {
         let mut out = Self::default();
         for (k, v) in parse_map(value)? {
             let k = String::parse(k)?;
@@ -128,8 +128,8 @@ pub struct Info {
     pub id: Option<u64>,
 }
 
-impl Info {
-    pub fn parse(value: Value) -> Option<Self> {
+impl Parse for Info {
+    fn parse(value: Value) -> Option<Self> {
         let mut kind = None;
         let mut ui_name = None;
         let mut hi_name = None;

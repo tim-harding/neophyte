@@ -30,7 +30,7 @@ use self::{
     option_set::OptionSet,
     tabline_update::TablineUpdate,
     types::MessageContent,
-    util::{parse_array, parse_u64, Parse},
+    util::{parse_array, Parse},
     win_float_pos::WinFloatPos,
     win_pos::WinPos,
     win_viewport::WinViewport,
@@ -102,27 +102,20 @@ event_from!(CmdlineShow);
 event_from!(WinPos);
 event_from!(WinFloatPos);
 
-fn unique<T>(
-    iter: IntoIter<Value>,
-    parser: fn(Value) -> Option<T>,
-    error: Error,
-) -> Result<Event, Error>
+fn unique<T: Parse>(iter: IntoIter<Value>, error: Error) -> Result<Event, Error>
 where
     Vec<T>: Into<Event>,
 {
-    let mapped: Option<Vec<_>> = iter.map(parser).collect();
+    let mapped: Option<Vec<_>> = iter.map(T::parse).collect();
     mapped.ok_or(error).map(Into::into)
 }
 
-fn shared<T>(
+fn shared<T: Parse>(
     iter: IntoIter<Value>,
-    parser: fn(Value) -> Option<T>,
     event_variant: fn(Vec<T>) -> Event,
     error: Error,
 ) -> Result<Event, Error> {
-    let events: Option<Vec<T>> = iter
-        .map(|v| parser(parse_array(v)?.into_iter().next()?))
-        .collect();
+    let events: Option<Vec<T>> = iter.map(Parse::parse).collect();
     events.map(event_variant).ok_or(error)
 }
 
@@ -135,37 +128,27 @@ impl TryFrom<Value> for Event {
         let event_name = iter.next().ok_or(Error::Malformed)?;
         let event_name = parse_string(event_name).ok_or(Error::Malformed)?;
         match event_name.as_str() {
-            "grid_resize" => unique(iter, GridResize::parse, Error::GridResize),
-            "set_title" => shared(iter, parse_string, Self::SetTitle, Error::SetTitle),
-            "set_icon" => shared(iter, parse_string, Self::SetIcon, Error::SetIcon),
-            "option_set" => unique(iter, OptionSet::parse, Error::OptionSet),
-            "grid_clear" => shared(iter, parse_u64, Event::GridClear, Error::GridClear),
-            "grid_destroy" => shared(iter, parse_u64, Event::GridDestroy, Error::GridDestroy),
-            "default_colors_set" => unique(iter, DefaultColorsSet::parse, Error::DefaultColorsSet),
-            "hl_attr_define" => unique(iter, HlAttrDefine::parse, Error::HlAttrDefine),
-            "mode_change" => unique(iter, ModeChange::parse, Error::ModeChange),
-            "mode_info_set" => unique(iter, ModeInfoSet::parse, Error::ModeInfoSet),
-            "hl_group_set" => unique(iter, HlGroupSet::parse, Error::HlGroupSet),
-            "grid_cursor_goto" => unique(iter, GridCursorGoto::parse, Error::GridCursorGoto),
-            "grid_scroll" => unique(iter, GridScroll::parse, Error::GridScroll),
-            "grid_line" => unique(iter, GridLine::parse, Error::GridLine),
-            "win_viewport" => unique(iter, WinViewport::parse, Error::WinViewport),
-            "tabline_update" => unique(iter, TablineUpdate::parse, Error::TablineUpdate),
-            "msg_showmode" => shared(
-                iter,
-                MessageContent::parse,
-                Self::MsgShowmode,
-                Error::MsgShowmode,
-            ),
-            "msg_showcmd" => shared(
-                iter,
-                MessageContent::parse,
-                Self::MsgShowcmd,
-                Error::MsgShowcmd,
-            ),
-            "cmdline_show" => unique(iter, CmdlineShow::parse, Error::CmdlineShow),
-            "win_pos" => unique(iter, WinPos::parse, Error::WinPos),
-            "win_float_pos" => unique(iter, WinFloatPos::parse, Error::WinFloatPos),
+            "grid_resize" => unique::<GridResize>(iter, Error::GridResize),
+            "set_title" => shared(iter, Self::SetTitle, Error::SetTitle),
+            "set_icon" => shared(iter, Self::SetIcon, Error::SetIcon),
+            "option_set" => unique::<OptionSet>(iter, Error::OptionSet),
+            "grid_clear" => shared(iter, Event::GridClear, Error::GridClear),
+            "grid_destroy" => shared(iter, Event::GridDestroy, Error::GridDestroy),
+            "default_colors_set" => unique::<DefaultColorsSet>(iter, Error::DefaultColorsSet),
+            "hl_attr_define" => unique::<HlAttrDefine>(iter, Error::HlAttrDefine),
+            "mode_change" => unique::<ModeChange>(iter, Error::ModeChange),
+            "mode_info_set" => unique::<ModeInfoSet>(iter, Error::ModeInfoSet),
+            "hl_group_set" => unique::<HlGroupSet>(iter, Error::HlGroupSet),
+            "grid_cursor_goto" => unique::<GridCursorGoto>(iter, Error::GridCursorGoto),
+            "grid_scroll" => unique::<GridScroll>(iter, Error::GridScroll),
+            "grid_line" => unique::<GridLine>(iter, Error::GridLine),
+            "win_viewport" => unique::<WinViewport>(iter, Error::WinViewport),
+            "tabline_update" => unique::<TablineUpdate>(iter, Error::TablineUpdate),
+            "msg_showmode" => shared(iter, Self::MsgShowmode, Error::MsgShowmode),
+            "msg_showcmd" => shared(iter, Self::MsgShowcmd, Error::MsgShowcmd),
+            "cmdline_show" => unique::<CmdlineShow>(iter, Error::CmdlineShow),
+            "win_pos" => unique::<WinPos>(iter, Error::WinPos),
+            "win_float_pos" => unique::<WinFloatPos>(iter, Error::WinFloatPos),
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
             "mouse_on" => Ok(Self::MouseOn),

@@ -1,4 +1,4 @@
-use super::util::{map_array, parse_array, parse_u64, ValueIter};
+use super::util::{map_array, parse_array, parse_u64, Parse, ValueIter};
 use nvim_rs::Value;
 
 /// Redraw a continuous part of a row on a grid.
@@ -16,8 +16,8 @@ pub struct GridLine {
     // I don't know how to make it show up.
 }
 
-impl GridLine {
-    pub fn parse(value: Value) -> Option<Self> {
+impl Parse for GridLine {
+    fn parse(value: Value) -> Option<Self> {
         let mut iter = parse_array(value)?.into_iter();
         Some(Self {
             grid: parse_u64(iter.next()?)?,
@@ -40,7 +40,7 @@ pub struct Cell {
     pub repeat: Option<u64>,
 }
 
-impl Cell {
+impl Parse for Cell {
     fn parse(value: Value) -> Option<Self> {
         let mut iter = ValueIter::new(value)?;
         Some(Self {

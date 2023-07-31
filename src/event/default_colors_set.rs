@@ -1,4 +1,4 @@
-use super::util::ValueIter;
+use super::util::{Parse, ValueIter};
 use nvim_rs::Value;
 
 /// Sets the default foreground, background, and special colors.
@@ -16,8 +16,8 @@ pub struct DefaultColorsSet {
     pub cterm_bg: u64,
 }
 
-impl DefaultColorsSet {
-    pub fn parse(value: Value) -> Option<Self> {
+impl Parse for DefaultColorsSet {
+    fn parse(value: Value) -> Option<Self> {
         let mut iter = ValueIter::new(value)?;
         Some(Self {
             rgb_fg: iter.next()?,

@@ -1,4 +1,4 @@
-use super::util::ValueIter;
+use super::util::{Parse, ValueIter};
 use nvim_rs::Value;
 
 /// Scroll a grid region. This is semantically unrelated to editor scrolling,
@@ -56,8 +56,8 @@ pub struct GridScroll {
     pub cols: u64,
 }
 
-impl GridScroll {
-    pub fn parse(value: Value) -> Option<Self> {
+impl Parse for GridScroll {
+    fn parse(value: Value) -> Option<Self> {
         let mut iter = ValueIter::new(value)?;
         Some(Self {
             grid: iter.next()?,

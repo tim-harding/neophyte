@@ -16,8 +16,8 @@ pub struct WinFloatPos {
     // TODO: There is an additional undocumented u64 parameter. Investigate.
 }
 
-impl WinFloatPos {
-    pub fn parse(value: Value) -> Option<Self> {
+impl Parse for WinFloatPos {
+    fn parse(value: Value) -> Option<Self> {
         let mut iter = ValueIter::new(value)?;
         Some(Self {
             grid: iter.next()?,

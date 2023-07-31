@@ -1,4 +1,4 @@
-use super::util::ValueIter;
+use super::util::{Parse, ValueIter};
 use nvim_rs::Value;
 
 /// Set the current grid and cursor position
@@ -12,8 +12,8 @@ pub struct GridCursorGoto {
     pub column: u64,
 }
 
-impl GridCursorGoto {
-    pub fn parse(value: Value) -> Option<Self> {
+impl Parse for GridCursorGoto {
+    fn parse(value: Value) -> Option<Self> {
         let mut iter = ValueIter::new(value)?;
         Some(Self {
             grid: iter.next()?,

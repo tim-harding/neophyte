@@ -1,4 +1,7 @@
-use super::{types::Window, util::ValueIter};
+use super::{
+    types::Window,
+    util::{Parse, ValueIter},
+};
 use nvim_rs::Value;
 
 /// Indicates the range of buffer text displayed in the window, as well as the
@@ -28,8 +31,8 @@ pub struct WinViewport {
     pub scroll_delta: i64,
 }
 
-impl WinViewport {
-    pub fn parse(value: Value) -> Option<Self> {
+impl Parse for WinViewport {
+    fn parse(value: Value) -> Option<Self> {
         let mut iter = ValueIter::new(value)?;
         Some(Self {
             grid: iter.next()?,

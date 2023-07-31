@@ -1,4 +1,4 @@
-use super::util::ValueIter;
+use super::util::{Parse, ValueIter};
 use nvim_rs::Value;
 
 /// Editor mode changed.
@@ -10,8 +10,8 @@ pub struct ModeChange {
     pub mode_idx: u64,
 }
 
-impl ModeChange {
-    pub fn parse(value: Value) -> Option<Self> {
+impl Parse for ModeChange {
+    fn parse(value: Value) -> Option<Self> {
         let mut iter = ValueIter::new(value)?;
         Some(Self {
             mode: iter.next()?,
