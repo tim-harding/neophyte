@@ -88,7 +88,7 @@ async fn async_main() {
     tokio::spawn(async move {
         neovim
             .input(
-                "Othings<esc>:lua vim.api.nvim_open_win(0, true, {relative='win', row=3, col=3, width=12, height=3})<cr>:close<cr>",
+                "Othings<esc>:lua vim.api.nvim_buf_set_extmark(0, vim.api.create_namespace('hi'), 0,0)<cr>",
             )
             .await
             .unwrap();
