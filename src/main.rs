@@ -94,7 +94,7 @@ async fn async_main() {
 
     tokio::spawn(async move {
         neovim
-            .input(":lua print('hello')<cr>:messages<cr>")
+            .input(":lua print('hello')<cr>:lua print('world')<cr>:messages<cr>")
             .await
             .unwrap();
     });
