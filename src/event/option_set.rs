@@ -1,4 +1,4 @@
-use super::util::{parse_array, parse_bool, parse_string, parse_u64};
+use super::util::{Parse, ValueIter};
 use nvim_rs::Value;
 
 /// UI-related option change.
@@ -67,36 +67,38 @@ pub enum OptionSet {
 
 impl OptionSet {
     pub fn parse(value: Value) -> Option<Self> {
-        let mut iter = parse_array(value)?.into_iter();
-        let name = parse_string(iter.next()?)?;
-        let value = iter.next()?;
+        let mut iter = ValueIter::new(value)?;
+        let name: String = iter.next()?;
         Some(match name.as_str() {
-            "arabicshape" => Self::Arabicshape(parse_bool(value)?),
-            "ambiwidth" => Self::Ambiwidth(Ambiwidth::parse(value)?),
-            "emoji" => Self::Emoji(parse_bool(value)?),
-            "guifont" => Self::Guifont(parse_string(value)?),
-            "guifontwide" => Self::Guifontwide(parse_string(value)?),
-            "linespace" => Self::Linespace(parse_u64(value)?),
-            "mousefocus" => Self::Mousefocus(parse_bool(value)?),
-            "mousemoveevent" => Self::Mousemoveevent(parse_bool(value)?),
-            "pumblend" => Self::Pumblend(parse_u64(value)?),
-            "showtabline" => Self::Showtabline(parse_u64(value)?),
-            "termguicolors" => Self::Termguicolors(parse_bool(value)?),
-            "ext_cmdline" => Self::ExtCmdline(parse_bool(value)?),
-            "ext_hlstate" => Self::ExtHlstate(parse_bool(value)?),
-            "ext_linegrid" => Self::ExtLinegrid(parse_bool(value)?),
-            "ext_messages" => Self::ExtMessages(parse_bool(value)?),
-            "ext_multigrid" => Self::ExtMultigrid(parse_bool(value)?),
-            "ext_popupmenu" => Self::ExtPopupmenu(parse_bool(value)?),
-            "ext_tabline" => Self::ExtTabline(parse_bool(value)?),
-            "ext_termcolors" => Self::ExtTermcolors(parse_bool(value)?),
-            "term_name" => Self::TermName(parse_string(value)?),
-            "term_colors" => Self::TermColors(parse_u64(value)?),
-            "term_background" => Self::TermBackground(parse_u64(value)?),
-            "stdin_fd" => Self::StdinFd(parse_u64(value)?),
-            "stdin_tty" => Self::StdinTty(parse_bool(value)?),
-            "stdout_tty" => Self::StdoutTty(parse_bool(value)?),
-            _ => Self::Other { name, value },
+            "arabicshape" => Self::Arabicshape(iter.next()?),
+            "ambiwidth" => Self::Ambiwidth(iter.next()?),
+            "emoji" => Self::Emoji(iter.next()?),
+            "guifont" => Self::Guifont(iter.next()?),
+            "guifontwide" => Self::Guifontwide(iter.next()?),
+            "linespace" => Self::Linespace(iter.next()?),
+            "mousefocus" => Self::Mousefocus(iter.next()?),
+            "mousemoveevent" => Self::Mousemoveevent(iter.next()?),
+            "pumblend" => Self::Pumblend(iter.next()?),
+            "showtabline" => Self::Showtabline(iter.next()?),
+            "termguicolors" => Self::Termguicolors(iter.next()?),
+            "ext_cmdline" => Self::ExtCmdline(iter.next()?),
+            "ext_hlstate" => Self::ExtHlstate(iter.next()?),
+            "ext_linegrid" => Self::ExtLinegrid(iter.next()?),
+            "ext_messages" => Self::ExtMessages(iter.next()?),
+            "ext_multigrid" => Self::ExtMultigrid(iter.next()?),
+            "ext_popupmenu" => Self::ExtPopupmenu(iter.next()?),
+            "ext_tabline" => Self::ExtTabline(iter.next()?),
+            "ext_termcolors" => Self::ExtTermcolors(iter.next()?),
+            "term_name" => Self::TermName(iter.next()?),
+            "term_colors" => Self::TermColors(iter.next()?),
+            "term_background" => Self::TermBackground(iter.next()?),
+            "stdin_fd" => Self::StdinFd(iter.next()?),
+            "stdin_tty" => Self::StdinTty(iter.next()?),
+            "stdout_tty" => Self::StdoutTty(iter.next()?),
+            _ => Self::Other {
+                name,
+                value: iter.next()?,
+            },
         })
     }
 }
@@ -110,9 +112,9 @@ pub enum Ambiwidth {
     Double,
 }
 
-impl Ambiwidth {
+impl Parse for Ambiwidth {
     fn parse(value: Value) -> Option<Self> {
-        let s = parse_string(value)?;
+        let s = String::parse(value)?;
         match s.as_str() {
             "single" => Some(Self::Single),
             "double" => Some(Self::Double),

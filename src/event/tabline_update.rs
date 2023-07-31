@@ -1,6 +1,6 @@
 use super::{
     types::{Buffer, Tabpage},
-    util::{map_array, parse_array, parse_map, parse_string, Parse},
+    util::{parse_map, MaybeInto, Parse, ValueIter},
 };
 use nvim_rs::Value;
 
@@ -12,14 +12,14 @@ pub struct TablineUpdate {
     pub buffers: Vec<BufferInfo>,
 }
 
-impl TablineUpdate {
-    pub fn parse(value: Value) -> Option<Self> {
-        let mut iter = parse_array(value)?.into_iter();
+impl Parse for TablineUpdate {
+    fn parse(value: Value) -> Option<Self> {
+        let mut iter = ValueIter::new(value)?;
         Some(Self {
-            curtab: Tabpage::parse(iter.next()?)?,
-            tabs: map_array(iter.next()?, Tab::parse)?,
-            curbuf: Buffer::parse(iter.next()?)?,
-            buffers: map_array(iter.next()?, BufferInfo::parse)?,
+            curtab: iter.next()?,
+            tabs: iter.next()?,
+            curbuf: iter.next()?,
+            buffers: iter.next()?,
         })
     }
 }
@@ -30,16 +30,16 @@ pub struct Tab {
     pub name: String,
 }
 
-impl Tab {
-    pub fn parse(value: Value) -> Option<Self> {
+impl Parse for Tab {
+    fn parse(value: Value) -> Option<Self> {
         let map = parse_map(value)?;
         let mut tab = None;
         let mut name = None;
         for (k, v) in map {
-            let k = parse_string(k)?;
+            let k = String::parse(k)?;
             match k.as_str() {
-                "tab" => tab = Tabpage::parse(v),
-                "name" => name = parse_string(v),
+                "tab" => tab = v.maybe_into(),
+                "name" => name = v.maybe_into(),
                 _ => return None,
             };
         }
@@ -56,16 +56,16 @@ pub struct BufferInfo {
     pub name: String,
 }
 
-impl BufferInfo {
-    pub fn parse(value: Value) -> Option<Self> {
+impl Parse for BufferInfo {
+    fn parse(value: Value) -> Option<Self> {
         let map = parse_map(value)?;
         let mut buffer = None;
         let mut name = None;
         for (k, v) in map {
-            let k = parse_string(k)?;
+            let k = String::parse(k)?;
             match k.as_str() {
-                "buffer" => buffer = Buffer::parse(v),
-                "name" => name = parse_string(v),
+                "buffer" => buffer = v.maybe_into(),
+                "name" => name = v.maybe_into(),
                 _ => return None,
             };
         }

@@ -1,7 +1,4 @@
-use super::util::{
-    map_array, maybe_field, maybe_other_field, parse_array, parse_bool, parse_map, parse_string,
-    parse_u64,
-};
+use super::util::{maybe_field, maybe_other_field, parse_map, Parse, ValueIter};
 use nvim_rs::Value;
 use std::fmt::{self, Debug, Formatter};
 
@@ -16,10 +13,10 @@ pub struct ModeInfoSet {
 
 impl ModeInfoSet {
     pub fn parse(value: Value) -> Option<Self> {
-        let mut iter = parse_array(value)?.into_iter();
+        let mut iter = ValueIter::new(value)?;
         Some(Self {
-            cursor_style_enabled: parse_bool(iter.next()?)?,
-            mode_info: map_array(iter.next()?, ModeInfo::parse)?,
+            cursor_style_enabled: iter.next()?,
+            mode_info: iter.next()?,
         })
     }
 }
@@ -49,22 +46,22 @@ pub struct ModeInfo {
     pub other: Vec<(String, Value)>,
 }
 
-impl ModeInfo {
-    pub fn parse(value: Value) -> Option<Self> {
+impl Parse for ModeInfo {
+    fn parse(value: Value) -> Option<Self> {
         let mut out = Self::default();
         let value = parse_map(value)?;
         for (k, v) in value {
-            let k = parse_string(k)?;
+            let k = String::parse(k)?;
             match k.as_str() {
-                "cursor_shape" => out.cursor_shape = Some(CursorShape::parse(v)?),
-                "cell_percentage" => out.cell_percentage = Some(parse_u64(v)?),
-                "blinkwait" => out.blinkwait = Some(parse_u64(v)?),
-                "blinkon" => out.blinkon = Some(parse_u64(v)?),
-                "blinkoff" => out.blinkoff = Some(parse_u64(v)?),
-                "attr_id" => out.attr_id = Some(parse_u64(v)?),
-                "attr_id_lm" => out.attr_id_lm = Some(parse_u64(v)?),
-                "short_name" => out.short_name = Some(parse_string(v)?),
-                "name" => out.name = Some(parse_string(v)?),
+                "cursor_shape" => out.cursor_shape = Some(Parse::parse(v)?),
+                "cell_percentage" => out.cell_percentage = Some(Parse::parse(v)?),
+                "blinkwait" => out.blinkwait = Some(Parse::parse(v)?),
+                "blinkon" => out.blinkon = Some(Parse::parse(v)?),
+                "blinkoff" => out.blinkoff = Some(Parse::parse(v)?),
+                "attr_id" => out.attr_id = Some(Parse::parse(v)?),
+                "attr_id_lm" => out.attr_id_lm = Some(Parse::parse(v)?),
+                "short_name" => out.short_name = Some(Parse::parse(v)?),
+                "name" => out.name = Some(Parse::parse(v)?),
                 _ => out.other.push((k, v)),
             }
         }
@@ -96,9 +93,9 @@ pub enum CursorShape {
     Vertical,
 }
 
-impl CursorShape {
-    pub fn parse(value: Value) -> Option<Self> {
-        match parse_string(value)?.as_str() {
+impl Parse for CursorShape {
+    fn parse(value: Value) -> Option<Self> {
+        match String::parse(value)?.as_str() {
             "block" => Some(Self::Block),
             "horizontal" => Some(Self::Horizontal),
             "vertical" => Some(Self::Vertical),

@@ -1,7 +1,4 @@
-use super::{
-    types::Window,
-    util::{parse_array, parse_i64, parse_u64, Parse},
-};
+use super::{types::Window, util::ValueIter};
 use nvim_rs::Value;
 
 /// Indicates the range of buffer text displayed in the window, as well as the
@@ -33,18 +30,16 @@ pub struct WinViewport {
 
 impl WinViewport {
     pub fn parse(value: Value) -> Option<Self> {
-        let mut iter = parse_array(value)?.into_iter();
-        let grid = parse_u64(iter.next()?)?;
-        let win = Window::parse(iter.next()?)?;
+        let mut iter = ValueIter::new(value)?;
         Some(Self {
-            grid,
-            win,
-            topline: parse_u64(iter.next()?)?,
-            botline: parse_u64(iter.next()?)?,
-            curline: parse_u64(iter.next()?)?,
-            curcol: parse_u64(iter.next()?)?,
-            line_count: parse_u64(iter.next()?)?,
-            scroll_delta: parse_i64(iter.next()?)?,
+            grid: iter.next()?,
+            win: iter.next()?,
+            topline: iter.next()?,
+            botline: iter.next()?,
+            curline: iter.next()?,
+            curcol: iter.next()?,
+            line_count: iter.next()?,
+            scroll_delta: iter.next()?,
         })
     }
 }

@@ -1,6 +1,6 @@
 use super::{
     types::Window,
-    util::{parse_string, ValueIter, Parse},
+    util::{Parse, ValueIter},
 };
 use nvim_rs::Value;
 
@@ -41,7 +41,7 @@ pub enum Anchor {
 
 impl Parse for Anchor {
     fn parse(value: Value) -> Option<Self> {
-        let s = parse_string(value)?;
+        let s = String::parse(value)?;
         match s.as_str() {
             "NW" => Some(Self::Nw),
             "NE" => Some(Self::Ne),

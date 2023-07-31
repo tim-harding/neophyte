@@ -1,4 +1,4 @@
-use super::util::{parse_array, parse_u64};
+use super::util::ValueIter;
 use nvim_rs::Value;
 
 /// Resize a grid
@@ -14,7 +14,7 @@ pub struct GridResize {
 
 impl GridResize {
     pub fn parse(value: Value) -> Option<Self> {
-        let mut iter = parse_array(value)?.into_iter().map(parse_u64).flatten();
+        let mut iter = ValueIter::new(value)?;
         Some(Self {
             grid: iter.next()?,
             width: iter.next()?,

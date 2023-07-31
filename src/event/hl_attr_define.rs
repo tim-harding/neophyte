@@ -1,6 +1,5 @@
 use super::util::{
-    map_array, maybe_field, maybe_other_field, parse_array, parse_bool, parse_map, parse_string,
-    parse_u64,
+    map_array, maybe_field, maybe_other_field, parse_array, parse_map, parse_u64, Parse,
 };
 use nvim_rs::Value;
 use std::fmt::{self, Debug, Formatter};
@@ -70,24 +69,23 @@ pub struct Attributes {
 impl Attributes {
     pub fn parse(value: Value) -> Option<Self> {
         let mut out = Self::default();
-        for pair in parse_map(value)? {
-            let (k, v) = pair;
-            let k = parse_string(k)?;
+        for (k, v) in parse_map(value)? {
+            let k = String::parse(k)?;
             match k.as_str() {
-                "foreground" => out.foreground = Some(parse_u64(v)?),
-                "background" => out.background = Some(parse_u64(v)?),
-                "special" => out.special = Some(parse_u64(v)?),
-                "reverse" => out.reverse = Some(parse_bool(v)?),
-                "italic" => out.italic = Some(parse_bool(v)?),
-                "bold" => out.bold = Some(parse_bool(v)?),
-                "strikethrough" => out.strikethrough = Some(parse_bool(v)?),
-                "underline" => out.underline = Some(parse_bool(v)?),
-                "undercurl" => out.undercurl = Some(parse_bool(v)?),
-                "underdouble" => out.underdouble = Some(parse_bool(v)?),
-                "underdotted" => out.underdotted = Some(parse_bool(v)?),
-                "underdashed" => out.underdashed = Some(parse_bool(v)?),
-                "altfont" => out.altfont = Some(parse_bool(v)?),
-                "blend" => out.blend = Some(parse_u64(v)?),
+                "foreground" => out.foreground = Some(Parse::parse(v)?),
+                "background" => out.background = Some(Parse::parse(v)?),
+                "special" => out.special = Some(Parse::parse(v)?),
+                "reverse" => out.reverse = Some(Parse::parse(v)?),
+                "italic" => out.italic = Some(Parse::parse(v)?),
+                "bold" => out.bold = Some(Parse::parse(v)?),
+                "strikethrough" => out.strikethrough = Some(Parse::parse(v)?),
+                "underline" => out.underline = Some(Parse::parse(v)?),
+                "undercurl" => out.undercurl = Some(Parse::parse(v)?),
+                "underdouble" => out.underdouble = Some(Parse::parse(v)?),
+                "underdotted" => out.underdotted = Some(Parse::parse(v)?),
+                "underdashed" => out.underdashed = Some(Parse::parse(v)?),
+                "altfont" => out.altfont = Some(Parse::parse(v)?),
+                "blend" => out.blend = Some(Parse::parse(v)?),
                 _ => out.other.push((k, v)),
             }
         }
@@ -138,12 +136,12 @@ impl Info {
         let mut id = None;
         let map = parse_map(value)?;
         for (k, v) in map {
-            let k = parse_string(k)?;
+            let k = String::parse(k)?;
             match k.as_str() {
-                "kind" => kind = Some(Kind::parse(v)?),
-                "ui_name" => ui_name = Some(parse_string(v)?),
-                "hi_name" => hi_name = Some(parse_string(v)?),
-                "id" => id = Some(parse_u64(v)?),
+                "kind" => kind = Some(Parse::parse(v)?),
+                "ui_name" => ui_name = Some(Parse::parse(v)?),
+                "hi_name" => hi_name = Some(Parse::parse(v)?),
+                "id" => id = Some(Parse::parse(v)?),
                 _ => eprintln!("Unrecognized hlstate keyword: {k}"),
             }
         }
@@ -168,9 +166,9 @@ pub enum Kind {
     Terminal,
 }
 
-impl Kind {
-    pub fn parse(value: Value) -> Option<Self> {
-        let s = parse_string(value)?;
+impl Parse for Kind {
+    fn parse(value: Value) -> Option<Self> {
+        let s = String::parse(value)?;
         match s.as_str() {
             "ui" => Some(Self::Ui),
             "syntax" => Some(Self::Syntax),

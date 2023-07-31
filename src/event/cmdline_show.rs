@@ -1,7 +1,4 @@
-use super::{
-    types::MessageContent,
-    util::{parse_array, parse_string, parse_u64},
-};
+use super::{types::MessageContent, util::ValueIter};
 use nvim_rs::Value;
 
 #[derive(Debug, Clone)]
@@ -16,14 +13,14 @@ pub struct CmdlineShow {
 
 impl CmdlineShow {
     pub(super) fn parse(value: Value) -> Option<Self> {
-        let mut iter = parse_array(value)?.into_iter();
+        let mut iter = ValueIter::new(value)?;
         Some(Self {
-            content: MessageContent::parse(iter.next()?)?,
-            pos: parse_u64(iter.next()?)?,
-            firstc: parse_string(iter.next()?)?,
-            prompt: parse_string(iter.next()?)?,
-            indent: parse_u64(iter.next()?)?,
-            level: parse_u64(iter.next()?)?,
+            content: iter.next()?,
+            pos: iter.next()?,
+            firstc: iter.next()?,
+            prompt: iter.next()?,
+            indent: iter.next()?,
+            level: iter.next()?,
         })
     }
 }

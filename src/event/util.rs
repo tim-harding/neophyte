@@ -44,9 +44,41 @@ impl Parse for Value {
     }
 }
 
-impl Parse for Vec<Value> {
+impl<T: Parse> Parse for Vec<T> {
     fn parse(value: Value) -> Option<Self> {
-        parse_array(value)
+        map_array(value, T::parse)
+    }
+}
+
+impl<T: Parse> Parse for Option<T> {
+    fn parse(value: Value) -> Option<Self> {
+        Some(T::parse(value))
+    }
+}
+
+pub trait MaybeFrom<T>: Sized {
+    fn maybe_from(value: T) -> Option<Self>;
+}
+
+impl<T> MaybeFrom<Value> for T
+where
+    T: Parse,
+{
+    fn maybe_from(value: Value) -> Option<Self> {
+        Self::parse(value)
+    }
+}
+
+pub trait MaybeInto<T>: Sized {
+    fn maybe_into(self) -> Option<T>;
+}
+
+impl<T, U> MaybeInto<U> for T
+where
+    U: MaybeFrom<T>,
+{
+    fn maybe_into(self) -> Option<U> {
+        U::maybe_from(self)
     }
 }
 
@@ -131,17 +163,5 @@ impl ValueIter {
 
     pub fn next<T: Parse>(&mut self) -> Option<T> {
         T::parse(self.0.next()?)
-    }
-
-    pub fn next_value(&mut self) -> Option<Value> {
-        self.0.next()
-    }
-
-    pub fn next_ext(&mut self, expected_type: i8) -> Option<Vec<u8>> {
-        parse_ext(self.next()?, expected_type)
-    }
-
-    pub fn next_map(&mut self) -> Option<Vec<(Value, Value)>> {
-        parse_map(self.next()?)
     }
 }

@@ -30,7 +30,7 @@ use self::{
     option_set::OptionSet,
     tabline_update::TablineUpdate,
     types::MessageContent,
-    util::{parse_array, parse_u64},
+    util::{parse_array, parse_u64, Parse},
     win_float_pos::WinFloatPos,
     win_pos::WinPos,
     win_viewport::WinViewport,
