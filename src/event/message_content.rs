@@ -2,11 +2,11 @@ use super::util::{MaybeInto, Parse, Values};
 use nvim_rs::Value;
 
 #[derive(Debug, Clone)]
-pub struct MessageContent {
-    pub chunks: Vec<MessageContentChunk>,
+pub struct Content {
+    pub chunks: Vec<ContentChunk>,
 }
 
-impl Parse for MessageContent {
+impl Parse for Content {
     fn parse(value: Value) -> Option<Self> {
         Some(Self {
             chunks: value.maybe_into()?,
@@ -15,12 +15,12 @@ impl Parse for MessageContent {
 }
 
 #[derive(Debug, Clone)]
-pub struct MessageContentChunk {
+pub struct ContentChunk {
     pub attr_id: u64,
     pub text_chunk: String,
 }
 
-impl Parse for MessageContentChunk {
+impl Parse for ContentChunk {
     fn parse(value: Value) -> Option<Self> {
         let mut iter = Values::new(value)?;
         Some(Self {
