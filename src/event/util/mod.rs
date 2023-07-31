@@ -65,4 +65,8 @@ impl Values {
     pub fn map<T: Parse>(self) -> Option<Vec<T>> {
         self.into_inner().map(T::parse).collect()
     }
+
+    pub fn map_with<T: Parse>(self, f: impl Fn(Value) -> Option<Value>) -> Option<Vec<T>> {
+        self.into_inner().map(|v| T::parse(f(v)?)).collect()
+    }
 }

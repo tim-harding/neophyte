@@ -102,7 +102,10 @@ fn shared<T: Parse>(
     event_variant: fn(Vec<T>) -> Event,
     error: Error,
 ) -> Result<Event, Error> {
-    Ok(event_variant(iter.map().ok_or(error)?))
+    Ok(event_variant(
+        iter.map_with(|v| Vec::parse(v)?.into_iter().next())
+            .ok_or(error)?,
+    ))
 }
 
 impl TryFrom<Value> for Event {
