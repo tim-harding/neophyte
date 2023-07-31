@@ -87,7 +87,7 @@ async fn async_main() {
 
     tokio::spawn(async move {
         neovim
-            .input("oThings and stuff<esc>......ggG")
+            .input("oThings and stuff<esc>......:s/and/or<cr>ggG")
             .await
             .unwrap();
     });

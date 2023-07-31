@@ -1,24 +1,5 @@
     Finished dev [unoptimized + debuginfo] target(s) in 0.04s
-     Running `target/debug/anvimator tabline_update`
-Unknown event: msg_showmode
-Array(
-    [
-        String(
-            Utf8String {
-                s: Ok(
-                    "msg_showmode",
-                ),
-            },
-        ),
-        Array(
-            [
-                Array(
-                    [],
-                ),
-            ],
-        ),
-    ],
-)
+     Running `target/debug/anvimator msg_showcmd`
 Unknown event: win_pos
 Array(
     [
@@ -68,315 +49,13 @@ Array(
         ),
     ],
 )
-Unknown event: msg_showmode
+Unknown event: cmdline_show
 Array(
     [
         String(
             Utf8String {
                 s: Ok(
-                    "msg_showmode",
-                ),
-            },
-        ),
-        Array(
-            [
-                Array(
-                    [
-                        Array(
-                            [
-                                Integer(
-                                    PosInt(
-                                        645,
-                                    ),
-                                ),
-                                String(
-                                    Utf8String {
-                                        s: Ok(
-                                            "-- INSERT --",
-                                        ),
-                                    },
-                                ),
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        ),
-        Array(
-            [
-                Array(
-                    [],
-                ),
-            ],
-        ),
-    ],
-)
-Unknown event: msg_showmode
-Array(
-    [
-        String(
-            Utf8String {
-                s: Ok(
-                    "msg_showmode",
-                ),
-            },
-        ),
-        Array(
-            [
-                Array(
-                    [
-                        Array(
-                            [
-                                Integer(
-                                    PosInt(
-                                        645,
-                                    ),
-                                ),
-                                String(
-                                    Utf8String {
-                                        s: Ok(
-                                            "-- INSERT --",
-                                        ),
-                                    },
-                                ),
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        ),
-        Array(
-            [
-                Array(
-                    [],
-                ),
-            ],
-        ),
-    ],
-)
-Unknown event: msg_showmode
-Array(
-    [
-        String(
-            Utf8String {
-                s: Ok(
-                    "msg_showmode",
-                ),
-            },
-        ),
-        Array(
-            [
-                Array(
-                    [
-                        Array(
-                            [
-                                Integer(
-                                    PosInt(
-                                        645,
-                                    ),
-                                ),
-                                String(
-                                    Utf8String {
-                                        s: Ok(
-                                            "-- INSERT --",
-                                        ),
-                                    },
-                                ),
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        ),
-        Array(
-            [
-                Array(
-                    [],
-                ),
-            ],
-        ),
-    ],
-)
-Unknown event: msg_showmode
-Array(
-    [
-        String(
-            Utf8String {
-                s: Ok(
-                    "msg_showmode",
-                ),
-            },
-        ),
-        Array(
-            [
-                Array(
-                    [
-                        Array(
-                            [
-                                Integer(
-                                    PosInt(
-                                        645,
-                                    ),
-                                ),
-                                String(
-                                    Utf8String {
-                                        s: Ok(
-                                            "-- INSERT --",
-                                        ),
-                                    },
-                                ),
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        ),
-        Array(
-            [
-                Array(
-                    [],
-                ),
-            ],
-        ),
-    ],
-)
-Unknown event: msg_showmode
-Array(
-    [
-        String(
-            Utf8String {
-                s: Ok(
-                    "msg_showmode",
-                ),
-            },
-        ),
-        Array(
-            [
-                Array(
-                    [
-                        Array(
-                            [
-                                Integer(
-                                    PosInt(
-                                        645,
-                                    ),
-                                ),
-                                String(
-                                    Utf8String {
-                                        s: Ok(
-                                            "-- INSERT --",
-                                        ),
-                                    },
-                                ),
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        ),
-        Array(
-            [
-                Array(
-                    [],
-                ),
-            ],
-        ),
-    ],
-)
-Unknown event: msg_showmode
-Array(
-    [
-        String(
-            Utf8String {
-                s: Ok(
-                    "msg_showmode",
-                ),
-            },
-        ),
-        Array(
-            [
-                Array(
-                    [
-                        Array(
-                            [
-                                Integer(
-                                    PosInt(
-                                        645,
-                                    ),
-                                ),
-                                String(
-                                    Utf8String {
-                                        s: Ok(
-                                            "-- INSERT --",
-                                        ),
-                                    },
-                                ),
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        ),
-        Array(
-            [
-                Array(
-                    [],
-                ),
-            ],
-        ),
-    ],
-)
-Unknown event: msg_showmode
-Array(
-    [
-        String(
-            Utf8String {
-                s: Ok(
-                    "msg_showmode",
-                ),
-            },
-        ),
-        Array(
-            [
-                Array(
-                    [
-                        Array(
-                            [
-                                Integer(
-                                    PosInt(
-                                        645,
-                                    ),
-                                ),
-                                String(
-                                    Utf8String {
-                                        s: Ok(
-                                            "-- INSERT --",
-                                        ),
-                                    },
-                                ),
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        ),
-        Array(
-            [
-                Array(
-                    [],
-                ),
-            ],
-        ),
-    ],
-)
-Failed to parse win_viewport event
-Unknown event: msg_showcmd
-Array(
-    [
-        String(
-            Utf8String {
-                s: Ok(
-                    "msg_showcmd",
+                    "cmdline_show",
                 ),
             },
         ),
@@ -394,7 +73,7 @@ Array(
                                 String(
                                     Utf8String {
                                         s: Ok(
-                                            "G",
+                                            "s/and/or",
                                         ),
                                     },
                                 ),
@@ -402,24 +81,55 @@ Array(
                         ),
                     ],
                 ),
+                Integer(
+                    PosInt(
+                        8,
+                    ),
+                ),
+                String(
+                    Utf8String {
+                        s: Ok(
+                            ":",
+                        ),
+                    },
+                ),
+                String(
+                    Utf8String {
+                        s: Ok(
+                            "",
+                        ),
+                    },
+                ),
+                Integer(
+                    PosInt(
+                        0,
+                    ),
+                ),
+                Integer(
+                    PosInt(
+                        1,
+                    ),
+                ),
             ],
         ),
     ],
 )
-Unknown event: msg_showcmd
+Unknown event: cmdline_hide
 Array(
     [
         String(
             Utf8String {
                 s: Ok(
-                    "msg_showcmd",
+                    "cmdline_hide",
                 ),
             },
         ),
         Array(
             [
-                Array(
-                    [],
+                Integer(
+                    PosInt(
+                        1,
+                    ),
                 ),
             ],
         ),

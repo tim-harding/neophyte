@@ -25,6 +25,7 @@ use self::{
     mode_info_set::ModeInfoSet,
     option_set::OptionSet,
     tabline_update::TablineUpdate,
+    types::MessageContentChunk,
     util::{parse_array, parse_u64},
     win_viewport::WinViewport,
 };
@@ -50,6 +51,8 @@ pub enum Event {
     GridLine(Vec<GridLine>),
     WinViewport(WinViewport),
     TablineUpdate(TablineUpdate),
+    MsgShowmode(Vec<Vec<MessageContentChunk>>),
+    MsgShowcmd(Vec<Vec<MessageContentChunk>>),
     Clear,
     EolClear,
     MouseOn,
@@ -143,6 +146,22 @@ fn single_string(
         .ok_or(e)
 }
 
+fn showmode_showcmd(
+    iter: IntoIter<Value>,
+    f: fn(Vec<Vec<MessageContentChunk>>) -> Event,
+    e: Error,
+) -> Result<Event, Error> {
+    let events: Option<Vec<_>> = iter
+        .map(|value| -> Option<Vec<MessageContentChunk>> {
+            parse_array(parse_array(value)?.into_iter().next()?)?
+                .into_iter()
+                .map(MessageContentChunk::parse)
+                .collect()
+        })
+        .collect();
+    events.map(f).ok_or(e)
+}
+
 impl TryFrom<Value> for Event {
     type Error = Error;
 
@@ -168,6 +187,8 @@ impl TryFrom<Value> for Event {
             "grid_line" => multi(iter, GridLine::parse, Error::GridLine),
             "win_viewport" => single(iter, WinViewport::parse, Error::WinViewport),
             "tabline_update" => single(iter, TablineUpdate::parse, Error::TablineUpdate),
+            "msg_showmode" => showmode_showcmd(iter, Self::MsgShowmode, Error::MsgShowmode),
+            "msg_showcmd" => showmode_showcmd(iter, Self::MsgShowcmd, Error::MsgShowcmd),
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
             "mouse_on" => Ok(Self::MouseOn),
@@ -222,4 +243,8 @@ pub enum Error {
     WinViewport,
     #[error("Failed to parse tabline_update event")]
     TablineUpdate,
+    #[error("Failed to parse msg_showmode event")]
+    MsgShowmode,
+    #[error("Failed to parse msg_showcmd event")]
+    MsgShowcmd,
 }
