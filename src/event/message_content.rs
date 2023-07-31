@@ -1,7 +1,4 @@
-use super::{
-    parse::Parse,
-    util::{MaybeInto, Values},
-};
+use super::util::{MaybeInto, Parse, Values};
 use nvim_rs::Value;
 
 #[derive(Debug, Clone)]

@@ -1,4 +1,4 @@
-use super::util::Values;
+use super::Values;
 use nvim_rs::Value;
 
 pub trait Parse: Sized {

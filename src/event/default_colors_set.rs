@@ -1,4 +1,4 @@
-use super::{parse::Parse, util::Values};
+use super::util::{Parse, Values};
 use nvim_rs::Value;
 
 /// Sets the default foreground, background, and special colors.

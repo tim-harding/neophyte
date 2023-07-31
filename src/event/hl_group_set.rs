@@ -1,4 +1,4 @@
-use super::{parse::Parse, util::Values};
+use super::util::{Parse, Values};
 use nvim_rs::Value;
 
 /// The built-in highlight group name was set to use the attributes hl_id

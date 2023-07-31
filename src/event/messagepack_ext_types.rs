@@ -1,4 +1,4 @@
-use super::{parse::Parse, util::parse_ext};
+use super::util::{parse_ext, Parse};
 use nvim_rs::Value;
 
 macro_rules! msgpack_ext {

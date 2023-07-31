@@ -11,7 +11,6 @@ mod messagepack_ext_types;
 mod mode_change;
 mod mode_info_set;
 mod option_set;
-mod parse;
 mod tabline_update;
 mod util;
 mod win_float_pos;
@@ -23,7 +22,7 @@ use self::{
     grid_cursor_goto::GridCursorGoto, grid_line::GridLine, grid_resize::GridResize,
     grid_scroll::GridScroll, hl_attr_define::HlAttrDefine, hl_group_set::HlGroupSet,
     message_content::MessageContent, mode_change::ModeChange, mode_info_set::ModeInfoSet,
-    option_set::OptionSet, parse::Parse, tabline_update::TablineUpdate, util::Values,
+    option_set::OptionSet, tabline_update::TablineUpdate, util::Parse, util::Values,
     win_float_pos::WinFloatPos, win_pos::WinPos, win_viewport::WinViewport,
 };
 use nvim_rs::Value;

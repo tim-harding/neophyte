@@ -1,7 +1,4 @@
-use super::{
-    parse::Parse,
-    util::{maybe_field, maybe_other_field, parse_map, Values},
-};
+use super::util::{maybe_field, maybe_other_field, parse_map, Parse, Values};
 use nvim_rs::Value;
 use std::fmt::{self, Debug, Formatter};
 

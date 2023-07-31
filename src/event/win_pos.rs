@@ -1,4 +1,7 @@
-use super::{messagepack_ext_types::Window, parse::Parse, util::Values};
+use super::{
+    messagepack_ext_types::Window,
+    util::{Parse, Values},
+};
 use nvim_rs::Value;
 
 #[derive(Debug, Copy, Clone)]

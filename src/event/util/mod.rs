@@ -1,4 +1,7 @@
-use super::parse::Parse;
+mod parse;
+
+pub use parse::Parse;
+
 use nvim_rs::Value;
 use std::{
     fmt::{Debug, DebugStruct},
