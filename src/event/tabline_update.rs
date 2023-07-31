@@ -1,6 +1,6 @@
 use super::{
     types::{Buffer, Tabpage},
-    util::{map_array, parse_array, parse_map, parse_string},
+    util::{map_array, parse_array, parse_map, parse_string, Parse},
 };
 use nvim_rs::Value;
 

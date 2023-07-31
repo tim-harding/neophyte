@@ -1,7 +1,4 @@
-use super::{
-    types::Window,
-    util::{parse_array, parse_u64},
-};
+use super::{types::Window, util::ValueIter};
 use nvim_rs::Value;
 
 #[derive(Debug, Copy, Clone)]
@@ -16,14 +13,14 @@ pub struct WinPos {
 
 impl WinPos {
     pub(super) fn parse(value: Value) -> Option<Self> {
-        let mut iter = parse_array(value)?.into_iter();
+        let mut iter = ValueIter::new(value)?;
         Some(Self {
-            grid: parse_u64(iter.next()?)?,
-            win: Window::parse(iter.next()?)?,
-            start_row: parse_u64(iter.next()?)?,
-            start_col: parse_u64(iter.next()?)?,
-            width: parse_u64(iter.next()?)?,
-            height: parse_u64(iter.next()?)?,
+            grid: iter.next()?,
+            win: iter.next()?,
+            start_row: iter.next()?,
+            start_col: iter.next()?,
+            width: iter.next()?,
+            height: iter.next()?,
         })
     }
 }

@@ -1,6 +1,6 @@
 use super::{
     types::Window,
-    util::{parse_array, parse_i64, parse_u64},
+    util::{parse_array, parse_i64, parse_u64, Parse},
 };
 use nvim_rs::Value;
 

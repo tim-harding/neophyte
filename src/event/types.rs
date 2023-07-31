@@ -1,4 +1,4 @@
-use super::util::{parse_array, parse_ext, parse_string, parse_u64};
+use super::util::{parse_array, parse_ext, parse_string, parse_u64, Parse};
 use nvim_rs::Value;
 
 fn vec_to_handle(vec: Vec<u8>) -> u64 {
@@ -15,8 +15,8 @@ macro_rules! msgpack_ext {
         #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
         pub struct $x(u64);
 
-        impl $x {
-            pub(super) fn parse(value: Value) -> Option<Self> {
+        impl Parse for $x {
+            fn parse(value: Value) -> Option<Self> {
                 parse_ext(value, $n).map(vec_to_handle).map(Self)
             }
         }

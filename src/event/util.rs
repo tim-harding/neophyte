@@ -4,10 +4,50 @@ use std::{
     vec::IntoIter,
 };
 
-pub trait Parse {
-    fn parse(value: Value) -> Option<Self>
-    where
-        Self: Sized;
+pub trait Parse: Sized {
+    fn parse(value: Value) -> Option<Self>;
+}
+
+impl Parse for bool {
+    fn parse(value: Value) -> Option<Self> {
+        parse_bool(value)
+    }
+}
+
+impl Parse for String {
+    fn parse(value: Value) -> Option<Self> {
+        parse_string(value)
+    }
+}
+
+impl Parse for u64 {
+    fn parse(value: Value) -> Option<Self> {
+        parse_u64(value)
+    }
+}
+
+impl Parse for i64 {
+    fn parse(value: Value) -> Option<Self> {
+        parse_i64(value)
+    }
+}
+
+impl Parse for f64 {
+    fn parse(value: Value) -> Option<Self> {
+        parse_f64(value)
+    }
+}
+
+impl Parse for Value {
+    fn parse(value: Value) -> Option<Self> {
+        Some(value)
+    }
+}
+
+impl Parse for Vec<Value> {
+    fn parse(value: Value) -> Option<Self> {
+        parse_array(value)
+    }
 }
 
 pub fn parse_bool(value: Value) -> Option<bool> {
@@ -89,28 +129,12 @@ impl ValueIter {
         Some(Self(parse_array(value)?.into_iter()))
     }
 
-    pub fn next(&mut self) -> Option<Value> {
+    pub fn next<T: Parse>(&mut self) -> Option<T> {
+        T::parse(self.0.next()?)
+    }
+
+    pub fn next_value(&mut self) -> Option<Value> {
         self.0.next()
-    }
-
-    pub fn next_bool(&mut self) -> Option<bool> {
-        parse_bool(self.next()?)
-    }
-
-    pub fn next_string(&mut self) -> Option<String> {
-        parse_string(self.next()?)
-    }
-
-    pub fn next_u64(&mut self) -> Option<u64> {
-        parse_u64(self.next()?)
-    }
-
-    pub fn next_i64(&mut self) -> Option<i64> {
-        parse_i64(self.next()?)
-    }
-
-    pub fn next_f64(&mut self) -> Option<f64> {
-        parse_f64(self.next()?)
     }
 
     pub fn next_ext(&mut self, expected_type: i8) -> Option<Vec<u8>> {
@@ -119,24 +143,5 @@ impl ValueIter {
 
     pub fn next_map(&mut self) -> Option<Vec<(Value, Value)>> {
         parse_map(self.next()?)
-    }
-
-    pub fn next_parse<P: Parse>(&mut self) -> Option<P> {
-        P::parse(self.next()?)
-    }
-}
-
-fn test(value: Value) -> Option<()> {
-    let mut iter = ValueIter::new(value)?;
-    let b = iter.next_bool()?;
-    let t: Test = iter.next_parse()?;
-    Some(())
-}
-
-struct Test;
-
-impl Parse for Test {
-    fn parse(value: Value) -> Option<Self> {
-        Some(Self)
     }
 }

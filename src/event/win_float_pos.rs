@@ -1,6 +1,6 @@
 use super::{
     types::Window,
-    util::{parse_string, ValueIter},
+    util::{parse_string, ValueIter, Parse},
 };
 use nvim_rs::Value;
 
@@ -20,13 +20,13 @@ impl WinFloatPos {
     pub fn parse(value: Value) -> Option<Self> {
         let mut iter = ValueIter::new(value)?;
         Some(Self {
-            grid: iter.next_u64()?,
-            win: Window::parse(iter.next()?)?,
-            anchor: Anchor::parse(iter.next()?)?,
-            anchor_grid: iter.next_u64()?,
-            anchor_row: iter.next_f64()?,
-            anchor_col: iter.next_f64()?,
-            focusable: iter.next_bool()?,
+            grid: iter.next()?,
+            win: iter.next()?,
+            anchor: iter.next()?,
+            anchor_grid: iter.next()?,
+            anchor_row: iter.next()?,
+            anchor_col: iter.next()?,
+            focusable: iter.next()?,
         })
     }
 }
@@ -39,8 +39,8 @@ pub enum Anchor {
     Se,
 }
 
-impl Anchor {
-    pub fn parse(value: Value) -> Option<Self> {
+impl Parse for Anchor {
+    fn parse(value: Value) -> Option<Self> {
         let s = parse_string(value)?;
         match s.as_str() {
             "NW" => Some(Self::Nw),
