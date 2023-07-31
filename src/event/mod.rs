@@ -86,6 +86,7 @@ pub enum Event {
     CmdlineHide,
     CmdlineBlockHide,
     PopupmenuHide,
+    MsgClear,
     MsgHistoryClear,
 }
 
@@ -198,6 +199,7 @@ impl TryFrom<Value> for Event {
             "cmdline_hide" => Ok(Self::CmdlineHide),
             "cmdline_block_hide" => Ok(Self::CmdlineBlockHide),
             "msg_history_clear" => Ok(Self::MsgHistoryClear),
+            "msg_clear" => Ok(Self::MsgClear),
             "popupmenu_hide" => Ok(Self::PopupmenuHide),
             _ => Err(Error::UnknownEvent(event_name)),
         }
