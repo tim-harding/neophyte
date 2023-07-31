@@ -50,6 +50,7 @@ pub enum Event {
     CmdlineShow(Vec<CmdlineShow>),
     WinPos(Vec<WinPos>),
     WinFloatPos(Vec<WinFloatPos>),
+    MsgRuler(Vec<MessageContent>),
     Clear,
     EolClear,
     MouseOn,
@@ -136,6 +137,7 @@ impl TryFrom<Value> for Event {
             "cmdline_show" => unique::<CmdlineShow>(iter, Error::CmdlineShow),
             "win_pos" => unique::<WinPos>(iter, Error::WinPos),
             "win_float_pos" => unique::<WinFloatPos>(iter, Error::WinFloatPos),
+            "msg_ruler" => shared(iter, Self::MsgRuler, Error::MsgRuler),
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
             "mouse_on" => Ok(Self::MouseOn),
@@ -202,4 +204,6 @@ pub enum Error {
     WinPos,
     #[error("Failed to parse win_float_pos event")]
     WinFloatPos,
+    #[error("Failed to parse msg_ruler event")]
+    MsgRuler,
 }
