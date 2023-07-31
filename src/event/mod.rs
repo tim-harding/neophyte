@@ -12,6 +12,7 @@ mod option_set;
 mod tabline_update;
 mod types;
 mod util;
+mod win_float_pos;
 mod win_pos;
 mod win_viewport;
 
@@ -30,6 +31,7 @@ use self::{
     tabline_update::TablineUpdate,
     types::MessageContent,
     util::{parse_array, parse_u64},
+    win_float_pos::WinFloatPos,
     win_pos::WinPos,
     win_viewport::WinViewport,
 };
@@ -59,6 +61,7 @@ pub enum Event {
     MsgShowcmd(Vec<MessageContent>),
     CmdlineShow(Vec<CmdlineShow>),
     WinPos(Vec<WinPos>),
+    WinFloatPos(Vec<WinFloatPos>),
     Clear,
     EolClear,
     MouseOn,
@@ -97,6 +100,7 @@ event_from!(WinViewport);
 event_from!(TablineUpdate);
 event_from!(CmdlineShow);
 event_from!(WinPos);
+event_from!(WinFloatPos);
 
 fn unique<T>(
     iter: IntoIter<Value>,
@@ -161,6 +165,7 @@ impl TryFrom<Value> for Event {
             ),
             "cmdline_show" => unique(iter, CmdlineShow::parse, Error::CmdlineShow),
             "win_pos" => unique(iter, WinPos::parse, Error::WinPos),
+            "win_float_pos" => unique(iter, WinFloatPos::parse, Error::WinFloatPos),
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
             "mouse_on" => Ok(Self::MouseOn),
@@ -225,4 +230,6 @@ pub enum Error {
     CmdlineShow,
     #[error("Failed to parse win_pos event")]
     WinPos,
+    #[error("Failed to parse win_float_pos event")]
+    WinFloatPos,
 }
