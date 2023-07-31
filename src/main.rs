@@ -93,12 +93,7 @@ async fn async_main() {
     neovim.ui_attach(10, 10, &options).await.unwrap();
 
     tokio::spawn(async move {
-        neovim
-            .input(
-                "Othings<esc>:lua vim.api.nvim_buf_set_extmark(0, vim.api.nvim_create_namespace('hi'), 0,0,{ui_watched = true})<cr>",
-            )
-            .await
-            .unwrap();
+        neovim.input(":Telescope <tab>").await.unwrap();
     });
 
     match io_handle.await {

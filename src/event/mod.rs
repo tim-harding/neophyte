@@ -1,3 +1,4 @@
+mod cmdline_pos;
 mod cmdline_show;
 mod default_colors_set;
 mod grid_cursor_goto;
@@ -22,7 +23,7 @@ mod win_pos;
 mod win_viewport;
 
 use self::{
-    cmdline_show::CmdlineShow, default_colors_set::DefaultColorsSet,
+    cmdline_pos::CmdlinePos, cmdline_show::CmdlineShow, default_colors_set::DefaultColorsSet,
     grid_cursor_goto::GridCursorGoto, grid_line::GridLine, grid_resize::GridResize,
     grid_scroll::GridScroll, hl_attr_define::HlAttrDefine, hl_group_set::HlGroupSet,
     message_content::MessageContent, mode_change::ModeChange, mode_info_set::ModeInfoSet,
@@ -35,6 +36,7 @@ use nvim_rs::Value;
 
 #[derive(Debug, Clone)]
 pub enum Event {
+    CmdlinePos(Vec<CmdlinePos>),
     GridResize(Vec<GridResize>),
     SetTitle(Vec<String>),
     SetIcon(Vec<String>),
@@ -87,6 +89,7 @@ macro_rules! event_from {
     };
 }
 
+event_from!(CmdlinePos);
 event_from!(GridResize);
 event_from!(OptionSet);
 event_from!(DefaultColorsSet);
@@ -160,6 +163,7 @@ impl TryFrom<Value> for Event {
             "msg_set_pos" => unique::<MsgSetPos>(iter, Error::MsgSetPos),
             "msg_show" => unique::<MsgShow>(iter, Error::MsgShow),
             "win_extmark" => unique::<WinExtmark>(iter, Error::WinExtmark),
+            "cmdline_pos" => unique::<CmdlinePos>(iter, Error::CmdlinePos),
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
             "mouse_on" => Ok(Self::MouseOn),
@@ -240,4 +244,6 @@ pub enum Error {
     MsgShow,
     #[error("Failed to parse win_extmark event")]
     WinExtmark,
+    #[error("Failed to parse cmdline_pos event")]
+    CmdlinePos,
 }
