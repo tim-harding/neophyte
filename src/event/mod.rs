@@ -35,7 +35,6 @@ use self::{
     win_pos::WinPos,
     win_viewport::WinViewport,
 };
-use crate::event::util::parse_string;
 use nvim_rs::Value;
 use std::vec::IntoIter;
 
@@ -126,7 +125,7 @@ impl TryFrom<Value> for Event {
         let array = parse_array(value).ok_or(Error::Malformed)?;
         let mut iter = array.into_iter();
         let event_name = iter.next().ok_or(Error::Malformed)?;
-        let event_name = parse_string(event_name).ok_or(Error::Malformed)?;
+        let event_name = String::parse(event_name).ok_or(Error::Malformed)?;
         match event_name.as_str() {
             "grid_resize" => unique::<GridResize>(iter, Error::GridResize),
             "set_title" => shared(iter, Self::SetTitle, Error::SetTitle),

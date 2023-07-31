@@ -1,6 +1,4 @@
-use super::util::{
-    map_array, maybe_field, maybe_other_field, parse_array, parse_map, parse_u64, Parse,
-};
+use super::util::{maybe_field, maybe_other_field, parse_map, Parse, ValueIter};
 use nvim_rs::Value;
 use std::fmt::{self, Debug, Formatter};
 
@@ -19,12 +17,12 @@ pub struct HlAttrDefine {
 
 impl Parse for HlAttrDefine {
     fn parse(value: Value) -> Option<Self> {
-        let mut iter = parse_array(value)?.into_iter();
+        let mut iter = ValueIter::new(value)?;
         Some(Self {
-            id: parse_u64(iter.next()?)?,
-            rgb_attr: Attributes::parse(iter.next()?)?,
-            cterm_attr: Attributes::parse(iter.next()?)?,
-            info: map_array(iter.next()?, Info::parse)?,
+            id: iter.next()?,
+            rgb_attr: iter.next()?,
+            cterm_attr: iter.next()?,
+            info: iter.next()?,
         })
     }
 }
