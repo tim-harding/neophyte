@@ -93,7 +93,7 @@ async fn async_main() {
     neovim.ui_attach(10, 10, &options).await.unwrap();
 
     tokio::spawn(async move {
-        neovim.input(":<tab>").await.unwrap();
+        neovim.input(":<c-v>").await.unwrap();
     });
 
     match io_handle.await {

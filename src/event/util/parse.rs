@@ -23,6 +23,12 @@ impl Parse for String {
     }
 }
 
+impl Parse for char {
+    fn parse(value: Value) -> Option<Self> {
+        String::parse(value)?.chars().next()
+    }
+}
+
 impl Parse for u64 {
     fn parse(value: Value) -> Option<Self> {
         match value {

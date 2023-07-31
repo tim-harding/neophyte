@@ -1,5 +1,6 @@
 mod cmdline_pos;
 mod cmdline_show;
+mod cmdline_special_char;
 mod default_colors_set;
 mod grid_cursor_goto;
 mod grid_line;
@@ -24,11 +25,11 @@ mod win_pos;
 mod win_viewport;
 
 use self::{
-    cmdline_pos::CmdlinePos, cmdline_show::CmdlineShow, default_colors_set::DefaultColorsSet,
-    grid_cursor_goto::GridCursorGoto, grid_line::GridLine, grid_resize::GridResize,
-    grid_scroll::GridScroll, hl_attr_define::HlAttrDefine, hl_group_set::HlGroupSet,
-    message_content::MessageContent, mode_change::ModeChange, mode_info_set::ModeInfoSet,
-    msg_set_pos::MsgSetPos, msg_show::MsgShow, option_set::OptionSet,
+    cmdline_pos::CmdlinePos, cmdline_show::CmdlineShow, cmdline_special_char::CmdlineSpecialChar,
+    default_colors_set::DefaultColorsSet, grid_cursor_goto::GridCursorGoto, grid_line::GridLine,
+    grid_resize::GridResize, grid_scroll::GridScroll, hl_attr_define::HlAttrDefine,
+    hl_group_set::HlGroupSet, message_content::MessageContent, mode_change::ModeChange,
+    mode_info_set::ModeInfoSet, msg_set_pos::MsgSetPos, msg_show::MsgShow, option_set::OptionSet,
     popupmenu_show::PopupmenuShow, tabline_update::TablineUpdate, util::Parse, util::Values,
     win_external_position::WinExternalPos, win_extmark::WinExtmark, win_float_pos::WinFloatPos,
     win_pos::WinPos, win_viewport::WinViewport,
@@ -37,6 +38,7 @@ use nvim_rs::Value;
 
 #[derive(Debug, Clone)]
 pub enum Event {
+    CmdlineSpecialChar(Vec<CmdlineSpecialChar>),
     PopupmenuShow(Vec<PopupmenuShow>),
     CmdlinePos(Vec<CmdlinePos>),
     GridResize(Vec<GridResize>),
@@ -93,6 +95,7 @@ macro_rules! event_from {
     };
 }
 
+event_from!(CmdlineSpecialChar);
 event_from!(PopupmenuShow);
 event_from!(CmdlinePos);
 event_from!(GridResize);
@@ -170,6 +173,7 @@ impl TryFrom<Value> for Event {
             "win_extmark" => unique::<WinExtmark>(iter, Error::WinExtmark),
             "cmdline_pos" => unique::<CmdlinePos>(iter, Error::CmdlinePos),
             "popupmenu_show" => unique::<PopupmenuShow>(iter, Error::PopupmenuShow),
+            "cmdline_special_char" => unique::<CmdlineSpecialChar>(iter, Error::CmdlineSpecialChar),
             "popupmenu_select" => shared(iter, Self::PopupmenuSelect, Error::PopupmenuSelect),
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
@@ -258,4 +262,6 @@ pub enum Error {
     PopupmenuSelect,
     #[error("Failed to parse popupmenu_show event")]
     PopupmenuShow,
+    #[error("Failed to parse cmdline_special_char event")]
+    CmdlineSpecialChar,
 }
