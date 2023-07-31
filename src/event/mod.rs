@@ -10,6 +10,7 @@ mod message_content;
 mod messagepack_ext_types;
 mod mode_change;
 mod mode_info_set;
+mod msg_set_pos;
 mod option_set;
 mod tabline_update;
 mod util;
@@ -23,9 +24,9 @@ use self::{
     grid_cursor_goto::GridCursorGoto, grid_line::GridLine, grid_resize::GridResize,
     grid_scroll::GridScroll, hl_attr_define::HlAttrDefine, hl_group_set::HlGroupSet,
     message_content::MessageContent, mode_change::ModeChange, mode_info_set::ModeInfoSet,
-    option_set::OptionSet, tabline_update::TablineUpdate, util::Parse, util::Values,
-    win_external_position::WinExternalPos, win_float_pos::WinFloatPos, win_pos::WinPos,
-    win_viewport::WinViewport,
+    msg_set_pos::MsgSetPos, option_set::OptionSet, tabline_update::TablineUpdate, util::Parse,
+    util::Values, win_external_position::WinExternalPos, win_float_pos::WinFloatPos,
+    win_pos::WinPos, win_viewport::WinViewport,
 };
 use nvim_rs::Value;
 
@@ -56,6 +57,7 @@ pub enum Event {
     WinHide(Vec<u64>),
     WinClose(Vec<u64>),
     WinExternalPos(Vec<WinExternalPos>),
+    MsgSetPos(Vec<MsgSetPos>),
     Clear,
     EolClear,
     MouseOn,
@@ -96,6 +98,7 @@ event_from!(CmdlineShow);
 event_from!(WinPos);
 event_from!(WinFloatPos);
 event_from!(WinExternalPos);
+event_from!(MsgSetPos);
 
 fn unique<T: Parse>(iter: Values, error: Error) -> Result<Event, Error>
 where
@@ -147,6 +150,7 @@ impl TryFrom<Value> for Event {
             "win_hide" => shared(iter, Self::WinHide, Error::WinHide),
             "win_close" => shared(iter, Self::WinClose, Error::WinClose),
             "win_external_pos" => unique::<WinExternalPos>(iter, Error::WinExternalPos),
+            "msg_set_pos" => unique::<MsgSetPos>(iter, Error::MsgSetPos),
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
             "mouse_on" => Ok(Self::MouseOn),
@@ -221,4 +225,6 @@ pub enum Error {
     WinClose,
     #[error("Failed to parse win_external_pos event")]
     WinExternalPos,
+    #[error("Failed to parse msg_set_pos event")]
+    MsgSetPos,
 }
