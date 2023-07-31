@@ -86,6 +86,7 @@ pub enum Event {
     CmdlineHide,
     CmdlineBlockHide,
     PopupmenuHide,
+    MsgHistoryClear,
 }
 
 macro_rules! event_from {
@@ -196,6 +197,7 @@ impl TryFrom<Value> for Event {
             // TODO: This event receives an undocumented u64 argument. Investigate.
             "cmdline_hide" => Ok(Self::CmdlineHide),
             "cmdline_block_hide" => Ok(Self::CmdlineBlockHide),
+            "msg_history_clear" => Ok(Self::MsgHistoryClear),
             "popupmenu_hide" => Ok(Self::PopupmenuHide),
             _ => Err(Error::UnknownEvent(event_name)),
         }
