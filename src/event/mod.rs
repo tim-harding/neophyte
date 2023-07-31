@@ -12,6 +12,7 @@ mod message_content;
 mod messagepack_ext_types;
 mod mode_change;
 mod mode_info_set;
+mod msg_history_show;
 mod msg_set_pos;
 mod msg_show;
 mod option_set;
@@ -29,8 +30,9 @@ use self::{
     default_colors_set::DefaultColorsSet, grid_cursor_goto::GridCursorGoto, grid_line::GridLine,
     grid_resize::GridResize, grid_scroll::GridScroll, hl_attr_define::HlAttrDefine,
     hl_group_set::HlGroupSet, message_content::Content, mode_change::ModeChange,
-    mode_info_set::ModeInfoSet, msg_set_pos::MsgSetPos, msg_show::MsgShow, option_set::OptionSet,
-    popupmenu_show::PopupmenuShow, tabline_update::TablineUpdate, util::Parse, util::Values,
+    mode_info_set::ModeInfoSet, msg_history_show::MsgHistoryShow, msg_set_pos::MsgSetPos,
+    msg_show::MsgShow, option_set::OptionSet, popupmenu_show::PopupmenuShow,
+    tabline_update::TablineUpdate, util::Parse, util::Values,
     win_external_position::WinExternalPos, win_extmark::WinExtmark, win_float_pos::WinFloatPos,
     win_pos::WinPos, win_viewport::WinViewport,
 };
@@ -38,6 +40,7 @@ use nvim_rs::Value;
 
 #[derive(Debug, Clone)]
 pub enum Event {
+    MsgHistoryShow(Vec<MsgHistoryShow>),
     CmdlineSpecialChar(Vec<CmdlineSpecialChar>),
     PopupmenuShow(Vec<PopupmenuShow>),
     CmdlinePos(Vec<CmdlinePos>),
@@ -100,6 +103,7 @@ macro_rules! event_from {
     };
 }
 
+event_from!(MsgHistoryShow);
 event_from!(CmdlineSpecialChar);
 event_from!(PopupmenuShow);
 event_from!(CmdlinePos);
@@ -179,6 +183,7 @@ impl TryFrom<Value> for Event {
             "cmdline_pos" => unique::<CmdlinePos>(iter, Error::CmdlinePos),
             "popupmenu_show" => unique::<PopupmenuShow>(iter, Error::PopupmenuShow),
             "cmdline_special_char" => unique::<CmdlineSpecialChar>(iter, Error::CmdlineSpecialChar),
+            "msg_history_show" => unique::<MsgHistoryShow>(iter, Error::MsgHistoryShow),
             "popupmenu_select" => shared(iter, Self::PopupmenuSelect, Error::PopupmenuSelect),
             "cmdline_block_show" => shared(iter, Self::CmdlineBlockShow, Error::CmdlineBlockShow),
             "cmdline_block_append" => {
@@ -280,4 +285,6 @@ pub enum Error {
     CmdlineBlockShow,
     #[error("Failed to parse cmdline_block_append event")]
     CmdlineBlockAppend,
+    #[error("Failed to parse msg_history_show event")]
+    MsgHistoryShow,
 }
