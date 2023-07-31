@@ -65,6 +65,7 @@ pub enum Event {
     MsgSetPos(Vec<MsgSetPos>),
     MsgShow(Vec<MsgShow>),
     WinExtmark(Vec<WinExtmark>),
+    PopupmenuSelect(Vec<i64>),
     Clear,
     EolClear,
     MouseOn,
@@ -77,6 +78,7 @@ pub enum Event {
     VisualBell,
     Flush,
     CmdlineHide,
+    PopupmenuHide,
 }
 
 macro_rules! event_from {
@@ -164,6 +166,7 @@ impl TryFrom<Value> for Event {
             "msg_show" => unique::<MsgShow>(iter, Error::MsgShow),
             "win_extmark" => unique::<WinExtmark>(iter, Error::WinExtmark),
             "cmdline_pos" => unique::<CmdlinePos>(iter, Error::CmdlinePos),
+            "popupmenu_select" => shared(iter, Self::PopupmenuSelect, Error::PopupmenuSelect),
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
             "mouse_on" => Ok(Self::MouseOn),
@@ -177,6 +180,7 @@ impl TryFrom<Value> for Event {
             "flush" => Ok(Self::Flush),
             // TODO: This event receives an undocumented u64 argument. Investigate.
             "cmdline_hide" => Ok(Self::CmdlineHide),
+            "popupmenu_hide" => Ok(Self::PopupmenuHide),
             _ => Err(Error::UnknownEvent(event_name)),
         }
     }
@@ -246,4 +250,6 @@ pub enum Error {
     WinExtmark,
     #[error("Failed to parse cmdline_pos event")]
     CmdlinePos,
+    #[error("Failed to parse popupmenu_select event")]
+    PopupmenuSelect,
 }
