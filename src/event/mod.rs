@@ -64,6 +64,7 @@ pub enum Event {
     Bell,
     VisualBell,
     Flush,
+    CmdlineHide,
 }
 
 macro_rules! event_from {
@@ -161,6 +162,8 @@ impl TryFrom<Value> for Event {
             "bell" => Ok(Self::Bell),
             "visual_bell" => Ok(Self::VisualBell),
             "flush" => Ok(Self::Flush),
+            // TODO: This event receives an undocumented u64 argument. Investigate.
+            "cmdline_hide" => Ok(Self::CmdlineHide),
             _ => Err(Error::UnknownEvent(event_name)),
         }
     }
