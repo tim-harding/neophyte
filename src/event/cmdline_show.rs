@@ -1,7 +1,4 @@
-use super::{
-    types::MessageContent,
-    util::{Parse, Values},
-};
+use super::{parse::Parse, types::MessageContent, util::Values};
 use nvim_rs::Value;
 
 #[derive(Debug, Clone)]

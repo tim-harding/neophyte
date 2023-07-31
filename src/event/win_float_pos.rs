@@ -1,7 +1,4 @@
-use super::{
-    types::Window,
-    util::{Parse, Values},
-};
+use super::{parse::Parse, types::Window, util::Values};
 use nvim_rs::Value;
 
 #[derive(Debug, Clone, Copy)]

@@ -1,7 +1,4 @@
-use super::{
-    types::Window,
-    util::{Parse, Values},
-};
+use super::{parse::Parse, types::Window, util::Values};
 use nvim_rs::Value;
 
 /// Indicates the range of buffer text displayed in the window, as well as the

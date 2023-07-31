@@ -1,4 +1,4 @@
-use super::util::{Parse, Values};
+use super::{parse::Parse, util::Values};
 use nvim_rs::Value;
 
 /// Editor mode changed.

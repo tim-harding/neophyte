@@ -1,6 +1,7 @@
 use super::{
+    parse::Parse,
     types::{Buffer, Tabpage},
-    util::{parse_map, MaybeInto, Parse, Values},
+    util::{parse_map, MaybeInto, Values},
 };
 use nvim_rs::Value;
 
