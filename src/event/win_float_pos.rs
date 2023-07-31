@@ -1,6 +1,6 @@
 use super::{
     types::Window,
-    util::{Parse, ValueIter},
+    util::{Parse, Values},
 };
 use nvim_rs::Value;
 
@@ -18,7 +18,7 @@ pub struct WinFloatPos {
 
 impl Parse for WinFloatPos {
     fn parse(value: Value) -> Option<Self> {
-        let mut iter = ValueIter::new(value)?;
+        let mut iter = Values::new(value)?;
         Some(Self {
             grid: iter.next()?,
             win: iter.next()?,

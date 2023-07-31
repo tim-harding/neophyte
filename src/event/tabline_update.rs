@@ -1,6 +1,6 @@
 use super::{
     types::{Buffer, Tabpage},
-    util::{parse_map, MaybeInto, Parse, ValueIter},
+    util::{parse_map, MaybeInto, Parse, Values},
 };
 use nvim_rs::Value;
 
@@ -14,7 +14,7 @@ pub struct TablineUpdate {
 
 impl Parse for TablineUpdate {
     fn parse(value: Value) -> Option<Self> {
-        let mut iter = ValueIter::new(value)?;
+        let mut iter = Values::new(value)?;
         Some(Self {
             curtab: iter.next()?,
             tabs: iter.next()?,

@@ -1,4 +1,4 @@
-use super::util::{maybe_field, maybe_other_field, parse_map, Parse, ValueIter};
+use super::util::{maybe_field, maybe_other_field, parse_map, Parse, Values};
 use nvim_rs::Value;
 use std::fmt::{self, Debug, Formatter};
 
@@ -13,7 +13,7 @@ pub struct ModeInfoSet {
 
 impl Parse for ModeInfoSet {
     fn parse(value: Value) -> Option<Self> {
-        let mut iter = ValueIter::new(value)?;
+        let mut iter = Values::new(value)?;
         Some(Self {
             cursor_style_enabled: iter.next()?,
             mode_info: iter.next()?,

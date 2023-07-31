@@ -1,4 +1,4 @@
-use super::util::{Parse, ValueIter};
+use super::util::{Parse, Values};
 use nvim_rs::Value;
 
 /// UI-related option change.
@@ -67,7 +67,7 @@ pub enum OptionSet {
 
 impl Parse for OptionSet {
     fn parse(value: Value) -> Option<Self> {
-        let mut iter = ValueIter::new(value)?;
+        let mut iter = Values::new(value)?;
         let name: String = iter.next()?;
         Some(match name.as_str() {
             "arabicshape" => Self::Arabicshape(iter.next()?),

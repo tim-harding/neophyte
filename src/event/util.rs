@@ -97,15 +97,8 @@ where
     }
 }
 
-pub fn parse_array(value: Value) -> Option<Vec<Value>> {
-    match value {
-        Value::Array(array) => Some(array),
-        _ => None,
-    }
-}
-
 pub fn map_array<T>(value: Value, f: fn(Value) -> Option<T>) -> Option<Vec<T>> {
-    parse_array(value)?.into_iter().map(f).collect()
+    Vec::parse(value)?.into_iter().map(f).collect()
 }
 
 pub fn parse_map(value: Value) -> Option<Vec<(Value, Value)>> {
@@ -134,14 +127,22 @@ pub fn maybe_other_field(s: &mut DebugStruct, field: &[(String, Value)]) {
     }
 }
 
-pub struct ValueIter(IntoIter<Value>);
+pub struct Values(IntoIter<Value>);
 
-impl ValueIter {
+impl Values {
     pub fn new(value: Value) -> Option<Self> {
-        Some(Self(parse_array(value)?.into_iter()))
+        Some(Self(Vec::parse(value)?.into_iter()))
     }
 
     pub fn next<T: Parse>(&mut self) -> Option<T> {
         T::parse(self.0.next()?)
+    }
+
+    pub fn into_inner(self) -> IntoIter<Value> {
+        self.0
+    }
+
+    pub fn map<T: Parse>(self) -> Option<Vec<T>> {
+        self.into_inner().map(T::parse).collect()
     }
 }

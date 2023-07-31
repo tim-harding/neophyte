@@ -1,4 +1,4 @@
-use super::util::{map_array, parse_ext, Parse, ValueIter};
+use super::util::{map_array, parse_ext, Parse, Values};
 use nvim_rs::Value;
 
 macro_rules! msgpack_ext {
@@ -39,7 +39,7 @@ pub struct MessageContentChunk {
 
 impl Parse for MessageContentChunk {
     fn parse(value: Value) -> Option<Self> {
-        let mut iter = ValueIter::new(value)?;
+        let mut iter = Values::new(value)?;
         Some(Self {
             attr_id: iter.next()?,
             text_chunk: maybe_escape_newlines(iter.next()?),

@@ -30,13 +30,12 @@ use self::{
     option_set::OptionSet,
     tabline_update::TablineUpdate,
     types::MessageContent,
-    util::{parse_array, Parse},
+    util::{Parse, Values},
     win_float_pos::WinFloatPos,
     win_pos::WinPos,
     win_viewport::WinViewport,
 };
 use nvim_rs::Value;
-use std::vec::IntoIter;
 
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -101,31 +100,27 @@ event_from!(CmdlineShow);
 event_from!(WinPos);
 event_from!(WinFloatPos);
 
-fn unique<T: Parse>(iter: IntoIter<Value>, error: Error) -> Result<Event, Error>
+fn unique<T: Parse>(iter: Values, error: Error) -> Result<Event, Error>
 where
     Vec<T>: Into<Event>,
 {
-    let mapped: Option<Vec<_>> = iter.map(T::parse).collect();
-    mapped.ok_or(error).map(Into::into)
+    iter.map().ok_or(error).map(Into::into)
 }
 
 fn shared<T: Parse>(
-    iter: IntoIter<Value>,
+    iter: Values,
     event_variant: fn(Vec<T>) -> Event,
     error: Error,
 ) -> Result<Event, Error> {
-    let events: Option<Vec<T>> = iter.map(Parse::parse).collect();
-    events.map(event_variant).ok_or(error)
+    Ok(event_variant(iter.map().ok_or(error)?))
 }
 
 impl TryFrom<Value> for Event {
     type Error = Error;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
-        let array = parse_array(value).ok_or(Error::Malformed)?;
-        let mut iter = array.into_iter();
-        let event_name = iter.next().ok_or(Error::Malformed)?;
-        let event_name = String::parse(event_name).ok_or(Error::Malformed)?;
+        let mut iter = Values::new(value).ok_or(Error::Malformed)?;
+        let event_name: String = iter.next().ok_or(Error::Malformed)?;
         match event_name.as_str() {
             "grid_resize" => unique::<GridResize>(iter, Error::GridResize),
             "set_title" => shared(iter, Self::SetTitle, Error::SetTitle),

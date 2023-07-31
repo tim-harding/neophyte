@@ -1,6 +1,6 @@
 use super::{
     types::MessageContent,
-    util::{Parse, ValueIter},
+    util::{Parse, Values},
 };
 use nvim_rs::Value;
 
@@ -16,7 +16,7 @@ pub struct CmdlineShow {
 
 impl Parse for CmdlineShow {
     fn parse(value: Value) -> Option<Self> {
-        let mut iter = ValueIter::new(value)?;
+        let mut iter = Values::new(value)?;
         Some(Self {
             content: iter.next()?,
             pos: iter.next()?,
