@@ -51,6 +51,8 @@ pub enum Event {
     WinPos(Vec<WinPos>),
     WinFloatPos(Vec<WinFloatPos>),
     MsgRuler(Vec<MessageContent>),
+    WinHide(Vec<u64>),
+    WinClose(Vec<u64>),
     Clear,
     EolClear,
     MouseOn,
@@ -138,6 +140,8 @@ impl TryFrom<Value> for Event {
             "win_pos" => unique::<WinPos>(iter, Error::WinPos),
             "win_float_pos" => unique::<WinFloatPos>(iter, Error::WinFloatPos),
             "msg_ruler" => shared(iter, Self::MsgRuler, Error::MsgRuler),
+            "win_hide" => shared(iter, Self::WinHide, Error::WinHide),
+            "win_close" => shared(iter, Self::WinClose, Error::WinClose),
             "clear" => Ok(Self::Clear),
             "eol_clear" => Ok(Self::EolClear),
             "mouse_on" => Ok(Self::MouseOn),
@@ -206,4 +210,8 @@ pub enum Error {
     WinFloatPos,
     #[error("Failed to parse msg_ruler event")]
     MsgRuler,
+    #[error("Failed to parse win_hide event")]
+    WinHide,
+    #[error("Failed to parse win_close event")]
+    WinClose,
 }
