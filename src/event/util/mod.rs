@@ -48,7 +48,10 @@ pub struct Values(IntoIter<Value>);
 
 impl Values {
     pub fn new(value: Value) -> Option<Self> {
-        Some(Self(Vec::parse(value)?.into_iter()))
+        match value {
+            Value::Array(array) => Some(Self(array.into_iter())),
+            _ => None,
+        }
     }
 
     pub fn next<T: Parse>(&mut self) -> Option<T> {
