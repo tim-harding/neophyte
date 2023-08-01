@@ -37,7 +37,10 @@ impl Ui {
                 self.icon = event.icon;
             }
             Event::OptionSet(_) => {}
-            Event::GridClear(_) => {}
+            Event::GridClear(event) => {
+                log::info!("{event:?}");
+                self.grid(event.grid).clear();
+            }
             Event::GridDestroy(_) => {}
             Event::DefaultColorsSet(_) => {}
             Event::HlAttrDefine(_) => {}
@@ -85,5 +88,11 @@ impl Grid {
             }
         }
         self.cells = new;
+    }
+
+    pub fn clear(&mut self) {
+        for cell in self.cells.iter_mut() {
+            *cell = ' ';
+        }
     }
 }
