@@ -41,7 +41,10 @@ impl Ui {
                 log::info!("{event:?}");
                 self.grid(event.grid).clear();
             }
-            Event::GridDestroy(_) => {}
+            Event::GridDestroy(event) => {
+                log::info!("{event:?}");
+                self.grids.remove(&event.grid);
+            }
             Event::DefaultColorsSet(_) => {}
             Event::HlAttrDefine(_) => {}
             Event::ModeChange(_) => {}
