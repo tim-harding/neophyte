@@ -1,26 +1,16 @@
 use crate::event::{self, Event};
 use async_trait::async_trait;
+use nvim_rs::create::tokio::new_child_cmd;
 use nvim_rs::{compat::tokio::Compat, Handler, Neovim, Value};
 use nvim_rs::{error::LoopError, UiAttachOptions};
-use std::process::Stdio;
 use tokio::process::ChildStdin;
 use tokio::process::Command;
 use tokio::task::JoinHandle;
-use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
-pub async fn spawn_neovim() -> (Neovim<Compat<ChildStdin>>, IoHandle) {
-    let mut child = Command::new("nvim")
-        .arg("--embed")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
-
+pub async fn spawn_neovim() -> std::io::Result<(Neovim<Compat<ChildStdin>>, IoHandle)> {
     let handler = NeovimHandler {};
-    let reader = child.stdout.take().unwrap();
-    let writer = child.stdin.take().unwrap();
-    let (neovim, io) = Neovim::new(reader.compat(), writer.compat_write(), handler);
-    let io_handle = tokio::spawn(io);
+    let (neovim, io_handle, _child) =
+        new_child_cmd(Command::new("nvim").arg("--embed"), handler).await?;
 
     let mut options = UiAttachOptions::new();
     options.set_cmdline_external(true);
@@ -39,7 +29,7 @@ pub async fn spawn_neovim() -> (Neovim<Compat<ChildStdin>>, IoHandle) {
     // size (0, 0).
     neovim.ui_attach(10, 10, &options).await.unwrap();
 
-    (neovim, IoHandle(io_handle))
+    Ok((neovim, IoHandle(io_handle)))
 }
 
 pub struct IoHandle(JoinHandle<Result<(), Box<LoopError>>>);

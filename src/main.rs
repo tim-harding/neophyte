@@ -16,7 +16,7 @@ fn main() {
 }
 
 async fn async_main() {
-    let (nvim, io_handle) = spawn_neovim().await;
+    let (nvim, io_handle) = spawn_neovim().await.unwrap();
     tokio::spawn(async move {
         nvim.input(":things<left><left><cr>").await.unwrap();
     });
