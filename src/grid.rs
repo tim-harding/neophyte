@@ -22,6 +22,7 @@ impl Grids {
             Event::PopupmenuShow(_) => {}
             Event::CmdlinePos(_) => {}
             Event::GridResize(event) => {
+                log::info!("{event:?}");
                 let grid = self.get(event.grid);
                 grid.resize(event.width, event.height);
             }
