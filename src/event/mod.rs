@@ -27,6 +27,7 @@ mod set_icon;
 mod set_title;
 mod tabline_update;
 mod util;
+mod win_close;
 mod win_external_position;
 mod win_extmark;
 mod win_float_pos;
@@ -43,7 +44,7 @@ use self::{
     mode_info_set::ModeInfoSet, msg_history_show::MsgHistoryShow, msg_ruler::MsgRuler,
     msg_set_pos::MsgSetPos, msg_show::MsgShow, msg_showcmd::MsgShowcmd, msg_showmode::MsgShowmode,
     option_set::OptionSet, popupmenu_show::PopupmenuShow, set_icon::SetIcon, set_title::SetTitle,
-    tabline_update::TablineUpdate, util::Parse, util::Values,
+    tabline_update::TablineUpdate, util::Parse, util::Values, win_close::WinClose,
     win_external_position::WinExternalPos, win_extmark::WinExtmark, win_float_pos::WinFloatPos,
     win_hide::WinHide, win_pos::WinPos, win_viewport::WinViewport,
 };
@@ -80,7 +81,7 @@ pub enum Event {
     WinFloatPos(WinFloatPos),
     MsgRuler(MsgRuler),
     WinHide(WinHide),
-    WinClose(u64),
+    WinClose(WinClose),
     WinExternalPos(WinExternalPos),
     MsgSetPos(MsgSetPos),
     MsgShow(MsgShow),
@@ -132,6 +133,7 @@ event_from!(MsgShowmode);
 event_from!(MsgShowcmd);
 event_from!(MsgRuler);
 event_from!(WinHide);
+event_from!(WinClose);
 
 impl From<GlobalEvent> for Event {
     fn from(value: GlobalEvent) -> Self {
@@ -190,7 +192,7 @@ impl Event {
             "win_float_pos" => unique::<WinFloatPos>(iter, Error::WinFloatPos),
             "msg_ruler" => unique::<MsgRuler>(iter, Error::MsgRuler),
             "win_hide" => unique::<WinHide>(iter, Error::WinHide),
-            "win_close" => shared(iter, Self::WinClose, Error::WinClose),
+            "win_close" => unique::<WinClose>(iter, Error::WinClose),
             "win_external_pos" => unique::<WinExternalPos>(iter, Error::WinExternalPos),
             "msg_set_pos" => unique::<MsgSetPos>(iter, Error::MsgSetPos),
             "msg_show" => unique::<MsgShow>(iter, Error::MsgShow),
