@@ -1,3 +1,4 @@
+mod cmdline_block_append;
 mod cmdline_block_show;
 mod cmdline_pos;
 mod cmdline_show;
@@ -38,18 +39,19 @@ mod win_pos;
 mod win_viewport;
 
 use self::{
-    cmdline_block_show::CmdlineBlockShow, cmdline_pos::CmdlinePos, cmdline_show::CmdlineShow,
-    cmdline_special_char::CmdlineSpecialChar, default_colors_set::DefaultColorsSet,
-    global_event::GlobalEvent, grid_clear::GridClear, grid_cursor_goto::GridCursorGoto,
-    grid_destroy::GridDestroy, grid_line::GridLine, grid_resize::GridResize,
-    grid_scroll::GridScroll, hl_attr_define::HlAttrDefine, hl_group_set::HlGroupSet,
-    message_content::Content, mode_change::ModeChange, mode_info_set::ModeInfoSet,
-    msg_history_show::MsgHistoryShow, msg_ruler::MsgRuler, msg_set_pos::MsgSetPos,
-    msg_show::MsgShow, msg_showcmd::MsgShowcmd, msg_showmode::MsgShowmode, option_set::OptionSet,
-    popupmenu_select::PopupmenuSelect, popupmenu_show::PopupmenuShow, set_icon::SetIcon,
-    set_title::SetTitle, tabline_update::TablineUpdate, util::Parse, util::Values,
-    win_close::WinClose, win_external_position::WinExternalPos, win_extmark::WinExtmark,
-    win_float_pos::WinFloatPos, win_hide::WinHide, win_pos::WinPos, win_viewport::WinViewport,
+    cmdline_block_append::CmdlineBlockAppend, cmdline_block_show::CmdlineBlockShow,
+    cmdline_pos::CmdlinePos, cmdline_show::CmdlineShow, cmdline_special_char::CmdlineSpecialChar,
+    default_colors_set::DefaultColorsSet, global_event::GlobalEvent, grid_clear::GridClear,
+    grid_cursor_goto::GridCursorGoto, grid_destroy::GridDestroy, grid_line::GridLine,
+    grid_resize::GridResize, grid_scroll::GridScroll, hl_attr_define::HlAttrDefine,
+    hl_group_set::HlGroupSet, message_content::Content, mode_change::ModeChange,
+    mode_info_set::ModeInfoSet, msg_history_show::MsgHistoryShow, msg_ruler::MsgRuler,
+    msg_set_pos::MsgSetPos, msg_show::MsgShow, msg_showcmd::MsgShowcmd, msg_showmode::MsgShowmode,
+    option_set::OptionSet, popupmenu_select::PopupmenuSelect, popupmenu_show::PopupmenuShow,
+    set_icon::SetIcon, set_title::SetTitle, tabline_update::TablineUpdate, util::Parse,
+    util::Values, win_close::WinClose, win_external_position::WinExternalPos,
+    win_extmark::WinExtmark, win_float_pos::WinFloatPos, win_hide::WinHide, win_pos::WinPos,
+    win_viewport::WinViewport,
 };
 use nvim_rs::Value;
 
@@ -91,7 +93,7 @@ pub enum Event {
     WinExtmark(WinExtmark),
     PopupmenuSelect(PopupmenuSelect),
     CmdlineBlockShow(CmdlineBlockShow),
-    CmdlineBlockAppend(Content),
+    CmdlineBlockAppend(CmdlineBlockAppend),
     GlobalEvent(GlobalEvent),
 }
 
@@ -139,6 +141,7 @@ event_from!(WinHide);
 event_from!(WinClose);
 event_from!(PopupmenuSelect);
 event_from!(CmdlineBlockShow);
+event_from!(CmdlineBlockAppend);
 
 impl From<GlobalEvent> for Event {
     fn from(value: GlobalEvent) -> Self {
@@ -208,9 +211,7 @@ impl Event {
             "msg_history_show" => unique::<MsgHistoryShow>(iter, Error::MsgHistoryShow),
             "popupmenu_select" => unique::<PopupmenuSelect>(iter, Error::PopupmenuSelect),
             "cmdline_block_show" => unique::<CmdlineBlockShow>(iter, Error::CmdlineBlockShow),
-            "cmdline_block_append" => {
-                shared(iter, Self::CmdlineBlockAppend, Error::CmdlineBlockAppend)
-            }
+            "cmdline_block_append" => unique::<CmdlineBlockAppend>(iter, Error::CmdlineBlockAppend),
             _ => Ok(vec![GlobalEvent::try_from(event_name.as_str())
                 .map(Into::into)
                 .map_err(|_| Error::UnknownEvent(event_name))?]),
