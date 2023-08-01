@@ -28,33 +28,16 @@ mod win_pos;
 mod win_viewport;
 
 use self::{
-    cmdline_pos::CmdlinePos,
-    cmdline_show::CmdlineShow,
-    cmdline_special_char::CmdlineSpecialChar,
-    default_colors_set::DefaultColorsSet,
-    global_event::{GlobalEvent, GlobalEventUnknown},
-    grid_cursor_goto::GridCursorGoto,
-    grid_line::GridLine,
-    grid_resize::GridResize,
-    grid_scroll::GridScroll,
-    hl_attr_define::HlAttrDefine,
-    hl_group_set::HlGroupSet,
-    message_content::Content,
-    mode_change::ModeChange,
-    mode_info_set::ModeInfoSet,
-    msg_history_show::MsgHistoryShow,
-    msg_set_pos::MsgSetPos,
-    msg_show::MsgShow,
-    option_set::OptionSet,
-    popupmenu_show::PopupmenuShow,
-    tabline_update::TablineUpdate,
-    util::Parse,
-    util::Values,
-    win_external_position::WinExternalPos,
-    win_extmark::WinExtmark,
-    win_float_pos::WinFloatPos,
-    win_pos::WinPos,
-    win_viewport::WinViewport,
+    cmdline_pos::CmdlinePos, cmdline_show::CmdlineShow, cmdline_special_char::CmdlineSpecialChar,
+    default_colors_set::DefaultColorsSet, global_event::GlobalEvent,
+    grid_cursor_goto::GridCursorGoto, grid_line::GridLine, grid_resize::GridResize,
+    grid_scroll::GridScroll, hl_attr_define::HlAttrDefine, hl_group_set::HlGroupSet,
+    message_content::Content, mode_change::ModeChange, mode_info_set::ModeInfoSet,
+    msg_history_show::MsgHistoryShow, msg_set_pos::MsgSetPos, msg_show::MsgShow,
+    option_set::OptionSet, popupmenu_show::PopupmenuShow, set_title::SetTitle,
+    tabline_update::TablineUpdate, util::Parse, util::Values,
+    win_external_position::WinExternalPos, win_extmark::WinExtmark, win_float_pos::WinFloatPos,
+    win_pos::WinPos, win_viewport::WinViewport,
 };
 use nvim_rs::Value;
 
@@ -67,7 +50,7 @@ pub enum Event {
     PopupmenuShow(PopupmenuShow),
     CmdlinePos(CmdlinePos),
     GridResize(GridResize),
-    SetTitle(String),
+    SetTitle(SetTitle),
     SetIcon(String),
     OptionSet(OptionSet),
     GridClear(u64),
@@ -133,6 +116,7 @@ event_from!(WinExternalPos);
 event_from!(MsgSetPos);
 event_from!(MsgShow);
 event_from!(WinExtmark);
+event_from!(SetTitle);
 
 impl From<GlobalEvent> for Event {
     fn from(value: GlobalEvent) -> Self {
@@ -169,7 +153,7 @@ impl Event {
         let event_name: String = iter.next().ok_or(Error::Malformed)?;
         match event_name.as_str() {
             "grid_resize" => unique::<GridResize>(iter, Error::GridResize),
-            "set_title" => shared(iter, Self::SetTitle, Error::SetTitle),
+            "set_title" => unique::<SetTitle>(iter, Error::SetTitle),
             "set_icon" => shared(iter, Self::SetIcon, Error::SetIcon),
             "option_set" => unique::<OptionSet>(iter, Error::OptionSet),
             "grid_clear" => shared(iter, Event::GridClear, Error::GridClear),
@@ -205,7 +189,9 @@ impl Event {
             "cmdline_block_append" => {
                 shared(iter, Self::CmdlineBlockAppend, Error::CmdlineBlockAppend)
             }
-            _ => Ok(vec![GlobalEvent::try_from(event_name).map(Into::into)?]),
+            _ => Ok(vec![GlobalEvent::try_from(event_name.as_str())
+                .map(Into::into)
+                .map_err(|_| Error::UnknownEvent(event_name))?]),
         }
     }
 }
@@ -286,6 +272,4 @@ pub enum Error {
     CmdlineBlockAppend,
     #[error("Failed to parse msg_history_show event")]
     MsgHistoryShow,
-    #[error("{0}")]
-    GlobalEvent(#[from] GlobalEventUnknown),
 }

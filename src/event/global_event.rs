@@ -36,11 +36,11 @@ pub enum GlobalEvent {
     MsgHistoryClear,
 }
 
-impl TryFrom<String> for GlobalEvent {
+impl TryFrom<&str> for GlobalEvent {
     type Error = GlobalEventUnknown;
 
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Ok(match value.as_str() {
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Ok(match value {
             "mouse_on" => Self::MouseOn,
             "mouse_off" => Self::MouseOff,
             "busy_start" => Self::BusyStart,

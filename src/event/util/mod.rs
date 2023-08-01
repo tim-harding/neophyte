@@ -32,6 +32,10 @@ pub fn parse_ext(value: Value, expected_type: i8) -> Option<Vec<u8>> {
     }
 }
 
+pub fn parse_first_element(value: Value) -> Option<Value> {
+    Values::new(value)?.next()
+}
+
 pub fn maybe_field<T: Debug>(s: &mut DebugStruct, name: &str, field: Option<T>) {
     if let Some(t) = field {
         s.field(name, &t);
@@ -64,9 +68,5 @@ impl Values {
 
     pub fn map<T: Parse>(self) -> Option<Vec<T>> {
         self.into_inner().map(T::parse).collect()
-    }
-
-    pub fn map_with<T: Parse>(self, f: impl Fn(Value) -> Option<Value>) -> Option<Vec<T>> {
-        self.into_inner().map(|v| T::parse(f(v)?)).collect()
     }
 }
