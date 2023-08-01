@@ -160,18 +160,6 @@ where
     v.ok_or(error)
 }
 
-fn shared<T: Parse>(
-    iter: Values,
-    event_variant: fn(T) -> Event,
-    error: Error,
-) -> Result<Vec<Event>, Error> {
-    let v: Option<Vec<_>> = iter
-        .into_inner()
-        .map(|v| Some(event_variant(Vec::parse(v)?.into_iter().next()?)))
-        .collect();
-    v.ok_or(error)
-}
-
 impl Event {
     pub fn try_parse(value: Value) -> Result<Vec<Self>, Error> {
         let mut iter = Values::new(value).ok_or(Error::Malformed)?;

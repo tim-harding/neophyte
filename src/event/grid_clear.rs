@@ -1,7 +1,7 @@
 use super::util::{parse_first_element, MaybeInto, Parse};
 use nvim_rs::Value;
 
-/// Set the minimized window title
+/// Clear a grid
 #[derive(Debug, Clone)]
 pub struct GridClear {
     pub grid: u64,

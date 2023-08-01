@@ -1,9 +1,10 @@
 use super::util::{parse_first_element, parse_maybe_u64, Parse};
 use nvim_rs::Value;
 
-/// Set the minimized window title
+/// Select an item in the current popupmenu.
 #[derive(Debug, Clone)]
 pub struct PopupmenuSelect {
+    /// The item to select, or None if no item is selected
     pub selected: Option<u64>,
 }
 

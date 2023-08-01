@@ -4,7 +4,8 @@ use super::{
 };
 use nvim_rs::Value;
 
-/// Set the minimized window title
+/// Show a block of text to the current command line, for example if the user
+/// defines a function interactively.
 #[derive(Debug, Clone)]
 pub struct CmdlineBlockShow {
     pub lines: Vec<Content>,
