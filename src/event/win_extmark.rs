@@ -4,13 +4,20 @@ use super::{
 };
 use nvim_rs::Value;
 
+/// Updates the position of an extmark which is currently visible in a window.
 #[derive(Debug, Clone, Copy)]
 pub struct WinExtmark {
+    /// The grid containing the extmark
     pub grid: u64,
+    /// The window containing the extmark
     pub win: Window,
+    /// Namespace ID
     pub ns_id: u64,
+    /// Extmark ID
     pub mark_id: u64,
+    /// Row the extmark is on
     pub row: u64,
+    /// Column the extmark is on
     pub col: u64,
 }
 

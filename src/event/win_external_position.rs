@@ -4,9 +4,13 @@ use super::{
 };
 use nvim_rs::Value;
 
+/// Display or reconfigure external window. The window should be displayed as a
+/// separate top-level window in the desktop environment or something similar.
 #[derive(Debug, Clone, Copy)]
 pub struct WinExternalPos {
+    /// The grid to display in the window
     pub grid: u64,
+    /// The window to display
     pub win: Window,
 }
 

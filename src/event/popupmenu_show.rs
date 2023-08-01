@@ -1,13 +1,19 @@
 use super::util::{Parse, Values};
 use nvim_rs::Value;
 
+/// Show popupmenu completion
 #[derive(Debug, Clone)]
 pub struct PopupmenuShow {
+    /// The completion items to show
     pub items: Vec<Item>,
-    pub selected: i64,
+    /// The initially-selected item, if present
+    pub selected: Option<u64>,
+    /// The anchor position row
     pub row: u64,
+    /// The anchor position col
     pub col: u64,
-    pub grid: i64,
+    /// The grid for the anchor position, unless the cmdline is externalized
+    pub grid: Option<u64>,
 }
 
 impl Parse for PopupmenuShow {
@@ -15,19 +21,31 @@ impl Parse for PopupmenuShow {
         let mut iter = Values::new(value)?;
         Some(Self {
             items: iter.next()?,
-            selected: iter.next()?,
+            selected: maybe_u64(iter.next()?)?,
             row: iter.next()?,
             col: iter.next()?,
-            grid: iter.next()?,
+            grid: maybe_u64(iter.next()?)?,
         })
     }
 }
 
+fn maybe_u64(value: Value) -> Option<Option<u64>> {
+    match value {
+        Value::Integer(i) => Some(i.as_u64()),
+        _ => None,
+    }
+}
+
+/// A popupmenu item
 #[derive(Debug, Clone)]
 pub struct Item {
+    /// The text that will be inserted
     pub word: String,
+    /// Indicates the type of completion
     pub kind: Kind,
+    /// Extra text for the popup menu, displayed after word
     pub menu: String,
+    /// More information about the item. Can be displayed in a preview window.
     pub info: String,
 }
 
@@ -43,6 +61,7 @@ impl Parse for Item {
     }
 }
 
+/// Indicates the type of completion
 #[derive(Debug, Clone)]
 pub enum Kind {
     /// Variable

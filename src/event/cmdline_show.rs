@@ -4,13 +4,21 @@ use super::{
 };
 use nvim_rs::Value;
 
+/// Triggered when the cmdline is displayed or changed.
 #[derive(Debug, Clone)]
 pub struct CmdlineShow {
+    /// The full content that should be displayed in the cmdline.
     pub content: Content,
+    /// The position of the cursor that in the cmdline.
     pub pos: u64,
+    /// Text displayed in front of the command line, such as :/?
     pub firstc: String,
+    /// A prompt displayed in front of the command line as provided by input()
     pub prompt: String,
+    /// How many spaces the content should be indented
     pub indent: u64,
+    /// Distinguishes different command lines active at the same time, for
+    /// example after <c-r>= in a prompt
     pub level: u64,
 }
 

@@ -38,6 +38,8 @@ use self::{
 };
 use nvim_rs::Value;
 
+/// A UI event sent by the Neovim instance. See here for detailed documentation:
+/// https://neovim.io/doc/user/ui.html
 #[derive(Debug, Clone)]
 pub enum Event {
     MsgHistoryShow(Vec<MsgHistoryShow>),

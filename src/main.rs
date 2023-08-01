@@ -32,14 +32,7 @@ impl Handler for NeovimHandler {
         println!("Notify: {name}");
         for arg in args {
             match Event::try_from(arg.clone()) {
-                Ok(event) => match event {
-                    Event::MsgShow(msgs) => {
-                        for msg in msgs {
-                            eprintln!("{msg:?}");
-                        }
-                    }
-                    event => println!("{event:?}"),
-                },
+                Ok(event) => println!("{event:?}"),
                 Err(e) => match e {
                     event::Error::UnknownEvent(name) => {
                         eprintln!("Unknown event: {name}\n{arg:#?}");
@@ -93,10 +86,7 @@ async fn async_main() {
     neovim.ui_attach(10, 10, &options).await.unwrap();
 
     tokio::spawn(async move {
-        neovim
-            .input(":lua print('hello')<cr>:lua print('world')<cr>:messages<cr>")
-            .await
-            .unwrap();
+        neovim.input(":things<left><left><cr>").await.unwrap();
     });
 
     match io_handle.await {

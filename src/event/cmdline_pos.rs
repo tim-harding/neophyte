@@ -1,6 +1,7 @@
 use super::util::{Parse, Values};
 use nvim_rs::Value;
 
+/// Change the cursor position in the cmdline.
 #[derive(Debug, Clone, Copy)]
 pub struct CmdlinePos {
     pub pos: u64,

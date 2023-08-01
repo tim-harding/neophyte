@@ -5,6 +5,7 @@ use super::{
 };
 use nvim_rs::Value;
 
+/// Sent when :messages command is invoked
 #[derive(Debug, Clone)]
 pub struct MsgHistoryShow {
     pub entries: Vec<MsgHistoryEntry>,
@@ -18,9 +19,12 @@ impl Parse for MsgHistoryShow {
     }
 }
 
+/// A message history item in the msg_history_show event
 #[derive(Debug, Clone)]
 pub struct MsgHistoryEntry {
+    /// The message kind
     pub kind: Kind,
+    /// The message content
     pub content: Content,
 }
 

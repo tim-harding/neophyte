@@ -4,11 +4,16 @@ use super::{
 };
 use nvim_rs::Value;
 
+/// Tabline was updated.
 #[derive(Debug, Clone)]
 pub struct TablineUpdate {
+    /// Current tabpage
     pub curtab: Tabpage,
-    pub tabs: Vec<Tab>,
+    /// Tabpages
+    pub tabs: Vec<TabpageInfo>,
+    /// Current buffer
     pub curbuf: Buffer,
+    /// Buffers
     pub buffers: Vec<BufferInfo>,
 }
 
@@ -25,12 +30,12 @@ impl Parse for TablineUpdate {
 }
 
 #[derive(Debug, Clone)]
-pub struct Tab {
+pub struct TabpageInfo {
     pub tab: Tabpage,
     pub name: String,
 }
 
-impl Parse for Tab {
+impl Parse for TabpageInfo {
     fn parse(value: Value) -> Option<Self> {
         let map = parse_map(value)?;
         let mut tab = None;
