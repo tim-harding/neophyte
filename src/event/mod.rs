@@ -30,6 +30,7 @@ mod util;
 mod win_external_position;
 mod win_extmark;
 mod win_float_pos;
+mod win_hide;
 mod win_pos;
 mod win_viewport;
 
@@ -44,7 +45,7 @@ use self::{
     option_set::OptionSet, popupmenu_show::PopupmenuShow, set_icon::SetIcon, set_title::SetTitle,
     tabline_update::TablineUpdate, util::Parse, util::Values,
     win_external_position::WinExternalPos, win_extmark::WinExtmark, win_float_pos::WinFloatPos,
-    win_pos::WinPos, win_viewport::WinViewport,
+    win_hide::WinHide, win_pos::WinPos, win_viewport::WinViewport,
 };
 use nvim_rs::Value;
 
@@ -78,7 +79,7 @@ pub enum Event {
     WinPos(WinPos),
     WinFloatPos(WinFloatPos),
     MsgRuler(MsgRuler),
-    WinHide(u64),
+    WinHide(WinHide),
     WinClose(u64),
     WinExternalPos(WinExternalPos),
     MsgSetPos(MsgSetPos),
@@ -130,6 +131,7 @@ event_from!(GridDestroy);
 event_from!(MsgShowmode);
 event_from!(MsgShowcmd);
 event_from!(MsgRuler);
+event_from!(WinHide);
 
 impl From<GlobalEvent> for Event {
     fn from(value: GlobalEvent) -> Self {
@@ -187,7 +189,7 @@ impl Event {
             "win_pos" => unique::<WinPos>(iter, Error::WinPos),
             "win_float_pos" => unique::<WinFloatPos>(iter, Error::WinFloatPos),
             "msg_ruler" => unique::<MsgRuler>(iter, Error::MsgRuler),
-            "win_hide" => shared(iter, Self::WinHide, Error::WinHide),
+            "win_hide" => unique::<WinHide>(iter, Error::WinHide),
             "win_close" => shared(iter, Self::WinClose, Error::WinClose),
             "win_external_pos" => unique::<WinExternalPos>(iter, Error::WinExternalPos),
             "msg_set_pos" => unique::<MsgSetPos>(iter, Error::MsgSetPos),
