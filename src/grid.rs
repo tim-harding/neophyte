@@ -2,16 +2,18 @@ use crate::event::Event;
 use std::collections::HashMap;
 
 #[derive(Debug, Default, Clone)]
-pub struct Grids {
+pub struct Ui {
+    title: String,
+    icon: String,
     grids: HashMap<u64, Grid>,
 }
 
-impl Grids {
+impl Ui {
     pub fn new() -> Self {
         Self::default()
     }
 
-    fn get(&mut self, grid: u64) -> &mut Grid {
+    fn grid(&mut self, grid: u64) -> &mut Grid {
         self.grids.entry(grid).or_default()
     }
 
@@ -23,11 +25,17 @@ impl Grids {
             Event::CmdlinePos(_) => {}
             Event::GridResize(event) => {
                 log::info!("{event:?}");
-                let grid = self.get(event.grid);
+                let grid = self.grid(event.grid);
                 grid.resize(event.width, event.height);
             }
-            Event::SetTitle(_) => {}
-            Event::SetIcon(_) => {}
+            Event::SetTitle(event) => {
+                log::info!("{event:?}");
+                self.title = event.title;
+            }
+            Event::SetIcon(event) => {
+                log::info!("{event:?}");
+                self.icon = event.icon;
+            }
             Event::OptionSet(_) => {}
             Event::GridClear(_) => {}
             Event::GridDestroy(_) => {}

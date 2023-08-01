@@ -4,7 +4,7 @@ mod nvim;
 mod rendering;
 
 use event::Event;
-use grid::Grids;
+use grid::Ui;
 use nvim::spawn_neovim;
 use tokio::{runtime::Builder, sync::mpsc};
 
@@ -25,10 +25,10 @@ async fn async_main() {
         nvim.input(":things<left><left><cr>").await.unwrap();
     });
     tokio::spawn(async move {
-        let mut grids = Grids::new();
+        let mut ui = Ui::new();
         while let Some(events) = rx.recv().await {
             for event in events {
-                grids.process(event);
+                ui.process(event);
             }
         }
     });

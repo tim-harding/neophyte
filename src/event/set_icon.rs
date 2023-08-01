@@ -4,13 +4,13 @@ use nvim_rs::Value;
 /// Set the global minimized window title
 #[derive(Debug, Clone)]
 pub struct SetIcon {
-    pub title: String,
+    pub icon: String,
 }
 
 impl Parse for SetIcon {
     fn parse(value: Value) -> Option<Self> {
         Some(Self {
-            title: parse_first_element(value)?.maybe_into()?,
+            icon: parse_first_element(value)?.maybe_into()?,
         })
     }
 }
