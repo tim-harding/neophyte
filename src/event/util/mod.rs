@@ -25,13 +25,6 @@ pub fn parse_map(value: Value) -> Option<Vec<(Value, Value)>> {
     }
 }
 
-pub fn parse_ext(value: Value, expected_type: i8) -> Option<Vec<u8>> {
-    match value {
-        Value::Ext(type_id, data) => (type_id == expected_type).then_some(data),
-        _ => None,
-    }
-}
-
 /// Used for positive integer values where -1 is a sentinel. The sentinel is
 /// represented by None.
 pub fn parse_maybe_u64(value: Value) -> Option<Option<u64>> {
