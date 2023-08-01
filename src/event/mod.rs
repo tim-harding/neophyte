@@ -3,6 +3,7 @@ mod cmdline_show;
 mod cmdline_special_char;
 mod default_colors_set;
 mod global_event;
+mod grid_clear;
 mod grid_cursor_goto;
 mod grid_line;
 mod grid_resize;
@@ -30,7 +31,7 @@ mod win_viewport;
 
 use self::{
     cmdline_pos::CmdlinePos, cmdline_show::CmdlineShow, cmdline_special_char::CmdlineSpecialChar,
-    default_colors_set::DefaultColorsSet, global_event::GlobalEvent,
+    default_colors_set::DefaultColorsSet, global_event::GlobalEvent, grid_clear::GridClear,
     grid_cursor_goto::GridCursorGoto, grid_line::GridLine, grid_resize::GridResize,
     grid_scroll::GridScroll, hl_attr_define::HlAttrDefine, hl_group_set::HlGroupSet,
     message_content::Content, mode_change::ModeChange, mode_info_set::ModeInfoSet,
@@ -54,7 +55,7 @@ pub enum Event {
     SetTitle(SetTitle),
     SetIcon(SetIcon),
     OptionSet(OptionSet),
-    GridClear(u64),
+    GridClear(GridClear),
     GridDestroy(u64),
     DefaultColorsSet(DefaultColorsSet),
     HlAttrDefine(HlAttrDefine),
@@ -119,6 +120,7 @@ event_from!(MsgShow);
 event_from!(WinExtmark);
 event_from!(SetTitle);
 event_from!(SetIcon);
+event_from!(GridClear);
 
 impl From<GlobalEvent> for Event {
     fn from(value: GlobalEvent) -> Self {
@@ -158,7 +160,7 @@ impl Event {
             "set_title" => unique::<SetTitle>(iter, Error::SetTitle),
             "set_icon" => unique::<SetIcon>(iter, Error::SetIcon),
             "option_set" => unique::<OptionSet>(iter, Error::OptionSet),
-            "grid_clear" => shared(iter, Event::GridClear, Error::GridClear),
+            "grid_clear" => unique::<GridClear>(iter, Error::GridClear),
             "grid_destroy" => shared(iter, Event::GridDestroy, Error::GridDestroy),
             "default_colors_set" => unique::<DefaultColorsSet>(iter, Error::DefaultColorsSet),
             "hl_attr_define" => unique::<HlAttrDefine>(iter, Error::HlAttrDefine),

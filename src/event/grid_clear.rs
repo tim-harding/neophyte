@@ -1,16 +1,16 @@
 use super::util::{parse_first_element, MaybeInto, Parse};
 use nvim_rs::Value;
 
-/// Set the global window title
+/// Set the minimized window title
 #[derive(Debug, Clone)]
-pub struct SetIcon {
-    pub title: String,
+pub struct GridClear {
+    pub grid: u64,
 }
 
-impl Parse for SetIcon {
+impl Parse for GridClear {
     fn parse(value: Value) -> Option<Self> {
         Some(Self {
-            title: parse_first_element(value)?.maybe_into()?,
+            grid: parse_first_element(value)?.maybe_into()?,
         })
     }
 }
