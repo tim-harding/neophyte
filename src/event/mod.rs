@@ -18,6 +18,8 @@ mod mode_info_set;
 mod msg_history_show;
 mod msg_set_pos;
 mod msg_show;
+mod msg_showcmd;
+mod msg_showmode;
 mod option_set;
 mod popupmenu_show;
 mod set_icon;
@@ -37,8 +39,9 @@ use self::{
     grid_resize::GridResize, grid_scroll::GridScroll, hl_attr_define::HlAttrDefine,
     hl_group_set::HlGroupSet, message_content::Content, mode_change::ModeChange,
     mode_info_set::ModeInfoSet, msg_history_show::MsgHistoryShow, msg_set_pos::MsgSetPos,
-    msg_show::MsgShow, option_set::OptionSet, popupmenu_show::PopupmenuShow, set_icon::SetIcon,
-    set_title::SetTitle, tabline_update::TablineUpdate, util::Parse, util::Values,
+    msg_show::MsgShow, msg_showcmd::MsgShowcmd, msg_showmode::MsgShowmode, option_set::OptionSet,
+    popupmenu_show::PopupmenuShow, set_icon::SetIcon, set_title::SetTitle,
+    tabline_update::TablineUpdate, util::Parse, util::Values,
     win_external_position::WinExternalPos, win_extmark::WinExtmark, win_float_pos::WinFloatPos,
     win_pos::WinPos, win_viewport::WinViewport,
 };
@@ -68,8 +71,8 @@ pub enum Event {
     GridLine(GridLine),
     WinViewport(WinViewport),
     TablineUpdate(TablineUpdate),
-    MsgShowmode(Content),
-    MsgShowcmd(Content),
+    MsgShowmode(MsgShowmode),
+    MsgShowcmd(MsgShowcmd),
     CmdlineShow(CmdlineShow),
     WinPos(WinPos),
     WinFloatPos(WinFloatPos),
@@ -123,6 +126,8 @@ event_from!(SetTitle);
 event_from!(SetIcon);
 event_from!(GridClear);
 event_from!(GridDestroy);
+event_from!(MsgShowmode);
+event_from!(MsgShowcmd);
 
 impl From<GlobalEvent> for Event {
     fn from(value: GlobalEvent) -> Self {
@@ -174,8 +179,8 @@ impl Event {
             "grid_line" => unique::<GridLine>(iter, Error::GridLine),
             "win_viewport" => unique::<WinViewport>(iter, Error::WinViewport),
             "tabline_update" => unique::<TablineUpdate>(iter, Error::TablineUpdate),
-            "msg_showmode" => shared(iter, Self::MsgShowmode, Error::MsgShowmode),
-            "msg_showcmd" => shared(iter, Self::MsgShowcmd, Error::MsgShowcmd),
+            "msg_showmode" => unique::<MsgShowmode>(iter, Error::MsgShowmode),
+            "msg_showcmd" => unique::<MsgShowcmd>(iter, Error::MsgShowcmd),
             "cmdline_show" => unique::<CmdlineShow>(iter, Error::CmdlineShow),
             "win_pos" => unique::<WinPos>(iter, Error::WinPos),
             "win_float_pos" => unique::<WinFloatPos>(iter, Error::WinFloatPos),
