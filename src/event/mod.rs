@@ -16,6 +16,7 @@ mod messagepack_ext_types;
 mod mode_change;
 mod mode_info_set;
 mod msg_history_show;
+mod msg_ruler;
 mod msg_set_pos;
 mod msg_show;
 mod msg_showcmd;
@@ -38,9 +39,9 @@ use self::{
     grid_cursor_goto::GridCursorGoto, grid_destroy::GridDestroy, grid_line::GridLine,
     grid_resize::GridResize, grid_scroll::GridScroll, hl_attr_define::HlAttrDefine,
     hl_group_set::HlGroupSet, message_content::Content, mode_change::ModeChange,
-    mode_info_set::ModeInfoSet, msg_history_show::MsgHistoryShow, msg_set_pos::MsgSetPos,
-    msg_show::MsgShow, msg_showcmd::MsgShowcmd, msg_showmode::MsgShowmode, option_set::OptionSet,
-    popupmenu_show::PopupmenuShow, set_icon::SetIcon, set_title::SetTitle,
+    mode_info_set::ModeInfoSet, msg_history_show::MsgHistoryShow, msg_ruler::MsgRuler,
+    msg_set_pos::MsgSetPos, msg_show::MsgShow, msg_showcmd::MsgShowcmd, msg_showmode::MsgShowmode,
+    option_set::OptionSet, popupmenu_show::PopupmenuShow, set_icon::SetIcon, set_title::SetTitle,
     tabline_update::TablineUpdate, util::Parse, util::Values,
     win_external_position::WinExternalPos, win_extmark::WinExtmark, win_float_pos::WinFloatPos,
     win_pos::WinPos, win_viewport::WinViewport,
@@ -76,7 +77,7 @@ pub enum Event {
     CmdlineShow(CmdlineShow),
     WinPos(WinPos),
     WinFloatPos(WinFloatPos),
-    MsgRuler(Content),
+    MsgRuler(MsgRuler),
     WinHide(u64),
     WinClose(u64),
     WinExternalPos(WinExternalPos),
@@ -128,6 +129,7 @@ event_from!(GridClear);
 event_from!(GridDestroy);
 event_from!(MsgShowmode);
 event_from!(MsgShowcmd);
+event_from!(MsgRuler);
 
 impl From<GlobalEvent> for Event {
     fn from(value: GlobalEvent) -> Self {
@@ -184,7 +186,7 @@ impl Event {
             "cmdline_show" => unique::<CmdlineShow>(iter, Error::CmdlineShow),
             "win_pos" => unique::<WinPos>(iter, Error::WinPos),
             "win_float_pos" => unique::<WinFloatPos>(iter, Error::WinFloatPos),
-            "msg_ruler" => shared(iter, Self::MsgRuler, Error::MsgRuler),
+            "msg_ruler" => unique::<MsgRuler>(iter, Error::MsgRuler),
             "win_hide" => shared(iter, Self::WinHide, Error::WinHide),
             "win_close" => shared(iter, Self::WinClose, Error::WinClose),
             "win_external_pos" => unique::<WinExternalPos>(iter, Error::WinExternalPos),
