@@ -62,48 +62,48 @@ use nvim_rs::Value;
 /// https://neovim.io/doc/user/ui.html
 #[derive(Debug, Clone)]
 pub enum Event {
-    MsgHistoryShow(Vec<MsgHistoryShow>),
-    CmdlineSpecialChar(Vec<CmdlineSpecialChar>),
-    PopupmenuShow(Vec<PopupmenuShow>),
-    CmdlinePos(Vec<CmdlinePos>),
-    GridResize(Vec<GridResize>),
-    SetTitle(Vec<String>),
-    SetIcon(Vec<String>),
-    OptionSet(Vec<OptionSet>),
-    GridClear(Vec<u64>),
-    GridDestroy(Vec<u64>),
-    DefaultColorsSet(Vec<DefaultColorsSet>),
-    HlAttrDefine(Vec<HlAttrDefine>),
-    ModeChange(Vec<ModeChange>),
-    ModeInfoSet(Vec<ModeInfoSet>),
-    HlGroupSet(Vec<HlGroupSet>),
-    GridCursorGoto(Vec<GridCursorGoto>),
-    GridScroll(Vec<GridScroll>),
-    GridLine(Vec<GridLine>),
-    WinViewport(Vec<WinViewport>),
-    TablineUpdate(Vec<TablineUpdate>),
-    MsgShowmode(Vec<Content>),
-    MsgShowcmd(Vec<Content>),
-    CmdlineShow(Vec<CmdlineShow>),
-    WinPos(Vec<WinPos>),
-    WinFloatPos(Vec<WinFloatPos>),
-    MsgRuler(Vec<Content>),
-    WinHide(Vec<u64>),
-    WinClose(Vec<u64>),
-    WinExternalPos(Vec<WinExternalPos>),
-    MsgSetPos(Vec<MsgSetPos>),
-    MsgShow(Vec<MsgShow>),
-    WinExtmark(Vec<WinExtmark>),
-    PopupmenuSelect(Vec<i64>),
-    CmdlineBlockShow(Vec<Vec<Content>>),
-    CmdlineBlockAppend(Vec<Content>),
+    MsgHistoryShow(MsgHistoryShow),
+    CmdlineSpecialChar(CmdlineSpecialChar),
+    PopupmenuShow(PopupmenuShow),
+    CmdlinePos(CmdlinePos),
+    GridResize(GridResize),
+    SetTitle(String),
+    SetIcon(String),
+    OptionSet(OptionSet),
+    GridClear(u64),
+    GridDestroy(u64),
+    DefaultColorsSet(DefaultColorsSet),
+    HlAttrDefine(HlAttrDefine),
+    ModeChange(ModeChange),
+    ModeInfoSet(ModeInfoSet),
+    HlGroupSet(HlGroupSet),
+    GridCursorGoto(GridCursorGoto),
+    GridScroll(GridScroll),
+    GridLine(GridLine),
+    WinViewport(WinViewport),
+    TablineUpdate(TablineUpdate),
+    MsgShowmode(Content),
+    MsgShowcmd(Content),
+    CmdlineShow(CmdlineShow),
+    WinPos(WinPos),
+    WinFloatPos(WinFloatPos),
+    MsgRuler(Content),
+    WinHide(u64),
+    WinClose(u64),
+    WinExternalPos(WinExternalPos),
+    MsgSetPos(MsgSetPos),
+    MsgShow(MsgShow),
+    WinExtmark(WinExtmark),
+    PopupmenuSelect(i64),
+    CmdlineBlockShow(Vec<Content>),
+    CmdlineBlockAppend(Content),
     GlobalEvent(GlobalEvent),
 }
 
 macro_rules! event_from {
     ($x:ident) => {
-        impl From<Vec<$x>> for Event {
-            fn from(value: Vec<$x>) -> Self {
+        impl From<$x> for Event {
+            fn from(value: $x) -> Self {
                 Self::$x(value)
             }
         }
@@ -140,28 +140,31 @@ impl From<GlobalEvent> for Event {
     }
 }
 
-fn unique<T: Parse>(iter: Values, error: Error) -> Result<Event, Error>
+fn unique<T: Parse>(iter: Values, error: Error) -> Result<Vec<Event>, Error>
 where
-    Vec<T>: Into<Event>,
+    T: Into<Event>,
 {
-    iter.map().ok_or(error).map(Into::into)
+    let v: Option<Vec<_>> = iter
+        .into_inner()
+        .map(|v| Some(T::parse(v)?.into()))
+        .collect();
+    v.ok_or(error)
 }
 
 fn shared<T: Parse>(
     iter: Values,
-    event_variant: fn(Vec<T>) -> Event,
+    event_variant: fn(T) -> Event,
     error: Error,
-) -> Result<Event, Error> {
-    Ok(event_variant(
-        iter.map_with(|v| Vec::parse(v)?.into_iter().next())
-            .ok_or(error)?,
-    ))
+) -> Result<Vec<Event>, Error> {
+    let v: Option<Vec<_>> = iter
+        .into_inner()
+        .map(|v| Some(event_variant(Vec::parse(v)?.into_iter().next()?)))
+        .collect();
+    v.ok_or(error)
 }
 
-impl TryFrom<Value> for Event {
-    type Error = Error;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
+impl Event {
+    pub fn try_parse(value: Value) -> Result<Vec<Self>, Error> {
         let mut iter = Values::new(value).ok_or(Error::Malformed)?;
         let event_name: String = iter.next().ok_or(Error::Malformed)?;
         match event_name.as_str() {
@@ -202,7 +205,7 @@ impl TryFrom<Value> for Event {
             "cmdline_block_append" => {
                 shared(iter, Self::CmdlineBlockAppend, Error::CmdlineBlockAppend)
             }
-            _ => Ok(GlobalEvent::try_from(event_name).map(Into::into)?),
+            _ => Ok(vec![GlobalEvent::try_from(event_name).map(Into::into)?]),
         }
     }
 }

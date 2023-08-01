@@ -32,7 +32,7 @@ impl Handler for NeovimHandler {
     async fn handle_notify(&self, name: String, args: Vec<Value>, _neovim: Neovim<Self::Writer>) {
         println!("Notify: {name}");
         for arg in args {
-            match Event::try_from(arg.clone()) {
+            match Event::try_parse(arg.clone()) {
                 Ok(event) => println!("{event:?}"),
                 Err(e) => match e {
                     event::Error::UnknownEvent(name) => {
