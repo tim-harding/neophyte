@@ -44,14 +44,13 @@ use self::{
     default_colors_set::DefaultColorsSet, global_event::GlobalEvent, grid_clear::GridClear,
     grid_cursor_goto::GridCursorGoto, grid_destroy::GridDestroy, grid_line::GridLine,
     grid_resize::GridResize, grid_scroll::GridScroll, hl_attr_define::HlAttrDefine,
-    hl_group_set::HlGroupSet, message_content::Content, mode_change::ModeChange,
-    mode_info_set::ModeInfoSet, msg_history_show::MsgHistoryShow, msg_ruler::MsgRuler,
-    msg_set_pos::MsgSetPos, msg_show::MsgShow, msg_showcmd::MsgShowcmd, msg_showmode::MsgShowmode,
-    option_set::OptionSet, popupmenu_select::PopupmenuSelect, popupmenu_show::PopupmenuShow,
-    set_icon::SetIcon, set_title::SetTitle, tabline_update::TablineUpdate, util::Parse,
-    util::Values, win_close::WinClose, win_external_position::WinExternalPos,
-    win_extmark::WinExtmark, win_float_pos::WinFloatPos, win_hide::WinHide, win_pos::WinPos,
-    win_viewport::WinViewport,
+    hl_group_set::HlGroupSet, mode_change::ModeChange, mode_info_set::ModeInfoSet,
+    msg_history_show::MsgHistoryShow, msg_ruler::MsgRuler, msg_set_pos::MsgSetPos,
+    msg_show::MsgShow, msg_showcmd::MsgShowcmd, msg_showmode::MsgShowmode, option_set::OptionSet,
+    popupmenu_select::PopupmenuSelect, popupmenu_show::PopupmenuShow, set_icon::SetIcon,
+    set_title::SetTitle, tabline_update::TablineUpdate, util::Parse, util::Values,
+    win_close::WinClose, win_external_position::WinExternalPos, win_extmark::WinExtmark,
+    win_float_pos::WinFloatPos, win_hide::WinHide, win_pos::WinPos, win_viewport::WinViewport,
 };
 use nvim_rs::Value;
 
