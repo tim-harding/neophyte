@@ -1,17 +1,20 @@
 use crate::event::{self, Event};
 use async_trait::async_trait;
-use nvim_rs::create::tokio::new_child_cmd;
-use nvim_rs::{compat::tokio::Compat, Handler, Neovim, Value};
-use nvim_rs::{error::LoopError, UiAttachOptions};
-use tokio::process::ChildStdin;
-use tokio::process::Command;
-use tokio::task::JoinHandle;
+use nvim_rs::{
+    compat::tokio::Compat, create::tokio::new_child_cmd, error::LoopError, Handler, Neovim,
+    UiAttachOptions, Value,
+};
+use tokio::{
+    process::{ChildStdin, Command},
+    sync::mpsc,
+    task::JoinHandle,
+};
 
 pub type Writer = Compat<ChildStdin>;
 pub type Nvim = Neovim<Writer>;
 
-pub async fn spawn_neovim() -> std::io::Result<(Nvim, IoHandle)> {
-    let handler = NeovimHandler {};
+pub async fn spawn_neovim(tx: mpsc::Sender<Vec<Event>>) -> std::io::Result<(Nvim, IoHandle)> {
+    let handler = NeovimHandler::new(tx);
     let (neovim, io_handle, _child) =
         new_child_cmd(Command::new("nvim").arg("--embed"), handler).await?;
 
@@ -52,7 +55,15 @@ impl IoHandle {
 }
 
 #[derive(Clone)]
-struct NeovimHandler {}
+struct NeovimHandler {
+    tx: mpsc::Sender<Vec<Event>>,
+}
+
+impl NeovimHandler {
+    pub fn new(tx: mpsc::Sender<Vec<Event>>) -> Self {
+        Self { tx }
+    }
+}
 
 #[async_trait]
 impl Handler for NeovimHandler {
@@ -73,7 +84,9 @@ impl Handler for NeovimHandler {
             "redraw" => {
                 for arg in args {
                     match Event::try_parse(arg.clone()) {
-                        Ok(event) => println!("{event:?}"),
+                        Ok(events) => {
+                            let _ = self.tx.send(events).await;
+                        }
                         Err(e) => match e {
                             event::Error::UnknownEvent(name) => {
                                 eprintln!("Unknown event: {name}\n{arg:#?}");
