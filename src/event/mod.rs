@@ -5,6 +5,7 @@ mod default_colors_set;
 mod global_event;
 mod grid_clear;
 mod grid_cursor_goto;
+mod grid_destroy;
 mod grid_line;
 mod grid_resize;
 mod grid_scroll;
@@ -32,12 +33,12 @@ mod win_viewport;
 use self::{
     cmdline_pos::CmdlinePos, cmdline_show::CmdlineShow, cmdline_special_char::CmdlineSpecialChar,
     default_colors_set::DefaultColorsSet, global_event::GlobalEvent, grid_clear::GridClear,
-    grid_cursor_goto::GridCursorGoto, grid_line::GridLine, grid_resize::GridResize,
-    grid_scroll::GridScroll, hl_attr_define::HlAttrDefine, hl_group_set::HlGroupSet,
-    message_content::Content, mode_change::ModeChange, mode_info_set::ModeInfoSet,
-    msg_history_show::MsgHistoryShow, msg_set_pos::MsgSetPos, msg_show::MsgShow,
-    option_set::OptionSet, popupmenu_show::PopupmenuShow, set_icon::SetIcon, set_title::SetTitle,
-    tabline_update::TablineUpdate, util::Parse, util::Values,
+    grid_cursor_goto::GridCursorGoto, grid_destroy::GridDestroy, grid_line::GridLine,
+    grid_resize::GridResize, grid_scroll::GridScroll, hl_attr_define::HlAttrDefine,
+    hl_group_set::HlGroupSet, message_content::Content, mode_change::ModeChange,
+    mode_info_set::ModeInfoSet, msg_history_show::MsgHistoryShow, msg_set_pos::MsgSetPos,
+    msg_show::MsgShow, option_set::OptionSet, popupmenu_show::PopupmenuShow, set_icon::SetIcon,
+    set_title::SetTitle, tabline_update::TablineUpdate, util::Parse, util::Values,
     win_external_position::WinExternalPos, win_extmark::WinExtmark, win_float_pos::WinFloatPos,
     win_pos::WinPos, win_viewport::WinViewport,
 };
@@ -56,7 +57,7 @@ pub enum Event {
     SetIcon(SetIcon),
     OptionSet(OptionSet),
     GridClear(GridClear),
-    GridDestroy(u64),
+    GridDestroy(GridDestroy),
     DefaultColorsSet(DefaultColorsSet),
     HlAttrDefine(HlAttrDefine),
     ModeChange(ModeChange),
@@ -121,6 +122,7 @@ event_from!(WinExtmark);
 event_from!(SetTitle);
 event_from!(SetIcon);
 event_from!(GridClear);
+event_from!(GridDestroy);
 
 impl From<GlobalEvent> for Event {
     fn from(value: GlobalEvent) -> Self {
@@ -161,7 +163,7 @@ impl Event {
             "set_icon" => unique::<SetIcon>(iter, Error::SetIcon),
             "option_set" => unique::<OptionSet>(iter, Error::OptionSet),
             "grid_clear" => unique::<GridClear>(iter, Error::GridClear),
-            "grid_destroy" => shared(iter, Event::GridDestroy, Error::GridDestroy),
+            "grid_destroy" => unique::<GridDestroy>(iter, Error::GridDestroy),
             "default_colors_set" => unique::<DefaultColorsSet>(iter, Error::DefaultColorsSet),
             "hl_attr_define" => unique::<HlAttrDefine>(iter, Error::HlAttrDefine),
             "mode_change" => unique::<ModeChange>(iter, Error::ModeChange),
