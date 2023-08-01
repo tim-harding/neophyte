@@ -1,4 +1,4 @@
-use super::util::{Parse, Values};
+use super::util::{parse_maybe_u64, Parse, Values};
 use nvim_rs::Value;
 
 /// Show popupmenu completion
@@ -21,18 +21,11 @@ impl Parse for PopupmenuShow {
         let mut iter = Values::new(value)?;
         Some(Self {
             items: iter.next()?,
-            selected: maybe_u64(iter.next()?)?,
+            selected: parse_maybe_u64(iter.next()?)?,
             row: iter.next()?,
             col: iter.next()?,
-            grid: maybe_u64(iter.next()?)?,
+            grid: parse_maybe_u64(iter.next()?)?,
         })
-    }
-}
-
-fn maybe_u64(value: Value) -> Option<Option<u64>> {
-    match value {
-        Value::Integer(i) => Some(i.as_u64()),
-        _ => None,
     }
 }
 

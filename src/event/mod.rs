@@ -22,6 +22,7 @@ mod msg_show;
 mod msg_showcmd;
 mod msg_showmode;
 mod option_set;
+mod popupmenu_select;
 mod popupmenu_show;
 mod set_icon;
 mod set_title;
@@ -43,10 +44,11 @@ use self::{
     hl_group_set::HlGroupSet, message_content::Content, mode_change::ModeChange,
     mode_info_set::ModeInfoSet, msg_history_show::MsgHistoryShow, msg_ruler::MsgRuler,
     msg_set_pos::MsgSetPos, msg_show::MsgShow, msg_showcmd::MsgShowcmd, msg_showmode::MsgShowmode,
-    option_set::OptionSet, popupmenu_show::PopupmenuShow, set_icon::SetIcon, set_title::SetTitle,
-    tabline_update::TablineUpdate, util::Parse, util::Values, win_close::WinClose,
-    win_external_position::WinExternalPos, win_extmark::WinExtmark, win_float_pos::WinFloatPos,
-    win_hide::WinHide, win_pos::WinPos, win_viewport::WinViewport,
+    option_set::OptionSet, popupmenu_select::PopupmenuSelect, popupmenu_show::PopupmenuShow,
+    set_icon::SetIcon, set_title::SetTitle, tabline_update::TablineUpdate, util::Parse,
+    util::Values, win_close::WinClose, win_external_position::WinExternalPos,
+    win_extmark::WinExtmark, win_float_pos::WinFloatPos, win_hide::WinHide, win_pos::WinPos,
+    win_viewport::WinViewport,
 };
 use nvim_rs::Value;
 
@@ -86,7 +88,7 @@ pub enum Event {
     MsgSetPos(MsgSetPos),
     MsgShow(MsgShow),
     WinExtmark(WinExtmark),
-    PopupmenuSelect(i64),
+    PopupmenuSelect(PopupmenuSelect),
     CmdlineBlockShow(Vec<Content>),
     CmdlineBlockAppend(Content),
     GlobalEvent(GlobalEvent),
@@ -134,6 +136,7 @@ event_from!(MsgShowcmd);
 event_from!(MsgRuler);
 event_from!(WinHide);
 event_from!(WinClose);
+event_from!(PopupmenuSelect);
 
 impl From<GlobalEvent> for Event {
     fn from(value: GlobalEvent) -> Self {
@@ -201,7 +204,7 @@ impl Event {
             "popupmenu_show" => unique::<PopupmenuShow>(iter, Error::PopupmenuShow),
             "cmdline_special_char" => unique::<CmdlineSpecialChar>(iter, Error::CmdlineSpecialChar),
             "msg_history_show" => unique::<MsgHistoryShow>(iter, Error::MsgHistoryShow),
-            "popupmenu_select" => shared(iter, Self::PopupmenuSelect, Error::PopupmenuSelect),
+            "popupmenu_select" => unique::<PopupmenuSelect>(iter, Error::PopupmenuSelect),
             "cmdline_block_show" => shared(iter, Self::CmdlineBlockShow, Error::CmdlineBlockShow),
             "cmdline_block_append" => {
                 shared(iter, Self::CmdlineBlockAppend, Error::CmdlineBlockAppend)
