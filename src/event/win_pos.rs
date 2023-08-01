@@ -6,7 +6,7 @@ use nvim_rs::Value;
 
 /// Set the position and size of the outer grid size. If the window was
 /// previously hidden, it should now be shown again.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct WinPos {
     /// The grid to update
     pub grid: u64,

@@ -5,7 +5,7 @@ use super::{
 use nvim_rs::Value;
 
 /// Display or reconfigure a floating window.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct WinFloatPos {
     /// The grid to display in the window
     pub grid: u64,

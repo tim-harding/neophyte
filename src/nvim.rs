@@ -7,7 +7,10 @@ use tokio::process::ChildStdin;
 use tokio::process::Command;
 use tokio::task::JoinHandle;
 
-pub async fn spawn_neovim() -> std::io::Result<(Neovim<Compat<ChildStdin>>, IoHandle)> {
+pub type Writer = Compat<ChildStdin>;
+pub type Nvim = Neovim<Writer>;
+
+pub async fn spawn_neovim() -> std::io::Result<(Nvim, IoHandle)> {
     let handler = NeovimHandler {};
     let (neovim, io_handle, _child) =
         new_child_cmd(Command::new("nvim").arg("--embed"), handler).await?;

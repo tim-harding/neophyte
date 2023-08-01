@@ -5,7 +5,7 @@ use super::{
 use nvim_rs::Value;
 
 /// Updates the position of an extmark which is currently visible in a window.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct WinExtmark {
     /// The grid containing the extmark
     pub grid: u64,
