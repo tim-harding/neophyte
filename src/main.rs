@@ -20,7 +20,7 @@ fn main() {
 async fn async_main() {
     env_logger::builder().format_timestamp(None).init();
     let (tx, mut rx) = mpsc::channel::<Vec<Event>>(32);
-    let (nvim, io_handle) = spawn_neovim(tx).await.unwrap();
+    let (nvim, io_handle) = spawn_neovim(80, 80, tx).await.unwrap();
     tokio::spawn(async move {
         nvim.input(":things<left><left><cr>").await.unwrap();
     });

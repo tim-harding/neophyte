@@ -13,7 +13,11 @@ use tokio::{
 pub type Writer = Compat<ChildStdin>;
 pub type Nvim = Neovim<Writer>;
 
-pub async fn spawn_neovim(tx: mpsc::Sender<Vec<Event>>) -> std::io::Result<(Nvim, IoHandle)> {
+pub async fn spawn_neovim(
+    width: u64,
+    height: u64,
+    tx: mpsc::Sender<Vec<Event>>,
+) -> std::io::Result<(Nvim, IoHandle)> {
     let handler = NeovimHandler::new(tx);
     let (neovim, io_handle, _child) =
         new_child_cmd(Command::new("nvim").arg("--embed"), handler).await?;
@@ -33,7 +37,14 @@ pub async fn spawn_neovim(tx: mpsc::Sender<Vec<Event>>) -> std::io::Result<(Nvim
     // that grid and the UI must change the grid size whenever the outer size
     // is changed. To delegate grid-size handling back to Nvim, request the
     // size (0, 0).
-    neovim.ui_attach(10, 10, &options).await.unwrap();
+    neovim
+        .ui_attach(
+            width.try_into().unwrap(),
+            height.try_into().unwrap(),
+            &options,
+        )
+        .await
+        .unwrap();
 
     Ok((neovim, IoHandle(io_handle)))
 }

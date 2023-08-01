@@ -38,7 +38,7 @@ mod win_hide;
 mod win_pos;
 mod win_viewport;
 
-use self::{
+pub use self::{
     cmdline_block_append::CmdlineBlockAppend, cmdline_block_show::CmdlineBlockShow,
     cmdline_pos::CmdlinePos, cmdline_show::CmdlineShow, cmdline_special_char::CmdlineSpecialChar,
     default_colors_set::DefaultColorsSet, global_event::GlobalEvent, grid_clear::GridClear,
