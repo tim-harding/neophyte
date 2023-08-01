@@ -18,6 +18,7 @@ mod msg_set_pos;
 mod msg_show;
 mod option_set;
 mod popupmenu_show;
+mod set_icon;
 mod set_title;
 mod tabline_update;
 mod util;
@@ -34,7 +35,7 @@ use self::{
     grid_scroll::GridScroll, hl_attr_define::HlAttrDefine, hl_group_set::HlGroupSet,
     message_content::Content, mode_change::ModeChange, mode_info_set::ModeInfoSet,
     msg_history_show::MsgHistoryShow, msg_set_pos::MsgSetPos, msg_show::MsgShow,
-    option_set::OptionSet, popupmenu_show::PopupmenuShow, set_title::SetTitle,
+    option_set::OptionSet, popupmenu_show::PopupmenuShow, set_icon::SetIcon, set_title::SetTitle,
     tabline_update::TablineUpdate, util::Parse, util::Values,
     win_external_position::WinExternalPos, win_extmark::WinExtmark, win_float_pos::WinFloatPos,
     win_pos::WinPos, win_viewport::WinViewport,
@@ -51,7 +52,7 @@ pub enum Event {
     CmdlinePos(CmdlinePos),
     GridResize(GridResize),
     SetTitle(SetTitle),
-    SetIcon(String),
+    SetIcon(SetIcon),
     OptionSet(OptionSet),
     GridClear(u64),
     GridDestroy(u64),
@@ -117,6 +118,7 @@ event_from!(MsgSetPos);
 event_from!(MsgShow);
 event_from!(WinExtmark);
 event_from!(SetTitle);
+event_from!(SetIcon);
 
 impl From<GlobalEvent> for Event {
     fn from(value: GlobalEvent) -> Self {
@@ -154,7 +156,7 @@ impl Event {
         match event_name.as_str() {
             "grid_resize" => unique::<GridResize>(iter, Error::GridResize),
             "set_title" => unique::<SetTitle>(iter, Error::SetTitle),
-            "set_icon" => shared(iter, Self::SetIcon, Error::SetIcon),
+            "set_icon" => unique::<SetIcon>(iter, Error::SetIcon),
             "option_set" => unique::<OptionSet>(iter, Error::OptionSet),
             "grid_clear" => shared(iter, Event::GridClear, Error::GridClear),
             "grid_destroy" => shared(iter, Event::GridDestroy, Error::GridDestroy),
