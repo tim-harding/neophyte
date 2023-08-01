@@ -1,4 +1,5 @@
 mod event;
+mod grid;
 mod rendering;
 
 use crate::event::Event;

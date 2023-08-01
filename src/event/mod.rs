@@ -2,6 +2,7 @@ mod cmdline_pos;
 mod cmdline_show;
 mod cmdline_special_char;
 mod default_colors_set;
+mod global_event;
 mod grid_cursor_goto;
 mod grid_line;
 mod grid_resize;
@@ -17,6 +18,7 @@ mod msg_set_pos;
 mod msg_show;
 mod option_set;
 mod popupmenu_show;
+mod set_title;
 mod tabline_update;
 mod util;
 mod win_external_position;
@@ -26,15 +28,33 @@ mod win_pos;
 mod win_viewport;
 
 use self::{
-    cmdline_pos::CmdlinePos, cmdline_show::CmdlineShow, cmdline_special_char::CmdlineSpecialChar,
-    default_colors_set::DefaultColorsSet, grid_cursor_goto::GridCursorGoto, grid_line::GridLine,
-    grid_resize::GridResize, grid_scroll::GridScroll, hl_attr_define::HlAttrDefine,
-    hl_group_set::HlGroupSet, message_content::Content, mode_change::ModeChange,
-    mode_info_set::ModeInfoSet, msg_history_show::MsgHistoryShow, msg_set_pos::MsgSetPos,
-    msg_show::MsgShow, option_set::OptionSet, popupmenu_show::PopupmenuShow,
-    tabline_update::TablineUpdate, util::Parse, util::Values,
-    win_external_position::WinExternalPos, win_extmark::WinExtmark, win_float_pos::WinFloatPos,
-    win_pos::WinPos, win_viewport::WinViewport,
+    cmdline_pos::CmdlinePos,
+    cmdline_show::CmdlineShow,
+    cmdline_special_char::CmdlineSpecialChar,
+    default_colors_set::DefaultColorsSet,
+    global_event::{GlobalEvent, GlobalEventUnknown},
+    grid_cursor_goto::GridCursorGoto,
+    grid_line::GridLine,
+    grid_resize::GridResize,
+    grid_scroll::GridScroll,
+    hl_attr_define::HlAttrDefine,
+    hl_group_set::HlGroupSet,
+    message_content::Content,
+    mode_change::ModeChange,
+    mode_info_set::ModeInfoSet,
+    msg_history_show::MsgHistoryShow,
+    msg_set_pos::MsgSetPos,
+    msg_show::MsgShow,
+    option_set::OptionSet,
+    popupmenu_show::PopupmenuShow,
+    tabline_update::TablineUpdate,
+    util::Parse,
+    util::Values,
+    win_external_position::WinExternalPos,
+    win_extmark::WinExtmark,
+    win_float_pos::WinFloatPos,
+    win_pos::WinPos,
+    win_viewport::WinViewport,
 };
 use nvim_rs::Value;
 
@@ -77,22 +97,7 @@ pub enum Event {
     PopupmenuSelect(Vec<i64>),
     CmdlineBlockShow(Vec<Vec<Content>>),
     CmdlineBlockAppend(Vec<Content>),
-    Clear,
-    EolClear,
-    MouseOn,
-    MouseOff,
-    BusyStart,
-    BusyStop,
-    Suspend,
-    UpdateMenu,
-    Bell,
-    VisualBell,
-    Flush,
-    CmdlineHide,
-    CmdlineBlockHide,
-    PopupmenuHide,
-    MsgClear,
-    MsgHistoryClear,
+    GlobalEvent(GlobalEvent),
 }
 
 macro_rules! event_from {
@@ -128,6 +133,12 @@ event_from!(WinExternalPos);
 event_from!(MsgSetPos);
 event_from!(MsgShow);
 event_from!(WinExtmark);
+
+impl From<GlobalEvent> for Event {
+    fn from(value: GlobalEvent) -> Self {
+        Self::GlobalEvent(value)
+    }
+}
 
 fn unique<T: Parse>(iter: Values, error: Error) -> Result<Event, Error>
 where
@@ -191,24 +202,7 @@ impl TryFrom<Value> for Event {
             "cmdline_block_append" => {
                 shared(iter, Self::CmdlineBlockAppend, Error::CmdlineBlockAppend)
             }
-            "clear" => Ok(Self::Clear),
-            "eol_clear" => Ok(Self::EolClear),
-            "mouse_on" => Ok(Self::MouseOn),
-            "mouse_off" => Ok(Self::MouseOff),
-            "busy_start" => Ok(Self::BusyStart),
-            "busy_stop" => Ok(Self::BusyStop),
-            "suspend" => Ok(Self::Suspend),
-            "update_menu" => Ok(Self::UpdateMenu),
-            "bell" => Ok(Self::Bell),
-            "visual_bell" => Ok(Self::VisualBell),
-            "flush" => Ok(Self::Flush),
-            // TODO: This event receives an undocumented u64 argument. Investigate.
-            "cmdline_hide" => Ok(Self::CmdlineHide),
-            "cmdline_block_hide" => Ok(Self::CmdlineBlockHide),
-            "msg_history_clear" => Ok(Self::MsgHistoryClear),
-            "msg_clear" => Ok(Self::MsgClear),
-            "popupmenu_hide" => Ok(Self::PopupmenuHide),
-            _ => Err(Error::UnknownEvent(event_name)),
+            _ => Ok(GlobalEvent::try_from(event_name).map(Into::into)?),
         }
     }
 }
@@ -289,4 +283,6 @@ pub enum Error {
     CmdlineBlockAppend,
     #[error("Failed to parse msg_history_show event")]
     MsgHistoryShow,
+    #[error("{0}")]
+    GlobalEvent(#[from] GlobalEventUnknown),
 }
