@@ -3,7 +3,7 @@ mod window;
 
 use self::window::Window;
 use crate::{
-    event::{Event, GlobalEvent, GridLine, GridScroll, WinPos},
+    event::{Event, GlobalEvent, GridLine, GridScroll, HlAttrDefine, WinPos},
     util::Vec2,
 };
 use grid::Grid;
@@ -18,6 +18,11 @@ pub struct Ui {
     grids: HashMap<u64, Grid>,
     windows: HashMap<u64, Window>,
     cursor: CursorInfo,
+    highlights: HashMap<u64, HlAttrDefine>,
+    /// Lookup into the highlights map. Useful for a UI who want to render its
+    /// own elements with consistent highlighting. For instance a UI using
+    /// ui-popupmenu events, might use the hl-Pmenu family of builtin highlights
+    highlight_groups: HashMap<String, u64>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -55,7 +60,7 @@ impl Ui {
             Event::GridResize(event) => {
                 log::info!("{event:?}");
                 let grid = self.grid(event.grid);
-                grid.resize(event.width, event.height);
+                grid.resize(Vec2::new(event.width, event.height));
             }
             Event::SetTitle(event) => {
                 log::info!("{event:?}");
@@ -75,10 +80,14 @@ impl Ui {
                 self.grids.remove(&event.grid);
             }
             Event::DefaultColorsSet(_) => {}
-            Event::HlAttrDefine(_) => {}
+            Event::HlAttrDefine(event) => {
+                self.highlights.insert(event.id, event);
+            }
             Event::ModeChange(_) => {}
             Event::ModeInfoSet(_) => {}
-            Event::HlGroupSet(_) => {}
+            Event::HlGroupSet(event) => {
+                self.highlight_groups.insert(event.name, event.hl_id);
+            }
             Event::GridCursorGoto(event) => {
                 log::info!("{event:?}");
                 self.cursor.pos = Vec2::new(event.column, event.row);
@@ -97,24 +106,24 @@ impl Ui {
                 } = event;
                 let grid = self.grid(grid);
                 let height = grid.height();
+                let mut copy = move |src_y, dst_y| {
+                    for x in left..right {
+                        let (c, highlight) = grid.get(Vec2::new(x, src_y));
+                        grid.set(Vec2::new(x, dst_y), c, highlight);
+                    }
+                };
+                // TODO: Skip iterations for lines that won't be copied
                 if rows > 0 {
                     for y in top..bot {
                         if let Ok(dst_y) = ((y as i64) - rows).try_into() {
-                            for x in left..right {
-                                let c = grid.get(x, y);
-                                grid.set(x, dst_y, c);
-                            }
+                            copy(y, dst_y);
                         }
                     }
                 } else {
                     for y in (top..bot).rev() {
                         let dst_y = ((y as i64) - rows) as u64;
-                        if dst_y >= height {
-                            continue;
-                        }
-                        for x in left..right {
-                            let c = grid.get(x, y);
-                            grid.set(x, dst_y, c);
+                        if dst_y < height {
+                            copy(y, dst_y);
                         }
                     }
                 }
@@ -128,19 +137,23 @@ impl Ui {
                     cells,
                 } = event;
                 let grid = self.grid(grid);
-                let row = grid.row_mut(row);
-                let row = &mut row[col_start as usize..];
-                let mut dst = row.iter_mut();
+                let mut row = grid.row_mut(row).skip(col_start as usize);
+                let mut highlight = 0;
                 for cell in cells {
                     let c = cell.text.chars().into_iter().next().unwrap();
+                    if let Some(hl_id) = cell.hl_id {
+                        highlight = hl_id;
+                    }
                     if let Some(repeat) = cell.repeat {
                         for _ in 0..repeat {
-                            let dst = dst.next().unwrap();
-                            *dst = c;
+                            let dst = row.next().unwrap();
+                            *dst.0 = c;
+                            *dst.1 = highlight;
                         }
                     } else {
-                        let dst = dst.next().unwrap();
-                        *dst = c;
+                        let dst = row.next().unwrap();
+                        *dst.0 = c;
+                        *dst.1 = highlight;
                     }
                 }
             }
@@ -197,26 +210,19 @@ impl Ui {
                 GlobalEvent::Bell => {}
                 GlobalEvent::VisualBell => {}
                 GlobalEvent::Flush => {
-                    log::info!("flush");
+                    // TODO: Optimize
                     let mut outer_grid = self.grid(1).clone();
-                    let width = outer_grid.width() as usize;
-                    let buffer = outer_grid.cells_mut();
                     for window in self.windows.values() {
-                        let start_y = window.start.y as usize;
-                        let start_x = window.start.x as usize;
-                        // Invariant: Should not be possible to create a window
-                        // without the corresponding grid
                         let grid = self.grids.get(&window.grid).unwrap();
                         for (y, row) in grid.rows().enumerate() {
-                            for (x, col) in row.into_iter().enumerate() {
-                                let y = y + start_y as usize;
-                                let x = x + start_x as usize;
-                                buffer[y * width + x] = *col;
+                            for (x, (c, hl)) in row.into_iter().enumerate() {
+                                let pos = Vec2::new(x as u64, y as u64);
+                                outer_grid.set(window.start + pos, c, hl);
                             }
                         }
                         if window.grid == self.cursor.grid && self.cursor.enabled {
                             let pos = window.start + self.cursor.pos;
-                            buffer[pos.y as usize * width + pos.x as usize] = '█';
+                            outer_grid.set(pos, '█', 0);
                         }
                     }
                     println!("{outer_grid:?}");
