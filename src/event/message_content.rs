@@ -2,7 +2,7 @@ use super::util::{MaybeInto, Parse, Values};
 use nvim_rs::Value;
 
 /// A text sequence with highlighting.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Content {
     /// Chunks to be concatenated without extra spacing
     pub chunks: Vec<ContentChunk>,

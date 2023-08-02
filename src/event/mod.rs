@@ -17,10 +17,10 @@ mod message_content;
 mod messagepack_ext_types;
 mod mode_change;
 mod mode_info_set;
-mod msg_history_show;
+pub mod msg_history_show;
 mod msg_ruler;
 mod msg_set_pos;
-mod msg_show;
+pub mod msg_show;
 mod msg_showcmd;
 mod msg_showmode;
 mod option_set;
@@ -54,6 +54,7 @@ pub use self::{
     grid_scroll::GridScroll,
     hl_attr_define::HlAttrDefine,
     hl_group_set::HlGroupSet,
+    message_content::{Content, ContentChunk},
     mode_change::ModeChange,
     mode_info_set::ModeInfoSet,
     msg_history_show::MsgHistoryShow,

@@ -1,16 +1,22 @@
 mod grid;
+mod messages;
+mod print;
 mod window;
 
-use self::window::Window;
+use self::{
+    messages::{eprint_messages, Messages},
+    print::eprint_content,
+    window::Window,
+};
 use crate::{
     event::{Event, GlobalEvent, GridLine, GridScroll, HlAttrDefine, WinPos},
     util::Vec2,
 };
 use grid::Grid;
 use std::collections::{hash_map::Entry, HashMap};
-use termcolor::{ColorChoice, StandardStream, WriteColor};
 
-// TODO: Audit unwrap uses
+pub type Highlights = HashMap<u64, HlAttrDefine>;
+pub type HighlightGroups = HashMap<String, u64>;
 
 #[derive(Debug, Default, Clone)]
 pub struct Ui {
@@ -19,11 +25,9 @@ pub struct Ui {
     grids: HashMap<u64, Grid>,
     windows: HashMap<u64, Window>,
     cursor: CursorInfo,
-    highlights: HashMap<u64, HlAttrDefine>,
-    /// Lookup into the highlights map. Useful for a UI who want to render its
-    /// own elements with consistent highlighting. For instance a UI using
-    /// ui-popupmenu events, might use the hl-Pmenu family of builtin highlights
-    highlight_groups: HashMap<String, u64>,
+    highlights: Highlights,
+    highlight_groups: HighlightGroups,
+    messages: Messages,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -54,7 +58,6 @@ impl Ui {
 
     pub fn process(&mut self, event: Event) {
         match event {
-            Event::MsgHistoryShow(_) => {}
             Event::CmdlineSpecialChar(_) => {}
             Event::PopupmenuShow(_) => {}
             Event::CmdlinePos(_) => {}
@@ -120,8 +123,6 @@ impl Ui {
             }
             Event::WinViewport(_) => {}
             Event::TablineUpdate(_) => {}
-            Event::MsgShowmode(_) => {}
-            Event::MsgShowcmd(_) => {}
             Event::CmdlineShow(_) => {}
             Event::WinPos(event) => {
                 log::info!("{event:?}");
@@ -151,16 +152,44 @@ impl Ui {
                 }
             }
             Event::WinFloatPos(_) => {}
-            Event::MsgRuler(_) => {}
             Event::WinHide(_) => {}
             Event::WinClose(_) => {}
             Event::WinExternalPos(_) => {}
-            Event::MsgSetPos(_) => {}
-            Event::MsgShow(_) => {}
             Event::WinExtmark(_) => {}
             Event::PopupmenuSelect(_) => {}
             Event::CmdlineBlockShow(_) => {}
             Event::CmdlineBlockAppend(_) => {}
+
+            Event::MsgHistoryShow(event) => {
+                self.messages.history = event.entries;
+                eprint!("history: ");
+                eprint_messages(&self.messages.history, &self.highlights);
+            }
+            Event::MsgRuler(event) => {
+                self.messages.ruler = event.content;
+                eprint!("ruler: ");
+                eprint_content(&self.messages.ruler, &self.highlights);
+                eprintln!();
+            }
+            Event::MsgSetPos(_) => {} // Not used when ui-messages is enabled
+            Event::MsgShow(event) => {
+                self.messages.show(event);
+                eprint!("show: ");
+                eprint_messages(&self.messages.show, &self.highlights);
+            }
+            Event::MsgShowmode(event) => {
+                self.messages.showmode = event.content;
+                eprint!("showmode: ");
+                eprint_content(&self.messages.showmode, &self.highlights);
+                eprintln!();
+            }
+            Event::MsgShowcmd(event) => {
+                self.messages.showcmd = event.content;
+                eprint!("showcmd: ");
+                eprint_content(&self.messages.showcmd, &self.highlights);
+                eprintln!();
+            }
+
             Event::GlobalEvent(event) => match event {
                 GlobalEvent::MouseOn => {}
                 GlobalEvent::MouseOff => {}
@@ -186,8 +215,12 @@ impl Ui {
                 GlobalEvent::CmdlineHide => {}
                 GlobalEvent::CmdlineBlockHide => {}
                 GlobalEvent::PopupmenuHide => {}
-                GlobalEvent::MsgClear => {}
-                GlobalEvent::MsgHistoryClear => {}
+                GlobalEvent::MsgClear => {
+                    self.messages.show.clear();
+                }
+                GlobalEvent::MsgHistoryClear => {
+                    self.messages.history.clear();
+                }
             },
         }
     }

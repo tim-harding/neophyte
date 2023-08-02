@@ -3,6 +3,7 @@
 use crate::event::grid_line::Cell;
 use crate::event::hl_attr_define::Attributes;
 use crate::event::{GridScroll, HlAttrDefine};
+use crate::ui::print::hl_attr_to_colorspec;
 use crate::util::Vec2;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
@@ -191,43 +192,6 @@ impl Grid {
             }
         }
     }
-}
-
-fn hl_attr_to_colorspec(hl: &HlAttrDefine) -> ColorSpec {
-    let mut spec = ColorSpec::new();
-    let hl = &hl.rgb_attr;
-    let reverse = hl.reverse.unwrap_or(false);
-
-    if let Some(foreground) = hl.foreground {
-        let color = Some(u64_to_color(foreground));
-        if reverse {
-            spec.set_bg(color);
-        } else {
-            spec.set_fg(color);
-        }
-    }
-
-    if let Some(background) = hl.background {
-        let color = Some(u64_to_color(background));
-        if reverse {
-            spec.set_fg(color);
-        } else {
-            spec.set_bg(color);
-        }
-    }
-
-    spec.set_italic(hl.italic.unwrap_or(false));
-    spec.set_bold(hl.bold.unwrap_or(false));
-    spec.set_strikethrough(hl.strikethrough.unwrap_or(false));
-    spec.set_underline(hl.underline.unwrap_or(false));
-    spec
-}
-
-fn u64_to_color(n: u64) -> Color {
-    let r = (n >> 16) as u8;
-    let g = (n >> 8) as u8;
-    let b = n as u8;
-    Color::Rgb(r, g, b)
 }
 
 impl Debug for Grid {
