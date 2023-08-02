@@ -170,16 +170,11 @@ impl Ui {
                 GlobalEvent::Bell => {}
                 GlobalEvent::VisualBell => {}
                 GlobalEvent::Flush => {
-                    // TODO: Optimize
                     let mut outer_grid = self.grid(1).clone();
                     for window in self.windows.values() {
                         let grid = self.grids.get(&window.grid).unwrap();
-                        for (y, row) in grid.rows().enumerate() {
-                            for (x, (c, hl)) in row.into_iter().enumerate() {
-                                let pos = Vec2::new(x as u64, y as u64);
-                                outer_grid.set(window.start + pos, c, hl);
-                            }
-                        }
+                        outer_grid.combine(grid, window.start);
+                        // TODO: Use Cursor highlight
                         if window.grid == self.cursor.grid && self.cursor.enabled {
                             let pos = window.start + self.cursor.pos;
                             outer_grid.set(pos, '█', 0);

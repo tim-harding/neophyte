@@ -104,7 +104,7 @@ impl Grid {
             .map(|(cells_row, highlights_row)| cells_row.iter_mut().zip(highlights_row.iter_mut()))
     }
 
-    pub fn combine(&mut self, other: Grid, anchor: Vec2) {
+    pub fn combine(&mut self, other: &Grid, anchor: Vec2) {
         for (y, row) in other.rows().enumerate() {
             for (x, (c, hl)) in row.into_iter().enumerate() {
                 let pos = Vec2::new(x as u64, y as u64);
@@ -238,20 +238,6 @@ impl Debug for Grid {
             write!(f, "┃\n")?;
         }
         write!(f, "┗{:━<1$}┛", "", self.width as usize);
-        Ok(())
-    }
-}
-
-impl Display for Grid {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        for y in 0..self.height {
-            let row = self.row(y);
-            for cell in row {
-                let cell = cell.0;
-                write!(f, "{cell}")?;
-            }
-            write!(f, "\n")?;
-        }
         Ok(())
     }
 }
