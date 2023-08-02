@@ -49,6 +49,11 @@ impl Grid {
         self.highlights[i] = highlight;
     }
 
+    pub fn set_hl(&mut self, pos: Vec2, highlight: u64) {
+        let i = (pos.y * self.width + pos.x) as usize;
+        self.highlights[i] = highlight;
+    }
+
     pub fn clear(&mut self) {
         for (cell, highlight) in self.cells.iter_mut().zip(self.highlights.iter_mut()) {
             *cell = ' ';

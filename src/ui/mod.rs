@@ -8,6 +8,7 @@ use crate::{
 };
 use grid::Grid;
 use std::collections::{hash_map::Entry, HashMap};
+use termcolor::{ColorChoice, StandardStream, WriteColor};
 
 // TODO: Audit unwrap uses
 
@@ -174,10 +175,10 @@ impl Ui {
                     for window in self.windows.values() {
                         let grid = self.grids.get(&window.grid).unwrap();
                         outer_grid.combine(grid, window.start);
-                        // TODO: Use Cursor highlight
                         if window.grid == self.cursor.grid && self.cursor.enabled {
+                            let hl = *self.highlight_groups.get("Cursor").unwrap_or(&0);
                             let pos = window.start + self.cursor.pos;
-                            outer_grid.set(pos, '█', 0);
+                            outer_grid.set_hl(pos, hl);
                         }
                     }
                     outer_grid.print_colored(&self.highlights);
