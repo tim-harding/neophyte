@@ -53,7 +53,7 @@ pub struct GridScroll {
     /// moves it down.
     pub rows: i64,
     /// Always zero in this version of Neovim. Reserved for future use.
-    pub cols: u64,
+    pub cols: i64,
 }
 
 impl Parse for GridScroll {

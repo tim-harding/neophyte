@@ -7,12 +7,12 @@ use std::fmt::{self, Debug, Display, Formatter};
 #[derive(Default, Clone)]
 pub struct Grid {
     cells: Vec<char>,
-    width: usize,
-    height: usize,
+    width: u64,
+    height: u64,
 }
 
 impl Grid {
-    pub fn resize(&mut self, width: usize, height: usize) {
+    pub fn resize(&mut self, width: u64, height: u64) {
         // TODO: Resize in place
         let mut new = vec![' '; (width * height) as usize];
         for y in 0..height.min(self.height) {
@@ -25,36 +25,48 @@ impl Grid {
         self.cells = new;
     }
 
+    pub fn get(&self, x: u64, y: u64) -> char {
+        let i = y * self.width + x;
+        self.cells[i as usize]
+    }
+
+    pub fn set(&mut self, x: u64, y: u64, c: char) {
+        let i = y * self.width + x;
+        self.cells[i as usize] = c;
+    }
+
     pub fn clear(&mut self) {
         for cell in self.cells.iter_mut() {
             *cell = ' ';
         }
     }
 
-    pub fn row(&self, i: usize) -> &[char] {
-        let start = i * self.width;
-        &self.cells[start..start + self.width]
+    pub fn row(&self, i: u64) -> &[char] {
+        let w = self.width as usize;
+        let start = i as usize * w;
+        &self.cells[start..start + w]
     }
 
-    pub fn row_mut(&mut self, i: usize) -> &mut [char] {
-        let start = i * self.width;
-        &mut self.cells[start..start + self.width]
+    pub fn row_mut(&mut self, i: u64) -> &mut [char] {
+        let w = self.width as usize;
+        let start = i as usize * w;
+        &mut self.cells[start..start + w]
     }
 
-    pub fn width(&self) -> usize {
+    pub fn width(&self) -> u64 {
         self.width
     }
 
-    pub fn height(&self) -> usize {
+    pub fn height(&self) -> u64 {
         self.height
     }
 
     pub fn rows(&self) -> impl Iterator<Item = &[char]> {
-        self.cells.chunks(self.width)
+        self.cells.chunks(self.width as usize)
     }
 
     pub fn rows_mut(&mut self) -> impl Iterator<Item = &mut [char]> {
-        self.cells.chunks_mut(self.width)
+        self.cells.chunks_mut(self.width as usize)
     }
 
     pub fn cells(&self) -> &[char] {
@@ -68,7 +80,7 @@ impl Grid {
 
 impl Debug for Grid {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "┏{:━<1$}┓\n", "", self.width);
+        write!(f, "┏{:━<1$}┓\n", "", self.width as usize);
         for y in 0..self.height {
             write!(f, "┃");
             let row = self.row(y);
@@ -77,7 +89,7 @@ impl Debug for Grid {
             }
             write!(f, "┃\n")?;
         }
-        write!(f, "┗{:━<1$}┛", "", self.width);
+        write!(f, "┗{:━<1$}┛", "", self.width as usize);
         Ok(())
     }
 }

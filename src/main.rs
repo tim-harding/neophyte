@@ -23,7 +23,9 @@ async fn async_main() {
     let (tx, mut rx) = mpsc::channel::<Vec<Event>>(32);
     let (nvim, io_handle) = spawn_neovim(80, 10, tx).await.unwrap();
     tokio::spawn(async move {
-        nvim.input("iThings and stuff<esc>").await.unwrap();
+        nvim.input("iThings and stuff<esc>OWhatever<esc>oDooblidoo<esc>")
+            .await
+            .unwrap();
     });
     tokio::spawn(async move {
         let mut ui = Ui::new();
