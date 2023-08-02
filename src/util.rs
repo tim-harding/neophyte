@@ -9,3 +9,20 @@ impl Vec2 {
         Self { x, y }
     }
 }
+
+impl Into<(u64, u64)> for Vec2 {
+    fn into(self) -> (u64, u64) {
+        (self.x, self.y)
+    }
+}
+
+impl std::ops::Add for Vec2 {
+    type Output = Vec2;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}

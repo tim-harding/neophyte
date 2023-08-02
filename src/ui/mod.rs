@@ -17,6 +17,24 @@ pub struct Ui {
     icon: String,
     grids: HashMap<u64, Grid>,
     windows: HashMap<u64, Window>,
+    cursor: CursorInfo,
+}
+
+#[derive(Debug, Copy, Clone)]
+struct CursorInfo {
+    pos: Vec2,
+    grid: u64,
+    enabled: bool,
+}
+
+impl Default for CursorInfo {
+    fn default() -> Self {
+        Self {
+            pos: Default::default(),
+            grid: 1,
+            enabled: true,
+        }
+    }
 }
 
 impl Ui {
@@ -61,7 +79,11 @@ impl Ui {
             Event::ModeChange(_) => {}
             Event::ModeInfoSet(_) => {}
             Event::HlGroupSet(_) => {}
-            Event::GridCursorGoto(_) => {}
+            Event::GridCursorGoto(event) => {
+                log::info!("{event:?}");
+                self.cursor.pos = Vec2::new(event.column, event.row);
+                self.cursor.grid = event.grid;
+            }
             Event::GridScroll(event) => {
                 log::info!("{event:?}");
                 let GridScroll {
@@ -191,6 +213,10 @@ impl Ui {
                                 let x = x + start_x as usize;
                                 buffer[y * width + x] = *col;
                             }
+                        }
+                        if window.grid == self.cursor.grid && self.cursor.enabled {
+                            let pos = window.start + self.cursor.pos;
+                            buffer[pos.y as usize * width + pos.x as usize] = '█';
                         }
                     }
                     println!("{outer_grid:?}");
