@@ -168,7 +168,7 @@ impl Ui {
                             }
                         }
                     }
-                    println!("{outer_grid}");
+                    println!("{outer_grid:?}");
                     Ok(())
                 }
                 GlobalEvent::CmdlineHide => Ok(()),

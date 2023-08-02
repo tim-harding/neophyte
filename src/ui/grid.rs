@@ -1,10 +1,10 @@
 #![allow(unused)]
 
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 
 // TODO: Add fallback to string if the cell requires more than a char
 
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Clone)]
 pub struct Grid {
     cells: Vec<char>,
     width: usize,
@@ -63,6 +63,22 @@ impl Grid {
 
     pub fn cells_mut(&mut self) -> &mut [char] {
         &mut self.cells
+    }
+}
+
+impl Debug for Grid {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "┏{:━<1$}┓\n", "", self.width);
+        for y in 0..self.height {
+            write!(f, "┃");
+            let row = self.row(y);
+            for cell in row {
+                write!(f, "{cell}")?;
+            }
+            write!(f, "┃\n")?;
+        }
+        write!(f, "┗{:━<1$}┛", "", self.width);
+        Ok(())
     }
 }
 
