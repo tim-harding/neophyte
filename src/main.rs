@@ -2,6 +2,7 @@ mod event;
 mod nvim;
 mod rendering;
 mod ui;
+mod util;
 
 use event::Event;
 use nvim::spawn_neovim;

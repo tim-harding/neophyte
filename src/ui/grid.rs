@@ -1,4 +1,8 @@
+#![allow(unused)]
+
 use std::fmt::{self, Display, Formatter};
+
+// TODO: Add fallback to string if the cell requires more than a char
 
 #[derive(Debug, Default, Clone)]
 pub struct Grid {
@@ -35,6 +39,30 @@ impl Grid {
     pub fn row_mut(&mut self, i: usize) -> &mut [char] {
         let start = i * self.width;
         &mut self.cells[start..start + self.width]
+    }
+
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    pub fn height(&self) -> usize {
+        self.height
+    }
+
+    pub fn rows(&self) -> impl Iterator<Item = &[char]> {
+        self.cells.chunks(self.width)
+    }
+
+    pub fn rows_mut(&mut self) -> impl Iterator<Item = &mut [char]> {
+        self.cells.chunks_mut(self.width)
+    }
+
+    pub fn cells(&self) -> &[char] {
+        &self.cells
+    }
+
+    pub fn cells_mut(&mut self) -> &mut [char] {
+        &mut self.cells
     }
 }
 

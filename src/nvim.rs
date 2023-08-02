@@ -31,12 +31,6 @@ pub async fn spawn_neovim(
     options.set_popupmenu_external(true);
     options.set_tabline_external(true);
 
-    // By default, the grid size is handled by Nvim and set to the outer grid
-    // size (i.e. the size of the window frame in Nvim) whenever the split is
-    // created. Once a UI sets a grid size, Nvim does not handle the size for
-    // that grid and the UI must change the grid size whenever the outer size
-    // is changed. To delegate grid-size handling back to Nvim, request the
-    // size (0, 0).
     neovim
         .ui_attach(
             width.try_into().unwrap(),

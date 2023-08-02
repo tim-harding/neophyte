@@ -16,7 +16,7 @@ macro_rules! msgpack_ext {
 
         impl $x {
             #[allow(unused)]
-            fn into_nvim_rs(self, nvim: Nvim) -> nvim_rs::$x<Writer> {
+            pub fn into_nvim_rs(self, nvim: Nvim) -> nvim_rs::$x<Writer> {
                 nvim_rs::$x::new(self.0, nvim)
             }
         }
