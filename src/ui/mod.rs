@@ -63,6 +63,7 @@ impl Ui {
             Event::HlGroupSet(_) => {}
             Event::GridCursorGoto(_) => {}
             Event::GridScroll(event) => {
+                log::info!("{event:?}");
                 let GridScroll {
                     grid,
                     top,
@@ -73,17 +74,22 @@ impl Ui {
                     cols: _,
                 } = event;
                 let grid = self.grid(grid);
+                let height = grid.height();
                 if rows > 0 {
-                    for y in (top..bot).rev() {
-                        let dst_y = ((y as i64) - rows) as u64;
-                        for x in left..right {
-                            let c = grid.get(x, y);
-                            grid.set(x, dst_y, c);
+                    for y in top..bot {
+                        if let Ok(dst_y) = ((y as i64) - rows).try_into() {
+                            for x in left..right {
+                                let c = grid.get(x, y);
+                                grid.set(x, dst_y, c);
+                            }
                         }
                     }
                 } else {
-                    for y in top..bot {
+                    for y in (top..bot).rev() {
                         let dst_y = ((y as i64) - rows) as u64;
+                        if dst_y >= height {
+                            continue;
+                        }
                         for x in left..right {
                             let c = grid.get(x, y);
                             grid.set(x, dst_y, c);

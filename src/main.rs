@@ -4,6 +4,8 @@ mod rendering;
 mod ui;
 mod util;
 
+use std::time::Duration;
+
 use event::Event;
 use nvim::spawn_neovim;
 use tokio::{runtime::Builder, sync::mpsc};
@@ -23,9 +25,15 @@ async fn async_main() {
     let (tx, mut rx) = mpsc::channel::<Vec<Event>>(32);
     let (nvim, io_handle) = spawn_neovim(80, 10, tx).await.unwrap();
     tokio::spawn(async move {
-        nvim.input("iThings and stuff<esc>OWhatever<esc>oDooblidoo<esc>")
-            .await
-            .unwrap();
+        for c in 'a'..'z' {
+            let s = format!("o{c}<esc>");
+            nvim.input(s.as_str()).await.unwrap();
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        for _ in 0..26 {
+            nvim.input("<up>").await.unwrap();
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
     });
     tokio::spawn(async move {
         let mut ui = Ui::new();
