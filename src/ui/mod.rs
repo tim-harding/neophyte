@@ -105,28 +105,7 @@ impl Ui {
                     cols: _,
                 } = event;
                 let grid = self.grid(grid);
-                let height = grid.height();
-                let mut copy = move |src_y, dst_y| {
-                    for x in left..right {
-                        let (c, highlight) = grid.get(Vec2::new(x, src_y));
-                        grid.set(Vec2::new(x, dst_y), c, highlight);
-                    }
-                };
-                // TODO: Skip iterations for lines that won't be copied
-                if rows > 0 {
-                    for y in top..bot {
-                        if let Ok(dst_y) = ((y as i64) - rows).try_into() {
-                            copy(y, dst_y);
-                        }
-                    }
-                } else {
-                    for y in (top..bot).rev() {
-                        let dst_y = ((y as i64) - rows) as u64;
-                        if dst_y < height {
-                            copy(y, dst_y);
-                        }
-                    }
-                }
+                grid.scroll(top, bot, left, right, rows);
             }
             Event::GridLine(event) => {
                 // log::info!("{event:?}");

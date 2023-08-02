@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use crate::event::hl_attr_define::Attributes;
-use crate::event::HlAttrDefine;
+use crate::event::{GridScroll, HlAttrDefine};
 use crate::util::Vec2;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
@@ -137,6 +137,31 @@ impl Grid {
         }
         f.reset();
         writeln!(f, "┗{:━<1$}┛", "", self.width as usize);
+    }
+
+    pub fn scroll(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64) {
+        let height = self.height;
+        let mut copy = move |src_y, dst_y| {
+            for x in left..right {
+                let (c, highlight) = self.get(Vec2::new(x, src_y));
+                self.set(Vec2::new(x, dst_y), c, highlight);
+            }
+        };
+        // TODO: Skip iterations for lines that won't be copied
+        if rows > 0 {
+            for y in top..bot {
+                if let Ok(dst_y) = ((y as i64) - rows).try_into() {
+                    copy(y, dst_y);
+                }
+            }
+        } else {
+            for y in (top..bot).rev() {
+                let dst_y = ((y as i64) - rows) as u64;
+                if dst_y < height {
+                    copy(y, dst_y);
+                }
+            }
+        }
     }
 }
 
