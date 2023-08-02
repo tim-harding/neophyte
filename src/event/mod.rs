@@ -8,7 +8,7 @@ mod global_event;
 mod grid_clear;
 mod grid_cursor_goto;
 mod grid_destroy;
-mod grid_line;
+pub mod grid_line;
 mod grid_resize;
 mod grid_scroll;
 pub mod hl_attr_define;

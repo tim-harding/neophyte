@@ -108,7 +108,6 @@ impl Ui {
                 grid.scroll(top, bot, left, right, rows);
             }
             Event::GridLine(event) => {
-                // log::info!("{event:?}");
                 let GridLine {
                     grid,
                     row,
@@ -116,25 +115,7 @@ impl Ui {
                     cells,
                 } = event;
                 let grid = self.grid(grid);
-                let mut row = grid.row_mut(row).skip(col_start as usize);
-                let mut highlight = 0;
-                for cell in cells {
-                    let c = cell.text.chars().into_iter().next().unwrap();
-                    if let Some(hl_id) = cell.hl_id {
-                        highlight = hl_id;
-                    }
-                    if let Some(repeat) = cell.repeat {
-                        for _ in 0..repeat {
-                            let dst = row.next().unwrap();
-                            *dst.0 = c;
-                            *dst.1 = highlight;
-                        }
-                    } else {
-                        let dst = row.next().unwrap();
-                        *dst.0 = c;
-                        *dst.1 = highlight;
-                    }
-                }
+                grid.grid_line(row, col_start, cells);
             }
             Event::WinViewport(_) => {}
             Event::TablineUpdate(_) => {}

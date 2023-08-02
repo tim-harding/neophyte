@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+use crate::event::grid_line::Cell;
 use crate::event::hl_attr_define::Attributes;
 use crate::event::{GridScroll, HlAttrDefine};
 use crate::util::Vec2;
@@ -160,6 +161,28 @@ impl Grid {
                 if dst_y < height {
                     copy(y, dst_y);
                 }
+            }
+        }
+    }
+
+    pub fn grid_line(&mut self, row: u64, col_start: u64, cells: Vec<Cell>) {
+        let mut row = self.row_mut(row).skip(col_start as usize);
+        let mut highlight = 0;
+        for cell in cells {
+            let c = cell.text.chars().into_iter().next().unwrap();
+            if let Some(hl_id) = cell.hl_id {
+                highlight = hl_id;
+            }
+            if let Some(repeat) = cell.repeat {
+                for _ in 0..repeat {
+                    let dst = row.next().unwrap();
+                    *dst.0 = c;
+                    *dst.1 = highlight;
+                }
+            } else {
+                let dst = row.next().unwrap();
+                *dst.0 = c;
+                *dst.1 = highlight;
             }
         }
     }
