@@ -11,7 +11,7 @@ mod grid_destroy;
 mod grid_line;
 mod grid_resize;
 mod grid_scroll;
-mod hl_attr_define;
+pub mod hl_attr_define;
 mod hl_group_set;
 mod message_content;
 mod messagepack_ext_types;
@@ -68,8 +68,6 @@ pub use self::{
     set_icon::SetIcon,
     set_title::SetTitle,
     tabline_update::TablineUpdate,
-    util::Parse,
-    util::Values,
     win_close::WinClose,
     win_external_position::WinExternalPos,
     win_extmark::WinExtmark,
@@ -79,6 +77,7 @@ pub use self::{
     win_viewport::WinViewport,
 };
 use nvim_rs::Value;
+use util::{Parse, Values};
 
 /// A UI event sent by the Neovim instance. See here for detailed documentation:
 /// https://neovim.io/doc/user/ui.html

@@ -225,7 +225,7 @@ impl Ui {
                             outer_grid.set(pos, '█', 0);
                         }
                     }
-                    println!("{outer_grid:?}");
+                    outer_grid.print_colored(&self.highlights);
                 }
                 GlobalEvent::CmdlineHide => {}
                 GlobalEvent::CmdlineBlockHide => {}

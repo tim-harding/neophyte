@@ -42,6 +42,7 @@ dependencies = [
  "nvim-rs",
  "png",
  "rusttype",
+ "termcolor",
  "thiserror",
  "tokio",
 ]

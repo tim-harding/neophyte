@@ -1,7 +1,12 @@
 #![allow(unused)]
 
+use crate::event::hl_attr_define::Attributes;
+use crate::event::HlAttrDefine;
 use crate::util::Vec2;
+use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
+use std::io::Write;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 // TODO: Add fallback to string if the cell requires more than a char
 
@@ -97,6 +102,79 @@ impl Grid {
             .zip(self.highlights.chunks_mut(self.width as usize))
             .map(|(cells_row, highlights_row)| cells_row.iter_mut().zip(highlights_row.iter_mut()))
     }
+
+    pub fn combine(&mut self, other: Grid, anchor: Vec2) {
+        for (y, row) in other.rows().enumerate() {
+            for (x, (c, hl)) in row.into_iter().enumerate() {
+                let pos = Vec2::new(x as u64, y as u64);
+                self.set(pos + anchor, c, hl);
+            }
+        }
+    }
+
+    pub fn print_colored(&self, highlights: &HashMap<u64, HlAttrDefine>) {
+        let mut f = StandardStream::stdout(ColorChoice::Always);
+        let mut prev_hl = 0;
+        writeln!(f, "┏{:━<1$}┓", "", self.width as usize);
+        for y in 0..self.height {
+            f.reset();
+            write!(f, "┃");
+            let row = self.row(y);
+            for cell in row {
+                let (c, hl) = cell;
+                if hl != prev_hl {
+                    if let Some(hl_attr) = highlights.get(&hl) {
+                        f.set_color(&hl_attr_to_colorspec(hl_attr));
+                    } else {
+                        f.reset();
+                    }
+                    prev_hl = hl;
+                }
+                write!(f, "{c}");
+            }
+            f.reset();
+            write!(f, "┃\n");
+        }
+        f.reset();
+        writeln!(f, "┗{:━<1$}┛", "", self.width as usize);
+    }
+}
+
+fn hl_attr_to_colorspec(hl: &HlAttrDefine) -> ColorSpec {
+    let mut spec = ColorSpec::new();
+    let hl = &hl.rgb_attr;
+    let reverse = hl.reverse.unwrap_or(false);
+
+    if let Some(foreground) = hl.foreground {
+        let color = Some(u64_to_color(foreground));
+        if reverse {
+            spec.set_bg(color);
+        } else {
+            spec.set_fg(color);
+        }
+    }
+
+    if let Some(background) = hl.background {
+        let color = Some(u64_to_color(background));
+        if reverse {
+            spec.set_fg(color);
+        } else {
+            spec.set_bg(color);
+        }
+    }
+
+    spec.set_italic(hl.italic.unwrap_or(false));
+    spec.set_bold(hl.bold.unwrap_or(false));
+    spec.set_strikethrough(hl.strikethrough.unwrap_or(false));
+    spec.set_underline(hl.underline.unwrap_or(false));
+    spec
+}
+
+fn u64_to_color(n: u64) -> Color {
+    let r = (n >> 16) as u8;
+    let g = (n >> 8) as u8;
+    let b = n as u8;
+    Color::Rgb(r, g, b)
 }
 
 impl Debug for Grid {
