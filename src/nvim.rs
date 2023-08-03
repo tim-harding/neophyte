@@ -48,10 +48,10 @@ pub struct IoHandle(JoinHandle<Result<(), Box<LoopError>>>);
 impl IoHandle {
     pub async fn spin(self) {
         match self.0.await {
-            Err(join_error) => eprintln!("Error joining IO loop: '{}'", join_error),
+            Err(join_error) => log::error!("Error joining IO loop: '{}'", join_error),
             Ok(Err(error)) => {
                 if !error.is_channel_closed() {
-                    eprintln!("Error: '{}'", error);
+                    log::error!("Error: '{}'", error);
                 }
             }
             Ok(Ok(())) => {}
@@ -80,7 +80,7 @@ impl Handler for NeovimHandler {
         _args: Vec<Value>,
         _neovim: Neovim<Self::Writer>,
     ) -> Result<Value, Value> {
-        println!("Request: {name}");
+        log::info!("Request: {name}");
         Ok(Value::Nil)
     }
 
@@ -94,14 +94,14 @@ impl Handler for NeovimHandler {
                         }
                         Err(e) => match e {
                             event::Error::UnknownEvent(name) => {
-                                eprintln!("Unknown event: {name}\n{arg:#?}");
+                                log::error!("Unknown event: {name}\n{arg:#?}");
                             }
-                            _ => eprintln!("{e}"),
+                            _ => log::error!("{e}"),
                         },
                     }
                 }
             }
-            _ => eprintln!("Unrecognized notification: {name}"),
+            _ => log::error!("Unrecognized notification: {name}"),
         }
     }
 }

@@ -1,13 +1,10 @@
+mod cmdline;
 mod grid;
 mod messages;
 mod print;
 mod window;
 
-use self::{
-    messages::{eprint_messages, Messages},
-    print::eprint_content,
-    window::Window,
-};
+use self::{cmdline::Cmdline, messages::Messages, window::Window};
 use crate::{
     event::{Event, GlobalEvent, GridLine, GridScroll, HlAttrDefine, WinPos},
     util::Vec2,
@@ -28,6 +25,7 @@ pub struct Ui {
     highlights: Highlights,
     highlight_groups: HighlightGroups,
     messages: Messages,
+    cmdline: Cmdline,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -57,30 +55,24 @@ impl Ui {
     }
 
     pub fn process(&mut self, event: Event) {
+        log::info!("{event:?}");
         match event {
-            Event::CmdlineSpecialChar(_) => {}
             Event::PopupmenuShow(_) => {}
-            Event::CmdlinePos(_) => {}
             Event::GridResize(event) => {
-                log::info!("{event:?}");
                 let grid = self.grid(event.grid);
                 grid.resize(Vec2::new(event.width, event.height));
             }
             Event::SetTitle(event) => {
-                log::info!("{event:?}");
                 self.title = event.title;
             }
             Event::SetIcon(event) => {
-                log::info!("{event:?}");
                 self.icon = event.icon;
             }
             Event::OptionSet(_) => {}
             Event::GridClear(event) => {
-                log::info!("{event:?}");
                 self.grid(event.grid).clear();
             }
             Event::GridDestroy(event) => {
-                log::info!("{event:?}");
                 self.grids.remove(&event.grid);
             }
             Event::DefaultColorsSet(_) => {}
@@ -93,12 +85,10 @@ impl Ui {
                 self.highlight_groups.insert(event.name, event.hl_id);
             }
             Event::GridCursorGoto(event) => {
-                log::info!("{event:?}");
                 self.cursor.pos = Vec2::new(event.column, event.row);
                 self.cursor.grid = event.grid;
             }
             Event::GridScroll(event) => {
-                log::info!("{event:?}");
                 let GridScroll {
                     grid,
                     top,
@@ -123,9 +113,7 @@ impl Ui {
             }
             Event::WinViewport(_) => {}
             Event::TablineUpdate(_) => {}
-            Event::CmdlineShow(_) => {}
             Event::WinPos(event) => {
-                log::info!("{event:?}");
                 let WinPos {
                     grid,
                     win: _,
@@ -157,37 +145,38 @@ impl Ui {
             Event::WinExternalPos(_) => {}
             Event::WinExtmark(_) => {}
             Event::PopupmenuSelect(_) => {}
-            Event::CmdlineBlockShow(_) => {}
-            Event::CmdlineBlockAppend(_) => {}
+
+            Event::CmdlineShow(event) => {
+                self.cmdline.show(event);
+            }
+            Event::CmdlinePos(event) => {
+                self.cmdline.set_cursor_pos(event.pos);
+            }
+            Event::CmdlineBlockShow(event) => {
+                self.cmdline.show_block(event.lines);
+            }
+            Event::CmdlineBlockAppend(event) => {
+                self.cmdline.append_block(event.line);
+            }
+            Event::CmdlineSpecialChar(event) => {
+                self.cmdline.special(event);
+            }
 
             Event::MsgHistoryShow(event) => {
                 self.messages.history = event.entries;
-                eprint!("history: ");
-                eprint_messages(&self.messages.history, &self.highlights);
             }
             Event::MsgRuler(event) => {
                 self.messages.ruler = event.content;
-                eprint!("ruler: ");
-                eprint_content(&self.messages.ruler, &self.highlights);
-                eprintln!();
             }
             Event::MsgSetPos(_) => {} // Not used when ui-messages is enabled
             Event::MsgShow(event) => {
                 self.messages.show(event);
-                eprint!("show: ");
-                eprint_messages(&self.messages.show, &self.highlights);
             }
             Event::MsgShowmode(event) => {
                 self.messages.showmode = event.content;
-                eprint!("showmode: ");
-                eprint_content(&self.messages.showmode, &self.highlights);
-                eprintln!();
             }
             Event::MsgShowcmd(event) => {
                 self.messages.showcmd = event.content;
-                eprint!("showcmd: ");
-                eprint_content(&self.messages.showcmd, &self.highlights);
-                eprintln!();
             }
 
             Event::GlobalEvent(event) => match event {
@@ -212,12 +201,12 @@ impl Ui {
                     }
                     outer_grid.print_colored(&self.highlights);
                 }
-                GlobalEvent::CmdlineHide => {}
-                GlobalEvent::CmdlineBlockHide => {}
                 GlobalEvent::PopupmenuHide => {}
                 GlobalEvent::MsgClear => {
                     self.messages.show.clear();
                 }
+                GlobalEvent::CmdlineHide => self.cmdline.hide(),
+                GlobalEvent::CmdlineBlockHide => self.cmdline.hide_block(),
                 GlobalEvent::MsgHistoryClear => {
                     self.messages.history.clear();
                 }

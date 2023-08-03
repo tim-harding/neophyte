@@ -140,7 +140,7 @@ impl Parse for Info {
                 "ui_name" => ui_name = Some(Parse::parse(v)?),
                 "hi_name" => hi_name = Some(Parse::parse(v)?),
                 "id" => id = Some(Parse::parse(v)?),
-                _ => eprintln!("Unrecognized hlstate keyword: {k}"),
+                _ => return None,
             }
         }
         Some(Self {

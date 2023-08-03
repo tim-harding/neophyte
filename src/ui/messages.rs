@@ -28,6 +28,7 @@ impl Messages {
     }
 }
 
+#[allow(unused)]
 pub fn eprint_messages(messages: &[Message], highlights: &Highlights) {
     for message in messages {
         eprint!("msg_show {:?}: ", message.kind);

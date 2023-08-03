@@ -7,6 +7,7 @@ pub fn print_content(content: &Content, hl_attrs: &HashMap<u64, HlAttrDefine>) {
     display_content(content, hl_attrs, f);
 }
 
+#[allow(unused)]
 pub fn eprint_content(content: &Content, hl_attrs: &HashMap<u64, HlAttrDefine>) {
     let f = StandardStream::stderr(ColorChoice::Always);
     display_content(content, hl_attrs, f);

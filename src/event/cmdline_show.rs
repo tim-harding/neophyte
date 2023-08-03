@@ -4,6 +4,9 @@ use super::{
 };
 use nvim_rs::Value;
 
+// TODO: Update the docs. They state the form of the content parameter
+// incorrectly.
+
 /// Triggered when the cmdline is displayed or changed.
 #[derive(Debug, Clone)]
 pub struct CmdlineShow {
