@@ -22,6 +22,7 @@ pub struct Ui {
     grids: HashMap<u64, Grid>,
     windows: HashMap<u64, Window>,
     cursor: CursorInfo,
+    mouse: bool,
     highlights: Highlights,
     highlight_groups: HighlightGroups,
     messages: Messages,
@@ -57,7 +58,6 @@ impl Ui {
     pub fn process(&mut self, event: Event) {
         log::info!("{event:?}");
         match event {
-            Event::PopupmenuShow(_) => {}
             Event::GridResize(event) => {
                 let grid = self.grid(event.grid);
                 grid.resize(Vec2::new(event.width, event.height));
@@ -144,7 +144,10 @@ impl Ui {
             Event::WinClose(_) => {}
             Event::WinExternalPos(_) => {}
             Event::WinExtmark(_) => {}
+
+            Event::PopupmenuShow(_) => {}
             Event::PopupmenuSelect(_) => {}
+            Event::GlobalEvent(GlobalEvent::PopupmenuHide) => {}
 
             Event::CmdlineShow(event) => self.cmdline.show(event),
             Event::CmdlinePos(event) => self.cmdline.set_cursor_pos(event.pos),
@@ -163,14 +166,10 @@ impl Ui {
             Event::GlobalEvent(GlobalEvent::MsgClear) => self.messages.show.clear(),
             Event::GlobalEvent(GlobalEvent::MsgHistoryClear) => self.messages.history.clear(),
 
-            Event::GlobalEvent(GlobalEvent::MouseOn) => {}
-            Event::GlobalEvent(GlobalEvent::MouseOff) => {}
-            Event::GlobalEvent(GlobalEvent::BusyStart) => {}
-            Event::GlobalEvent(GlobalEvent::BusyStop) => {}
-            Event::GlobalEvent(GlobalEvent::Suspend) => {}
-            Event::GlobalEvent(GlobalEvent::UpdateMenu) => {}
-            Event::GlobalEvent(GlobalEvent::Bell) => {}
-            Event::GlobalEvent(GlobalEvent::VisualBell) => {}
+            Event::GlobalEvent(GlobalEvent::MouseOn) => self.cursor.enabled = true,
+            Event::GlobalEvent(GlobalEvent::MouseOff) => self.cursor.enabled = false,
+            Event::GlobalEvent(GlobalEvent::BusyStart) => self.cursor.enabled = false,
+            Event::GlobalEvent(GlobalEvent::BusyStop) => self.cursor.enabled = true,
             Event::GlobalEvent(GlobalEvent::Flush) => {
                 let mut outer_grid = self.grid(1).clone();
                 for window in self.windows.values() {
@@ -184,7 +183,11 @@ impl Ui {
                 }
                 outer_grid.print_colored(&self.highlights);
             }
-            Event::GlobalEvent(GlobalEvent::PopupmenuHide) => {}
+
+            Event::GlobalEvent(GlobalEvent::Suspend)
+            | Event::GlobalEvent(GlobalEvent::UpdateMenu)
+            | Event::GlobalEvent(GlobalEvent::Bell)
+            | Event::GlobalEvent(GlobalEvent::VisualBell) => {}
         }
     }
 }
