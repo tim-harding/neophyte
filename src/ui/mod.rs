@@ -60,23 +60,9 @@ impl Ui {
     pub fn process(&mut self, event: Event) {
         log::info!("{event:?}");
         match event {
-            Event::GridResize(event) => {
-                let grid = self.grid(event.grid);
-                grid.resize(Vec2::new(event.width, event.height));
-            }
-            Event::SetTitle(event) => {
-                self.title = event.title;
-            }
-            Event::SetIcon(event) => {
-                self.icon = event.icon;
-            }
+            Event::SetTitle(event) => self.title = event.title,
+            Event::SetIcon(event) => self.icon = event.icon,
             Event::OptionSet(_) => {}
-            Event::GridClear(event) => {
-                self.grid(event.grid).clear();
-            }
-            Event::GridDestroy(event) => {
-                self.grids.remove(&event.grid);
-            }
             Event::DefaultColorsSet(_) => {}
             Event::HlAttrDefine(event) => {
                 self.highlights.insert(event.id, event);
@@ -85,6 +71,15 @@ impl Ui {
             Event::ModeInfoSet(_) => {}
             Event::HlGroupSet(event) => {
                 self.highlight_groups.insert(event.name, event.hl_id);
+            }
+
+            Event::GridResize(event) => {
+                let grid = self.grid(event.grid);
+                grid.resize(Vec2::new(event.width, event.height));
+            }
+            Event::GridClear(event) => self.grid(event.grid).clear(),
+            Event::GridDestroy(event) => {
+                self.grids.remove(&event.grid);
             }
             Event::GridCursorGoto(event) => {
                 self.cursor.pos = Vec2::new(event.column, event.row);
@@ -113,8 +108,8 @@ impl Ui {
                 let grid = self.grid(grid);
                 grid.grid_line(row, col_start, cells);
             }
+
             Event::WinViewport(_) => {}
-            Event::TablineUpdate(_) => {}
             Event::WinPos(event) => {
                 let WinPos {
                     grid,
@@ -171,6 +166,8 @@ impl Ui {
             Event::MsgShowcmd(event) => self.messages.showcmd = event.content,
             Event::GlobalEvent(GlobalEvent::MsgClear) => self.messages.show.clear(),
             Event::GlobalEvent(GlobalEvent::MsgHistoryClear) => self.messages.history.clear(),
+
+            Event::TablineUpdate(_) => {}
 
             Event::GlobalEvent(GlobalEvent::MouseOn) => self.cursor.enabled = true,
             Event::GlobalEvent(GlobalEvent::MouseOff) => self.cursor.enabled = false,
