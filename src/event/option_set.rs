@@ -30,7 +30,7 @@ pub enum OptionSet {
     /// See https://neovim.io/doc/user/options.html#'pumblend'
     Pumblend(u64),
     /// See https://neovim.io/doc/user/options.html#'showtabline'
-    Showtabline(u64),
+    Showtabline(Showtabline),
     /// See https://neovim.io/doc/user/options.html#'termguicolors'
     Termguicolors(bool),
     /// Externalize the cmdline
@@ -103,10 +103,11 @@ impl Parse for OptionSet {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 /// Tells Vim what to do with characters with East Asian Width Class Ambiguous
 pub enum Ambiwidth {
     /// Use the same width as characters in US-ASCII
+    #[default]
     Single,
     /// Use twice the width of ASCII characters
     Double,
@@ -120,5 +121,26 @@ impl Parse for Ambiwidth {
             "double" => Some(Self::Double),
             _ => None,
         }
+    }
+}
+
+/// When the line with tab page labels will be displayed
+#[derive(Debug, Clone, Default)]
+pub enum Showtabline {
+    #[default]
+    Never,
+    /// Only if there are at least two tab pages
+    Sometimes,
+    Always,
+}
+
+impl Parse for Showtabline {
+    fn parse(value: Value) -> Option<Self> {
+        Some(match u64::parse(value)? {
+            0 => Self::Never,
+            1 => Self::Sometimes,
+            2 => Self::Always,
+            _ => return None,
+        })
     }
 }

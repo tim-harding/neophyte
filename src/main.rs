@@ -24,19 +24,6 @@ async fn async_main() {
     let (tx, mut rx) = mpsc::channel::<Vec<Event>>(32);
     let (nvim, io_handle) = spawn_neovim(80, 10, tx).await.unwrap();
     tokio::spawn(async move {
-        // let input = ":function Foo()\recho \"hi\"\rendfunction\r";
-        // for c in input.chars() {
-        //     match c {
-        //         '\r' => {
-        //             nvim.input("<cr>").await.unwrap();
-        //         }
-        //         _ => {
-        //             let s = format!("{c}");
-        //             nvim.input(&s).await.unwrap();
-        //         }
-        //     }
-        //     time::sleep(Duration::from_millis(1)).await;
-        // }
         let inputs = [":", "<c-r>=", "<esc>", "<esc>"];
         for input in inputs {
             nvim.input(input).await.unwrap();

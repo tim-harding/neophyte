@@ -23,7 +23,7 @@ mod msg_set_pos;
 pub mod msg_show;
 mod msg_showcmd;
 mod msg_showmode;
-mod option_set;
+pub mod option_set;
 mod popupmenu_select;
 mod popupmenu_show;
 mod set_icon;

@@ -1,10 +1,11 @@
 mod cmdline;
 mod grid;
 mod messages;
+mod options;
 mod print;
 mod window;
 
-use self::{cmdline::Cmdline, messages::Messages, window::Window};
+use self::{cmdline::Cmdline, messages::Messages, options::Options, window::Window};
 use crate::{
     event::{
         mode_info_set::ModeInfo, Event, GlobalEvent, GridLine, GridScroll, HlAttrDefine,
@@ -36,6 +37,7 @@ pub struct Ui {
     modes: Vec<ModeInfo>,
     mode_for_hl_id: HashMap<u64, usize>,
     mode_for_langmap: HashMap<u64, usize>,
+    options: Options,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -71,7 +73,7 @@ impl Ui {
         match event {
             Event::SetTitle(event) => self.title = event.title,
             Event::SetIcon(event) => self.icon = event.icon,
-            Event::OptionSet(_) => {}
+            Event::OptionSet(event) => self.options.event(event),
             Event::DefaultColorsSet(_) => {}
             Event::HlAttrDefine(event) => {
                 self.highlights.insert(event.id, event);
