@@ -6,7 +6,7 @@ mod window;
 
 use self::{cmdline::Cmdline, messages::Messages, window::Window};
 use crate::{
-    event::{Event, GlobalEvent, GridLine, GridScroll, HlAttrDefine, WinPos},
+    event::{Event, GlobalEvent, GridLine, GridScroll, HlAttrDefine, PopupmenuShow, WinPos},
     util::Vec2,
 };
 use grid::Grid;
@@ -22,11 +22,13 @@ pub struct Ui {
     grids: HashMap<u64, Grid>,
     windows: HashMap<u64, Window>,
     cursor: CursorInfo,
+    #[allow(unused)]
     mouse: bool,
     highlights: Highlights,
     highlight_groups: HighlightGroups,
     messages: Messages,
     cmdline: Cmdline,
+    popupmenu: Option<PopupmenuShow>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -145,9 +147,13 @@ impl Ui {
             Event::WinExternalPos(_) => {}
             Event::WinExtmark(_) => {}
 
-            Event::PopupmenuShow(_) => {}
-            Event::PopupmenuSelect(_) => {}
-            Event::GlobalEvent(GlobalEvent::PopupmenuHide) => {}
+            Event::PopupmenuShow(event) => self.popupmenu = Some(event),
+            Event::PopupmenuSelect(event) => {
+                if let Some(menu) = &mut self.popupmenu {
+                    menu.selected = event.selected
+                }
+            }
+            Event::GlobalEvent(GlobalEvent::PopupmenuHide) => self.popupmenu = None,
 
             Event::CmdlineShow(event) => self.cmdline.show(event),
             Event::CmdlinePos(event) => self.cmdline.set_cursor_pos(event.pos),
