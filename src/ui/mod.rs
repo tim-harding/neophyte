@@ -6,7 +6,10 @@ mod window;
 
 use self::{cmdline::Cmdline, messages::Messages, window::Window};
 use crate::{
-    event::{Event, GlobalEvent, GridLine, GridScroll, HlAttrDefine, PopupmenuShow, WinPos},
+    event::{
+        mode_info_set::ModeInfo, Event, GlobalEvent, GridLine, GridScroll, HlAttrDefine,
+        PopupmenuShow, WinPos,
+    },
     util::Vec2,
 };
 use grid::Grid;
@@ -29,6 +32,10 @@ pub struct Ui {
     messages: Messages,
     cmdline: Cmdline,
     popupmenu: Option<PopupmenuShow>,
+    current_mode: u64,
+    modes: Vec<ModeInfo>,
+    mode_for_hl_id: HashMap<u64, usize>,
+    mode_for_langmap: HashMap<u64, usize>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -36,6 +43,7 @@ struct CursorInfo {
     pos: Vec2,
     grid: u64,
     enabled: bool,
+    style_enabled: bool,
 }
 
 impl Default for CursorInfo {
@@ -44,6 +52,7 @@ impl Default for CursorInfo {
             pos: Default::default(),
             grid: 1,
             enabled: true,
+            style_enabled: false,
         }
     }
 }
@@ -67,8 +76,22 @@ impl Ui {
             Event::HlAttrDefine(event) => {
                 self.highlights.insert(event.id, event);
             }
-            Event::ModeChange(_) => {}
-            Event::ModeInfoSet(_) => {}
+            Event::ModeChange(event) => self.current_mode = event.mode_idx,
+            Event::ModeInfoSet(event) => {
+                self.cursor.style_enabled = event.cursor_style_enabled;
+                // TODO: Factor out the mode management and provide a getter for
+                // the highlight attribute. Some rules require having options
+                // from Neovim.
+                for (i, info) in event.mode_info.iter().enumerate() {
+                    if let Some(attr_id) = info.attr_id {
+                        self.mode_for_hl_id.insert(attr_id, i);
+                    }
+                    if let Some(attr_id_lm) = info.attr_id_lm {
+                        self.mode_for_langmap.insert(attr_id_lm, i);
+                    }
+                }
+                self.modes = event.mode_info;
+            }
             Event::HlGroupSet(event) => {
                 self.highlight_groups.insert(event.name, event.hl_id);
             }

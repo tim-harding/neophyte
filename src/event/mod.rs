@@ -16,7 +16,7 @@ mod hl_group_set;
 mod message_content;
 mod messagepack_ext_types;
 mod mode_change;
-mod mode_info_set;
+pub mod mode_info_set;
 pub mod msg_history_show;
 mod msg_ruler;
 mod msg_set_pos;
