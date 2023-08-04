@@ -46,7 +46,6 @@ pub struct NormalWindow {
 
 impl Grid {
     pub fn resize(&mut self, size: Vec2u) {
-        // TODO: Resize in place
         let mut resized_cells = vec![' '; (size.x * size.y) as usize];
         let mut resized_hightlights = vec![0; (size.x * size.y) as usize];
         for y in 0..size.y.min(self.size.x) {
@@ -64,19 +63,18 @@ impl Grid {
     }
 
     pub fn get(&self, pos: Vec2u) -> (char, u64) {
-        let i = (pos.y * self.size.x + pos.x) as usize;
+        let i = self.index(pos);
         (self.cells[i], self.highlights[i])
     }
 
     pub fn set(&mut self, pos: Vec2u, c: char, highlight: u64) {
-        let i = (pos.y * self.size.x + pos.x) as usize;
+        let i = self.index(pos);
         self.cells[i] = c;
         self.highlights[i] = highlight;
     }
 
-    pub fn set_hl(&mut self, pos: Vec2u, highlight: u64) {
-        let i = (pos.y * self.size.x + pos.x) as usize;
-        self.highlights[i] = highlight;
+    fn index(&self, pos: Vec2u) -> usize {
+        (pos.y * self.size.x + pos.x) as usize
     }
 
     pub fn clear(&mut self) {
@@ -157,7 +155,8 @@ impl Grid {
 
         if let Some(cursor) = cursor {
             let pos = start + cursor.pos;
-            self.set_hl(pos, cursor.hl);
+            let i = self.index(pos);
+            self.highlights[i] = cursor.hl;
         }
     }
 
@@ -165,10 +164,9 @@ impl Grid {
         let mut f = StandardStream::stdout(ColorChoice::Always);
         let mut prev_hl = 0;
         writeln!(f, "┏{:━<1$}┓", "", self.size.x as usize);
-        for y in 0..self.size.y {
+        for row in self.rows() {
             f.reset();
             write!(f, "┃");
-            let row = self.row(y);
             for cell in row {
                 let (c, hl) = cell;
                 if hl != prev_hl {
@@ -221,6 +219,7 @@ impl Grid {
             if let Some(hl_id) = cell.hl_id {
                 highlight = hl_id;
             }
+            // TODO: Skip iterations for lines that won't be copied
             if let Some(repeat) = cell.repeat {
                 for _ in 0..repeat {
                     let dst = row.next().unwrap();
@@ -239,9 +238,8 @@ impl Grid {
 impl Debug for Grid {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "┏{:━<1$}┓\n", "", self.size.x as usize);
-        for y in 0..self.size.y {
+        for row in self.rows() {
             write!(f, "┃");
-            let row = self.row(y);
             for cell in row {
                 let cell = cell.0;
                 write!(f, "{cell}")?;
