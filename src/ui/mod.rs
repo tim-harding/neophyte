@@ -8,7 +8,7 @@ use self::{cmdline::Cmdline, grid::CursorRenderInfo, messages::Messages, options
 use crate::{
     event::{
         mode_info_set::ModeInfo, DefaultColorsSet, Event, GlobalEvent, GridLine, GridScroll,
-        HlAttrDefine, PopupmenuShow, WinFloatPos, WinPos,
+        HlAttrDefine, PopupmenuShow, TablineUpdate, WinFloatPos, WinPos,
     },
     ui::grid::{FloatingWindow, Window},
     util::{Vec2, Vec2f},
@@ -38,6 +38,7 @@ pub struct Ui {
     mode_for_langmap: HashMap<u64, usize>,
     options: Options,
     default_colors: DefaultColorsSet,
+    tabline: Option<TablineUpdate>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -210,7 +211,7 @@ impl Ui {
             Event::GlobalEvent(GlobalEvent::MsgClear) => self.messages.show.clear(),
             Event::GlobalEvent(GlobalEvent::MsgHistoryClear) => self.messages.history.clear(),
 
-            Event::TablineUpdate(_) => {}
+            Event::TablineUpdate(event) => self.tabline = Some(event),
 
             Event::GlobalEvent(GlobalEvent::MouseOn) => self.cursor.enabled = true,
             Event::GlobalEvent(GlobalEvent::MouseOff) => self.cursor.enabled = false,
