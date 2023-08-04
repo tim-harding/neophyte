@@ -6,16 +6,16 @@ mod ui;
 mod util;
 
 use event::Event;
-use session::{Notification, Session};
+use session::{Neovim, Notification};
 use std::sync::mpsc;
 use ui::Ui;
 
 fn main() {
     env_logger::builder().format_timestamp(None).init();
     let (tx, rx) = mpsc::channel::<Notification>();
-    let mut session = Session::new_child(tx).unwrap();
-    session.ui_attach();
-    session.input("ithings<esc>".to_string());
+    let mut neovim = Neovim::new(tx).unwrap();
+    neovim.ui_attach();
+    neovim.input("ithings<esc>".to_string());
     let mut ui = Ui::new();
     while let Ok(Notification { name, instances }) = rx.recv() {
         match name.as_str() {

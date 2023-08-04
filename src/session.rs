@@ -7,13 +7,13 @@ use std::{
     thread,
 };
 
-pub struct Session {
+pub struct Neovim {
     stdin_tx: mpsc::Sender<RpcMessage>,
     msgid: u64,
 }
 
-impl Session {
-    pub fn new_child(handler: mpsc::Sender<Notification>) -> io::Result<Session> {
+impl Neovim {
+    pub fn new(notification_handler: mpsc::Sender<Notification>) -> io::Result<Neovim> {
         let mut child = Command::new("nvim")
             .arg("--embed")
             .stdin(Stdio::piped())
@@ -80,7 +80,7 @@ impl Session {
                 }
 
                 RpcMessage::Notification { method, params } => {
-                    match handler.send(Notification {
+                    match notification_handler.send(Notification {
                         name: method,
                         instances: params,
                     }) {
@@ -94,7 +94,7 @@ impl Session {
             };
         });
 
-        Ok(Session {
+        Ok(Neovim {
             stdin_tx: tx,
             msgid: 0,
         })
