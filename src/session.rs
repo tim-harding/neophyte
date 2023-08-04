@@ -1,4 +1,4 @@
-use crate::model::{self, RpcMessage};
+use crate::rpc::{decode, encode, RpcMessage};
 use rmpv::Value;
 use std::{
     io::{self, Error, ErrorKind},
@@ -13,7 +13,7 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn new_child(mut handler: impl Handler + 'static) -> io::Result<Session> {
+    pub fn new_child(handler: mpsc::Sender<Notification>) -> io::Result<Session> {
         let mut child = Command::new("nvim")
             .arg("--embed")
             .stdin(Stdio::piped())
@@ -32,40 +32,32 @@ impl Session {
 
         thread::spawn(move || loop {
             while let Ok(msg) = rx.recv() {
-                model::encode(&mut stdin, msg).unwrap();
+                encode(&mut stdin, msg).unwrap();
             }
         });
 
         let stdout_tx = tx.clone();
         thread::spawn(move || loop {
-            let msg = match model::decode(&mut stdout) {
+            let msg = match decode(&mut stdout) {
                 Ok(msg) => msg,
                 Err(e) => {
                     log::error!("{e}");
-                    handler.handle_close();
                     return;
                 }
             };
 
             match msg {
-                RpcMessage::RpcRequest {
+                RpcMessage::Request {
                     msgid,
                     method,
                     params,
                 } => {
-                    let response = match handler.handle_request(&method, params) {
-                        Ok(result) => RpcMessage::RpcResponse {
-                            msgid,
-                            result,
-                            error: Value::Nil,
-                        },
-                        Err(error) => RpcMessage::RpcResponse {
-                            msgid,
-                            result: Value::Nil,
-                            error,
-                        },
+                    log::info!("RPC Request: {method}, {params:?}");
+                    let response = RpcMessage::Response {
+                        msgid,
+                        result: Value::Nil,
+                        error: "Not handled".into(),
                     };
-
                     match stdout_tx.send(response) {
                         Ok(_) => {}
                         Err(e) => {
@@ -75,21 +67,29 @@ impl Session {
                     }
                 }
 
-                RpcMessage::RpcResponse {
+                RpcMessage::Response {
                     msgid,
                     result,
                     error,
                 } => {
-                    let response = if error != Value::Nil {
-                        Err(error)
+                    if error != Value::Nil {
+                        log::error!("RPC response to {msgid}: {error:?}");
                     } else {
-                        Ok(result)
+                        log::info!("RPC response to {msgid}: {result:?}");
                     };
-                    handler.handle_response(msgid, response);
                 }
 
-                RpcMessage::RpcNotification { method, params } => {
-                    handler.handle_notify(&method, params);
+                RpcMessage::Notification { method, params } => {
+                    match handler.send(Notification {
+                        name: method,
+                        instances: params,
+                    }) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            log::error!("{e}");
+                            return;
+                        }
+                    }
                 }
             };
         });
@@ -104,7 +104,7 @@ impl Session {
         let msgid = self.msgid;
         self.msgid += 1;
 
-        let req = model::RpcMessage::RpcRequest {
+        let req = RpcMessage::Request {
             msgid,
             method: method.to_owned(),
             params: args,
@@ -148,9 +148,7 @@ impl Session {
     }
 }
 
-pub trait Handler: Send {
-    fn handle_notify(&mut self, name: &str, args: Vec<Value>);
-    fn handle_request(&mut self, name: &str, args: Vec<Value>) -> Result<Value, Value>;
-    fn handle_response(&mut self, msgid: u64, response: Result<Value, Value>);
-    fn handle_close(&mut self);
+pub struct Notification {
+    pub name: String,
+    pub instances: Vec<Value>,
 }

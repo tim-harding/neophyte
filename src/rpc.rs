@@ -1,24 +1,23 @@
+use crate::util::{Parse, Values};
 use rmpv::{decode::read_value, encode::write_value, Value};
 use std::{
     io::{self, Write},
     process::{ChildStdin, ChildStdout},
 };
 
-use crate::util::{Parse, Values};
-
 #[derive(Debug, PartialEq, Clone)]
 pub enum RpcMessage {
-    RpcRequest {
+    Request {
         msgid: u64,
         method: String,
         params: Vec<Value>,
     },
-    RpcResponse {
+    Response {
         msgid: u64,
         error: Value,
         result: Value,
     },
-    RpcNotification {
+    Notification {
         method: String,
         params: Vec<Value>,
     },
@@ -29,17 +28,17 @@ impl Parse for RpcMessage {
         let mut iter = Values::new(value)?;
         let msg_type: u64 = iter.next()?;
         Some(match msg_type {
-            0 => Self::RpcRequest {
+            0 => Self::Request {
                 msgid: iter.next()?,
                 method: iter.next()?,
                 params: iter.next()?,
             },
-            1 => Self::RpcResponse {
+            1 => Self::Response {
                 msgid: iter.next()?,
                 error: iter.next()?,
                 result: iter.next()?,
             },
-            2 => Self::RpcNotification {
+            2 => Self::Notification {
                 method: iter.next()?,
                 params: iter.next()?,
             },
@@ -72,21 +71,21 @@ pub enum DecodeError {
 
 pub fn encode(writer: &mut ChildStdin, msg: RpcMessage) -> Result<(), EncodeError> {
     let value = match msg {
-        RpcMessage::RpcRequest {
+        RpcMessage::Request {
             msgid,
             method,
             params,
         } => {
             value_vec!(0, msgid, method, params)
         }
-        RpcMessage::RpcResponse {
+        RpcMessage::Response {
             msgid,
             error,
             result,
         } => {
             value_vec!(1, msgid, error, result)
         }
-        RpcMessage::RpcNotification { method, params } => {
+        RpcMessage::Notification { method, params } => {
             value_vec!(2, method, params)
         }
     };
