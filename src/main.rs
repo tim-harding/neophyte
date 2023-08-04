@@ -5,7 +5,7 @@ mod ui;
 mod util;
 
 use event::Event;
-use nvim::spawn_neovim;
+use nvim::{spawn_neovim, Nvim};
 use tokio::{runtime::Builder, sync::mpsc};
 use ui::Ui;
 
@@ -23,11 +23,7 @@ async fn async_main() {
     let (tx, mut rx) = mpsc::channel::<Vec<Event>>(32);
     let (nvim, io_handle) = spawn_neovim(80, 10, tx).await.unwrap();
     tokio::spawn(async move {
-        let input: String = ('a'..='z')
-            .map(|c| ['o', c, '<', 'e', 's', 'c', '>'].into_iter())
-            .flatten()
-            .collect();
-        nvim.input(&input).await.unwrap();
+        nvim.input(":w<cr><esc>:messages<cr>").await.unwrap();
     });
     tokio::spawn(async move {
         let mut ui = Ui::new();
@@ -38,4 +34,13 @@ async fn async_main() {
         }
     });
     io_handle.spin().await
+}
+
+#[allow(unused)]
+async fn a_to_z(nvim: Nvim) {
+    let input: String = ('a'..='z')
+        .map(|c| ['o', c, '<', 'e', 's', 'c', '>'].into_iter())
+        .flatten()
+        .collect();
+    nvim.input(&input).await.unwrap();
 }

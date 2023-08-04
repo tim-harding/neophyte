@@ -4,7 +4,7 @@ use crate::event::grid_line::Cell;
 use crate::event::hl_attr_define::Attributes;
 use crate::event::{Anchor, GridScroll, HlAttrDefine};
 use crate::ui::print::hl_attr_to_colorspec;
-use crate::util::{Vec2, Vec2f};
+use crate::util::{Vec2f, Vec2i, Vec2s, Vec2u};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::io::Write;
@@ -16,8 +16,7 @@ use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 pub struct Grid {
     pub cells: Vec<char>,
     pub highlights: Vec<u64>,
-    pub width: u64,
-    pub height: u64,
+    pub size: Vec2u,
     pub show: bool,
     pub window: Window,
 }
@@ -41,42 +40,42 @@ pub struct FloatingWindow {
 
 #[derive(Debug, Clone)]
 pub struct NormalWindow {
-    pub start: Vec2,
-    pub size: Vec2,
+    pub start: Vec2u,
+    pub size: Vec2u,
 }
 
 impl Grid {
-    pub fn resize(&mut self, size: Vec2) {
+    pub fn resize(&mut self, size: Vec2u) {
         // TODO: Resize in place
         let mut resized_cells = vec![' '; (size.x * size.y) as usize];
         let mut resized_hightlights = vec![0; (size.x * size.y) as usize];
-        for y in 0..size.y.min(self.height) {
-            for x in 0..size.x.min(self.width) {
+        for y in 0..size.y.min(self.size.x) {
+            for x in 0..size.x.min(self.size.x) {
                 resized_cells[(y * size.x + x) as usize] =
-                    self.cells[(y * self.width + x) as usize];
+                    self.cells[(y * self.size.x + x) as usize];
                 resized_hightlights[(y * size.x + x) as usize] =
-                    self.highlights[(y * self.width + x) as usize];
+                    self.highlights[(y * self.size.x + x) as usize];
             }
         }
-        self.width = size.x;
-        self.height = size.y;
+        self.size.x = size.x;
+        self.size.y = size.y;
         self.cells = resized_cells;
         self.highlights = resized_hightlights;
     }
 
-    pub fn get(&self, pos: Vec2) -> (char, u64) {
-        let i = (pos.y * self.width + pos.x) as usize;
+    pub fn get(&self, pos: Vec2u) -> (char, u64) {
+        let i = (pos.y * self.size.x + pos.x) as usize;
         (self.cells[i], self.highlights[i])
     }
 
-    pub fn set(&mut self, pos: Vec2, c: char, highlight: u64) {
-        let i = (pos.y * self.width + pos.x) as usize;
+    pub fn set(&mut self, pos: Vec2u, c: char, highlight: u64) {
+        let i = (pos.y * self.size.x + pos.x) as usize;
         self.cells[i] = c;
         self.highlights[i] = highlight;
     }
 
-    pub fn set_hl(&mut self, pos: Vec2, highlight: u64) {
-        let i = (pos.y * self.width + pos.x) as usize;
+    pub fn set_hl(&mut self, pos: Vec2u, highlight: u64) {
+        let i = (pos.y * self.size.x + pos.x) as usize;
         self.highlights[i] = highlight;
     }
 
@@ -88,7 +87,7 @@ impl Grid {
     }
 
     pub fn row(&self, i: u64) -> impl Iterator<Item = (char, u64)> + '_ {
-        let w = self.width as usize;
+        let w = self.size.x as usize;
         let start = i as usize * w;
         let end = start + w;
         self.cells[start..end]
@@ -98,7 +97,7 @@ impl Grid {
     }
 
     pub fn row_mut(&mut self, i: u64) -> impl Iterator<Item = (&mut char, &mut u64)> + '_ {
-        let w = self.width as usize;
+        let w = self.size.x as usize;
         let start = i as usize * w;
         let end = start + w;
         self.cells[start..end]
@@ -106,18 +105,10 @@ impl Grid {
             .zip(self.highlights[start..end].iter_mut())
     }
 
-    pub fn width(&self) -> u64 {
-        self.width
-    }
-
-    pub fn height(&self) -> u64 {
-        self.height
-    }
-
     pub fn rows(&self) -> impl Iterator<Item = impl Iterator<Item = (char, u64)> + '_> + '_ {
         self.cells
-            .chunks(self.width as usize)
-            .zip(self.highlights.chunks(self.width as usize))
+            .chunks(self.size.x as usize)
+            .zip(self.highlights.chunks(self.size.x as usize))
             .map(|(cells_row, highlights_row)| {
                 cells_row
                     .iter()
@@ -130,36 +121,51 @@ impl Grid {
         &mut self,
     ) -> impl Iterator<Item = impl Iterator<Item = (&mut char, &mut u64)> + '_> + '_ {
         self.cells
-            .chunks_mut(self.width as usize)
-            .zip(self.highlights.chunks_mut(self.width as usize))
+            .chunks_mut(self.size.x as usize)
+            .zip(self.highlights.chunks_mut(self.size.x as usize))
             .map(|(cells_row, highlights_row)| cells_row.iter_mut().zip(highlights_row.iter_mut()))
     }
 
     pub fn combine(&mut self, other: &Grid, cursor: Option<CursorRenderInfo>) {
-        match &other.window {
-            Window::None => {}
-            Window::External => {}
-            Window::Normal(window) => {
-                for (y, row) in other.rows().enumerate() {
-                    for (x, (c, hl)) in row.into_iter().enumerate() {
-                        let pos = Vec2::new(x as u64, y as u64);
-                        self.set(pos + window.start, c, hl);
-                    }
-                }
-                if let Some(cursor) = cursor {
-                    let pos = window.start + cursor.pos;
-                    self.set_hl(pos, cursor.hl);
-                }
+        let start = match &other.window {
+            Window::None => return,
+            Window::External => return,
+            Window::Normal(window) => window.start,
+            Window::Floating(window) => {
+                let anchor_pos = {
+                    let (x, y) = window.anchor_pos.into();
+                    Vec2u::new(x.floor() as u64, y.floor() as u64)
+                };
+                // TODO: Should be relative to anchor grid
+                anchor_pos
+                    - other.size
+                        * match window.anchor {
+                            Anchor::Nw => Vec2u::new(0, 0),
+                            Anchor::Ne => Vec2u::new(0, 1),
+                            Anchor::Sw => Vec2u::new(1, 0),
+                            Anchor::Se => Vec2u::new(1, 1),
+                        }
             }
-            Window::Floating(_) => todo!(),
+        };
+
+        for (src, dst) in other.rows().zip(self.rows_mut().skip(start.y as usize)) {
+            for (src, mut dst) in src.zip(dst.skip(start.x as usize)) {
+                *dst.0 = src.0;
+                *dst.1 = src.1;
+            }
+        }
+
+        if let Some(cursor) = cursor {
+            let pos = start + cursor.pos;
+            self.set_hl(pos, cursor.hl);
         }
     }
 
     pub fn print_colored(&self, highlights: &HashMap<u64, HlAttrDefine>) {
         let mut f = StandardStream::stdout(ColorChoice::Always);
         let mut prev_hl = 0;
-        writeln!(f, "┏{:━<1$}┓", "", self.width as usize);
-        for y in 0..self.height {
+        writeln!(f, "┏{:━<1$}┓", "", self.size.x as usize);
+        for y in 0..self.size.y {
             f.reset();
             write!(f, "┃");
             let row = self.row(y);
@@ -179,15 +185,15 @@ impl Grid {
             write!(f, "┃\n");
         }
         f.reset();
-        writeln!(f, "┗{:━<1$}┛", "", self.width as usize);
+        writeln!(f, "┗{:━<1$}┛", "", self.size.x as usize);
     }
 
     pub fn scroll(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64) {
-        let height = self.height;
+        let height = self.size.y;
         let mut copy = move |src_y, dst_y| {
             for x in left..right {
-                let (c, highlight) = self.get(Vec2::new(x, src_y));
-                self.set(Vec2::new(x, dst_y), c, highlight);
+                let (c, highlight) = self.get(Vec2u::new(x, src_y));
+                self.set(Vec2u::new(x, dst_y), c, highlight);
             }
         };
         // TODO: Skip iterations for lines that won't be copied
@@ -232,8 +238,8 @@ impl Grid {
 
 impl Debug for Grid {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "┏{:━<1$}┓\n", "", self.width as usize);
-        for y in 0..self.height {
+        write!(f, "┏{:━<1$}┓\n", "", self.size.x as usize);
+        for y in 0..self.size.y {
             write!(f, "┃");
             let row = self.row(y);
             for cell in row {
@@ -242,12 +248,12 @@ impl Debug for Grid {
             }
             write!(f, "┃\n")?;
         }
-        write!(f, "┗{:━<1$}┛", "", self.width as usize);
+        write!(f, "┗{:━<1$}┛", "", self.size.x as usize);
         Ok(())
     }
 }
 
 pub struct CursorRenderInfo {
     pub hl: u64,
-    pub pos: Vec2,
+    pub pos: Vec2u,
 }

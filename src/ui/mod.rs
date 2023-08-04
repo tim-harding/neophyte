@@ -7,11 +7,11 @@ mod print;
 use self::{cmdline::Cmdline, grid::CursorRenderInfo, messages::Messages, options::Options};
 use crate::{
     event::{
-        mode_info_set::ModeInfo, DefaultColorsSet, Event, GlobalEvent, GridLine, GridScroll,
-        HlAttrDefine, PopupmenuShow, TablineUpdate, WinFloatPos, WinPos,
+        mode_info_set::ModeInfo, Anchor, DefaultColorsSet, Event, GlobalEvent, GridLine,
+        GridScroll, HlAttrDefine, PopupmenuShow, TablineUpdate, WinFloatPos, WinPos,
     },
     ui::grid::{FloatingWindow, Window},
-    util::{Vec2, Vec2f},
+    util::{Vec2f, Vec2u},
 };
 use grid::Grid;
 use std::collections::HashMap;
@@ -43,7 +43,7 @@ pub struct Ui {
 
 #[derive(Debug, Copy, Clone)]
 struct CursorInfo {
-    pos: Vec2,
+    pos: Vec2u,
     grid: u64,
     enabled: bool,
     style_enabled: bool,
@@ -101,14 +101,14 @@ impl Ui {
 
             Event::GridResize(event) => {
                 let grid = self.grid(event.grid);
-                grid.resize(Vec2::new(event.width, event.height));
+                grid.resize(Vec2u::new(event.width, event.height));
             }
             Event::GridClear(event) => self.grid(event.grid).clear(),
             Event::GridDestroy(event) => {
                 self.grids.remove(&event.grid);
             }
             Event::GridCursorGoto(event) => {
-                self.cursor.pos = Vec2::new(event.column, event.row);
+                self.cursor.pos = Vec2u::new(event.column, event.row);
                 self.cursor.grid = event.grid;
             }
             Event::GridScroll(event) => {
@@ -146,8 +146,8 @@ impl Ui {
                 } = event;
                 if let Some(grid) = self.grids.get_mut(&grid) {
                     grid.window = Window::Normal(grid::NormalWindow {
-                        start: Vec2::new(start_col, start_row),
-                        size: Vec2::new(width, height),
+                        start: Vec2u::new(start_col, start_row),
+                        size: Vec2u::new(width, height),
                     });
                 }
             }
@@ -204,7 +204,15 @@ impl Ui {
 
             Event::MsgHistoryShow(event) => self.messages.history = event.entries,
             Event::MsgRuler(event) => self.messages.ruler = event.content,
-            Event::MsgSetPos(_) => {} // Not used when ui-messages is enabled
+            Event::MsgSetPos(event) => {
+                let grid = self.grid(event.grid);
+                grid.window = Window::Floating(FloatingWindow {
+                    anchor: Anchor::Nw,
+                    anchor_grid: 1,
+                    anchor_pos: Vec2f::new(0.0, event.row as f64),
+                    focusable: false,
+                });
+            }
             Event::MsgShow(event) => self.messages.show(event),
             Event::MsgShowmode(event) => self.messages.showmode = event.content,
             Event::MsgShowcmd(event) => self.messages.showcmd = event.content,
