@@ -1,9 +1,6 @@
-use super::{
-    message_content::Content,
-    msg_show::Kind,
-    util::{Parse, Values},
-};
-use nvim_rs::Value;
+use super::{message_content::Content, msg_show::Kind};
+use crate::util::{Parse, Values};
+use rmpv::Value;
 
 /// Sent when :messages command is invoked
 #[derive(Debug, Clone)]

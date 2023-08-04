@@ -1,8 +1,6 @@
-use super::{
-    message_content::Content,
-    util::{Parse, Values},
-};
-use nvim_rs::Value;
+use super::message_content::Content;
+use crate::util::{Parse, Values};
+use rmpv::Value;
 
 /// Display a message to the user.
 #[derive(Debug, Clone)]

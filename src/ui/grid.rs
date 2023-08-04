@@ -4,7 +4,7 @@ use crate::event::grid_line::Cell;
 use crate::event::hl_attr_define::Attributes;
 use crate::event::{Anchor, GridScroll, HlAttrDefine};
 use crate::ui::print::hl_attr_to_colorspec;
-use crate::util::{Vec2f, Vec2i, Vec2s, Vec2u};
+use crate::util::vec2::{Vec2f, Vec2i, Vec2s, Vec2u};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::io::Write;
@@ -153,6 +153,7 @@ impl Grid {
             }
         }
 
+        // TODO: Take mode_info_set into consideration
         if let Some(cursor) = cursor {
             let pos = start + cursor.pos;
             let i = self.index(pos);

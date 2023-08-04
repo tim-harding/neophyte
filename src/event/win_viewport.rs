@@ -1,8 +1,6 @@
-use super::{
-    messagepack_ext_types::Window,
-    util::{Parse, Values},
-};
-use nvim_rs::Value;
+use super::messagepack_ext_types::Window;
+use crate::util::{Parse, Values};
+use rmpv::Value;
 
 /// Indicates the range of buffer text displayed in the window, as well as the
 /// cursor position in the buffer.

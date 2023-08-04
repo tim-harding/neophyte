@@ -1,5 +1,5 @@
-use super::util::{Parse, Values};
-use nvim_rs::Value;
+use crate::util::{Parse, Values};
+use rmpv::Value;
 
 /// Editor mode changed.
 #[derive(Debug, Clone)]

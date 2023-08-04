@@ -6,10 +6,8 @@ edition = "2021"
 [dependencies]
 rusttype = "0.9.3"
 png = "0.17.9"
-nvim-rs = { version = "0.5.0", features = ['use_tokio']}
-async-trait = "0.1.72"
-tokio = { version = "1.29.1", features = ['rt-multi-thread', 'io-std', 'time'] }
 thiserror = "1.0.44"
 env_logger = "0.10.0"
 log = "0.4.19"
 termcolor = "1.2.0"
+rmpv = "1.0.1"

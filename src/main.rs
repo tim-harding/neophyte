@@ -1,46 +1,28 @@
 mod event;
+mod model;
 mod nvim;
 mod rendering;
+mod session;
 mod ui;
 mod util;
 
 use event::Event;
-use nvim::{spawn_neovim, Nvim};
-use tokio::{runtime::Builder, sync::mpsc};
+use nvim::spawn_neovim;
+use std::{sync::mpsc, thread};
 use ui::Ui;
 
 fn main() {
-    let rt = Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .expect("Failed to create Tokio runtime");
-
-    rt.block_on(async_main());
-}
-
-async fn async_main() {
     env_logger::builder().format_timestamp(None).init();
-    let (tx, mut rx) = mpsc::channel::<Vec<Event>>(32);
-    let (nvim, io_handle) = spawn_neovim(80, 10, tx).await.unwrap();
-    tokio::spawn(async move {
-        nvim.input(":w<cr><esc>:messages<cr>").await.unwrap();
-    });
-    tokio::spawn(async move {
+    let (tx, rx) = mpsc::channel::<Vec<Event>>();
+    let mut session = spawn_neovim(tx);
+    thread::spawn(move || {
         let mut ui = Ui::new();
-        while let Some(events) = rx.recv().await {
+        while let Ok(events) = rx.recv() {
             for event in events {
                 ui.process(event);
             }
         }
     });
-    io_handle.spin().await
-}
-
-#[allow(unused)]
-async fn a_to_z(nvim: Nvim) {
-    let input: String = ('a'..='z')
-        .map(|c| ['o', c, '<', 'e', 's', 'c', '>'].into_iter())
-        .flatten()
-        .collect();
-    nvim.input(&input).await.unwrap();
+    session.input(":w<cr><esc>:messages<cr>".to_string());
+    loop {}
 }

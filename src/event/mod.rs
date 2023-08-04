@@ -29,7 +29,6 @@ mod popupmenu_show;
 mod set_icon;
 mod set_title;
 mod tabline_update;
-mod util;
 mod win_close;
 mod win_external_position;
 mod win_extmark;
@@ -77,8 +76,8 @@ pub use self::{
     win_pos::WinPos,
     win_viewport::WinViewport,
 };
-use nvim_rs::Value;
-use util::{Parse, Values};
+use crate::util::{Parse, Values};
+use rmpv::Value;
 
 /// A UI event sent by the Neovim instance. See here for detailed documentation:
 /// https://neovim.io/doc/user/ui.html

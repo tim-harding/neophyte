@@ -1,5 +1,5 @@
-use super::util::{parse_first_element, MaybeInto, Parse};
-use nvim_rs::Value;
+use crate::util::{parse_first_element, MaybeInto, Parse};
+use rmpv::Value;
 
 /// Stop displaying the window. The window can be shown again later.
 #[derive(Debug, Clone)]

@@ -1,8 +1,6 @@
-use super::{
-    message_content::Content,
-    util::{parse_first_element, MaybeInto, Parse},
-};
-use nvim_rs::Value;
+use super::message_content::Content;
+use crate::util::{parse_first_element, MaybeInto, Parse};
+use rmpv::Value;
 
 /// Show a block of text to the current command line, for example if the user
 /// defines a function interactively.

@@ -1,62 +1,15 @@
-use crate::event::{self, Event};
-use async_trait::async_trait;
-use nvim_rs::{
-    compat::tokio::Compat, create::tokio::new_child_cmd, error::LoopError, Handler, Neovim,
-    UiAttachOptions, Value,
+use crate::{
+    event::{self, Event},
+    session::{Handler, Session},
 };
-use tokio::{
-    process::{ChildStdin, Command},
-    sync::mpsc,
-    task::JoinHandle,
-};
+use rmpv::Value;
+use std::sync::mpsc;
 
-pub type Writer = Compat<ChildStdin>;
-pub type Nvim = Neovim<Writer>;
-
-pub async fn spawn_neovim(
-    width: u64,
-    height: u64,
-    tx: mpsc::Sender<Vec<Event>>,
-) -> std::io::Result<(Nvim, IoHandle)> {
+pub fn spawn_neovim(tx: mpsc::Sender<Vec<Event>>) -> Session {
     let handler = NeovimHandler::new(tx);
-    let (neovim, io_handle, _child) =
-        new_child_cmd(Command::new("nvim").arg("--embed"), handler).await?;
-
-    let mut options = UiAttachOptions::new();
-    options.set_cmdline_external(true);
-    options.set_hlstate_external(true);
-    options.set_linegrid_external(true);
-    // options.set_messages_external(true);
-    options.set_multigrid_external(true);
-    options.set_popupmenu_external(true);
-    options.set_tabline_external(true);
-
-    neovim
-        .ui_attach(
-            width.try_into().unwrap(),
-            height.try_into().unwrap(),
-            &options,
-        )
-        .await
-        .unwrap();
-
-    Ok((neovim, IoHandle(io_handle)))
-}
-
-pub struct IoHandle(JoinHandle<Result<(), Box<LoopError>>>);
-
-impl IoHandle {
-    pub async fn spin(self) {
-        match self.0.await {
-            Err(join_error) => log::error!("Error joining IO loop: '{}'", join_error),
-            Ok(Err(error)) => {
-                if !error.is_channel_closed() {
-                    log::error!("Error: '{}'", error);
-                }
-            }
-            Ok(Ok(())) => {}
-        };
-    }
+    let mut session = Session::new_child(handler).unwrap();
+    session.ui_attach();
+    session
 }
 
 #[derive(Clone)]
@@ -70,27 +23,15 @@ impl NeovimHandler {
     }
 }
 
-#[async_trait]
 impl Handler for NeovimHandler {
-    type Writer = Compat<ChildStdin>;
-
-    async fn handle_request(
-        &self,
-        name: String,
-        _args: Vec<Value>,
-        _neovim: Neovim<Self::Writer>,
-    ) -> Result<Value, Value> {
-        log::info!("Request: {name}");
-        Ok(Value::Nil)
-    }
-
-    async fn handle_notify(&self, name: String, args: Vec<Value>, _neovim: Neovim<Self::Writer>) {
-        match name.as_str() {
+    fn handle_notify(&mut self, name: &str, args: Vec<Value>) {
+        match name {
             "redraw" => {
+                // TODO: Parse on another thread?
                 for arg in args {
                     match Event::try_parse(arg.clone()) {
                         Ok(events) => {
-                            let _ = self.tx.send(events).await;
+                            let _ = self.tx.send(events);
                         }
                         Err(e) => match e {
                             event::Error::UnknownEvent(name) => {
@@ -103,5 +44,21 @@ impl Handler for NeovimHandler {
             }
             _ => log::error!("Unrecognized notification: {name}"),
         }
+    }
+
+    fn handle_request(&mut self, name: &str, args: Vec<Value>) -> Result<Value, Value> {
+        log::info!("Request: {name}, {args:?}");
+        Ok(Value::Nil)
+    }
+
+    fn handle_response(&mut self, _msgid: u64, response: Result<Value, Value>) {
+        match response {
+            Ok(response) => log::info!("{response:?}"),
+            Err(error) => log::error!("{error:?}"),
+        }
+    }
+
+    fn handle_close(&mut self) {
+        log::error!("Neovim process closed");
     }
 }

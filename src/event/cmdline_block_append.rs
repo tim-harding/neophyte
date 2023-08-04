@@ -1,8 +1,6 @@
-use super::{
-    message_content::Content,
-    util::{parse_first_element, MaybeInto, Parse},
-};
-use nvim_rs::Value;
+use super::message_content::Content;
+use crate::util::{parse_first_element, MaybeInto, Parse};
+use rmpv::Value;
 
 /// Append a line at the end of the currently shown block.
 #[derive(Debug, Clone)]

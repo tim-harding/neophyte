@@ -1,8 +1,6 @@
-use super::{
-    messagepack_ext_types::{Buffer, Tabpage},
-    util::{parse_map, MaybeInto, Parse, Values},
-};
-use nvim_rs::Value;
+use super::messagepack_ext_types::{Buffer, Tabpage};
+use crate::util::{parse_map, MaybeInto, Parse, Values};
+use rmpv::Value;
 
 /// Tabline was updated.
 #[derive(Debug, Clone)]

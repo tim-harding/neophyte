@@ -1,8 +1,8 @@
 mod parse;
+pub mod vec2;
 
-pub use parse::Parse;
-
-use nvim_rs::Value;
+pub use self::parse::Parse;
+use rmpv::Value;
 use std::{
     fmt::{Debug, DebugStruct},
     vec::IntoIter,

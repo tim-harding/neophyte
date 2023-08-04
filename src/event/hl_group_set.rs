@@ -1,5 +1,5 @@
-use super::util::{Parse, Values};
-use nvim_rs::Value;
+use crate::util::{Parse, Values};
+use rmpv::Value;
 
 /// The built-in highlight group name was set to use the attributes hl_id
 /// defined by a previous hl_attr_define call. This event is not needed to

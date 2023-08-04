@@ -1,5 +1,5 @@
-use super::util::{MaybeInto, Parse, Values};
-use nvim_rs::Value;
+use crate::util::{MaybeInto, Parse, Values};
+use rmpv::Value;
 
 /// A text sequence with highlighting.
 #[derive(Debug, Clone, Default)]

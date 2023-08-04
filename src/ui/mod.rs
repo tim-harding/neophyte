@@ -11,7 +11,7 @@ use crate::{
         GridScroll, HlAttrDefine, PopupmenuShow, TablineUpdate, WinFloatPos, WinPos,
     },
     ui::grid::{FloatingWindow, Window},
-    util::{Vec2f, Vec2u},
+    util::vec2::{Vec2f, Vec2u},
 };
 use grid::Grid;
 use std::collections::HashMap;

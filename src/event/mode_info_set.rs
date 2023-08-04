@@ -1,5 +1,5 @@
-use super::util::{maybe_field, maybe_other_field, parse_map, Parse, Values};
-use nvim_rs::Value;
+use crate::util::{maybe_field, maybe_other_field, parse_map, Parse, Values};
+use rmpv::Value;
 use std::fmt::{self, Debug, Formatter};
 
 /// Information about editor modes. These will be used by the mode_change event.

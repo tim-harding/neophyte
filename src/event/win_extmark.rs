@@ -1,8 +1,6 @@
-use super::{
-    messagepack_ext_types::Window,
-    util::{Parse, Values},
-};
-use nvim_rs::Value;
+use super::messagepack_ext_types::Window;
+use crate::util::{Parse, Values};
+use rmpv::Value;
 
 /// Updates the position of an extmark which is currently visible in a window.
 #[derive(Debug, Clone)]

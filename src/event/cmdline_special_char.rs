@@ -1,5 +1,5 @@
-use super::util::{Parse, Values};
-use nvim_rs::Value;
+use crate::util::{Parse, Values};
+use rmpv::Value;
 
 /// Display a special char in the cmdline at the cursor position. This is
 /// typically used to indicate a pending state, such as after <C-V>.

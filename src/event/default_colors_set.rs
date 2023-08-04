@@ -1,5 +1,5 @@
-use super::util::{parse_maybe_u64, Parse, Values};
-use nvim_rs::Value;
+use crate::util::{parse_maybe_u64, Parse, Values};
+use rmpv::Value;
 
 /// Sets the default foreground, background, and special colors.
 #[derive(Debug, Copy, Clone, Default)]

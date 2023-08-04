@@ -1,6 +1,5 @@
-use super::util::Parse;
-use crate::nvim::{Nvim, Writer};
-use nvim_rs::Value;
+use crate::util::Parse;
+use rmpv::Value;
 
 macro_rules! msgpack_ext {
     ($x:ident, $doc:meta) => {
@@ -11,13 +10,6 @@ macro_rules! msgpack_ext {
         impl Parse for $x {
             fn parse(value: Value) -> Option<Self> {
                 Some(Self(value))
-            }
-        }
-
-        impl $x {
-            #[allow(unused)]
-            pub fn into_nvim_rs(self, nvim: Nvim) -> nvim_rs::$x<Writer> {
-                nvim_rs::$x::new(self.0, nvim)
             }
         }
     };

@@ -1,5 +1,5 @@
 use super::Values;
-use nvim_rs::Value;
+use rmpv::Value;
 
 pub trait Parse: Sized {
     fn parse(value: Value) -> Option<Self>;

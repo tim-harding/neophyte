@@ -1,8 +1,6 @@
-use super::{
-    messagepack_ext_types::Window,
-    util::{Parse, Values},
-};
-use nvim_rs::Value;
+use super::messagepack_ext_types::Window;
+use crate::util::{Parse, Values};
+use rmpv::Value;
 
 /// Display or reconfigure external window. The window should be displayed as a
 /// separate top-level window in the desktop environment or something similar.

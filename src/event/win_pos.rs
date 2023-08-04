@@ -1,8 +1,6 @@
-use super::{
-    messagepack_ext_types::Window,
-    util::{Parse, Values},
-};
-use nvim_rs::Value;
+use super::messagepack_ext_types::Window;
+use crate::util::{Parse, Values};
+use rmpv::Value;
 
 /// Set the position and size of the outer grid size. If the window was
 /// previously hidden, it should now be shown again.

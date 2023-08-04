@@ -1,5 +1,5 @@
-use super::util::{parse_first_element, parse_maybe_u64, Parse};
-use nvim_rs::Value;
+use crate::util::{parse_first_element, parse_maybe_u64, Parse};
+use rmpv::Value;
 
 /// Select an item in the current popupmenu.
 #[derive(Debug, Clone)]

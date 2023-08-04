@@ -1,5 +1,5 @@
-use super::util::{parse_maybe_u64, Parse, Values};
-use nvim_rs::Value;
+use crate::util::{parse_maybe_u64, Parse, Values};
+use rmpv::Value;
 
 /// Show popupmenu completion
 #[derive(Debug, Clone)]
