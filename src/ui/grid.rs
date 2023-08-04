@@ -2,9 +2,9 @@
 
 use crate::event::grid_line::Cell;
 use crate::event::hl_attr_define::Attributes;
-use crate::event::{GridScroll, HlAttrDefine};
+use crate::event::{Anchor, GridScroll, HlAttrDefine};
 use crate::ui::print::hl_attr_to_colorspec;
-use crate::util::Vec2;
+use crate::util::{Vec2, Vec2f};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::io::Write;
@@ -14,10 +14,35 @@ use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 #[derive(Default, Clone)]
 pub struct Grid {
-    cells: Vec<char>,
-    highlights: Vec<u64>,
-    width: u64,
-    height: u64,
+    pub cells: Vec<char>,
+    pub highlights: Vec<u64>,
+    pub width: u64,
+    pub height: u64,
+    pub show: bool,
+    pub window: Window,
+}
+
+#[derive(Debug, Clone, Default)]
+pub enum Window {
+    #[default]
+    None,
+    Normal(NormalWindow),
+    Floating(FloatingWindow),
+    External,
+}
+
+#[derive(Debug, Clone)]
+pub struct FloatingWindow {
+    pub anchor: Anchor,
+    pub anchor_grid: u64,
+    pub anchor_pos: Vec2f,
+    pub focusable: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct NormalWindow {
+    pub start: Vec2,
+    pub size: Vec2,
 }
 
 impl Grid {
@@ -110,12 +135,23 @@ impl Grid {
             .map(|(cells_row, highlights_row)| cells_row.iter_mut().zip(highlights_row.iter_mut()))
     }
 
-    pub fn combine(&mut self, other: &Grid, anchor: Vec2) {
-        for (y, row) in other.rows().enumerate() {
-            for (x, (c, hl)) in row.into_iter().enumerate() {
-                let pos = Vec2::new(x as u64, y as u64);
-                self.set(pos + anchor, c, hl);
+    pub fn combine(&mut self, other: &Grid, cursor: Option<CursorRenderInfo>) {
+        match &other.window {
+            Window::None => {}
+            Window::External => {}
+            Window::Normal(window) => {
+                for (y, row) in other.rows().enumerate() {
+                    for (x, (c, hl)) in row.into_iter().enumerate() {
+                        let pos = Vec2::new(x as u64, y as u64);
+                        self.set(pos + window.start, c, hl);
+                    }
+                }
+                if let Some(cursor) = cursor {
+                    let pos = window.start + cursor.pos;
+                    self.set_hl(pos, cursor.hl);
+                }
             }
+            Window::Floating(_) => todo!(),
         }
     }
 
@@ -209,4 +245,9 @@ impl Debug for Grid {
         write!(f, "┗{:━<1$}┛", "", self.width as usize);
         Ok(())
     }
+}
+
+pub struct CursorRenderInfo {
+    pub hl: u64,
+    pub pos: Vec2,
 }

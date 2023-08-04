@@ -3,18 +3,18 @@ mod grid;
 mod messages;
 mod options;
 mod print;
-mod window;
 
-use self::{cmdline::Cmdline, messages::Messages, options::Options, window::Window};
+use self::{cmdline::Cmdline, grid::CursorRenderInfo, messages::Messages, options::Options};
 use crate::{
     event::{
         mode_info_set::ModeInfo, DefaultColorsSet, Event, GlobalEvent, GridLine, GridScroll,
-        HlAttrDefine, PopupmenuShow, WinPos,
+        HlAttrDefine, PopupmenuShow, WinFloatPos, WinPos,
     },
-    util::Vec2,
+    ui::grid::{FloatingWindow, Window},
+    util::{Vec2, Vec2f},
 };
 use grid::Grid;
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::HashMap;
 
 pub type Highlights = HashMap<u64, HlAttrDefine>;
 pub type HighlightGroups = HashMap<String, u64>;
@@ -24,7 +24,6 @@ pub struct Ui {
     title: String,
     icon: String,
     grids: HashMap<u64, Grid>,
-    windows: HashMap<u64, Window>,
     cursor: CursorInfo,
     #[allow(unused)]
     mouse: bool,
@@ -135,7 +134,6 @@ impl Ui {
                 grid.grid_line(row, col_start, cells);
             }
 
-            Event::WinViewport(_) => {}
             Event::WinPos(event) => {
                 let WinPos {
                     grid,
@@ -145,28 +143,47 @@ impl Ui {
                     width,
                     height,
                 } = event;
-                match self.windows.entry(grid) {
-                    Entry::Occupied(mut entry) => {
-                        let window = entry.get_mut();
-                        window.start = Vec2::new(start_col, start_row);
-                        window.size = Vec2::new(width, height);
-                    }
-                    Entry::Vacant(entry) => {
-                        entry.insert(Window {
-                            grid,
-                            start: Vec2::new(start_col, start_row),
-                            size: Vec2::new(width, height),
-                            anchor: None,
-                            focusable: true,
-                        });
-                    }
+                if let Some(grid) = self.grids.get_mut(&grid) {
+                    grid.window = Window::Normal(grid::NormalWindow {
+                        start: Vec2::new(start_col, start_row),
+                        size: Vec2::new(width, height),
+                    });
                 }
             }
-            Event::WinFloatPos(_) => {}
-            Event::WinHide(_) => {}
-            Event::WinClose(_) => {}
-            Event::WinExternalPos(_) => {}
-            Event::WinExtmark(_) => {}
+            Event::WinFloatPos(event) => {
+                let WinFloatPos {
+                    grid,
+                    win: _,
+                    anchor,
+                    anchor_grid,
+                    anchor_row,
+                    anchor_col,
+                    focusable,
+                } = event;
+                if let Some(grid) = self.grids.get_mut(&grid) {
+                    grid.window = Window::Floating(FloatingWindow {
+                        anchor,
+                        focusable,
+                        anchor_grid,
+                        anchor_pos: Vec2f::new(anchor_col, anchor_row),
+                    })
+                }
+            }
+            Event::WinExternalPos(event) => {
+                if let Some(grid) = self.grids.get_mut(&event.grid) {
+                    grid.window = Window::External;
+                }
+            }
+            Event::WinHide(event) => {
+                if let Some(grid) = self.grids.get_mut(&event.grid) {
+                    grid.show = false;
+                }
+            }
+            Event::WinClose(event) => {
+                self.grids.remove(&event.grid);
+            }
+            Event::WinViewport(_) => {} // For smooth scrolling
+            Event::WinExtmark(_) => {}  // Ignored
 
             Event::PopupmenuShow(event) => self.popupmenu = Some(event),
             Event::PopupmenuSelect(event) => {
@@ -201,14 +218,8 @@ impl Ui {
             Event::GlobalEvent(GlobalEvent::BusyStop) => self.cursor.enabled = true,
             Event::GlobalEvent(GlobalEvent::Flush) => {
                 let mut outer_grid = self.grid(1).clone();
-                for window in self.windows.values() {
-                    let grid = self.grids.get(&window.grid).unwrap();
-                    outer_grid.combine(grid, window.start);
-                    if window.grid == self.cursor.grid && self.cursor.enabled {
-                        let hl = *self.highlight_groups.get("Cursor").unwrap_or(&0);
-                        let pos = window.start + self.cursor.pos;
-                        outer_grid.set_hl(pos, hl);
-                    }
+                for (id, grid) in self.grids.iter() {
+                    outer_grid.combine(grid, self.cursor_render_info(*id));
                 }
                 outer_grid.print_colored(&self.highlights);
             }
@@ -217,6 +228,19 @@ impl Ui {
             | Event::GlobalEvent(GlobalEvent::UpdateMenu)
             | Event::GlobalEvent(GlobalEvent::Bell)
             | Event::GlobalEvent(GlobalEvent::VisualBell) => {}
+        }
+    }
+
+    fn cursor_render_info(&self, grid: u64) -> Option<CursorRenderInfo> {
+        if self.cursor.enabled && grid == self.cursor.grid {
+            self.highlight_groups
+                .get("Cursor")
+                .map(|&hl| CursorRenderInfo {
+                    hl,
+                    pos: self.cursor.pos,
+                })
+        } else {
+            None
         }
     }
 }

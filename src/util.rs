@@ -1,23 +1,28 @@
+use std::ops::Add;
+
+pub type Vec2 = Vec2T<u64>;
+pub type Vec2f = Vec2T<f64>;
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
-pub struct Vec2 {
-    pub x: u64,
-    pub y: u64,
+pub struct Vec2T<T> {
+    pub x: T,
+    pub y: T,
 }
 
-impl Vec2 {
-    pub fn new(x: u64, y: u64) -> Self {
+impl<T> Vec2T<T> {
+    pub fn new(x: T, y: T) -> Self {
         Self { x, y }
     }
 }
 
-impl Into<(u64, u64)> for Vec2 {
-    fn into(self) -> (u64, u64) {
+impl<T> Into<(T, T)> for Vec2T<T> {
+    fn into(self) -> (T, T) {
         (self.x, self.y)
     }
 }
 
-impl std::ops::Add for Vec2 {
-    type Output = Vec2;
+impl<T: Add<Output = T>> Add for Vec2T<T> {
+    type Output = Vec2T<T>;
 
     fn add(self, rhs: Self) -> Self::Output {
         Self {
