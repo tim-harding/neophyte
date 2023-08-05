@@ -17,7 +17,7 @@ pub fn render() {
     let file = File::create(path).unwrap();
     let ref mut w = BufWriter::new(file);
 
-    let font_path = Path::new(r"/usr/share/fonts/TTF/CaskaydiaCoveNerdFont-Regular.ttf");
+    let font_path = Path::new(r"/usr/share/fonts/OTF/CascadiaCode-Regular.otf");
     let font = Font::from_file(&font_path, 0).unwrap();
     let mut shape_context = ShapeContext::new();
     let mut shaper = shape_context
@@ -26,7 +26,7 @@ pub fn render() {
         .direction(Direction::RightToLeft)
         .size(24.0)
         .build();
-    shaper.add_str("The quick brown fox");
+    shaper.add_str("-> - >");
     let mut scale_context = ScaleContext::new();
     let mut scaler = scale_context
         .builder(font.as_ref())
@@ -55,7 +55,7 @@ pub fn render() {
                     }
                     let dst_i = dst_y as usize * WIDTH + dst_x as usize;
                     let src_i = y as usize * image.placement.width as usize + x as usize;
-                    data[dst_i] = image.data[src_i];
+                    data[dst_i] = data[dst_i].saturating_add(image.data[src_i]);
                 }
             }
             x_offset += glyph.advance.floor() as i32;
