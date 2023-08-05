@@ -3,6 +3,7 @@ mod grid;
 mod messages;
 mod options;
 mod print;
+mod ui_thread;
 
 use self::{cmdline::Cmdline, grid::CursorRenderInfo, messages::Messages, options::Options};
 use crate::{
@@ -15,6 +16,7 @@ use crate::{
 };
 use grid::Grid;
 use std::collections::HashMap;
+pub use ui_thread::ui_thread;
 
 pub type Highlights = HashMap<u64, HlAttrDefine>;
 pub type HighlightGroups = HashMap<String, u64>;
