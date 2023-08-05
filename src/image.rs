@@ -1,4 +1,4 @@
-use png::Encoder;
+use png::{ColorType, Encoder};
 use std::{
     fs::{self, File},
     io::{self, BufWriter},
@@ -11,17 +11,18 @@ use swash::{
     CacheKey, FontRef,
 };
 
+// TODO: Subpixel rendering
+// TODO: Font atlas
+// TODO: Subpixel offsets
+// TODO: Emoji
+
 #[allow(unused)]
 pub fn render() {
-    let path = Path::new(r"/home/tim/temp.png");
-    let file = File::create(path).unwrap();
-    let ref mut w = BufWriter::new(file);
-
-    let font_path = Path::new(r"/usr/share/fonts/OTF/CascadiaCode-Regular.otf");
-    let font = Font::from_file(&font_path, 0).unwrap();
+    let cascadia = Font::from_file("/usr/share/fonts/OTF/CascadiaCode-Regular.otf", 0).unwrap();
+    let noto = Font::from_file("/usr/share/fonts/noto/NotoColorEmoji.ttf", 0).unwrap();
     let mut shape_context = ShapeContext::new();
     let mut shaper = shape_context
-        .builder(font.as_ref())
+        .builder(cascadia.as_ref())
         .script(Script::Arabic)
         .direction(Direction::RightToLeft)
         .size(24.0)
@@ -29,7 +30,7 @@ pub fn render() {
     shaper.add_str("-> - >");
     let mut scale_context = ScaleContext::new();
     let mut scaler = scale_context
-        .builder(font.as_ref())
+        .builder(cascadia.as_ref())
         .size(24.0)
         .hint(true)
         .build();
@@ -62,11 +63,38 @@ pub fn render() {
         }
     });
 
-    let mut encoder = Encoder::new(w, WIDTH as u32, HEIGHT as u32);
-    encoder.set_color(png::ColorType::Grayscale);
+    write_png(
+        "/home/tim/temp.png",
+        WIDTH as u32,
+        HEIGHT as u32,
+        ColorType::Grayscale,
+        &data,
+    );
+}
+
+fn write_png(
+    path: impl AsRef<Path>,
+    width: u32,
+    height: u32,
+    color: ColorType,
+    pixels: &[u8],
+) -> Result<(), WritePngError> {
+    let file = File::create(path)?;
+    let ref mut w = BufWriter::new(file);
+    let mut encoder = Encoder::new(w, width, height);
+    encoder.set_color(color);
     encoder.set_depth(png::BitDepth::Eight);
     let mut w = encoder.write_header().unwrap();
-    w.write_image_data(&data).unwrap();
+    w.write_image_data(pixels)?;
+    Ok(())
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum WritePngError {
+    #[error("IO: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("PNG: {0}")]
+    Png(#[from] png::EncodingError),
 }
 
 pub struct Font {
@@ -76,8 +104,8 @@ pub struct Font {
 }
 
 impl Font {
-    pub fn from_file(path: &Path, index: usize) -> Result<Self, FontFromFileError> {
-        let data = fs::read(&path)?;
+    pub fn from_file(path: impl AsRef<Path>, index: usize) -> Result<Self, FontFromFileError> {
+        let data = fs::read(path)?;
         let font = FontRef::from_index(&data, index).ok_or(FontFromFileError::Font)?;
         Ok(Self {
             offset: font.offset,
