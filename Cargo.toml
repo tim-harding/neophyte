@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rusttype = "0.9.3"
+swash = "0.1.8"
 png = "0.17.9"
 thiserror = "1.0.44"
 env_logger = "0.10.0"

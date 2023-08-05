@@ -1,10 +1,10 @@
 use png::Encoder;
-use rusttype::{point, Font, Scale};
 use std::{
     fs::{self, File},
     io::BufWriter,
     path::Path,
 };
+use swash::FontRef;
 
 #[allow(unused)]
 pub fn render() {
@@ -28,31 +28,10 @@ pub fn render() {
 
     let font_path = Path::new(r"/usr/share/fonts/TTF/CaskaydiaCoveNerdFont-Regular.ttf");
     let font_data = fs::read(&font_path).unwrap();
-    let font = Font::try_from_vec(font_data).unwrap();
-    let height = 48f32;
-
-    let scale = Scale::uniform(height);
-
-    // The ascent is the highest point of any glyph. We shift down so that first line doesn't clip.
-    let v_metrics = font.v_metrics(scale);
-    let offset = point(0.0, v_metrics.ascent);
-
-    let glyphs: Vec<_> = font.layout("rusttype", scale, offset).collect();
-    for glyph in glyphs {
-        if let Some(bb) = glyph.pixel_bounding_box() {
-            glyph.draw(|x, y, v| {
-                let x = (x as i32 + bb.min.x) as usize;
-                let y = (y as i32 + bb.min.y) as usize;
-                if x > 512 || y > 256 {
-                    return;
-                }
-                let v = 1.0 - v;
-                let p = (y as usize * 512 + x as usize) * 3;
-                data[p] = ((data[p] as f32) * v) as u8;
-                data[p + 1] = ((data[p + 1] as f32) * v) as u8;
-                data[p + 2] = ((data[p + 2] as f32) * v) as u8;
-            });
-        }
+    let font = FontRef::from_index(&font_data, 0).unwrap();
+    println!("{}", font.attributes());
+    for string in font.localized_strings() {
+        println!("[{:?}] {}", string.id(), string.to_string());
     }
 
     w.write_image_data(&data).unwrap();

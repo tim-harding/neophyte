@@ -23,5 +23,9 @@ fn main() {
         });
     }
 
-    pollster::block_on(rendering::run());
+    if std::env::var("RUN_GPU").is_ok() {
+        pollster::block_on(rendering::run());
+    }
+
+    image::render();
 }
