@@ -1,11 +1,14 @@
 use wgpu::{
-    include_wgsl, Backends, BlendState, Color, ColorTargetState, ColorWrites,
-    CommandEncoderDescriptor, Device, DeviceDescriptor, Face, Features, FragmentState, FrontFace,
-    Instance, InstanceDescriptor, Limits, LoadOp, MultisampleState, Operations,
+    include_wgsl,
+    util::{BufferInitDescriptor, DeviceExt},
+    Backends, BlendState, Buffer, BufferAddress, BufferUsages, Color, ColorTargetState,
+    ColorWrites, CommandEncoderDescriptor, Device, DeviceDescriptor, Face, Features, FragmentState,
+    FrontFace, Instance, InstanceDescriptor, Limits, LoadOp, MultisampleState, Operations,
     PipelineLayoutDescriptor, PolygonMode, PowerPreference, PrimitiveState, PrimitiveTopology,
     Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
     RenderPipelineDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceError,
-    TextureUsages, TextureViewDescriptor, VertexState,
+    TextureUsages, TextureViewDescriptor, VertexAttribute, VertexBufferLayout, VertexFormat,
+    VertexState, VertexStepMode,
 };
 use winit::{dpi::PhysicalSize, event::WindowEvent, window::Window};
 
@@ -17,6 +20,7 @@ pub struct State {
     size: PhysicalSize<u32>,
     window: Window,
     render_pipeline: RenderPipeline,
+    vertex_buffer: Buffer,
 }
 
 impl State {
@@ -73,6 +77,12 @@ impl State {
         };
         surface.configure(&device, &config);
 
+        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Vertex buffer"),
+            contents: bytemuck::cast_slice(VERTICES),
+            usage: BufferUsages::VERTEX,
+        });
+
         let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
         let render_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
@@ -85,7 +95,7 @@ impl State {
             vertex: VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[], // Specified in the shader
+                buffers: &[Vertex::desc()],
             },
             fragment: Some(FragmentState {
                 module: &shader,
@@ -123,32 +133,9 @@ impl State {
             config,
             size,
             render_pipeline,
+            vertex_buffer,
         }
     }
-
-    pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
-        if new_size.width > 0 && new_size.height > 0 {
-            self.size = new_size;
-            self.config.width = new_size.width;
-            self.config.height = new_size.height;
-            self.surface.configure(&self.device, &self.config);
-        }
-    }
-
-    pub fn window(&self) -> &Window {
-        &self.window
-    }
-
-    pub fn size(&self) -> &PhysicalSize<u32> {
-        &self.size
-    }
-
-    /// Returns whether the input was handled by State
-    pub fn input(&mut self, _event: &WindowEvent) -> bool {
-        false
-    }
-
-    pub fn update(&mut self) {}
 
     pub fn render(&mut self) -> Result<(), SurfaceError> {
         let output = self.surface.get_current_texture()?;
@@ -180,11 +167,79 @@ impl State {
             depth_stencil_attachment: None,
         });
         render_pass.set_pipeline(&self.render_pipeline);
-        render_pass.draw(0..3, 0..1);
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.draw(0..VERTICES.len() as u32, 0..1);
         drop(render_pass);
 
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
         Ok(())
     }
+
+    pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
+        if new_size.width > 0 && new_size.height > 0 {
+            self.size = new_size;
+            self.config.width = new_size.width;
+            self.config.height = new_size.height;
+            self.surface.configure(&self.device, &self.config);
+        }
+    }
+
+    pub fn window(&self) -> &Window {
+        &self.window
+    }
+
+    pub fn size(&self) -> &PhysicalSize<u32> {
+        &self.size
+    }
+
+    /// Returns whether the input was handled by State
+    pub fn input(&mut self, _event: &WindowEvent) -> bool {
+        false
+    }
+
+    pub fn update(&mut self) {}
 }
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+struct Vertex {
+    position: [f32; 3],
+    color: [f32; 3],
+}
+
+impl Vertex {
+    pub fn desc() -> VertexBufferLayout<'static> {
+        VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as BufferAddress,
+            step_mode: VertexStepMode::Vertex,
+            attributes: &[
+                VertexAttribute {
+                    offset: 0,
+                    shader_location: 0,
+                    format: VertexFormat::Float32x3,
+                },
+                VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 3]>() as BufferAddress,
+                    shader_location: 1,
+                    format: VertexFormat::Float32x3,
+                },
+            ],
+        }
+    }
+}
+
+const VERTICES: &[Vertex] = &[
+    Vertex {
+        position: [0.0, 0.5, 0.0],
+        color: [1.0, 0.0, 0.0],
+    },
+    Vertex {
+        position: [-0.5, -0.5, 0.0],
+        color: [0.0, 1.0, 0.0],
+    },
+    Vertex {
+        position: [0.5, -0.5, 0.0],
+        color: [0.0, 0.0, 1.0],
+    },
+];
