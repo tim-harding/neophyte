@@ -1,8 +1,11 @@
 use wgpu::{
-    Backends, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, Instance,
-    InstanceDescriptor, Limits, LoadOp, Operations, PowerPreference, Queue,
-    RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, Surface,
-    SurfaceConfiguration, SurfaceError, TextureUsages, TextureViewDescriptor,
+    include_wgsl, Backends, BlendState, Color, ColorTargetState, ColorWrites,
+    CommandEncoderDescriptor, Device, DeviceDescriptor, Face, Features, FragmentState, FrontFace,
+    Instance, InstanceDescriptor, Limits, LoadOp, MultisampleState, Operations,
+    PipelineLayoutDescriptor, PolygonMode, PowerPreference, PrimitiveState, PrimitiveTopology,
+    Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
+    RenderPipelineDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceError,
+    TextureUsages, TextureViewDescriptor, VertexState,
 };
 use winit::{dpi::PhysicalSize, event::WindowEvent, window::Window};
 
@@ -13,6 +16,7 @@ pub struct State {
     config: SurfaceConfiguration,
     size: PhysicalSize<u32>,
     window: Window,
+    render_pipeline: RenderPipeline,
 }
 
 impl State {
@@ -69,6 +73,48 @@ impl State {
         };
         surface.configure(&device, &config);
 
+        let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
+        let render_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+            label: Some("Render Pipeline Layout"),
+            bind_group_layouts: &[],
+            push_constant_ranges: &[],
+        });
+        let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
+            label: Some("Render pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: VertexState {
+                module: &shader,
+                entry_point: "vs_main",
+                buffers: &[], // Specified in the shader
+            },
+            fragment: Some(FragmentState {
+                module: &shader,
+                entry_point: "fs_main",
+                targets: &[Some(ColorTargetState {
+                    format: config.format,
+                    blend: Some(BlendState::REPLACE),
+                    write_mask: ColorWrites::ALL,
+                })],
+            }),
+            // How to interpret vertices when converting to triangles
+            primitive: PrimitiveState {
+                topology: PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: FrontFace::Ccw,
+                cull_mode: Some(Face::Back),
+                polygon_mode: PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: MultisampleState {
+                count: 1,
+                mask: !0,                         // Which samples to activate (all of them)
+                alpha_to_coverage_enabled: false, // aa-related
+            },
+            multiview: None, // Involved in array textures
+        });
+
         Self {
             window,
             surface,
@@ -76,6 +122,7 @@ impl State {
             queue,
             config,
             size,
+            render_pipeline,
         }
     }
 
@@ -115,11 +162,11 @@ impl State {
                 label: Some("Render encoder"),
             });
 
-        let render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+        let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
             label: Some("Render pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: &view,
-                resolve_target: None,
+                resolve_target: None, // No multisampling
                 ops: Operations {
                     load: LoadOp::Clear(Color {
                         r: 0.1,
@@ -132,6 +179,8 @@ impl State {
             })],
             depth_stencil_attachment: None,
         });
+        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.draw(0..3, 0..1);
         drop(render_pass);
 
         self.queue.submit(std::iter::once(encoder.finish()));
