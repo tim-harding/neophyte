@@ -4,7 +4,13 @@ use std::{
     io::{self, BufWriter},
     path::Path,
 };
-use swash::{CacheKey, FontRef};
+use swash::{
+    scale::{Render, ScaleContext, Source, StrikeWith},
+    shape::{Direction, ShapeContext},
+    text::Script,
+    zeno::Format,
+    CacheKey, FontRef,
+};
 
 #[allow(unused)]
 pub fn render() {
@@ -12,24 +18,41 @@ pub fn render() {
     let file = File::create(path).unwrap();
     let ref mut w = BufWriter::new(file);
 
-    let mut encoder = Encoder::new(w, 512, 256);
-    encoder.set_color(png::ColorType::Rgb);
-    encoder.set_depth(png::BitDepth::Eight);
-    let mut w = encoder.write_header().unwrap();
-
-    let mut data = [255u8; 256 * 512 * 3];
-    for x in 0..512 {
-        for y in 0..256 {
-            let p = (y * 512 + x) * 3;
-            data[p] = x as u8;
-            data[p + 1] = y as u8;
-        }
-    }
-
     let font_path = Path::new(r"/usr/share/fonts/TTF/CaskaydiaCoveNerdFont-Regular.ttf");
     let font = Font::from_file(&font_path, 0).unwrap();
+    let mut shape_context = ShapeContext::new();
+    let mut shaper = shape_context
+        .builder(font.as_ref())
+        .script(Script::Arabic)
+        .direction(Direction::RightToLeft)
+        .size(24.0)
+        .build();
+    shaper.add_str("The quick brown fox");
+    let mut scale_context = ScaleContext::new();
+    let mut scaler = scale_context
+        .builder(font.as_ref())
+        .size(24.0)
+        .hint(true)
+        .build();
+    let glyph_id = font.as_ref().charmap().map('G');
+    let image = Render::new(&[
+        Source::ColorOutline(0),
+        Source::ColorBitmap(StrikeWith::BestFit),
+        Source::Outline,
+    ])
+    .render(&mut scaler, glyph_id)
+    .unwrap();
+    shaper.shape_with(|cluster| {});
 
-    w.write_image_data(&data).unwrap();
+    let placement = image.placement;
+    println!("{placement:?}");
+    let width = placement.width;
+    let height = placement.height;
+    let mut encoder = Encoder::new(w, width, height);
+    encoder.set_color(png::ColorType::Grayscale);
+    encoder.set_depth(png::BitDepth::Eight);
+    let mut w = encoder.write_header().unwrap();
+    w.write_image_data(&image.data).unwrap();
 }
 
 pub struct Font {
