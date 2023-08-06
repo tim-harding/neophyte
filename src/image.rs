@@ -1,14 +1,15 @@
 use png::{ColorType, Encoder};
 use std::{
+    collections::HashMap,
     fs::{self, File},
     io::{self, BufWriter},
     path::Path,
 };
 use swash::{
-    scale::{Render, ScaleContext, Source, StrikeWith},
+    scale::{image::Image, Render, ScaleContext, Scaler, Source, StrikeWith},
     shape::{Direction, ShapeContext},
     text::Script,
-    CacheKey, FontRef,
+    CacheKey, FontRef, GlyphId,
 };
 
 // TODO: Subpixel rendering
@@ -34,19 +35,14 @@ pub fn render() {
         .size(24.0)
         .hint(true)
         .build();
+    let mut cache = FontCache::new();
     const WIDTH: usize = 600;
     const HEIGHT: usize = 40;
     let mut data = [0u8; WIDTH * HEIGHT];
     let mut x_offset = 0;
     shaper.shape_with(|cluster| {
         for glyph in cluster.glyphs {
-            let image = Render::new(&[
-                Source::ColorOutline(0),
-                Source::ColorBitmap(StrikeWith::BestFit),
-                Source::Outline,
-            ])
-            .render(&mut scaler, glyph.id)
-            .unwrap();
+            let image = cache.get(glyph.id, &mut scaler);
             for y in 0..image.placement.height as i32 {
                 for x in 0..image.placement.width as i32 {
                     let dst_y = y - image.placement.top - glyph.y as i32 + 24;
@@ -70,6 +66,29 @@ pub fn render() {
         ColorType::Grayscale,
         &data,
     );
+}
+
+#[derive(Clone, Default)]
+pub struct FontCache {
+    glyphs: HashMap<GlyphId, Image>,
+}
+
+impl FontCache {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn get(&mut self, glyph: GlyphId, scaler: &mut Scaler) -> &Image {
+        self.glyphs.entry(glyph).or_insert_with(|| {
+            Render::new(&[
+                Source::ColorOutline(0),
+                Source::ColorBitmap(StrikeWith::BestFit),
+                Source::Outline,
+            ])
+            .render(scaler, glyph)
+            .unwrap()
+        })
+    }
 }
 
 fn write_png(
