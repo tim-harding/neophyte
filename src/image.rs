@@ -113,7 +113,7 @@ impl FontAtlas {
         });
         glyphs.sort_unstable_by(|(_, l), (_, r)| {
             let size = |g: &Image| g.placement.width * g.placement.height;
-            size(l).cmp(&size(r))
+            size(r).cmp(&size(l))
         });
         let mut this = Self::new();
         for (id, image) in glyphs {
@@ -144,12 +144,11 @@ impl FontAtlas {
             self.root.pack(glyph_size, self.size).unwrap()
         };
 
-        for (src, dst) in image
-            .data
-            .chunks(image.placement.width as usize)
-            .skip(origin.y as usize)
-            .zip(self.data.chunks_mut(self.size as usize))
-        {
+        for (src, dst) in image.data.chunks(image.placement.width as usize).zip(
+            self.data
+                .chunks_mut(self.size as usize)
+                .skip(origin.y as usize),
+        ) {
             for (src, dst) in src.into_iter().zip(dst.into_iter().skip(origin.x as usize)) {
                 *dst = *src;
             }
