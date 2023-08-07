@@ -1,8 +1,8 @@
 mod event;
-mod image;
 mod rendering;
 mod rpc;
 mod session;
+mod text;
 mod ui;
 mod util;
 
@@ -27,5 +27,5 @@ fn main() {
         pollster::block_on(rendering::run());
     }
 
-    image::render();
+    text::render();
 }
