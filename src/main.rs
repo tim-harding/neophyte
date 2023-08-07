@@ -27,5 +27,7 @@ fn main() {
         pollster::block_on(rendering::run());
     }
 
-    text::render_shaped_text();
+    if std::env::var("RUN_TEXT").is_ok() {
+        text::render_shaped_text();
+    }
 }

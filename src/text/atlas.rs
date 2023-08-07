@@ -2,15 +2,13 @@
 
 // TODO: u16 overflow handling. What should be the maximum texture size?
 
+use crate::util::vec2::Vec2;
 use std::collections::HashMap;
-
 use swash::{
     scale::{image::Image, Render, ScaleContext, Source, StrikeWith},
     zeno::Placement,
     FontRef, GlyphId,
 };
-
-use crate::util::vec2::Vec2;
 
 // Algorithm borrowed from
 // https://straypixels.net/texture-packing-for-fonts/
