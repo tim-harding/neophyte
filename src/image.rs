@@ -107,7 +107,9 @@ impl FontAtlas {
             ])
             .render(&mut scaler, id)
             .unwrap();
-            glyphs.push((id, image));
+            if image.data.len() > 0 {
+                glyphs.push((id, image));
+            }
         });
         glyphs.sort_unstable_by(|(_, l), (_, r)| {
             let size = |g: &Image| g.placement.width * g.placement.height;
@@ -217,10 +219,10 @@ impl Node {
             let real_size = {
                 let mut real_size = self.size;
                 if self.origin.x + self.size.x == u16::MAX {
-                    real_size.x = self.size.x - self.origin.x;
+                    real_size.x = texture_size - self.origin.x;
                 }
                 if self.origin.y + self.size.y == u16::MAX {
-                    real_size.y = self.size.y - self.origin.y;
+                    real_size.y = texture_size - self.origin.y;
                 }
                 real_size
             };
@@ -240,20 +242,23 @@ impl Node {
                     remainder.x < remainder.y
                 };
 
-                self.children = Some((
-                    Box::new(Node::new(self.origin, self.size)),
-                    Box::new(if vertical_split {
-                        Node::new(
+                self.children = Some(if vertical_split {
+                    (
+                        Box::new(Node::new(self.origin, Vec2::new(self.size.x, size.y))),
+                        Box::new(Node::new(
                             Vec2::new(self.origin.x, self.origin.y + size.y),
                             Vec2::new(self.size.x, self.size.y - size.y),
-                        )
-                    } else {
-                        Node::new(
+                        )),
+                    )
+                } else {
+                    (
+                        Box::new(Node::new(self.origin, Vec2::new(size.x, self.size.y))),
+                        Box::new(Node::new(
                             Vec2::new(self.origin.x + size.x, self.origin.y),
                             Vec2::new(self.size.x - size.x, self.size.y),
-                        )
-                    }),
-                ));
+                        )),
+                    )
+                });
                 self.children.as_mut().unwrap().0.pack(size, texture_size)
             }
         }
