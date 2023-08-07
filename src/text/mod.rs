@@ -1,15 +1,15 @@
-mod atlas;
-mod font;
+pub mod atlas;
+pub mod font;
 
+use crate::text::font::Font;
 use png::{ColorType, Encoder};
 use std::{fs::File, io::BufWriter, path::Path};
 use swash::{
-    scale::ScaleContext,
+    scale::{Render, ScaleContext, Source, StrikeWith},
     shape::{Direction, ShapeContext},
     text::Script,
+    zeno::Vector,
 };
-
-use crate::text::{atlas::FontAtlas, font::Font};
 
 // TODO: Subpixel rendering
 // TODO: Font atlas
@@ -17,7 +17,7 @@ use crate::text::{atlas::FontAtlas, font::Font};
 // TODO: Emoji
 
 #[allow(unused)]
-pub fn render() {
+pub fn render_shaped_text() {
     let cascadia = Font::from_file("/usr/share/fonts/OTF/CascadiaCode-Regular.otf", 0).unwrap();
     let noto = Font::from_file("/usr/share/fonts/noto/NotoColorEmoji.ttf", 0).unwrap();
     let mut shape_context = ShapeContext::new();
@@ -27,42 +27,51 @@ pub fn render() {
         .direction(Direction::RightToLeft)
         .size(24.0)
         .build();
-    shaper.add_str("Things and stuff");
+    shaper.add_str("Things and stuff ->");
     let mut scale_context = ScaleContext::new();
     let mut scaler = scale_context
         .builder(cascadia.as_ref())
         .size(24.0)
         .hint(true)
         .build();
-    let mut cache = FontAtlas::from_font(cascadia.as_ref(), 24.0);
     const WIDTH: usize = 600;
     const HEIGHT: usize = 40;
     let mut data = [0u8; WIDTH * HEIGHT];
-    let mut x_offset = 0;
-    // shaper.shape_with(|cluster| {
-    //     for glyph in cluster.glyphs {
-    //         let image = cache.glyph(glyph.id).unwrap();
-    //         for y in 0..image.placement.height as i32 {
-    //             for x in 0..image.placement.width as i32 {
-    //                 let dst_y = y - image.placement.top - glyph.y as i32 + 24;
-    //                 let dst_x = x + x_offset + image.placement.left + glyph.x as i32;
-    //                 if dst_y < 0 || dst_x < 0 {
-    //                     continue;
-    //                 }
-    //                 let dst_i = dst_y as usize * WIDTH + dst_x as usize;
-    //                 let src_i = y as usize * image.placement.width as usize + x as usize;
-    //                 data[dst_i] = data[dst_i].saturating_add(image.data[src_i]);
-    //             }
-    //         }
-    //         x_offset += glyph.advance.floor() as i32;
-    //     }
-    // });
+    let mut x_offset = 0.0f32;
+    shaper.shape_with(|cluster| {
+        for glyph in cluster.glyphs {
+            let image = Render::new(&[
+                Source::ColorOutline(0),
+                Source::ColorBitmap(StrikeWith::BestFit),
+                Source::Outline,
+            ])
+            .offset(Vector::new(
+                glyph.x.fract() + x_offset.fract(),
+                glyph.y.fract(),
+            ))
+            .render(&mut scaler, glyph.id)
+            .unwrap();
+            for y in 0..image.placement.height as i32 {
+                for x in 0..image.placement.width as i32 {
+                    let dst_y = y - image.placement.top - glyph.y as i32 + 24;
+                    let dst_x = x + x_offset as i32 + image.placement.left + glyph.x as i32;
+                    if dst_y < 0 || dst_x < 0 {
+                        continue;
+                    }
+                    let dst_i = dst_y as usize * WIDTH + dst_x as usize;
+                    let src_i = y as usize * image.placement.width as usize + x as usize;
+                    data[dst_i] = data[dst_i].saturating_add(image.data[src_i]);
+                }
+            }
+            x_offset += glyph.advance;
+        }
+    });
     write_png(
         "/home/tim/temp.png",
-        cache.size() as u32,
-        cache.size() as u32,
+        WIDTH as u32,
+        HEIGHT as u32,
         ColorType::Grayscale,
-        cache.data(),
+        &data,
     );
 }
 

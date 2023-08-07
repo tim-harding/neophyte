@@ -27,5 +27,5 @@ fn main() {
         pollster::block_on(rendering::run());
     }
 
-    text::render();
+    text::render_shaped_text();
 }

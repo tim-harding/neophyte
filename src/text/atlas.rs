@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 // TODO: u16 overflow handling. What should be the maximum texture size?
 
 use std::collections::HashMap;
@@ -112,20 +114,17 @@ impl FontAtlas {
         self.size
     }
 
-    #[allow(unused)]
     pub fn get(&self, id: GlyphId) -> Option<&PackedGlyph> {
         self.lut.get(&id)
     }
 }
 
-#[allow(unused)]
 #[derive(Debug, Clone, Copy)]
 pub struct PackedGlyph {
     origin: Vec2<u16>,
     placement: Placement,
 }
 
-#[allow(unused)]
 pub struct Pack {
     resized: bool,
     origin: Vec2<u16>,
