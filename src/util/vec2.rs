@@ -1,10 +1,5 @@
 use std::ops::{Add, Mul, Sub};
 
-pub type Vec2u = Vec2<u64>;
-pub type Vec2s = Vec2<usize>;
-pub type Vec2i = Vec2<i64>;
-pub type Vec2f = Vec2<f64>;
-
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct Vec2<T> {
     pub x: T,

@@ -12,7 +12,7 @@ use crate::{
         GridScroll, HlAttrDefine, PopupmenuShow, TablineUpdate, WinFloatPos, WinPos,
     },
     ui::grid::{FloatingWindow, Window},
-    util::vec2::{Vec2f, Vec2u},
+    util::vec2::Vec2,
 };
 use grid::Grid;
 use std::collections::HashMap;
@@ -45,7 +45,7 @@ pub struct Ui {
 
 #[derive(Debug, Copy, Clone)]
 struct CursorInfo {
-    pos: Vec2u,
+    pos: Vec2<u64>,
     grid: u64,
     enabled: bool,
     style_enabled: bool,
@@ -103,14 +103,14 @@ impl Ui {
 
             Event::GridResize(event) => {
                 let grid = self.grid(event.grid);
-                grid.resize(Vec2u::new(event.width, event.height));
+                grid.resize(Vec2::new(event.width, event.height));
             }
             Event::GridClear(event) => self.grid(event.grid).clear(),
             Event::GridDestroy(event) => {
                 self.grids.remove(&event.grid);
             }
             Event::GridCursorGoto(event) => {
-                self.cursor.pos = Vec2u::new(event.column, event.row);
+                self.cursor.pos = Vec2::new(event.column, event.row);
                 self.cursor.grid = event.grid;
             }
             Event::GridScroll(event) => {
@@ -148,8 +148,8 @@ impl Ui {
                 } = event;
                 if let Some(grid) = self.grids.get_mut(&grid) {
                     grid.window = Window::Normal(grid::NormalWindow {
-                        start: Vec2u::new(start_col, start_row),
-                        size: Vec2u::new(width, height),
+                        start: Vec2::new(start_col, start_row),
+                        size: Vec2::new(width, height),
                     });
                 }
             }
@@ -168,7 +168,7 @@ impl Ui {
                         anchor,
                         focusable,
                         anchor_grid,
-                        anchor_pos: Vec2f::new(anchor_col, anchor_row),
+                        anchor_pos: Vec2::new(anchor_col, anchor_row),
                     })
                 }
             }
@@ -211,7 +211,7 @@ impl Ui {
                 grid.window = Window::Floating(FloatingWindow {
                     anchor: Anchor::Nw,
                     anchor_grid: 1,
-                    anchor_pos: Vec2f::new(0.0, event.row as f64),
+                    anchor_pos: Vec2::new(0.0, event.row as f64),
                     focusable: false,
                 });
             }

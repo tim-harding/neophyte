@@ -4,7 +4,7 @@ use crate::event::grid_line::Cell;
 use crate::event::hl_attr_define::Attributes;
 use crate::event::{Anchor, GridScroll, HlAttrDefine};
 use crate::ui::print::hl_attr_to_colorspec;
-use crate::util::vec2::{Vec2f, Vec2i, Vec2s, Vec2u};
+use crate::util::vec2::Vec2;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::io::Write;
@@ -16,7 +16,7 @@ use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 pub struct Grid {
     pub cells: Vec<char>,
     pub highlights: Vec<u64>,
-    pub size: Vec2u,
+    pub size: Vec2<u64>,
     pub show: bool,
     pub window: Window,
 }
@@ -34,18 +34,18 @@ pub enum Window {
 pub struct FloatingWindow {
     pub anchor: Anchor,
     pub anchor_grid: u64,
-    pub anchor_pos: Vec2f,
+    pub anchor_pos: Vec2<f64>,
     pub focusable: bool,
 }
 
 #[derive(Debug, Clone)]
 pub struct NormalWindow {
-    pub start: Vec2u,
-    pub size: Vec2u,
+    pub start: Vec2<u64>,
+    pub size: Vec2<u64>,
 }
 
 impl Grid {
-    pub fn resize(&mut self, size: Vec2u) {
+    pub fn resize(&mut self, size: Vec2<u64>) {
         let mut resized_cells = vec![' '; (size.x * size.y) as usize];
         let mut resized_hightlights = vec![0; (size.x * size.y) as usize];
         for y in 0..size.y.min(self.size.x) {
@@ -62,18 +62,18 @@ impl Grid {
         self.highlights = resized_hightlights;
     }
 
-    pub fn get(&self, pos: Vec2u) -> (char, u64) {
+    pub fn get(&self, pos: Vec2<u64>) -> (char, u64) {
         let i = self.index(pos);
         (self.cells[i], self.highlights[i])
     }
 
-    pub fn set(&mut self, pos: Vec2u, c: char, highlight: u64) {
+    pub fn set(&mut self, pos: Vec2<u64>, c: char, highlight: u64) {
         let i = self.index(pos);
         self.cells[i] = c;
         self.highlights[i] = highlight;
     }
 
-    fn index(&self, pos: Vec2u) -> usize {
+    fn index(&self, pos: Vec2<u64>) -> usize {
         (pos.y * self.size.x + pos.x) as usize
     }
 
@@ -132,16 +132,16 @@ impl Grid {
             Window::Floating(window) => {
                 let anchor_pos = {
                     let (x, y) = window.anchor_pos.into();
-                    Vec2u::new(x.floor() as u64, y.floor() as u64)
+                    Vec2::new(x.floor() as u64, y.floor() as u64)
                 };
                 // TODO: Should be relative to anchor grid
                 anchor_pos
                     - other.size
                         * match window.anchor {
-                            Anchor::Nw => Vec2u::new(0, 0),
-                            Anchor::Ne => Vec2u::new(0, 1),
-                            Anchor::Sw => Vec2u::new(1, 0),
-                            Anchor::Se => Vec2u::new(1, 1),
+                            Anchor::Nw => Vec2::new(0, 0),
+                            Anchor::Ne => Vec2::new(0, 1),
+                            Anchor::Sw => Vec2::new(1, 0),
+                            Anchor::Se => Vec2::new(1, 1),
                         }
             }
         };
@@ -191,8 +191,8 @@ impl Grid {
         let height = self.size.y;
         let mut copy = move |src_y, dst_y| {
             for x in left..right {
-                let (c, highlight) = self.get(Vec2u::new(x, src_y));
-                self.set(Vec2u::new(x, dst_y), c, highlight);
+                let (c, highlight) = self.get(Vec2::new(x, src_y));
+                self.set(Vec2::new(x, dst_y), c, highlight);
             }
         };
         // TODO: Skip iterations for lines that won't be copied
@@ -254,5 +254,5 @@ impl Debug for Grid {
 
 pub struct CursorRenderInfo {
     pub hl: u64,
-    pub pos: Vec2u,
+    pub pos: Vec2<u64>,
 }
