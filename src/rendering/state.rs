@@ -1,6 +1,7 @@
 use crate::{
     text::{atlas::FontAtlas, font::Font},
     ui::grid::Grid,
+    util::vec2::Vec2,
 };
 use std::sync::{mpsc::Receiver, Arc, Mutex};
 use wgpu::{
@@ -17,11 +18,11 @@ pub struct State {
     size: Mutex<PhysicalSize<u32>>,
     window: Arc<Window>,
     render_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: Mutex<wgpu::Buffer>,
-    index_buffer: Mutex<wgpu::Buffer>,
     texture_bind_group: wgpu::BindGroup,
     font: Font,
     atlas: FontAtlas,
+    vertex_buffer: Mutex<wgpu::Buffer>,
+    index_buffer: Mutex<wgpu::Buffer>,
     index_count: Mutex<u32>,
 }
 
@@ -329,9 +330,9 @@ impl State {
         let mut indices = vec![];
         let metrics = font.metrics(&[]).linear_scale(24.0);
         let advance = (metrics.average_width / metrics.units_per_em as f32).round();
-        for (i, line) in grid.rows().enumerate() {
+        for (row_i, line) in grid.rows().enumerate() {
             let mut offset_x = 0.0;
-            let offset_y = i as f32 * 24.0;
+            let offset_y = row_i as f32 * 24.0;
             for (c, _) in line {
                 let id = charmap.map(c);
                 let glyph = match self.atlas.get(id) {
@@ -359,6 +360,7 @@ impl State {
                 let v_max = (glyph.origin.y as f32 + glyph.placement.height as f32)
                     / self.atlas.size() as f32;
 
+                let base = vertices.len() as u16;
                 vertices.extend_from_slice(&[
                     Vertex {
                         p: [left, top],
@@ -377,7 +379,6 @@ impl State {
                         t: [u_max, v_max],
                     },
                 ]);
-                let base = i as u16 * 4;
                 indices.extend_from_slice(&[
                     base + 2,
                     base + 1,

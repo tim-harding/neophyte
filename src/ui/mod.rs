@@ -258,7 +258,8 @@ impl Ui {
                 for (id, grid) in self.grids.iter() {
                     outer_grid.combine(grid, self.cursor_render_info(*id));
                 }
-                self.tx.send(outer_grid);
+                // outer_grid.print_colored(&self.highlights);
+                self.tx.send(outer_grid).unwrap();
             }
 
             Event::GlobalEvent(GlobalEvent::Suspend)
