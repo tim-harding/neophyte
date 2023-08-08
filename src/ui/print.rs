@@ -1,25 +1,22 @@
+use super::{grid::HighlightId, Highlights};
 use crate::event::{Content, HlAttrDefine};
-use std::{collections::HashMap, io::Write};
+use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-pub fn print_content(content: &Content, hl_attrs: &HashMap<u64, HlAttrDefine>) {
+pub fn print_content(content: &Content, hl_attrs: &Highlights) {
     let f = StandardStream::stdout(ColorChoice::Always);
     display_content(content, hl_attrs, f);
 }
 
 #[allow(unused)]
-pub fn eprint_content(content: &Content, hl_attrs: &HashMap<u64, HlAttrDefine>) {
+pub fn eprint_content(content: &Content, hl_attrs: &Highlights) {
     let f = StandardStream::stderr(ColorChoice::Always);
     display_content(content, hl_attrs, f);
 }
 
-fn display_content(
-    content: &Content,
-    hl_attrs: &HashMap<u64, HlAttrDefine>,
-    mut f: StandardStream,
-) {
+fn display_content(content: &Content, hl_attrs: &Highlights, mut f: StandardStream) {
     for chunk in content.chunks.iter() {
-        if let Some(hl_attr) = hl_attrs.get(&chunk.attr_id) {
+        if let Some(hl_attr) = hl_attrs.get(&(chunk.attr_id as HighlightId)) {
             f.set_color(&hl_attr_to_colorspec(hl_attr)).unwrap();
         } else {
             f.reset().unwrap();

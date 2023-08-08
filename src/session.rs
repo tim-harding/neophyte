@@ -13,7 +13,7 @@ pub struct Neovim {
 }
 
 impl Neovim {
-    pub fn new(notification_handler: mpsc::Sender<Notification>) -> io::Result<Neovim> {
+    pub fn new(notification_tx: mpsc::Sender<Notification>) -> io::Result<Neovim> {
         let mut child = Command::new("nvim")
             .arg("--embed")
             .stdin(Stdio::piped())
@@ -80,7 +80,7 @@ impl Neovim {
                 }
 
                 RpcMessage::Notification { method, params } => {
-                    match notification_handler.send(Notification {
+                    match notification_tx.send(Notification {
                         name: method,
                         instances: params,
                     }) {

@@ -1,11 +1,16 @@
 mod cmdline;
-mod grid;
+pub mod grid;
 mod messages;
 mod options;
 mod print;
 mod ui_thread;
 
-use self::{cmdline::Cmdline, grid::CursorRenderInfo, messages::Messages, options::Options};
+use self::{
+    cmdline::Cmdline,
+    grid::{CursorRenderInfo, HighlightId},
+    messages::Messages,
+    options::Options,
+};
 use crate::{
     event::{
         mode_info_set::ModeInfo, Anchor, DefaultColorsSet, Event, GlobalEvent, GridLine,
@@ -15,13 +20,13 @@ use crate::{
     util::vec2::Vec2,
 };
 use grid::Grid;
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::mpsc::Sender};
 pub use ui_thread::ui_thread;
 
-pub type Highlights = HashMap<u64, HlAttrDefine>;
-pub type HighlightGroups = HashMap<String, u64>;
+pub type Highlights = HashMap<HighlightId, HlAttrDefine>;
+pub type HighlightGroups = HashMap<String, HighlightId>;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct Ui {
     title: String,
     icon: String,
@@ -41,6 +46,7 @@ pub struct Ui {
     options: Options,
     default_colors: DefaultColorsSet,
     tabline: Option<TablineUpdate>,
+    tx: Sender<Grid>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -63,8 +69,27 @@ impl Default for CursorInfo {
 }
 
 impl Ui {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(tx: Sender<Grid>) -> Self {
+        Self {
+            title: Default::default(),
+            icon: Default::default(),
+            grids: Default::default(),
+            cursor: Default::default(),
+            mouse: Default::default(),
+            highlights: Default::default(),
+            highlight_groups: Default::default(),
+            messages: Default::default(),
+            cmdline: Default::default(),
+            popupmenu: Default::default(),
+            current_mode: Default::default(),
+            modes: Default::default(),
+            mode_for_hl_id: Default::default(),
+            mode_for_langmap: Default::default(),
+            options: Default::default(),
+            default_colors: Default::default(),
+            tabline: Default::default(),
+            tx,
+        }
     }
 
     fn grid(&mut self, grid: u64) -> &mut Grid {
@@ -79,7 +104,7 @@ impl Ui {
             Event::OptionSet(event) => self.options.event(event),
             Event::DefaultColorsSet(event) => self.default_colors = event,
             Event::HlAttrDefine(event) => {
-                self.highlights.insert(event.id, event);
+                self.highlights.insert(event.id as HighlightId, event);
             }
             Event::ModeChange(event) => self.current_mode = event.mode_idx,
             Event::ModeInfoSet(event) => {
@@ -98,7 +123,8 @@ impl Ui {
                 self.modes = event.mode_info;
             }
             Event::HlGroupSet(event) => {
-                self.highlight_groups.insert(event.name, event.hl_id);
+                self.highlight_groups
+                    .insert(event.name, event.hl_id as HighlightId);
             }
 
             Event::GridResize(event) => {
@@ -232,7 +258,7 @@ impl Ui {
                 for (id, grid) in self.grids.iter() {
                     outer_grid.combine(grid, self.cursor_render_info(*id));
                 }
-                outer_grid.print_colored(&self.highlights);
+                self.tx.send(outer_grid);
             }
 
             Event::GlobalEvent(GlobalEvent::Suspend)

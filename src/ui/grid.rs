@@ -10,6 +10,8 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
+use super::Highlights;
+
 // TODO: Add fallback to string if the cell requires more than a char
 
 pub type HighlightId = u16;
@@ -165,7 +167,7 @@ impl Grid {
         }
     }
 
-    pub fn print_colored(&self, highlights: &HashMap<u64, HlAttrDefine>) {
+    pub fn print_colored(&self, highlights: &Highlights) {
         let mut f = StandardStream::stdout(ColorChoice::Always);
         let mut prev_hl = 0;
         writeln!(f, "┏{:━<1$}┓", "", self.size.x as usize);

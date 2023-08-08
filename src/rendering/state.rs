@@ -1,7 +1,9 @@
 use crate::{
+    event::GridLine,
     text::{atlas::FontAtlas, font::Font},
-    util::vec2::Vec2,
+    ui::grid::Grid,
 };
+use std::sync::{mpsc::Receiver, Arc};
 use wgpu::{
     include_wgsl,
     util::{BufferInitDescriptor, DeviceExt},
@@ -14,7 +16,7 @@ pub struct State {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     size: PhysicalSize<u32>,
-    window: Window,
+    window: Arc<Window>,
     render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
@@ -25,7 +27,7 @@ pub struct State {
 }
 
 impl State {
-    pub async fn new(window: Window) -> Self {
+    pub async fn new(window: Arc<Window>, rx: Receiver<Grid>) -> Self {
         let size = window.inner_size();
 
         // Used to create adapters and surfaces
@@ -36,7 +38,7 @@ impl State {
 
         // This is what we draw to. Surface needs to live as long as the window.
         // Since both are managed by Self, this is okay.
-        let surface = unsafe { instance.create_surface(&window) }.unwrap();
+        let surface = unsafe { instance.create_surface(window.as_ref()) }.unwrap();
 
         // Handle to the graphics card
         let adapter = instance
@@ -219,6 +221,13 @@ impl State {
             multiview: None, // Involved in array textures
         });
 
+        {
+            let window = window.clone();
+            std::thread::spawn(move || {
+                handle_grid_redraw(window, rx);
+            });
+        }
+
         Self {
             window,
             surface,
@@ -399,5 +408,12 @@ impl Vertex {
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &Self::ATTRIBS,
         }
+    }
+}
+
+fn handle_grid_redraw(window: Arc<Window>, rx: Receiver<Grid>) {
+    while let Ok(grid) = rx.recv() {
+        window.request_redraw();
+        println!("Got grid");
     }
 }
