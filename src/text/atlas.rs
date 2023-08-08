@@ -119,13 +119,13 @@ impl FontAtlas {
 
 #[derive(Debug, Clone, Copy)]
 pub struct PackedGlyph {
-    origin: Vec2<u16>,
-    placement: Placement,
+    pub origin: Vec2<u16>,
+    pub placement: Placement,
 }
 
 pub struct Pack {
-    resized: bool,
-    origin: Vec2<u16>,
+    pub resized: bool,
+    pub origin: Vec2<u16>,
 }
 
 struct Node {

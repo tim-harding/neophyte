@@ -23,9 +23,7 @@ fn main() {
         });
     }
 
-    if std::env::var("RUN_GPU").is_ok() {
-        pollster::block_on(rendering::run());
-    }
+    pollster::block_on(rendering::run());
 
     if std::env::var("RUN_TEXT").is_ok() {
         text::render_shaped_text();

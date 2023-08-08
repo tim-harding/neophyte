@@ -1,4 +1,7 @@
-use crate::text::{atlas::FontAtlas, font::Font};
+use crate::{
+    text::{atlas::FontAtlas, font::Font},
+    util::vec2::Vec2,
+};
 use wgpu::{
     include_wgsl,
     util::{BufferInitDescriptor, DeviceExt},
@@ -16,6 +19,8 @@ pub struct State {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     texture_bind_group: wgpu::BindGroup,
+    atlas: FontAtlas,
+    index_count: u32,
 }
 
 impl State {
@@ -158,18 +163,6 @@ impl State {
             ],
         });
 
-        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Vertex buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Index buffer"),
-            contents: bytemuck::cast_slice(INDICES),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-
         let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -190,7 +183,7 @@ impl State {
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
             }),
@@ -224,6 +217,8 @@ impl State {
             vertex_buffer,
             index_buffer,
             texture_bind_group,
+            atlas,
+            index_count: indices.len() as u32,
         }
     }
 
@@ -260,7 +255,7 @@ impl State {
         render_pass.set_bind_group(0, &self.texture_bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        render_pass.draw_indexed(0..INDICES.len() as u32, 0, 0..1);
+        render_pass.draw_indexed(0..self.index_count, 0, 0..1);
         drop(render_pass);
 
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -291,6 +286,85 @@ impl State {
     }
 
     pub fn update(&mut self) {}
+
+    // TODO: Preallocate and reuse buffer
+    fn verts_for_text(&mut self, window_size: Vec2<f32>) -> (Vec<Vertex>, Vec<u16>) {
+        let clip_x = |n| (n / window_size.x) * 2.0 - 1.0;
+        let clip_y = |n| (n / window_size.y) * -2.0 + 1.0;
+        let text = "Things and stuff";
+        let charmap = font.charmap();
+        let mut vertices = vec![];
+        let mut indices = vec![];
+        let metrics = font.metrics(&[]).linear_scale(24.0);
+        let advance = (metrics.average_width / metrics.units_per_em as f32).round();
+        let mut offset = 0.0;
+        let mut i = 0;
+        for char in text.chars() {
+            print!("{char}, ");
+            let id = charmap.map(char);
+            let glyph = match atlas.get(id) {
+                Some(glyph) => glyph,
+                None => {
+                    offset += advance;
+                    continue;
+                }
+            };
+
+            let left = offset + glyph.placement.left as f32;
+            let right = left + glyph.placement.width as f32;
+            let top = -glyph.placement.top as f32 + 24.0;
+            let bottom = top + glyph.placement.height as f32;
+            println!("{left}, {right}, {top}, {bottom}");
+
+            let left = clip_x(left);
+            let right = clip_x(right);
+            let top = clip_y(top);
+            let bottom = clip_y(bottom);
+
+            let u_min = glyph.origin.x as f32 / atlas.size() as f32;
+            let u_max =
+                (glyph.origin.x as f32 + glyph.placement.width as f32) / atlas.size() as f32;
+            let v_min = glyph.origin.y as f32 / atlas.size() as f32;
+            let v_max =
+                (glyph.origin.y as f32 + glyph.placement.height as f32) / atlas.size() as f32;
+
+            vertices.extend_from_slice(&[
+                Vertex {
+                    p: [left, top],
+                    t: [u_min, v_min],
+                },
+                Vertex {
+                    p: [right, top],
+                    t: [u_max, v_min],
+                },
+                Vertex {
+                    p: [left, bottom],
+                    t: [u_min, v_max],
+                },
+                Vertex {
+                    p: [right, bottom],
+                    t: [u_max, v_max],
+                },
+            ]);
+            let base = i as u16 * 4;
+            indices.extend_from_slice(&[base + 2, base + 1, base, base + 1, base + 2, base + 3]);
+            offset += advance;
+            i += 1;
+        }
+        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Vertex buffer"),
+            contents: bytemuck::cast_slice(&vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Index buffer"),
+            contents: bytemuck::cast_slice(&indices),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
+        (vertices, indices)
+    }
 }
 
 #[repr(C)]
@@ -312,24 +386,3 @@ impl Vertex {
         }
     }
 }
-
-const VERTICES: &[Vertex] = &[
-    Vertex {
-        p: [-1.0, -1.0],
-        t: [0.0, 0.0],
-    },
-    Vertex {
-        p: [1.0, -1.0],
-        t: [1.0, 0.0],
-    },
-    Vertex {
-        p: [-1.0, 1.0],
-        t: [0.0, 1.0],
-    },
-    Vertex {
-        p: [1.0, 1.0],
-        t: [1.0, 1.0],
-    },
-];
-
-const INDICES: &[u16] = &[0, 1, 2, 3, 2, 1];
