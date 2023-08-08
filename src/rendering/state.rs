@@ -19,6 +19,7 @@ pub struct State {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     texture_bind_group: wgpu::BindGroup,
+    font: Font,
     atlas: FontAtlas,
     index_count: u32,
 }
@@ -125,6 +126,18 @@ impl State {
             ..Default::default()
         });
 
+        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Vertex buffer"),
+            contents: bytemuck::cast_slice(&[Vertex::default(); 0]),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Index buffer"),
+            contents: bytemuck::cast_slice(&[Vertex::default(); 0]),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Texture bind group layout"),
@@ -214,11 +227,12 @@ impl State {
             config,
             size,
             render_pipeline,
-            vertex_buffer,
-            index_buffer,
             texture_bind_group,
             atlas,
-            index_count: indices.len() as u32,
+            font,
+            index_buffer,
+            vertex_buffer,
+            index_count: 0,
         }
     }
 
@@ -269,6 +283,7 @@ impl State {
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
+            self.update_text();
         }
     }
 
@@ -288,9 +303,10 @@ impl State {
     pub fn update(&mut self) {}
 
     // TODO: Preallocate and reuse buffer
-    fn verts_for_text(&mut self, window_size: Vec2<f32>) -> (Vec<Vertex>, Vec<u16>) {
-        let clip_x = |n| (n / window_size.x) * 2.0 - 1.0;
-        let clip_y = |n| (n / window_size.y) * -2.0 + 1.0;
+    fn update_text(&mut self) {
+        let clip_x = |n| (n / self.size.width as f32) * 2.0 - 1.0;
+        let clip_y = |n| (n / self.size.height as f32) * -2.0 + 1.0;
+        let font = self.font.as_ref();
         let text = "Things and stuff";
         let charmap = font.charmap();
         let mut vertices = vec![];
@@ -300,9 +316,8 @@ impl State {
         let mut offset = 0.0;
         let mut i = 0;
         for char in text.chars() {
-            print!("{char}, ");
             let id = charmap.map(char);
-            let glyph = match atlas.get(id) {
+            let glyph = match self.atlas.get(id) {
                 Some(glyph) => glyph,
                 None => {
                     offset += advance;
@@ -314,19 +329,18 @@ impl State {
             let right = left + glyph.placement.width as f32;
             let top = -glyph.placement.top as f32 + 24.0;
             let bottom = top + glyph.placement.height as f32;
-            println!("{left}, {right}, {top}, {bottom}");
 
             let left = clip_x(left);
             let right = clip_x(right);
             let top = clip_y(top);
             let bottom = clip_y(bottom);
 
-            let u_min = glyph.origin.x as f32 / atlas.size() as f32;
+            let u_min = glyph.origin.x as f32 / self.atlas.size() as f32;
             let u_max =
-                (glyph.origin.x as f32 + glyph.placement.width as f32) / atlas.size() as f32;
-            let v_min = glyph.origin.y as f32 / atlas.size() as f32;
+                (glyph.origin.x as f32 + glyph.placement.width as f32) / self.atlas.size() as f32;
+            let v_min = glyph.origin.y as f32 / self.atlas.size() as f32;
             let v_max =
-                (glyph.origin.y as f32 + glyph.placement.height as f32) / atlas.size() as f32;
+                (glyph.origin.y as f32 + glyph.placement.height as f32) / self.atlas.size() as f32;
 
             vertices.extend_from_slice(&[
                 Vertex {
@@ -351,24 +365,25 @@ impl State {
             offset += advance;
             i += 1;
         }
-        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
+
+        self.vertex_buffer = self.device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Vertex buffer"),
             contents: bytemuck::cast_slice(&vertices),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
+        self.index_buffer = self.device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Index buffer"),
             contents: bytemuck::cast_slice(&indices),
             usage: wgpu::BufferUsages::INDEX,
         });
 
-        (vertices, indices)
+        self.index_count = indices.len() as u32;
     }
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Debug, Clone, Copy, Default, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
     p: [f32; 2],
     t: [f32; 2],
