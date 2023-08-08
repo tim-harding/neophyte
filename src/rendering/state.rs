@@ -1,9 +1,8 @@
 use crate::{
-    event::GridLine,
     text::{atlas::FontAtlas, font::Font},
     ui::grid::Grid,
 };
-use std::sync::{mpsc::Receiver, Arc};
+use std::sync::{mpsc::Receiver, Arc, Mutex};
 use wgpu::{
     include_wgsl,
     util::{BufferInitDescriptor, DeviceExt},
@@ -14,20 +13,20 @@ pub struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    config: wgpu::SurfaceConfiguration,
-    size: PhysicalSize<u32>,
+    config: Mutex<wgpu::SurfaceConfiguration>,
+    size: Mutex<PhysicalSize<u32>>,
     window: Arc<Window>,
     render_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
+    vertex_buffer: Mutex<wgpu::Buffer>,
+    index_buffer: Mutex<wgpu::Buffer>,
     texture_bind_group: wgpu::BindGroup,
     font: Font,
     atlas: FontAtlas,
-    index_count: u32,
+    index_count: Mutex<u32>,
 }
 
 impl State {
-    pub async fn new(window: Arc<Window>, rx: Receiver<Grid>) -> Self {
+    pub async fn new(window: Arc<Window>, rx: Receiver<Grid>) -> Arc<Self> {
         let size = window.inner_size();
 
         // Used to create adapters and surfaces
@@ -221,31 +220,37 @@ impl State {
             multiview: None, // Involved in array textures
         });
 
-        {
-            let window = window.clone();
-            std::thread::spawn(move || {
-                handle_grid_redraw(window, rx);
-            });
-        }
-
-        Self {
+        let window_handle = window.clone();
+        let this = Arc::new(Self {
             window,
             surface,
             device,
             queue,
-            config,
-            size,
+            config: Mutex::new(config),
+            size: Mutex::new(size),
             render_pipeline,
             texture_bind_group,
             atlas,
             font,
-            index_buffer,
-            vertex_buffer,
-            index_count: 0,
+            index_buffer: Mutex::new(index_buffer),
+            vertex_buffer: Mutex::new(vertex_buffer),
+            index_count: Mutex::new(0),
+        });
+
+        {
+            let this = this.clone();
+            std::thread::spawn(move || {
+                while let Ok(grid) = rx.recv() {
+                    this.update_text(grid);
+                    window_handle.request_redraw();
+                }
+            });
         }
+
+        this
     }
 
-    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+    pub fn render(&self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         // Controls how the render code interacts with the texture
         let view = output
@@ -257,6 +262,8 @@ impl State {
                 label: Some("Render encoder"),
             });
 
+        let vertex_buffer = self.vertex_buffer.lock().unwrap();
+        let index_buffer = self.index_buffer.lock().unwrap();
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -276,9 +283,9 @@ impl State {
         });
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_bind_group(0, &self.texture_bind_group, &[]);
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        render_pass.draw_indexed(0..self.index_count, 0, 0..1);
+        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+        render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        render_pass.draw_indexed(0..*self.index_count.lock().unwrap(), 0, 0..1);
         drop(render_pass);
 
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -286,13 +293,13 @@ impl State {
         Ok(())
     }
 
-    pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
+    pub fn resize(&self, new_size: PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
-            self.size = new_size;
-            self.config.width = new_size.width;
-            self.config.height = new_size.height;
-            self.surface.configure(&self.device, &self.config);
-            self.update_text();
+            *self.size.lock().unwrap() = new_size;
+            let mut lock = self.config.lock().unwrap();
+            lock.width = new_size.width;
+            lock.height = new_size.height;
+            self.surface.configure(&self.device, &*lock);
         }
     }
 
@@ -300,94 +307,104 @@ impl State {
         &self.window
     }
 
-    pub fn size(&self) -> &PhysicalSize<u32> {
-        &self.size
+    pub fn size(&self) -> PhysicalSize<u32> {
+        *self.size.lock().unwrap()
     }
 
     /// Returns whether the input was handled by State
-    pub fn input(&mut self, _event: &WindowEvent) -> bool {
+    pub fn input(&self, _event: &WindowEvent) -> bool {
         false
     }
 
-    pub fn update(&mut self) {}
+    pub fn update(&self) {}
 
     // TODO: Preallocate and reuse buffer
-    fn update_text(&mut self) {
-        let clip_x = |n| (n / self.size.width as f32) * 2.0 - 1.0;
-        let clip_y = |n| (n / self.size.height as f32) * -2.0 + 1.0;
+    fn update_text(&self, grid: Grid) {
+        let size = *self.size.lock().unwrap();
+        let clip_x = |n| (n / size.width as f32) * 2.0 - 1.0;
+        let clip_y = |n| (n / size.height as f32) * -2.0 + 1.0;
         let font = self.font.as_ref();
-        let text = "Things and stuff";
         let charmap = font.charmap();
         let mut vertices = vec![];
         let mut indices = vec![];
         let metrics = font.metrics(&[]).linear_scale(24.0);
         let advance = (metrics.average_width / metrics.units_per_em as f32).round();
-        let mut offset = 0.0;
-        let mut i = 0;
-        for char in text.chars() {
-            let id = charmap.map(char);
-            let glyph = match self.atlas.get(id) {
-                Some(glyph) => glyph,
-                None => {
-                    offset += advance;
-                    continue;
-                }
-            };
+        for (i, line) in grid.rows().enumerate() {
+            let mut offset_x = 0.0;
+            let offset_y = i as f32 * 24.0;
+            for (c, _) in line {
+                let id = charmap.map(c);
+                let glyph = match self.atlas.get(id) {
+                    Some(glyph) => glyph,
+                    None => {
+                        offset_x += advance;
+                        continue;
+                    }
+                };
 
-            let left = offset + glyph.placement.left as f32;
-            let right = left + glyph.placement.width as f32;
-            let top = -glyph.placement.top as f32 + 24.0;
-            let bottom = top + glyph.placement.height as f32;
+                let left = offset_x + glyph.placement.left as f32;
+                let right = left + glyph.placement.width as f32;
+                let top = offset_y + -glyph.placement.top as f32 + 24.0;
+                let bottom = top + glyph.placement.height as f32;
 
-            let left = clip_x(left);
-            let right = clip_x(right);
-            let top = clip_y(top);
-            let bottom = clip_y(bottom);
+                let left = clip_x(left);
+                let right = clip_x(right);
+                let top = clip_y(top);
+                let bottom = clip_y(bottom);
 
-            let u_min = glyph.origin.x as f32 / self.atlas.size() as f32;
-            let u_max =
-                (glyph.origin.x as f32 + glyph.placement.width as f32) / self.atlas.size() as f32;
-            let v_min = glyph.origin.y as f32 / self.atlas.size() as f32;
-            let v_max =
-                (glyph.origin.y as f32 + glyph.placement.height as f32) / self.atlas.size() as f32;
+                let u_min = glyph.origin.x as f32 / self.atlas.size() as f32;
+                let u_max = (glyph.origin.x as f32 + glyph.placement.width as f32)
+                    / self.atlas.size() as f32;
+                let v_min = glyph.origin.y as f32 / self.atlas.size() as f32;
+                let v_max = (glyph.origin.y as f32 + glyph.placement.height as f32)
+                    / self.atlas.size() as f32;
 
-            vertices.extend_from_slice(&[
-                Vertex {
-                    p: [left, top],
-                    t: [u_min, v_min],
-                },
-                Vertex {
-                    p: [right, top],
-                    t: [u_max, v_min],
-                },
-                Vertex {
-                    p: [left, bottom],
-                    t: [u_min, v_max],
-                },
-                Vertex {
-                    p: [right, bottom],
-                    t: [u_max, v_max],
-                },
-            ]);
-            let base = i as u16 * 4;
-            indices.extend_from_slice(&[base + 2, base + 1, base, base + 1, base + 2, base + 3]);
-            offset += advance;
-            i += 1;
+                vertices.extend_from_slice(&[
+                    Vertex {
+                        p: [left, top],
+                        t: [u_min, v_min],
+                    },
+                    Vertex {
+                        p: [right, top],
+                        t: [u_max, v_min],
+                    },
+                    Vertex {
+                        p: [left, bottom],
+                        t: [u_min, v_max],
+                    },
+                    Vertex {
+                        p: [right, bottom],
+                        t: [u_max, v_max],
+                    },
+                ]);
+                let base = i as u16 * 4;
+                indices.extend_from_slice(&[
+                    base + 2,
+                    base + 1,
+                    base,
+                    base + 1,
+                    base + 2,
+                    base + 3,
+                ]);
+                offset_x += advance;
+            }
         }
 
-        self.vertex_buffer = self.device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Vertex buffer"),
-            contents: bytemuck::cast_slice(&vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
+        *self.vertex_buffer.lock().unwrap() =
+            self.device.create_buffer_init(&BufferInitDescriptor {
+                label: Some("Vertex buffer"),
+                contents: bytemuck::cast_slice(&vertices),
+                usage: wgpu::BufferUsages::VERTEX,
+            });
 
-        self.index_buffer = self.device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Index buffer"),
-            contents: bytemuck::cast_slice(&indices),
-            usage: wgpu::BufferUsages::INDEX,
-        });
+        *self.index_buffer.lock().unwrap() =
+            self.device.create_buffer_init(&BufferInitDescriptor {
+                label: Some("Index buffer"),
+                contents: bytemuck::cast_slice(&indices),
+                usage: wgpu::BufferUsages::INDEX,
+            });
 
-        self.index_count = indices.len() as u32;
+        *self.index_count.lock().unwrap() = indices.len() as u32;
     }
 }
 
@@ -408,12 +425,5 @@ impl Vertex {
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &Self::ATTRIBS,
         }
-    }
-}
-
-fn handle_grid_redraw(window: Arc<Window>, rx: Receiver<Grid>) {
-    while let Ok(grid) = rx.recv() {
-        window.request_redraw();
-        println!("Got grid");
     }
 }

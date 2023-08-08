@@ -13,7 +13,7 @@ use winit::{
 pub async fn run(rx: Receiver<Grid>) -> (Arc<Window>, impl FnOnce()) {
     let event_loop = EventLoop::new();
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
-    let mut state = State::new(window.clone(), rx).await;
+    let state = State::new(window.clone(), rx).await;
     let start = || {
         event_loop.run(move |event, _, control_flow| match event {
             Event::WindowEvent {
@@ -46,7 +46,7 @@ pub async fn run(rx: Receiver<Grid>) -> (Arc<Window>, impl FnOnce()) {
                 state.update();
                 match state.render() {
                     Ok(_) => {}
-                    Err(SurfaceError::Lost) => state.resize(*state.size()),
+                    Err(SurfaceError::Lost) => state.resize(state.size()),
                     Err(SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                     Err(e) => eprintln!("{e:?}"),
                 }
