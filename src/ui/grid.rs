@@ -12,10 +12,12 @@ use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 // TODO: Add fallback to string if the cell requires more than a char
 
+pub type HighlightId = u16;
+
 #[derive(Default, Clone)]
 pub struct Grid {
     pub cells: Vec<char>,
-    pub highlights: Vec<u64>,
+    pub highlights: Vec<HighlightId>,
     pub size: Vec2<u64>,
     pub show: bool,
     pub window: Window,
@@ -62,12 +64,12 @@ impl Grid {
         self.highlights = resized_hightlights;
     }
 
-    pub fn get(&self, pos: Vec2<u64>) -> (char, u64) {
+    pub fn get(&self, pos: Vec2<u64>) -> (char, HighlightId) {
         let i = self.index(pos);
         (self.cells[i], self.highlights[i])
     }
 
-    pub fn set(&mut self, pos: Vec2<u64>, c: char, highlight: u64) {
+    pub fn set(&mut self, pos: Vec2<u64>, c: char, highlight: HighlightId) {
         let i = self.index(pos);
         self.cells[i] = c;
         self.highlights[i] = highlight;
@@ -84,7 +86,7 @@ impl Grid {
         }
     }
 
-    pub fn row(&self, i: u64) -> impl Iterator<Item = (char, u64)> + '_ {
+    pub fn row(&self, i: u64) -> impl Iterator<Item = (char, HighlightId)> + '_ {
         let w = self.size.x as usize;
         let start = i as usize * w;
         let end = start + w;
@@ -94,7 +96,7 @@ impl Grid {
             .zip(self.highlights[start..end].iter().cloned())
     }
 
-    pub fn row_mut(&mut self, i: u64) -> impl Iterator<Item = (&mut char, &mut u64)> + '_ {
+    pub fn row_mut(&mut self, i: u64) -> impl Iterator<Item = (&mut char, &mut HighlightId)> + '_ {
         let w = self.size.x as usize;
         let start = i as usize * w;
         let end = start + w;
@@ -103,7 +105,9 @@ impl Grid {
             .zip(self.highlights[start..end].iter_mut())
     }
 
-    pub fn rows(&self) -> impl Iterator<Item = impl Iterator<Item = (char, u64)> + '_> + '_ {
+    pub fn rows(
+        &self,
+    ) -> impl Iterator<Item = impl Iterator<Item = (char, HighlightId)> + '_> + '_ {
         self.cells
             .chunks(self.size.x as usize)
             .zip(self.highlights.chunks(self.size.x as usize))
@@ -117,7 +121,7 @@ impl Grid {
 
     pub fn rows_mut(
         &mut self,
-    ) -> impl Iterator<Item = impl Iterator<Item = (&mut char, &mut u64)> + '_> + '_ {
+    ) -> impl Iterator<Item = impl Iterator<Item = (&mut char, &mut HighlightId)> + '_> + '_ {
         self.cells
             .chunks_mut(self.size.x as usize)
             .zip(self.highlights.chunks_mut(self.size.x as usize))
@@ -218,7 +222,7 @@ impl Grid {
         for cell in cells {
             let c = cell.text.chars().into_iter().next().unwrap();
             if let Some(hl_id) = cell.hl_id {
-                highlight = hl_id;
+                highlight = hl_id as HighlightId;
             }
             // TODO: Skip iterations for lines that won't be copied
             if let Some(repeat) = cell.repeat {
@@ -253,6 +257,6 @@ impl Debug for Grid {
 }
 
 pub struct CursorRenderInfo {
-    pub hl: u64,
+    pub hl: HighlightId,
     pub pos: Vec2<u64>,
 }
