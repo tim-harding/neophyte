@@ -3,6 +3,7 @@
 use crate::event::grid_line::Cell;
 use crate::event::hl_attr_define::Attributes;
 use crate::event::{Anchor, GridScroll, HlAttrDefine};
+use crate::rendering::state::GlyphVertex;
 use crate::ui::print::hl_attr_to_colorspec;
 use crate::util::vec2::Vec2;
 use std::collections::HashMap;
@@ -18,9 +19,9 @@ pub type HighlightId = u16;
 
 #[derive(Default, Clone)]
 pub struct Grid {
-    pub cells: Vec<char>,
-    pub highlights: Vec<HighlightId>,
-    pub size: Vec2<u64>,
+    pub cells: InnerGrid<char>,
+    pub highlights: InnerGrid<HighlightId>,
+    pub glyph_quads: InnerGrid<GlyphQuad>,
     pub show: bool,
     pub window: Window,
 }
@@ -50,84 +51,25 @@ pub struct NormalWindow {
 
 impl Grid {
     pub fn resize(&mut self, size: Vec2<u64>) {
-        let mut resized_cells = vec![' '; (size.x * size.y) as usize];
-        let mut resized_hightlights = vec![0; (size.x * size.y) as usize];
-        for y in 0..size.y.min(self.size.x) {
-            for x in 0..size.x.min(self.size.x) {
-                resized_cells[(y * size.x + x) as usize] =
-                    self.cells[(y * self.size.x + x) as usize];
-                resized_hightlights[(y * size.x + x) as usize] =
-                    self.highlights[(y * self.size.x + x) as usize];
-            }
-        }
-        self.size.x = size.x;
-        self.size.y = size.y;
-        self.cells = resized_cells;
-        self.highlights = resized_hightlights;
-    }
-
-    pub fn get(&self, pos: Vec2<u64>) -> (char, HighlightId) {
-        let i = self.index(pos);
-        (self.cells[i], self.highlights[i])
-    }
-
-    pub fn set(&mut self, pos: Vec2<u64>, c: char, highlight: HighlightId) {
-        let i = self.index(pos);
-        self.cells[i] = c;
-        self.highlights[i] = highlight;
-    }
-
-    fn index(&self, pos: Vec2<u64>) -> usize {
-        (pos.y * self.size.x + pos.x) as usize
+        self.cells.resize(size);
+        self.highlights.resize(size);
+        self.glyph_quads.resize(size);
     }
 
     pub fn clear(&mut self) {
-        for (cell, highlight) in self.cells.iter_mut().zip(self.highlights.iter_mut()) {
-            *cell = ' ';
-            *highlight = 0;
-        }
+        self.cells.clear();
+        self.highlights.clear();
+        self.glyph_quads.clear();
     }
 
-    pub fn row(&self, i: u64) -> impl Iterator<Item = (char, HighlightId)> + '_ {
-        let w = self.size.x as usize;
-        let start = i as usize * w;
-        let end = start + w;
-        self.cells[start..end]
-            .iter()
-            .cloned()
-            .zip(self.highlights[start..end].iter().cloned())
+    pub fn scroll(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64) {
+        self.cells.scroll(top, bot, left, right, rows);
+        self.highlights.scroll(top, bot, left, right, rows);
+        self.glyph_quads.scroll(top, bot, left, right, rows);
     }
 
-    pub fn row_mut(&mut self, i: u64) -> impl Iterator<Item = (&mut char, &mut HighlightId)> + '_ {
-        let w = self.size.x as usize;
-        let start = i as usize * w;
-        let end = start + w;
-        self.cells[start..end]
-            .iter_mut()
-            .zip(self.highlights[start..end].iter_mut())
-    }
-
-    pub fn rows(
-        &self,
-    ) -> impl Iterator<Item = impl Iterator<Item = (char, HighlightId)> + '_> + '_ {
-        self.cells
-            .chunks(self.size.x as usize)
-            .zip(self.highlights.chunks(self.size.x as usize))
-            .map(|(cells_row, highlights_row)| {
-                cells_row
-                    .iter()
-                    .cloned()
-                    .zip(highlights_row.iter().cloned())
-            })
-    }
-
-    pub fn rows_mut(
-        &mut self,
-    ) -> impl Iterator<Item = impl Iterator<Item = (&mut char, &mut HighlightId)> + '_> + '_ {
-        self.cells
-            .chunks_mut(self.size.x as usize)
-            .zip(self.highlights.chunks_mut(self.size.x as usize))
-            .map(|(cells_row, highlights_row)| cells_row.iter_mut().zip(highlights_row.iter_mut()))
+    pub fn size(&self) -> Vec2<u64> {
+        self.cells.size
     }
 
     pub fn combine(&mut self, other: &Grid, cursor: Option<CursorRenderInfo>) {
@@ -142,7 +84,7 @@ impl Grid {
                 };
                 // TODO: Should be relative to anchor grid
                 anchor_pos
-                    - other.size
+                    - other.size()
                         * match window.anchor {
                             Anchor::Nw => Vec2::new(0, 0),
                             Anchor::Ne => Vec2::new(0, 1),
@@ -152,30 +94,26 @@ impl Grid {
             }
         };
 
-        for (src, dst) in other.rows().zip(self.rows_mut().skip(start.y as usize)) {
-            for (src, mut dst) in src.zip(dst.skip(start.x as usize)) {
-                *dst.0 = src.0;
-                *dst.1 = src.1;
-            }
-        }
+        self.cells.paste(&other.cells, start);
+        self.highlights.paste(&other.highlights, start);
+        self.glyph_quads.paste(&other.glyph_quads, start);
 
         // TODO: Take mode_info_set into consideration
         if let Some(cursor) = cursor {
             let pos = start + cursor.pos;
-            let i = self.index(pos);
-            self.highlights[i] = cursor.hl;
+            let i = self.highlights.index_for(pos);
+            self.highlights.buffer[i] = cursor.hl;
         }
     }
 
     pub fn print_colored(&self, highlights: &Highlights) {
         let mut f = StandardStream::stdout(ColorChoice::Always);
         let mut prev_hl = 0;
-        writeln!(f, "┏{:━<1$}┓", "", self.size.x as usize);
-        for row in self.rows() {
+        writeln!(f, "┏{:━<1$}┓", "", self.size().x as usize);
+        for (cell_row, hl_row) in self.cells.rows().zip(self.highlights.rows()) {
             f.reset();
             write!(f, "┃");
-            for cell in row {
-                let (c, hl) = cell;
+            for (c, hl) in cell_row.into_iter().zip(hl_row.into_iter()) {
                 if hl != prev_hl {
                     if let Some(hl_attr) = highlights.get(&hl) {
                         f.set_color(&hl_attr_to_colorspec(hl_attr));
@@ -190,36 +128,17 @@ impl Grid {
             write!(f, "┃\n");
         }
         f.reset();
-        writeln!(f, "┗{:━<1$}┛", "", self.size.x as usize);
-    }
-
-    pub fn scroll(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64) {
-        let height = self.size.y;
-        let mut copy = move |src_y, dst_y| {
-            for x in left..right {
-                let (c, highlight) = self.get(Vec2::new(x, src_y));
-                self.set(Vec2::new(x, dst_y), c, highlight);
-            }
-        };
-        // TODO: Skip iterations for lines that won't be copied
-        if rows > 0 {
-            for y in top..bot {
-                if let Ok(dst_y) = ((y as i64) - rows).try_into() {
-                    copy(y, dst_y);
-                }
-            }
-        } else {
-            for y in (top..bot).rev() {
-                let dst_y = ((y as i64) - rows) as u64;
-                if dst_y < height {
-                    copy(y, dst_y);
-                }
-            }
-        }
+        writeln!(f, "┗{:━<1$}┛", "", self.size().x as usize);
     }
 
     pub fn grid_line(&mut self, row: u64, col_start: u64, cells: Vec<Cell>) {
-        let mut row = self.row_mut(row).skip(col_start as usize);
+        // TODO: Apply changes to glyph quads
+        let mut row = self
+            .cells
+            .row_mut(row)
+            .into_iter()
+            .zip(self.highlights.row_mut(row).into_iter())
+            .skip(col_start as usize);
         let mut highlight = 0;
         for cell in cells {
             let c = cell.text.chars().into_iter().next().unwrap();
@@ -244,21 +163,138 @@ impl Grid {
 
 impl Debug for Grid {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "┏{:━<1$}┓\n", "", self.size.x as usize);
-        for row in self.rows() {
+        write!(f, "┏{:━<1$}┓\n", "", self.size().x as usize);
+        for row in self.cells.rows() {
             write!(f, "┃");
             for cell in row {
-                let cell = cell.0;
                 write!(f, "{cell}")?;
             }
             write!(f, "┃\n")?;
         }
-        write!(f, "┗{:━<1$}┛", "", self.size.x as usize);
+        write!(f, "┗{:━<1$}┛", "", self.size().x as usize);
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct InnerGrid<T>
+where
+    T: Debug + Copy + Clone + Send + Sync + Default + 'static,
+{
+    size: Vec2<u64>,
+    buffer: Vec<T>,
+}
+
+impl<T> InnerGrid<T>
+where
+    T: Debug + Copy + Clone + Send + Sync + Default + 'static,
+{
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn resize(&mut self, size: Vec2<u64>) {
+        let old = std::mem::take(&mut self.buffer);
+        self.buffer = vec![T::default(); size.area() as usize];
+        if self.size.x > 0 {
+            for (src, dst) in old
+                .chunks(self.size.x as usize)
+                .zip(self.buffer.chunks_mut(size.x as usize))
+            {
+                for (src, dst) in src.into_iter().zip(dst.iter_mut()) {
+                    *dst = *src;
+                }
+            }
+        }
+        self.size = size;
+    }
+
+    pub fn index_for(&self, position: Vec2<u64>) -> usize {
+        (position.y * self.size.x + position.x) as usize
+    }
+
+    pub fn get(&self, position: Vec2<u64>) -> T {
+        self.buffer[self.index_for(position)]
+    }
+
+    pub fn set(&mut self, position: Vec2<u64>, value: T) {
+        let i = self.index_for(position);
+        self.buffer[i] = value;
+    }
+
+    pub fn clear(&mut self) {
+        for dst in self.buffer.iter_mut() {
+            *dst = T::default();
+        }
+    }
+
+    pub fn scroll(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64) {
+        // TODO: Skip iterations for lines that won't be copied
+        // TODO: Maybe use chunks and iterators?
+        let height = self.size.y;
+        let mut copy = move |src_y, dst_y| {
+            for x in left..right {
+                let t = self.get(Vec2::new(x, src_y));
+                self.set(Vec2::new(x, dst_y), t);
+            }
+        };
+        if rows > 0 {
+            for y in top..bot {
+                if let Ok(dst_y) = ((y as i64) - rows).try_into() {
+                    copy(y, dst_y);
+                }
+            }
+        } else {
+            for y in (top..bot).rev() {
+                let dst_y = ((y as i64) - rows) as u64;
+                if dst_y < height {
+                    copy(y, dst_y);
+                }
+            }
+        }
+    }
+
+    pub fn row(&self, i: u64) -> impl Iterator<Item = T> + '_ {
+        let w = self.size.x as usize;
+        let start = i as usize * w;
+        let end = start + w;
+        self.buffer[start..end].iter().cloned()
+    }
+
+    pub fn row_mut(&mut self, i: u64) -> impl Iterator<Item = &mut T> + '_ {
+        let w = self.size.x as usize;
+        let start = i as usize * w;
+        let end = start + w;
+        self.buffer[start..end].iter_mut()
+    }
+
+    pub fn rows(&self) -> impl Iterator<Item = impl Iterator<Item = T> + '_> + '_ {
+        self.buffer
+            .chunks(self.size.x as usize)
+            .map(|chunk| chunk.into_iter().cloned())
+    }
+
+    pub fn rows_mut(&mut self) -> impl Iterator<Item = impl Iterator<Item = &mut T> + '_> + '_ {
+        self.buffer
+            .chunks_mut(self.size.x as usize)
+            .map(|chunk| chunk.iter_mut())
+    }
+
+    pub fn paste(&mut self, other: &Self, offset: Vec2<u64>) {
+        for (src, dst) in other.rows().zip(self.rows_mut().skip(offset.y as usize)) {
+            for (src, dst) in src.into_iter().zip(dst.into_iter().skip(offset.x as usize)) {
+                *dst = src;
+            }
+        }
     }
 }
 
 pub struct CursorRenderInfo {
     pub hl: HighlightId,
     pub pos: Vec2<u64>,
+}
+
+#[derive(Debug, Copy, Clone, Default)]
+pub struct GlyphQuad {
+    vertices: [GlyphVertex; 4],
 }

@@ -1,4 +1,4 @@
-mod state;
+pub mod state;
 
 use self::state::State;
 use crate::ui::grid::Grid;

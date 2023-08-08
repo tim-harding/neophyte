@@ -12,6 +12,15 @@ impl<T> Vec2<T> {
     }
 }
 
+impl<T> Vec2<T>
+where
+    T: Mul<Output = T> + Clone,
+{
+    pub fn area(&self) -> T {
+        self.x.clone() * self.y.clone()
+    }
+}
+
 impl<T> Into<(T, T)> for Vec2<T> {
     fn into(self) -> (T, T) {
         (self.x, self.y)

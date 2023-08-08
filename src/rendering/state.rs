@@ -1,7 +1,6 @@
 use crate::{
     text::{atlas::FontAtlas, font::Font},
     ui::grid::Grid,
-    util::vec2::Vec2,
 };
 use std::sync::{mpsc::Receiver, Arc, Mutex};
 use wgpu::{
@@ -130,13 +129,13 @@ impl State {
 
         let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Vertex buffer"),
-            contents: bytemuck::cast_slice(&[Vertex::default(); 0]),
+            contents: bytemuck::cast_slice(&[GlyphVertex::default(); 0]),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
         let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Index buffer"),
-            contents: bytemuck::cast_slice(&[Vertex::default(); 0]),
+            contents: bytemuck::cast_slice(&[GlyphVertex::default(); 0]),
             usage: wgpu::BufferUsages::INDEX,
         });
 
@@ -191,7 +190,7 @@ impl State {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[Vertex::desc()],
+                buffers: &[GlyphVertex::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -330,10 +329,10 @@ impl State {
         let mut indices = vec![];
         let metrics = font.metrics(&[]).linear_scale(24.0);
         let advance = (metrics.average_width / metrics.units_per_em as f32).round();
-        for (row_i, line) in grid.rows().enumerate() {
+        for (row_i, line) in grid.cells.rows().enumerate() {
             let mut offset_x = 0.0;
             let offset_y = row_i as f32 * 24.0;
-            for (c, _) in line {
+            for c in line {
                 let id = charmap.map(c);
                 let glyph = match self.atlas.get(id) {
                     Some(glyph) => glyph,
@@ -362,19 +361,19 @@ impl State {
 
                 let base = vertices.len() as u16;
                 vertices.extend_from_slice(&[
-                    Vertex {
+                    GlyphVertex {
                         p: [left, top],
                         t: [u_min, v_min],
                     },
-                    Vertex {
+                    GlyphVertex {
                         p: [right, top],
                         t: [u_max, v_min],
                     },
-                    Vertex {
+                    GlyphVertex {
                         p: [left, bottom],
                         t: [u_min, v_max],
                     },
-                    Vertex {
+                    GlyphVertex {
                         p: [right, bottom],
                         t: [u_max, v_max],
                     },
@@ -411,12 +410,12 @@ impl State {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, bytemuck::Pod, bytemuck::Zeroable)]
-struct Vertex {
+pub struct GlyphVertex {
     p: [f32; 2],
     t: [f32; 2],
 }
 
-impl Vertex {
+impl GlyphVertex {
     const ATTRIBS: [wgpu::VertexAttribute; 2] =
         wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
 
