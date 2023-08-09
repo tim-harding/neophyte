@@ -7,7 +7,7 @@ use wgpu::{
     include_wgsl,
     util::{BufferInitDescriptor, DeviceExt},
 };
-use winit::{dpi::PhysicalSize, event::WindowEvent, window::Window};
+use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct State {
     surface: wgpu::Surface,
@@ -26,7 +26,7 @@ pub struct State {
 }
 
 impl State {
-    pub async fn new(window: Arc<Window>, rx: Receiver<Grid>) -> Arc<Self> {
+    pub async fn new(window: Arc<Window>, rx: Receiver<Grid>, font: Font) -> Arc<Self> {
         let size = window.inner_size();
 
         // Used to create adapters and surfaces
@@ -79,7 +79,6 @@ impl State {
         };
         surface.configure(&device, &config);
 
-        let font = Font::from_file("/usr/share/fonts/OTF/CascadiaCode-Regular.otf", 0).unwrap();
         let atlas = FontAtlas::from_font(font.as_ref(), 24.0);
         let dim = atlas.size() as u32;
         let texture_size = wgpu::Extent3d {

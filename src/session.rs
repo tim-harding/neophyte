@@ -146,6 +146,14 @@ impl Neovim {
         let args = vec![input.into()].into();
         self.call("nvim_input", args);
     }
+
+    pub fn ui_try_resize_grid(&mut self, grid: u64, width: u64, height: u64) {
+        let args: Vec<_> = [grid, width, height]
+            .into_iter()
+            .map(|n| n.into())
+            .collect();
+        self.call("nvim_ui_try_resize_grid", args);
+    }
 }
 
 pub struct Notification {

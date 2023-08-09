@@ -1,8 +1,9 @@
-use std::{fs, io, path::Path};
+use std::{fs, io, path::Path, sync::Arc};
 use swash::{CacheKey, FontRef};
 
+#[derive(Clone)]
 pub struct Font {
-    data: Vec<u8>,
+    data: Arc<Vec<u8>>,
     offset: u32,
     key: CacheKey,
 }
@@ -14,8 +15,13 @@ impl Font {
         Ok(Self {
             offset: font.offset,
             key: font.key,
-            data,
+            data: Arc::new(data),
         })
+    }
+
+    pub fn advance(&self, size: f32) -> f32 {
+        let metrics = self.as_ref().metrics(&[]).linear_scale(size);
+        metrics.average_width / metrics.units_per_em as f32
     }
 
     pub fn as_ref(&self) -> FontRef {

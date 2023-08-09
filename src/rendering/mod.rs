@@ -1,7 +1,7 @@
 pub mod state;
 
 use self::state::State;
-use crate::{session::Neovim, ui::grid::Grid};
+use crate::{session::Neovim, text::font::Font, ui::grid::Grid};
 use std::sync::{mpsc::Receiver, Arc};
 use wgpu::SurfaceError;
 use winit::{
@@ -11,9 +11,10 @@ use winit::{
 };
 
 pub async fn run(rx: Receiver<Grid>, mut neovim: Neovim) {
+    let font = Font::from_file("/usr/share/fonts/OTF/CascadiaCode-Regular.otf", 0).unwrap();
     let event_loop = EventLoop::new();
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
-    let state = State::new(window.clone(), rx).await;
+    let state = State::new(window.clone(), rx, font.clone()).await;
     let mut modifiers = ModifiersState::default();
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
@@ -163,10 +164,24 @@ pub async fn run(rx: Receiver<Grid>, mut neovim: Neovim) {
 
             WindowEvent::Resized(physical_size) => {
                 state.resize(*physical_size);
+                neovim.ui_try_resize_grid(
+                    1,
+                    physical_size.width as u64 / font.advance(24.0) as u64,
+                    physical_size.height as u64 / 24,
+                )
             }
 
-            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                state.resize(**new_inner_size)
+            WindowEvent::ScaleFactorChanged {
+                new_inner_size,
+                scale_factor,
+            } => {
+                state.resize(**new_inner_size);
+                let cell_height = 24.0 * *scale_factor as f32;
+                neovim.ui_try_resize_grid(
+                    1,
+                    new_inner_size.width as u64 / font.advance(cell_height) as u64,
+                    new_inner_size.height as u64 / cell_height as u64,
+                )
             }
 
             _ => {}
