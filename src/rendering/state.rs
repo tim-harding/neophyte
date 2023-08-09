@@ -24,8 +24,7 @@ pub struct State {
     font: Font,
     atlas: FontAtlas,
     vertex_buffer: Mutex<wgpu::Buffer>,
-    index_buffer: Mutex<wgpu::Buffer>,
-    index_count: Mutex<u32>,
+    vertex_count: Mutex<u32>,
     clear_color: Mutex<wgpu::Color>,
 }
 
@@ -87,12 +86,6 @@ impl State {
             label: Some("Vertex buffer"),
             contents: bytemuck::cast_slice(&[GlyphVertex::default(); 0]),
             usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Index buffer"),
-            contents: bytemuck::cast_slice(&[GlyphVertex::default(); 0]),
-            usage: wgpu::BufferUsages::INDEX,
         });
 
         let atlas = FontAtlas::from_font(font.as_ref(), 24.0);
@@ -196,9 +189,8 @@ impl State {
             texture_bind_group,
             atlas,
             font,
-            index_buffer: Mutex::new(index_buffer),
             vertex_buffer: Mutex::new(vertex_buffer),
-            index_count: Mutex::new(0),
+            vertex_count: Mutex::new(0),
             clear_color: Mutex::new(wgpu::Color::BLACK),
         });
 
@@ -227,8 +219,8 @@ impl State {
                 label: Some("Render encoder"),
             });
 
+        let vertex_count = *self.vertex_count.lock().unwrap();
         let vertex_buffer = self.vertex_buffer.lock().unwrap();
-        let index_buffer = self.index_buffer.lock().unwrap();
         let clear_color = *self.clear_color.lock().unwrap();
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render pass"),
@@ -245,8 +237,7 @@ impl State {
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_bind_group(0, &self.texture_bind_group, &[]);
         render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-        render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        render_pass.draw_indexed(0..*self.index_count.lock().unwrap(), 0, 0..1);
+        render_pass.draw(0..vertex_count, 0..1);
         drop(render_pass);
 
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -283,7 +274,6 @@ impl State {
         let font = self.font.as_ref();
         let charmap = font.charmap();
         let mut vertices = vec![];
-        let mut indices = vec![];
         let metrics = font.metrics(&[]).linear_scale(24.0);
         let advance = (metrics.average_width / metrics.units_per_em as f32).round();
 
@@ -344,8 +334,17 @@ impl State {
                     (fg.g() as f32 / 255.0).powf(2.2),
                     (fg.b() as f32 / 255.0).powf(2.2),
                 ];
-                let base = vertices.len() as u16;
                 vertices.extend_from_slice(&[
+                    GlyphVertex {
+                        pos: [left, bottom],
+                        tex: [u_min, v_max],
+                        mul,
+                    },
+                    GlyphVertex {
+                        pos: [right, top],
+                        tex: [u_max, v_min],
+                        mul,
+                    },
                     GlyphVertex {
                         pos: [left, top],
                         tex: [u_min, v_min],
@@ -367,14 +366,6 @@ impl State {
                         mul,
                     },
                 ]);
-                indices.extend_from_slice(&[
-                    base + 2,
-                    base + 1,
-                    base,
-                    base + 1,
-                    base + 2,
-                    base + 3,
-                ]);
                 offset_x += advance;
             }
         }
@@ -386,14 +377,7 @@ impl State {
                 usage: wgpu::BufferUsages::VERTEX,
             });
 
-        *self.index_buffer.lock().unwrap() =
-            self.device.create_buffer_init(&BufferInitDescriptor {
-                label: Some("Index buffer"),
-                contents: bytemuck::cast_slice(&indices),
-                usage: wgpu::BufferUsages::INDEX,
-            });
-
-        *self.index_count.lock().unwrap() = indices.len() as u32;
+        *self.vertex_count.lock().unwrap() = vertices.len() as u32;
     }
 }
 
