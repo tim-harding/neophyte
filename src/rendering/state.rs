@@ -1,6 +1,7 @@
 use crate::{
     text::{atlas::FontAtlas, font::Font},
     ui::{grid::Grid, Ui},
+    util::vec2::Vec2,
 };
 use std::sync::{mpsc::Receiver, Arc, Mutex};
 use wgpu::{
@@ -8,6 +9,8 @@ use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
 };
 use winit::{dpi::PhysicalSize, window::Window};
+
+use super::texture::Texture;
 
 pub struct State {
     surface: wgpu::Surface,
@@ -79,53 +82,6 @@ impl State {
         };
         surface.configure(&device, &config);
 
-        let atlas = FontAtlas::from_font(font.as_ref(), 24.0);
-        let dim = atlas.size() as u32;
-        let texture_size = wgpu::Extent3d {
-            width: dim,
-            height: dim,
-            depth_or_array_layers: 1,
-        };
-
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            size: texture_size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::R8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            label: Some("Texture"),
-            view_formats: &[],
-        });
-
-        queue.write_texture(
-            wgpu::ImageCopyTextureBase {
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            atlas.data(),
-            wgpu::ImageDataLayout {
-                offset: 0,
-                bytes_per_row: Some(dim),
-                rows_per_image: Some(dim),
-            },
-            texture_size,
-        );
-
-        let texture_view = texture.create_view(&Default::default());
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("Texture sampler"),
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
-
         let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Vertex buffer"),
             contents: bytemuck::cast_slice(&[GlyphVertex::default(); 0]),
@@ -137,6 +93,14 @@ impl State {
             contents: bytemuck::cast_slice(&[GlyphVertex::default(); 0]),
             usage: wgpu::BufferUsages::INDEX,
         });
+
+        let atlas = FontAtlas::from_font(font.as_ref(), 24.0);
+        let atlas_texture = Texture::new(
+            &device,
+            &queue,
+            atlas.data(),
+            Vec2::new(atlas.size() as u32, atlas.size() as u32),
+        );
 
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -167,11 +131,11 @@ impl State {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                    resource: wgpu::BindingResource::TextureView(&atlas_texture.view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
+                    resource: wgpu::BindingResource::Sampler(&atlas_texture.sampler),
                 },
             ],
         });
@@ -270,9 +234,9 @@ impl State {
                 resolve_target: None, // No multisampling
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: 0.1,
-                        g: 0.2,
-                        b: 0.3,
+                        r: 0.0,
+                        g: 0.0,
+                        b: 0.0,
                         a: 1.0,
                     }),
                     store: true,

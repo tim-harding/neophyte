@@ -1,4 +1,5 @@
 pub mod state;
+mod texture;
 
 use self::state::State;
 use crate::{session::Neovim, text::font::Font, ui::Ui};
