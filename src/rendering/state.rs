@@ -311,11 +311,6 @@ impl State {
         *self.size.lock().unwrap()
     }
 
-    /// Returns whether the input was handled by State
-    pub fn input(&self, _event: &WindowEvent) -> bool {
-        false
-    }
-
     pub fn update(&self) {}
 
     // TODO: Preallocate and reuse buffer
