@@ -417,31 +417,3 @@ impl GlyphVertex {
         }
     }
 }
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct BgVertex {
-    pos: [f32; 2],
-    tex: [f32; 2],
-}
-
-const QUAD_VERTICES: [BgVertex; 4] = [
-    BgVertex {
-        pos: [-1.0, -1.0],
-        tex: [0.0, 0.0],
-    },
-    BgVertex {
-        pos: [1.0, -1.0],
-        tex: [1.0, 0.0],
-    },
-    BgVertex {
-        pos: [-1.0, 1.0],
-        tex: [0.0, 1.0],
-    },
-    BgVertex {
-        pos: [1.0, 1.0],
-        tex: [1.0, 1.0],
-    },
-];
-
-const QUAD_INDICES: [u16; 6] = [2, 1, 0, 1, 2, 3];
