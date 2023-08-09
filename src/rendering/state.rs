@@ -1,6 +1,8 @@
+use super::texture::Texture;
 use crate::{
+    event::hl_attr_define::Rgb,
     text::{atlas::FontAtlas, font::Font},
-    ui::{grid::Grid, Ui},
+    ui::Ui,
     util::vec2::Vec2,
 };
 use std::sync::{mpsc::Receiver, Arc, Mutex};
@@ -9,8 +11,6 @@ use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
 };
 use winit::{dpi::PhysicalSize, window::Window};
-
-use super::texture::Texture;
 
 pub struct State {
     surface: wgpu::Surface,
@@ -204,7 +204,7 @@ impl State {
             let this = this.clone();
             std::thread::spawn(move || {
                 while let Ok(ui) = rx.recv() {
-                    this.update_text(ui.composite());
+                    this.update_text(ui);
                     window_handle.request_redraw();
                 }
             });
@@ -277,7 +277,8 @@ impl State {
     pub fn update(&self) {}
 
     // TODO: Preallocate and reuse buffer
-    fn update_text(&self, grid: Grid) {
+    fn update_text(&self, ui: Ui) {
+        let grid = ui.composite();
         let size = *self.size.lock().unwrap();
         let clip_x = |n| (n / size.width as f32) * 2.0 - 1.0;
         let clip_y = |n| (n / size.height as f32) * -2.0 + 1.0;
@@ -287,10 +288,27 @@ impl State {
         let mut indices = vec![];
         let metrics = font.metrics(&[]).linear_scale(24.0);
         let advance = (metrics.average_width / metrics.units_per_em as f32).round();
-        for (row_i, line) in grid.cells.rows().enumerate() {
+
+        let fg_default = ui.default_colors.rgb_fg.unwrap_or(Rgb::new(255, 255, 255));
+        let bg_default = ui.default_colors.rgb_bg.unwrap_or(Rgb::new(0, 0, 0));
+        let mut texture_data = Vec::with_capacity(size.width as usize * size.height as usize);
+
+        for (row_i, (cell_line, hl_line)) in
+            grid.cells.rows().zip(grid.highlights.rows()).enumerate()
+        {
             let mut offset_x = 0.0;
             let offset_y = row_i as f32 * 24.0;
-            for c in line {
+            for (c, hl) in cell_line.zip(hl_line) {
+                let (fg, bg) = if let Some(hl) = ui.highlights.get(&hl) {
+                    (
+                        hl.rgb_attr.foreground.unwrap_or(fg_default),
+                        hl.rgb_attr.background.unwrap_or(bg_default),
+                    )
+                } else {
+                    (Rgb::WHITE, Rgb::BLACK)
+                };
+                texture_data.extend_from_slice(&bg.into_array());
+
                 let id = charmap.map(c);
                 let glyph = match self.atlas.get(id) {
                     Some(glyph) => glyph,
@@ -317,23 +335,32 @@ impl State {
                 let v_max = (glyph.origin.y as f32 + glyph.placement.height as f32)
                     / self.atlas.size() as f32;
 
+                let mul = [
+                    (fg.r() as f32 / 255.0).powf(2.2),
+                    (fg.g() as f32 / 255.0).powf(2.2),
+                    (fg.b() as f32 / 255.0).powf(2.2),
+                ];
                 let base = vertices.len() as u16;
                 vertices.extend_from_slice(&[
                     GlyphVertex {
-                        p: [left, top],
-                        t: [u_min, v_min],
+                        pos: [left, top],
+                        tex: [u_min, v_min],
+                        mul,
                     },
                     GlyphVertex {
-                        p: [right, top],
-                        t: [u_max, v_min],
+                        pos: [right, top],
+                        tex: [u_max, v_min],
+                        mul,
                     },
                     GlyphVertex {
-                        p: [left, bottom],
-                        t: [u_min, v_max],
+                        pos: [left, bottom],
+                        tex: [u_min, v_max],
+                        mul,
                     },
                     GlyphVertex {
-                        p: [right, bottom],
-                        t: [u_max, v_max],
+                        pos: [right, bottom],
+                        tex: [u_max, v_max],
+                        mul,
                     },
                 ]);
                 indices.extend_from_slice(&[
@@ -369,13 +396,14 @@ impl State {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GlyphVertex {
-    p: [f32; 2],
-    t: [f32; 2],
+    pos: [f32; 2],
+    tex: [f32; 2],
+    mul: [f32; 3],
 }
 
 impl GlyphVertex {
-    const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
+    const ATTRIBS: [wgpu::VertexAttribute; 3] =
+        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Float32x3];
 
     pub fn desc() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
@@ -385,3 +413,31 @@ impl GlyphVertex {
         }
     }
 }
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct BgVertex {
+    pos: [f32; 2],
+    tex: [f32; 2],
+}
+
+const QUAD_VERTICES: [BgVertex; 4] = [
+    BgVertex {
+        pos: [-1.0, -1.0],
+        tex: [0.0, 0.0],
+    },
+    BgVertex {
+        pos: [1.0, -1.0],
+        tex: [1.0, 0.0],
+    },
+    BgVertex {
+        pos: [-1.0, 1.0],
+        tex: [0.0, 1.0],
+    },
+    BgVertex {
+        pos: [1.0, 1.0],
+        tex: [1.0, 1.0],
+    },
+];
+
+const QUAD_INDICES: [u16; 6] = [2, 1, 0, 1, 2, 3];

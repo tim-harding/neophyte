@@ -1,5 +1,5 @@
 use super::{grid::HighlightId, Highlights};
-use crate::event::{Content, HlAttrDefine};
+use crate::event::{hl_attr_define::Rgb, Content, HlAttrDefine};
 use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
@@ -31,7 +31,7 @@ pub fn hl_attr_to_colorspec(hl: &HlAttrDefine) -> ColorSpec {
     let reverse = hl.reverse.unwrap_or(false);
 
     if let Some(foreground) = hl.foreground {
-        let color = Some(u64_to_color(foreground));
+        let color = Some(rgb_to_color(foreground));
         if reverse {
             spec.set_bg(color);
         } else {
@@ -40,7 +40,7 @@ pub fn hl_attr_to_colorspec(hl: &HlAttrDefine) -> ColorSpec {
     }
 
     if let Some(background) = hl.background {
-        let color = Some(u64_to_color(background));
+        let color = Some(rgb_to_color(background));
         if reverse {
             spec.set_fg(color);
         } else {
@@ -55,9 +55,6 @@ pub fn hl_attr_to_colorspec(hl: &HlAttrDefine) -> ColorSpec {
     spec
 }
 
-pub fn u64_to_color(n: u64) -> Color {
-    let r = (n >> 16) as u8;
-    let g = (n >> 8) as u8;
-    let b = n as u8;
-    Color::Rgb(r, g, b)
+pub fn rgb_to_color(rgb: Rgb) -> Color {
+    Color::Rgb(rgb.r(), rgb.b(), rgb.g())
 }

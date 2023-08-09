@@ -21,7 +21,6 @@ pub type HighlightId = u16;
 pub struct Grid {
     pub cells: InnerGrid<char>,
     pub highlights: InnerGrid<HighlightId>,
-    pub glyph_quads: InnerGrid<GlyphQuad>,
     pub show: bool,
     pub window: Window,
 }
@@ -53,19 +52,16 @@ impl Grid {
     pub fn resize(&mut self, size: Vec2<u64>) {
         self.cells.resize(size);
         self.highlights.resize(size);
-        self.glyph_quads.resize(size);
     }
 
     pub fn clear(&mut self) {
         self.cells.clear();
         self.highlights.clear();
-        self.glyph_quads.clear();
     }
 
     pub fn scroll(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64) {
         self.cells.scroll(top, bot, left, right, rows);
         self.highlights.scroll(top, bot, left, right, rows);
-        self.glyph_quads.scroll(top, bot, left, right, rows);
     }
 
     pub fn size(&self) -> Vec2<u64> {
@@ -96,7 +92,6 @@ impl Grid {
 
         self.cells.paste(&other.cells, start);
         self.highlights.paste(&other.highlights, start);
-        self.glyph_quads.paste(&other.glyph_quads, start);
 
         // TODO: Take mode_info_set into consideration
         if let Some(cursor) = cursor {
@@ -278,6 +273,10 @@ where
         self.buffer
             .chunks_mut(self.size.x as usize)
             .map(|chunk| chunk.iter_mut())
+    }
+
+    pub fn cells(&self) -> impl Iterator<Item = T> + '_ {
+        self.buffer.iter().cloned()
     }
 
     pub fn paste(&mut self, other: &Self, offset: Vec2<u64>) {
