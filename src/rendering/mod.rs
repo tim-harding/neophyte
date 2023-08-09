@@ -185,6 +185,8 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
                 )
             }
 
+            WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+
             _ => {}
         },
 
