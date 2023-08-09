@@ -26,6 +26,7 @@ pub struct State {
     vertex_buffer: Mutex<wgpu::Buffer>,
     index_buffer: Mutex<wgpu::Buffer>,
     index_count: Mutex<u32>,
+    clear_color: Mutex<wgpu::Color>,
 }
 
 impl State {
@@ -198,6 +199,7 @@ impl State {
             index_buffer: Mutex::new(index_buffer),
             vertex_buffer: Mutex::new(vertex_buffer),
             index_count: Mutex::new(0),
+            clear_color: Mutex::new(wgpu::Color::BLACK),
         });
 
         {
@@ -227,18 +229,14 @@ impl State {
 
         let vertex_buffer = self.vertex_buffer.lock().unwrap();
         let index_buffer = self.index_buffer.lock().unwrap();
+        let clear_color = *self.clear_color.lock().unwrap();
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &view,
                 resolve_target: None, // No multisampling
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: 0.0,
-                        g: 0.0,
-                        b: 0.0,
-                        a: 1.0,
-                    }),
+                    load: wgpu::LoadOp::Clear(clear_color),
                     store: true,
                 },
             })],
@@ -291,6 +289,12 @@ impl State {
 
         let fg_default = ui.default_colors.rgb_fg.unwrap_or(Rgb::new(255, 255, 255));
         let bg_default = ui.default_colors.rgb_bg.unwrap_or(Rgb::new(0, 0, 0));
+        *self.clear_color.lock().unwrap() = wgpu::Color {
+            r: (bg_default.r() as f64 / 255.0).powf(2.2),
+            g: (bg_default.g() as f64 / 255.0).powf(2.2),
+            b: (bg_default.b() as f64 / 255.0).powf(2.2),
+            a: 1.0,
+        };
         let mut texture_data = Vec::with_capacity(size.width as usize * size.height as usize);
 
         for (row_i, (cell_line, hl_line)) in
