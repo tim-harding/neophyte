@@ -1,6 +1,6 @@
 use crate::{
     text::{atlas::FontAtlas, font::Font},
-    ui::grid::Grid,
+    ui::{grid::Grid, Ui},
 };
 use std::sync::{mpsc::Receiver, Arc, Mutex};
 use wgpu::{
@@ -26,7 +26,7 @@ pub struct State {
 }
 
 impl State {
-    pub async fn new(window: Arc<Window>, rx: Receiver<Grid>, font: Font) -> Arc<Self> {
+    pub async fn new(window: Arc<Window>, rx: Receiver<Ui>, font: Font) -> Arc<Self> {
         let size = window.inner_size();
 
         // Used to create adapters and surfaces
@@ -239,8 +239,8 @@ impl State {
         {
             let this = this.clone();
             std::thread::spawn(move || {
-                while let Ok(grid) = rx.recv() {
-                    this.update_text(grid);
+                while let Ok(ui) = rx.recv() {
+                    this.update_text(ui.composite());
                     window_handle.request_redraw();
                 }
             });

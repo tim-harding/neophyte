@@ -1,11 +1,11 @@
-use super::{grid::Grid, Ui};
+use super::Ui;
 use crate::{
     event::{self, Event},
     session::Notification,
 };
 use std::sync::mpsc::{Receiver, Sender};
 
-pub fn ui_thread(rx: Receiver<Notification>, tx: Sender<Grid>) {
+pub fn ui_thread(rx: Receiver<Notification>, tx: Sender<Ui>) {
     let mut ui = Ui::new(tx);
     while let Ok(Notification { name, instances }) = rx.recv() {
         match name.as_str() {

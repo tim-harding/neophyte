@@ -28,29 +28,28 @@ pub type HighlightGroups = HashMap<String, HighlightId>;
 
 #[derive(Debug, Clone)]
 pub struct Ui {
-    title: String,
-    icon: String,
-    grids: HashMap<u64, Grid>,
-    cursor: CursorInfo,
-    #[allow(unused)]
-    mouse: bool,
-    highlights: Highlights,
-    highlight_groups: HighlightGroups,
-    messages: Messages,
-    cmdline: Cmdline,
-    popupmenu: Option<PopupmenuShow>,
-    current_mode: u64,
-    modes: Vec<ModeInfo>,
-    mode_for_hl_id: HashMap<u64, usize>,
-    mode_for_langmap: HashMap<u64, usize>,
-    options: Options,
-    default_colors: DefaultColorsSet,
-    tabline: Option<TablineUpdate>,
-    tx: Sender<Grid>,
+    pub title: String,
+    pub icon: String,
+    pub grids: HashMap<u64, Grid>,
+    pub cursor: CursorInfo,
+    pub mouse: bool,
+    pub highlights: Highlights,
+    pub highlight_groups: HighlightGroups,
+    pub messages: Messages,
+    pub cmdline: Cmdline,
+    pub popupmenu: Option<PopupmenuShow>,
+    pub current_mode: u64,
+    pub modes: Vec<ModeInfo>,
+    pub mode_for_hl_id: HashMap<u64, usize>,
+    pub mode_for_langmap: HashMap<u64, usize>,
+    pub options: Options,
+    pub default_colors: DefaultColorsSet,
+    pub tabline: Option<TablineUpdate>,
+    pub tx: Sender<Self>,
 }
 
 #[derive(Debug, Copy, Clone)]
-struct CursorInfo {
+pub struct CursorInfo {
     pos: Vec2<u64>,
     grid: u64,
     enabled: bool,
@@ -69,7 +68,7 @@ impl Default for CursorInfo {
 }
 
 impl Ui {
-    pub fn new(tx: Sender<Grid>) -> Self {
+    pub fn new(tx: Sender<Self>) -> Self {
         Self {
             title: Default::default(),
             icon: Default::default(),
@@ -254,12 +253,7 @@ impl Ui {
             Event::GlobalEvent(GlobalEvent::BusyStart) => self.cursor.enabled = false,
             Event::GlobalEvent(GlobalEvent::BusyStop) => self.cursor.enabled = true,
             Event::GlobalEvent(GlobalEvent::Flush) => {
-                let mut outer_grid = self.grid(1).clone();
-                for (id, grid) in self.grids.iter() {
-                    outer_grid.combine(grid, self.cursor_render_info(*id));
-                }
-                // outer_grid.print_colored(&self.highlights);
-                self.tx.send(outer_grid).unwrap();
+                self.tx.send(self.clone()).unwrap();
             }
 
             Event::GlobalEvent(GlobalEvent::Suspend)
@@ -267,6 +261,14 @@ impl Ui {
             | Event::GlobalEvent(GlobalEvent::Bell)
             | Event::GlobalEvent(GlobalEvent::VisualBell) => {}
         }
+    }
+
+    pub fn composite(&self) -> Grid {
+        let mut outer_grid = self.grids.get(&1).unwrap_or(&Grid::default()).clone();
+        for (id, grid) in self.grids.iter() {
+            outer_grid.combine(grid, self.cursor_render_info(*id));
+        }
+        outer_grid
     }
 
     fn cursor_render_info(&self, grid: u64) -> Option<CursorRenderInfo> {

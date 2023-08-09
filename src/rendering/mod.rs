@@ -1,7 +1,7 @@
 pub mod state;
 
 use self::state::State;
-use crate::{session::Neovim, text::font::Font, ui::grid::Grid};
+use crate::{session::Neovim, text::font::Font, ui::Ui};
 use std::sync::{mpsc::Receiver, Arc};
 use wgpu::SurfaceError;
 use winit::{
@@ -10,7 +10,7 @@ use winit::{
     window::WindowBuilder,
 };
 
-pub async fn run(rx: Receiver<Grid>, mut neovim: Neovim) {
+pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
     let font = Font::from_file("/usr/share/fonts/OTF/CascadiaCode-Regular.otf", 0).unwrap();
     let event_loop = EventLoop::new();
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
