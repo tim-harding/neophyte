@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-// TODO: u16 overflow handling. What should be the maximum texture size?
+// TODO: u32 overflow handling. What should be the maximum texture size?
 
 use crate::util::vec2::Vec2;
 use std::collections::HashMap;
@@ -14,7 +14,7 @@ use swash::{
 // https://straypixels.net/texture-packing-for-fonts/
 pub struct FontAtlas {
     /// x and y dimensions of the texture
-    size: u16,
+    size: u32,
     /// Root of the glyph tree
     root: Node,
     /// Glyph atlas image data
@@ -28,10 +28,10 @@ pub struct FontAtlas {
 
 impl FontAtlas {
     pub fn new() -> Self {
-        const DEFAULT_SIZE: u16 = 256;
+        const DEFAULT_SIZE: u32 = 256;
         Self {
             size: DEFAULT_SIZE,
-            root: Node::new(Vec2::new(0, 0), Vec2::new(u16::MAX, u16::MAX)),
+            root: Node::new(Vec2::new(0, 0), Vec2::new(u32::MAX, u32::MAX)),
             data: vec![0u8; DEFAULT_SIZE as usize * DEFAULT_SIZE as usize],
             glyph_info: vec![],
             id_to_info_index: HashMap::default(),
@@ -67,7 +67,7 @@ impl FontAtlas {
 
     pub fn pack(&mut self, id: GlyphId, image: &Image) -> Pack {
         let mut resized = false;
-        let glyph_size = Vec2::new(image.placement.width as u16, image.placement.height as u16);
+        let glyph_size = Vec2::new(image.placement.width as u32, image.placement.height as u32);
         let origin = if let Some(node) = self.root.pack(glyph_size, self.size) {
             node
         } else {
@@ -100,8 +100,8 @@ impl FontAtlas {
         let index = self.glyph_info.len();
         self.glyph_info.push(GlyphInfo {
             atlas_origin: origin,
-            size: Vec2::new(image.placement.width as u16, image.placement.height as u16),
-            placement_offset: Vec2::new(image.placement.left as i16, image.placement.top as i16),
+            size: Vec2::new(image.placement.width as u32, image.placement.height as u32),
+            placement_offset: Vec2::new(image.placement.left as i32, image.placement.top as i32),
         });
         self.id_to_info_index.insert(id, index);
 
@@ -117,7 +117,7 @@ impl FontAtlas {
     }
 
     /// The x and y dimensions
-    pub fn size(&self) -> u16 {
+    pub fn size(&self) -> u32 {
         self.size
     }
 
@@ -130,25 +130,25 @@ impl FontAtlas {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GlyphInfo {
-    pub atlas_origin: Vec2<u16>,
-    pub size: Vec2<u16>,
-    pub placement_offset: Vec2<i16>,
+    pub atlas_origin: Vec2<u32>,
+    pub size: Vec2<u32>,
+    pub placement_offset: Vec2<i32>,
 }
 
 pub struct Pack {
     pub resized: bool,
-    pub origin: Vec2<u16>,
+    pub origin: Vec2<u32>,
 }
 
 struct Node {
-    origin: Vec2<u16>,
-    size: Vec2<u16>,
+    origin: Vec2<u32>,
+    size: Vec2<u32>,
     is_filled: bool,
     children: Option<(Box<Node>, Box<Node>)>,
 }
 
 impl Node {
-    pub fn new(origin: Vec2<u16>, size: Vec2<u16>) -> Self {
+    pub fn new(origin: Vec2<u32>, size: Vec2<u32>) -> Self {
         Self {
             origin,
             size,
@@ -157,7 +157,7 @@ impl Node {
         }
     }
 
-    pub fn pack(&mut self, size: Vec2<u16>, texture_size: u16) -> Option<Vec2<u16>> {
+    pub fn pack(&mut self, size: Vec2<u32>, texture_size: u32) -> Option<Vec2<u32>> {
         if self.is_filled {
             return None;
         } else if let Some(children) = self.children.as_mut() {
@@ -168,10 +168,10 @@ impl Node {
         } else {
             let real_size = {
                 let mut real_size = self.size;
-                if self.origin.x + self.size.x == u16::MAX {
+                if self.origin.x + self.size.x == u32::MAX {
                     real_size.x = texture_size - self.origin.x;
                 }
-                if self.origin.y + self.size.y == u16::MAX {
+                if self.origin.y + self.size.y == u32::MAX {
                     real_size.y = texture_size - self.origin.y;
                 }
                 real_size

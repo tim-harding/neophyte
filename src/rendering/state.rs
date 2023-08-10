@@ -20,12 +20,12 @@ pub struct State {
     size: Mutex<PhysicalSize<u32>>,
     window: Arc<Window>,
     atlas: FontAtlas,
-    atlas_texture: Texture,
     font: Font,
     vertex_buffer: Mutex<wgpu::Buffer>,
     clear_color: Mutex<wgpu::Color>,
     grid_render: Mutex<Option<GridRender>>,
-    bind_group_layout: wgpu::BindGroupLayout,
+    grid_bind_group_layout: wgpu::BindGroupLayout,
+    font_bind_group: wgpu::BindGroup,
     render_pipeline: wgpu::RenderPipeline,
     vertex_count: Mutex<u32>,
 }
@@ -81,27 +81,58 @@ impl State {
         };
         surface.configure(&device, &config);
 
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Texture bind group layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
+        let atlas = FontAtlas::from_font(font.as_ref(), 24.0);
+        let atlas_texture = Texture::new(
+            &device,
+            &queue,
+            atlas.atlas_data(),
+            Vec2::new(atlas.size() as u32, atlas.size() as u32),
+        );
+
+        let font_info_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Font info buffer"),
+            contents: bytemuck::cast_slice(atlas.glyph_info()),
+            usage: wgpu::BufferUsages::STORAGE,
+        });
+
+        let font_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Font bind group layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+
+        let grid_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Grid bind group layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
                     visibility: wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage { read_only: true },
@@ -109,13 +140,35 @@ impl State {
                         min_binding_size: None,
                     },
                     count: None,
+                }],
+            });
+
+        let font_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Font bind group"),
+            layout: &font_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&atlas_texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&atlas_texture.sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &font_info_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
                 },
             ],
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[&bind_group_layout],
+            bind_group_layouts: &[&font_bind_group_layout, &grid_bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -126,14 +179,6 @@ impl State {
             contents: bytemuck::cast_slice(&[GlyphVertex::default(); 0]),
             usage: wgpu::BufferUsages::VERTEX,
         });
-
-        let atlas = FontAtlas::from_font(font.as_ref(), 24.0);
-        let atlas_texture = Texture::new(
-            &device,
-            &queue,
-            atlas.atlas_data(),
-            Vec2::new(atlas.size() as u32, atlas.size() as u32),
-        );
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render pipeline"),
@@ -173,9 +218,10 @@ impl State {
 
         let window_handle = window.clone();
         let this = Arc::new(Self {
+            grid_bind_group_layout,
             vertex_count: Mutex::new(0),
             render_pipeline,
-            bind_group_layout,
+            font_bind_group,
             window,
             surface,
             device,
@@ -183,7 +229,6 @@ impl State {
             config: Mutex::new(config),
             size: Mutex::new(size),
             atlas,
-            atlas_texture,
             font,
             grid_render: Mutex::new(None),
             vertex_buffer: Mutex::new(vertex_buffer),
@@ -240,7 +285,8 @@ impl State {
         if let Some(grid_render) = grid_render.as_ref() {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-            render_pass.set_bind_group(0, &grid_render.bind_group, &[]);
+            render_pass.set_bind_group(0, &self.font_bind_group, &[]);
+            render_pass.set_bind_group(1, &grid_render.bind_group, &[]);
             render_pass.draw(0..vertex_count, 0..1);
         }
         drop(render_pass);
@@ -375,12 +421,7 @@ impl State {
             }
         }
 
-        let pipeline = GridRender::new(
-            &self.device,
-            &self.bind_group_layout,
-            &self.atlas_texture,
-            glyph_info,
-        );
+        let pipeline = GridRender::new(&self.device, &self.grid_bind_group_layout, glyph_info);
 
         *self.vertex_buffer.lock().unwrap() =
             self.device.create_buffer_init(&BufferInitDescriptor {
@@ -423,7 +464,6 @@ impl GridRender {
     pub fn new(
         device: &wgpu::Device,
         bind_group_layout: &wgpu::BindGroupLayout,
-        atlas_texture: &Texture,
         data: Vec<f32>,
     ) -> Self {
         let info_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -433,26 +473,16 @@ impl GridRender {
         });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("bind group"),
+            label: Some("Grid bind group"),
             layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&atlas_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&atlas_texture.sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &info_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                },
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &info_buffer,
+                    offset: 0,
+                    size: None,
+                }),
+            }],
         });
         Self {
             bind_group,
