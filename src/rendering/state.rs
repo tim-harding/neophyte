@@ -9,6 +9,7 @@ use std::sync::{mpsc::Receiver, Arc, Mutex};
 use wgpu::{
     include_wgsl,
     util::{BufferInitDescriptor, DeviceExt},
+    TextureFormat,
 };
 use winit::{dpi::PhysicalSize, window::Window};
 
@@ -19,30 +20,25 @@ pub struct State {
     config: Mutex<wgpu::SurfaceConfiguration>,
     size: Mutex<PhysicalSize<u32>>,
     window: Arc<Window>,
-    render_pipeline: wgpu::RenderPipeline,
-    texture_bind_group: wgpu::BindGroup,
-    font: Font,
     atlas: FontAtlas,
+    font: Font,
     vertex_buffer: Mutex<wgpu::Buffer>,
     vertex_count: Mutex<u32>,
     clear_color: Mutex<wgpu::Color>,
+    pipeline: Mutex<GridPipeline>,
 }
 
 impl State {
     pub async fn new(window: Arc<Window>, rx: Receiver<Ui>, font: Font) -> Arc<Self> {
         let size = window.inner_size();
 
-        // Used to create adapters and surfaces
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
             dx12_shader_compiler: Default::default(),
         });
 
-        // This is what we draw to. Surface needs to live as long as the window.
-        // Since both are managed by Self, this is okay.
         let surface = unsafe { instance.create_surface(window.as_ref()) }.unwrap();
 
-        // Handle to the graphics card
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
@@ -96,86 +92,7 @@ impl State {
             Vec2::new(atlas.size() as u32, atlas.size() as u32),
         );
 
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Texture bind group layout"),
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-            });
-
-        let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Texture bind group"),
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&atlas_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&atlas_texture.sampler),
-                },
-            ],
-        });
-
-        let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&texture_bind_group_layout],
-                push_constant_ranges: &[],
-            });
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "vs_main",
-                buffers: &[GlyphVertex::desc()],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-            }),
-            // How to interpret vertices when converting to triangles
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,                         // Which samples to activate (all of them)
-                alpha_to_coverage_enabled: false, // aa-related
-            },
-            multiview: None, // Involved in array textures
-        });
+        let pipeline = GridPipeline::new(&device, &atlas_texture, config.format);
 
         let window_handle = window.clone();
         let this = Arc::new(Self {
@@ -185,13 +102,17 @@ impl State {
             queue,
             config: Mutex::new(config),
             size: Mutex::new(size),
-            render_pipeline,
-            texture_bind_group,
             atlas,
             font,
+            pipeline: Mutex::new(pipeline),
             vertex_buffer: Mutex::new(vertex_buffer),
             vertex_count: Mutex::new(0),
-            clear_color: Mutex::new(wgpu::Color::BLACK),
+            clear_color: Mutex::new(wgpu::Color {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 1.0,
+            }),
         });
 
         {
@@ -219,8 +140,9 @@ impl State {
                 label: Some("Render encoder"),
             });
 
-        let vertex_count = *self.vertex_count.lock().unwrap();
         let vertex_buffer = self.vertex_buffer.lock().unwrap();
+        let pipeline = self.pipeline.lock().unwrap();
+        let vertex_count = *self.vertex_count.lock().unwrap();
         let clear_color = *self.clear_color.lock().unwrap();
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render pass"),
@@ -234,8 +156,9 @@ impl State {
             })],
             depth_stencil_attachment: None,
         });
-        render_pass.set_pipeline(&self.render_pipeline);
-        render_pass.set_bind_group(0, &self.texture_bind_group, &[]);
+
+        render_pass.set_pipeline(&pipeline.render_pipeline);
+        render_pass.set_bind_group(0, &pipeline.texture_bind_group, &[]);
         render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
         render_pass.draw(0..vertex_count, 0..1);
         drop(render_pass);
@@ -398,6 +321,101 @@ impl GlyphVertex {
             array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &Self::ATTRIBS,
+        }
+    }
+}
+
+pub struct GridPipeline {
+    pub render_pipeline: wgpu::RenderPipeline,
+    pub texture_bind_group: wgpu::BindGroup,
+}
+
+impl GridPipeline {
+    pub fn new(device: &wgpu::Device, atlas_texture: &Texture, format: TextureFormat) -> Self {
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Texture bind group layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+            });
+
+        let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Texture bind group"),
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&atlas_texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&atlas_texture.sampler),
+                },
+            ],
+        });
+
+        let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[&texture_bind_group_layout],
+                push_constant_ranges: &[],
+            });
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: "vs_main",
+                buffers: &[GlyphVertex::desc()],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: "fs_main",
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            // How to interpret vertices when converting to triangles
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            multiview: None,
+        });
+
+        Self {
+            render_pipeline,
+            texture_bind_group,
         }
     }
 }
