@@ -1,8 +1,16 @@
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) tex_coords: vec2<f32>,
-    @location(2) mul: vec3<f32>,
 }
+
+// struct GlyphInfoUniform {
+//     // 65536 / 4 / 3 = 5461
+//     // Actual length will be less due to alignment requirements
+//     glyphs: array<vec3<f32>, 5461>,
+// }
+
+@group(0) @binding(2)
+var<storage, read> fg: array<vec3<f32>>;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
@@ -12,11 +20,12 @@ struct VertexOutput {
 
 @vertex
 fn vs_main(
+    @builtin(vertex_index) in_vertex_index: u32,
     model: VertexInput,
 ) -> VertexOutput {
     var out: VertexOutput;
     out.tex_coords = model.tex_coords;
-    out.mul = model.mul;
+    out.mul = fg[in_vertex_index / 6u];
     out.clip_position = vec4<f32>(model.position, 1.0);
     return out;
 }

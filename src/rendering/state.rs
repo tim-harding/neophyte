@@ -31,6 +31,7 @@ pub struct State {
     grid_render: Mutex<GridRender>,
     bind_group_layout: wgpu::BindGroupLayout,
     render_pipeline: wgpu::RenderPipeline,
+    limits: wgpu::Limits,
 }
 
 impl State {
@@ -52,6 +53,9 @@ impl State {
             })
             .await
             .unwrap();
+
+        let limits = adapter.limits();
+        println!("{}", limits.max_uniform_buffer_binding_size);
 
         let (device, queue) = adapter
             .request_device(
@@ -174,10 +178,17 @@ impl State {
             multiview: None,
         });
 
-        let grid_render = GridRender::new(&device, &bind_group_layout, &atlas_texture, 0);
+        let grid_render = GridRender::new(
+            &device,
+            &bind_group_layout,
+            &atlas_texture,
+            0,
+            limits.min_uniform_buffer_offset_alignment as u64,
+        );
 
         let window_handle = window.clone();
         let this = Arc::new(Self {
+            limits,
             render_pipeline,
             bind_group_layout,
             window,
@@ -242,7 +253,7 @@ impl State {
 
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-        for (i, bind_group) in grid_render.bind_groups.iter().enumerate() {
+        for bind_group in grid_render.bind_groups.iter() {
             render_pass.set_bind_group(0, &bind_group.0, &[]);
             render_pass.draw(bind_group.1.clone(), 0..1);
         }
@@ -281,6 +292,7 @@ impl State {
             &self.bind_group_layout,
             &self.atlas_texture,
             grid.size().area(),
+            self.limits.min_uniform_buffer_offset_alignment as u64,
         );
 
         let size = *self.size.lock().unwrap();
@@ -354,32 +366,26 @@ impl State {
                     GlyphVertex {
                         pos: [left, bottom],
                         tex: [u_min, v_max],
-                        mul,
                     },
                     GlyphVertex {
                         pos: [right, top],
                         tex: [u_max, v_min],
-                        mul,
                     },
                     GlyphVertex {
                         pos: [left, top],
                         tex: [u_min, v_min],
-                        mul,
                     },
                     GlyphVertex {
                         pos: [right, top],
                         tex: [u_max, v_min],
-                        mul,
                     },
                     GlyphVertex {
                         pos: [left, bottom],
                         tex: [u_min, v_max],
-                        mul,
                     },
                     GlyphVertex {
                         pos: [right, bottom],
                         tex: [u_max, v_max],
-                        mul,
                     },
                 ]);
                 offset_x += advance;
@@ -402,12 +408,11 @@ impl State {
 pub struct GlyphVertex {
     pos: [f32; 2],
     tex: [f32; 2],
-    mul: [f32; 3],
 }
 
 impl GlyphVertex {
-    const ATTRIBS: [wgpu::VertexAttribute; 3] =
-        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Float32x3];
+    const ATTRIBS: [wgpu::VertexAttribute; 2] =
+        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
 
     pub fn desc() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
@@ -429,6 +434,7 @@ impl GridRender {
         bind_group_layout: &wgpu::BindGroupLayout,
         atlas_texture: &Texture,
         grid_size: u64,
+        alignment: u64,
     ) -> Self {
         let info_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("info buffer"),
@@ -437,11 +443,13 @@ impl GridRender {
             mapped_at_creation: false,
         });
 
+        let glyphs_per_buffer = (u16::MAX as u64 / GlyphInfo::SIZE as u64 / alignment) * alignment;
         let mut bind_groups = vec![];
         let mut remaining = grid_size;
         let mut offset = 0;
+
         while remaining > 0 {
-            let size = remaining.min(u16::MAX as u64);
+            let size = remaining.min(glyphs_per_buffer);
             let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("bind group"),
                 layout: &bind_group_layout,
@@ -458,18 +466,19 @@ impl GridRender {
                         binding: 2,
                         resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
                             buffer: &info_buffer,
-                            offset,
-                            size: Some(NonZeroU64::new(size).unwrap()),
+                            offset: offset * GlyphInfo::SIZE as u64,
+                            size: Some(NonZeroU64::new(size * GlyphInfo::SIZE as u64).unwrap()),
                         }),
                     },
                 ],
             });
+
             bind_groups.push((
                 bind_group,
                 offset as u32 * 6..(offset as u32 + size as u32) * 6,
             ));
-            offset += u16::MAX as u64;
-            remaining = remaining.saturating_sub(u16::MAX as u64);
+            offset += glyphs_per_buffer;
+            remaining = remaining.saturating_sub(glyphs_per_buffer);
         }
 
         Self {
@@ -483,4 +492,8 @@ impl GridRender {
 #[derive(Debug, Clone, Copy, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GlyphInfo {
     color: [f32; 3],
+}
+
+impl GlyphInfo {
+    pub const SIZE: usize = std::mem::size_of::<Self>();
 }
