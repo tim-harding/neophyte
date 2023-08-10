@@ -1,11 +1,17 @@
 use super::texture::Texture;
 use crate::{
     event::hl_attr_define::Rgb,
-    text::{atlas::FontAtlas, font::Font},
+    text::{
+        cache::{rasterize_font, GlyphLut},
+        font::Font,
+    },
     ui::Ui,
     util::vec2::Vec2,
 };
-use std::sync::{mpsc::Receiver, Arc, Mutex};
+use std::{
+    num::NonZeroU32,
+    sync::{mpsc::Receiver, Arc, Mutex},
+};
 use wgpu::{
     include_wgsl,
     util::{BufferInitDescriptor, DeviceExt},
@@ -13,14 +19,14 @@ use wgpu::{
 use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct State {
+    glyph_lut: GlyphLut,
+    textures: Vec<Texture>,
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: Mutex<wgpu::SurfaceConfiguration>,
     size: Mutex<PhysicalSize<u32>>,
     window: Arc<Window>,
-    atlas: FontAtlas,
-    atlas_texture: Texture,
     font: Font,
     vertex_buffer: Mutex<wgpu::Buffer>,
     clear_color: Mutex<wgpu::Color>,
@@ -57,7 +63,7 @@ impl State {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features: wgpu::Features::empty(),
+                    features: wgpu::Features::TEXTURE_BINDING_ARRAY,
                     limits: wgpu::Limits::default(),
                 },
                 None,
@@ -84,6 +90,19 @@ impl State {
         };
         surface.configure(&device, &config);
 
+        let (textures, glyph_lut) = rasterize_font(font.as_ref(), 24.0);
+        let textures: Vec<_> = textures
+            .into_iter()
+            .map(|texture| {
+                Texture::new(
+                    &device,
+                    &queue,
+                    &texture.data,
+                    Vec2::new(texture.placement.width, texture.placement.height),
+                )
+            })
+            .collect();
+
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Texture bind group layout"),
             entries: &[
@@ -95,7 +114,7 @@ impl State {
                         view_dimension: wgpu::TextureViewDimension::D2,
                         multisampled: false,
                     },
-                    count: None,
+                    count: Some(NonZeroU32::new(textures.len() as u32).unwrap()),
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
@@ -129,14 +148,6 @@ impl State {
             contents: bytemuck::cast_slice(&[GlyphVertex::default(); 0]),
             usage: wgpu::BufferUsages::VERTEX,
         });
-
-        let atlas = FontAtlas::from_font(font.as_ref(), 24.0);
-        let atlas_texture = Texture::new(
-            &device,
-            &queue,
-            atlas.data(),
-            Vec2::new(atlas.size() as u32, atlas.size() as u32),
-        );
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render pipeline"),
@@ -176,6 +187,8 @@ impl State {
 
         let window_handle = window.clone();
         let this = Arc::new(Self {
+            textures,
+            glyph_lut,
             vertex_count: Mutex::new(0),
             render_pipeline,
             bind_group_layout,
@@ -185,8 +198,6 @@ impl State {
             queue,
             config: Mutex::new(config),
             size: Mutex::new(size),
-            atlas,
-            atlas_texture,
             font,
             grid_render: Mutex::new(None),
             vertex_buffer: Mutex::new(vertex_buffer),
@@ -318,13 +329,15 @@ impl State {
                     1.0,
                 ];
 
-                glyph_info.extend_from_slice(&mul);
-
                 let id = charmap.map(c);
-                let glyph = match self.atlas.get(id) {
+                let glyph = match self.glyph_lut.get(&id) {
                     Some(glyph) => glyph,
                     None => {
                         vertices.extend_from_slice(&[GlyphVertex::default(); 6]);
+                        glyph_info.push(GlyphInfo {
+                            color: mul,
+                            texture_index: [0, 0, 0, 0],
+                        });
                         offset_x += advance;
                         continue;
                     }
@@ -340,37 +353,23 @@ impl State {
                 let top = clip_y(top);
                 let bottom = clip_y(bottom);
 
-                let u_min = glyph.origin.x as f32 / self.atlas.size() as f32;
-                let u_max = (glyph.origin.x as f32 + glyph.placement.width as f32)
-                    / self.atlas.size() as f32;
-                let v_min = glyph.origin.y as f32 / self.atlas.size() as f32;
-                let v_max = (glyph.origin.y as f32 + glyph.placement.height as f32)
-                    / self.atlas.size() as f32;
+                glyph_info.push(GlyphInfo {
+                    color: mul,
+                    texture_index: [glyph.index, 0, 0, 0],
+                });
 
                 vertices.extend_from_slice(&[
                     GlyphVertex {
                         pos: [left, bottom],
-                        tex: [u_min, v_max],
                     },
-                    GlyphVertex {
-                        pos: [right, top],
-                        tex: [u_max, v_min],
-                    },
-                    GlyphVertex {
-                        pos: [left, top],
-                        tex: [u_min, v_min],
-                    },
-                    GlyphVertex {
-                        pos: [right, top],
-                        tex: [u_max, v_min],
-                    },
+                    GlyphVertex { pos: [right, top] },
+                    GlyphVertex { pos: [left, top] },
+                    GlyphVertex { pos: [right, top] },
                     GlyphVertex {
                         pos: [left, bottom],
-                        tex: [u_min, v_max],
                     },
                     GlyphVertex {
                         pos: [right, bottom],
-                        tex: [u_max, v_max],
                     },
                 ]);
                 offset_x += advance;
@@ -380,7 +379,7 @@ impl State {
         let pipeline = GridRender::new(
             &self.device,
             &self.bind_group_layout,
-            &self.atlas_texture,
+            &self.textures,
             glyph_info,
         );
 
@@ -400,12 +399,10 @@ impl State {
 #[derive(Debug, Clone, Copy, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GlyphVertex {
     pos: [f32; 2],
-    tex: [f32; 2],
 }
 
 impl GlyphVertex {
-    const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
+    const ATTRIBS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x2];
 
     pub fn desc() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
@@ -425,8 +422,8 @@ impl GridRender {
     pub fn new(
         device: &wgpu::Device,
         bind_group_layout: &wgpu::BindGroupLayout,
-        atlas_texture: &Texture,
-        data: Vec<f32>,
+        textures: &[Texture],
+        data: Vec<GlyphInfo>,
     ) -> Self {
         let info_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("info buffer"),
@@ -434,17 +431,21 @@ impl GridRender {
             contents: bytemuck::cast_slice(&data),
         });
 
+        // TODO: Do this processing somewhere else to avoid repeated work
+        let views: Vec<_> = textures.iter().map(|texture| &texture.view).collect();
+        let samplers: Vec<_> = textures.iter().map(|texture| &texture.sampler).collect();
+
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("bind group"),
             layout: &bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&atlas_texture.view),
+                    resource: wgpu::BindingResource::TextureViewArray(views.as_slice()),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&atlas_texture.sampler),
+                    resource: wgpu::BindingResource::SamplerArray(samplers.as_slice()),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
@@ -456,6 +457,7 @@ impl GridRender {
                 },
             ],
         });
+
         Self {
             bind_group,
             info_buffer,
@@ -466,5 +468,7 @@ impl GridRender {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GlyphInfo {
-    color: [f32; 3],
+    color: [f32; 4],
+    // TODO: Do SOA layout so alignment doesn't take up a bunch of excess space
+    texture_index: [u32; 4],
 }
