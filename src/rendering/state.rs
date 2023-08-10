@@ -7,6 +7,7 @@ use crate::{
 };
 use std::{
     num::NonZeroU64,
+    ops::Range,
     sync::{mpsc::Receiver, Arc, Mutex},
 };
 use wgpu::{
@@ -26,7 +27,6 @@ pub struct State {
     atlas_texture: Texture,
     font: Font,
     vertex_buffer: Mutex<wgpu::Buffer>,
-    vertex_count: Mutex<u32>,
     clear_color: Mutex<wgpu::Color>,
     grid_render: Mutex<GridRender>,
     bind_group_layout: wgpu::BindGroupLayout,
@@ -191,7 +191,6 @@ impl State {
             font,
             grid_render: Mutex::new(grid_render),
             vertex_buffer: Mutex::new(vertex_buffer),
-            vertex_count: Mutex::new(0),
             clear_color: Mutex::new(wgpu::Color {
                 r: 0.0,
                 g: 0.0,
@@ -227,7 +226,6 @@ impl State {
 
         let grid_render = self.grid_render.lock().unwrap();
         let vertex_buffer = self.vertex_buffer.lock().unwrap();
-        let vertex_count = *self.vertex_count.lock().unwrap();
         let clear_color = *self.clear_color.lock().unwrap();
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render pass"),
@@ -243,10 +241,10 @@ impl State {
         });
 
         render_pass.set_pipeline(&self.render_pipeline);
-        for bind_group in &grid_render.bind_groups {
-            render_pass.set_bind_group(0, &bind_group, &[]);
-            render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-            render_pass.draw(0..vertex_count, 0..1);
+        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+        for (i, bind_group) in grid_render.bind_groups.iter().enumerate() {
+            render_pass.set_bind_group(0, &bind_group.0, &[]);
+            render_pass.draw(bind_group.1.clone(), 0..1);
         }
         drop(render_pass);
 
@@ -263,7 +261,6 @@ impl State {
             lock.height = new_size.height;
             self.surface.configure(&self.device, &*lock);
         }
-        println!("Resize");
     }
 
     pub fn window(&self) -> &Window {
@@ -277,7 +274,6 @@ impl State {
     pub fn update(&self) {}
 
     fn update_text(&self, ui: Ui) {
-        println!("Update text");
         let grid = ui.composite();
         // TODO: Should only rebuild the pipeline as the result of a resize
         let pipeline = GridRender::new(
@@ -326,6 +322,7 @@ impl State {
                 let glyph = match self.atlas.get(id) {
                     Some(glyph) => glyph,
                     None => {
+                        vertices.extend_from_slice(&[GlyphVertex::default(); 6]);
                         offset_x += advance;
                         continue;
                     }
@@ -396,7 +393,6 @@ impl State {
                 usage: wgpu::BufferUsages::VERTEX,
             });
 
-        *self.vertex_count.lock().unwrap() = vertices.len() as u32;
         *self.grid_render.lock().unwrap() = pipeline;
     }
 }
@@ -423,7 +419,7 @@ impl GlyphVertex {
 }
 
 pub struct GridRender {
-    pub bind_groups: Vec<wgpu::BindGroup>,
+    pub bind_groups: Vec<(wgpu::BindGroup, Range<u32>)>,
     pub info_buffer: wgpu::Buffer,
 }
 
@@ -445,8 +441,9 @@ impl GridRender {
         let mut remaining = grid_size;
         let mut offset = 0;
         while remaining > 0 {
+            let size = remaining.min(u16::MAX as u64);
             let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("Texture bind group"),
+                label: Some("bind group"),
                 layout: &bind_group_layout,
                 entries: &[
                     wgpu::BindGroupEntry {
@@ -462,12 +459,15 @@ impl GridRender {
                         resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
                             buffer: &info_buffer,
                             offset,
-                            size: Some(NonZeroU64::new(remaining.min(u16::MAX as u64)).unwrap()),
+                            size: Some(NonZeroU64::new(size).unwrap()),
                         }),
                     },
                 ],
             });
-            bind_groups.push(bind_group);
+            bind_groups.push((
+                bind_group,
+                offset as u32 * 6..(offset as u32 + size as u32) * 6,
+            ));
             offset += u16::MAX as u64;
             remaining = remaining.saturating_sub(u16::MAX as u64);
         }
