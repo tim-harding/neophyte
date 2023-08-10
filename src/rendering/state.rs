@@ -50,9 +50,6 @@ impl State {
             .await
             .unwrap();
 
-        let limits = adapter.limits();
-        println!("{:#?}", limits);
-
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
@@ -134,7 +131,7 @@ impl State {
         let atlas_texture = Texture::new(
             &device,
             &queue,
-            atlas.data(),
+            atlas.atlas_data(),
             Vec2::new(atlas.size() as u32, atlas.size() as u32),
         );
 
@@ -321,7 +318,7 @@ impl State {
                 glyph_info.extend_from_slice(&mul);
 
                 let id = charmap.map(c);
-                let glyph = match self.atlas.get(id) {
+                let info_index = match self.atlas.index_for_glyph(id) {
                     Some(glyph) => glyph,
                     None => {
                         vertices.extend_from_slice(&[GlyphVertex::default(); 6]);
@@ -329,23 +326,24 @@ impl State {
                         continue;
                     }
                 };
+                let info = &self.atlas.glyph_info()[info_index];
 
-                let left = offset_x + glyph.placement.left as f32;
-                let right = left + glyph.placement.width as f32;
-                let top = offset_y + -glyph.placement.top as f32 + 24.0;
-                let bottom = top + glyph.placement.height as f32;
+                let left = offset_x + info.placement_offset.x as f32;
+                let right = left + info.size.x as f32;
+                let top = offset_y - info.placement_offset.y as f32 + 24.0;
+                let bottom = top + info.size.y as f32;
 
                 let left = clip_x(left);
                 let right = clip_x(right);
                 let top = clip_y(top);
                 let bottom = clip_y(bottom);
 
-                let u_min = glyph.origin.x as f32 / self.atlas.size() as f32;
-                let u_max = (glyph.origin.x as f32 + glyph.placement.width as f32)
-                    / self.atlas.size() as f32;
-                let v_min = glyph.origin.y as f32 / self.atlas.size() as f32;
-                let v_max = (glyph.origin.y as f32 + glyph.placement.height as f32)
-                    / self.atlas.size() as f32;
+                let u_min = info.atlas_origin.x as f32 / self.atlas.size() as f32;
+                let u_max =
+                    (info.atlas_origin.x as f32 + info.size.x as f32) / self.atlas.size() as f32;
+                let v_min = info.atlas_origin.y as f32 / self.atlas.size() as f32;
+                let v_max =
+                    (info.atlas_origin.y as f32 + info.size.y as f32) / self.atlas.size() as f32;
 
                 vertices.extend_from_slice(&[
                     GlyphVertex {

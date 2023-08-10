@@ -1,10 +1,14 @@
 use std::ops::{Add, Mul, Sub};
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct Vec2<T> {
     pub x: T,
     pub y: T,
 }
+
+unsafe impl<T> bytemuck::Pod for Vec2<T> where T: bytemuck::Pod {}
+unsafe impl<T> bytemuck::Zeroable for Vec2<T> where T: bytemuck::Zeroable {}
 
 impl<T> Vec2<T> {
     pub fn new(x: T, y: T) -> Self {
@@ -83,6 +87,12 @@ macro_rules! vec_try_from {
 
 vec_try_from!(u64, i64);
 vec_try_from!(i64, u64);
+vec_try_from!(u32, i32);
+vec_try_from!(i32, u32);
+vec_try_from!(u16, i16);
+vec_try_from!(i16, u16);
+vec_try_from!(u8, i8);
+vec_try_from!(i8, u8);
 vec_try_from!(u64, usize);
 vec_try_from!(usize, u64);
 

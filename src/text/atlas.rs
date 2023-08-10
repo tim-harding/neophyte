@@ -19,8 +19,11 @@ pub struct FontAtlas {
     root: Node,
     /// Glyph atlas image data
     data: Vec<u8>,
+    /// Information about glyphs. Use id_to_info_index to find the index for a
+    /// given glyph.
+    glyph_info: Vec<GlyphInfo>,
     /// A lookup table from glyphs to their rendering info.
-    lut: HashMap<GlyphId, PackedGlyph>,
+    id_to_info_index: HashMap<GlyphId, usize>,
 }
 
 impl FontAtlas {
@@ -30,7 +33,8 @@ impl FontAtlas {
             size: DEFAULT_SIZE,
             root: Node::new(Vec2::new(0, 0), Vec2::new(u16::MAX, u16::MAX)),
             data: vec![0u8; DEFAULT_SIZE as usize * DEFAULT_SIZE as usize],
-            lut: HashMap::default(),
+            glyph_info: vec![],
+            id_to_info_index: HashMap::default(),
         }
     }
 
@@ -93,34 +97,42 @@ impl FontAtlas {
             }
         }
 
-        self.lut.insert(
-            id,
-            PackedGlyph {
-                origin,
-                placement: image.placement,
-            },
-        );
+        let index = self.glyph_info.len();
+        self.glyph_info.push(GlyphInfo {
+            atlas_origin: origin,
+            size: Vec2::new(image.placement.width as u16, image.placement.height as u16),
+            placement_offset: Vec2::new(image.placement.left as i16, image.placement.top as i16),
+        });
+        self.id_to_info_index.insert(id, index);
 
         Pack { resized, origin }
     }
 
-    pub fn data(&self) -> &[u8] {
+    pub fn atlas_data(&self) -> &[u8] {
         &self.data
     }
 
+    pub fn glyph_info(&self) -> &[GlyphInfo] {
+        &self.glyph_info
+    }
+
+    /// The x and y dimensions
     pub fn size(&self) -> u16 {
         self.size
     }
 
-    pub fn get(&self, id: GlyphId) -> Option<&PackedGlyph> {
-        self.lut.get(&id)
+    /// The index into the glyph info array to use for a given glyph ID
+    pub fn index_for_glyph(&self, id: GlyphId) -> Option<usize> {
+        self.id_to_info_index.get(&id).cloned()
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct PackedGlyph {
-    pub origin: Vec2<u16>,
-    pub placement: Placement,
+#[repr(C)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct GlyphInfo {
+    pub atlas_origin: Vec2<u16>,
+    pub size: Vec2<u16>,
+    pub placement_offset: Vec2<i16>,
 }
 
 pub struct Pack {
