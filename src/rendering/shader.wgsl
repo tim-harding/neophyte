@@ -32,7 +32,7 @@ fn vs_main(
     out.tex_index = x.index.r;
     out.tex_coord = vec2<f32>(
         f32(in_vertex_index % 2u),
-        f32((in_vertex_index - 1u) / 3u),
+        f32(((in_vertex_index + 5u) % 6u) / 3u),
     );
     out.clip_position = vec4<f32>(model.position, 0.0, 1.0);
     return out;
@@ -47,7 +47,5 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     //     0.0
     // );
 
-    // return vec4<f32>(in.color, 1.0);
-    let x = f32(in.tex_index % 10u) / 10.0;
-    return vec4<f32>(x, x, x, 1.0);
+    return vec4<f32>(in.tex_coord, 0.0, 1.0);
 }
