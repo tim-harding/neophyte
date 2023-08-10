@@ -33,8 +33,8 @@ pub fn rasterize_font(font: FontRef, size: f32) -> (Vec<Image>, GlyphLut) {
                 },
             );
             textures.push(image);
+            i += 1;
         }
-        i += 0;
     });
     (textures, lut)
 }
