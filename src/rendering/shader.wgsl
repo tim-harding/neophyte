@@ -40,12 +40,13 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    // let sample = textureSampleLevel(
-    //     glyph_textures[in.tex_index],
-    //     glyph_sampler,
-    //     in.tex_coord,
-    //     0.0
-    // );
+    let sample = textureSampleLevel(
+        glyph_textures[in.tex_index],
+        glyph_sampler,
+        in.tex_coord,
+        0.0
+    );
+    let r = sample.r;
 
-    return vec4<f32>(in.tex_coord, 0.0, 1.0);
+    return vec4<f32>(r, r, r, 1.0);
 }
