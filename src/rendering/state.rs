@@ -56,15 +56,12 @@ impl State {
             .await
             .unwrap();
 
-        let limits = adapter.limits();
-        println!("{:#?}", limits);
-
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features: wgpu::Features::TEXTURE_BINDING_ARRAY,
-                    limits: wgpu::Limits::default(),
+                    features: wgpu::Features::TEXTURE_BINDING_ARRAY | wgpu::Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING | wgpu::Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+                    limits: adapter.limits(),
                 },
                 None,
             )
@@ -103,6 +100,7 @@ impl State {
             })
             .collect();
 
+        let tex_count = Some(NonZeroU32::new(textures.len() as u32).unwrap());
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Texture bind group layout"),
             entries: &[
@@ -114,13 +112,13 @@ impl State {
                         view_dimension: wgpu::TextureViewDimension::D2,
                         multisampled: false,
                     },
-                    count: Some(NonZeroU32::new(textures.len() as u32).unwrap()),
+                    count: tex_count,
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
+                    count: tex_count,
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
