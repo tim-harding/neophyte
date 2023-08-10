@@ -107,7 +107,7 @@ impl State {
                     binding: 2,
                     visibility: wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
                         has_dynamic_offset: false,
                         min_binding_size: None,
                     },
@@ -315,6 +315,7 @@ impl State {
                     (fg.r() as f32 / 255.0).powf(2.2),
                     (fg.g() as f32 / 255.0).powf(2.2),
                     (fg.b() as f32 / 255.0).powf(2.2),
+                    1.0,
                 ];
 
                 glyph_info.extend_from_slice(&mul);
@@ -324,7 +325,6 @@ impl State {
                     Some(glyph) => glyph,
                     None => {
                         vertices.extend_from_slice(&[GlyphVertex::default(); 6]);
-
                         offset_x += advance;
                         continue;
                     }
@@ -430,7 +430,7 @@ impl GridRender {
     ) -> Self {
         let info_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("info buffer"),
-            usage: wgpu::BufferUsages::UNIFORM,
+            usage: wgpu::BufferUsages::STORAGE,
             contents: bytemuck::cast_slice(&data),
         });
 
