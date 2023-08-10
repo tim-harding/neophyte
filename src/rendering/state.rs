@@ -19,20 +19,23 @@ use wgpu::{
 use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct State {
-    glyph_lut: GlyphLut,
-    textures: Vec<Texture>,
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: Mutex<wgpu::SurfaceConfiguration>,
     size: Mutex<PhysicalSize<u32>>,
     window: Arc<Window>,
+    glyph_lut: GlyphLut,
+    textures: Vec<Texture>,
     font: Font,
+    sampler: wgpu::Sampler,
+    glyph_info_bind_group_layout: wgpu::BindGroupLayout,
+    shared_bind_group_layout: wgpu::BindGroupLayout,
+    shared_bind_group: wgpu::BindGroup,
+    render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: Mutex<wgpu::Buffer>,
     clear_color: Mutex<wgpu::Color>,
     grid_render: Mutex<Option<GridRender>>,
-    bind_group_layout: wgpu::BindGroupLayout,
-    render_pipeline: wgpu::RenderPipeline,
     vertex_count: Mutex<u32>,
 }
 
@@ -87,6 +90,17 @@ impl State {
         };
         surface.configure(&device, &config);
 
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("Texture sampler"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+
         let (textures, glyph_lut) = rasterize_font(font.as_ref(), 24.0);
         let textures: Vec<_> = textures
             .into_iter()
@@ -100,28 +114,13 @@ impl State {
             })
             .collect();
 
-        let tex_count = Some(NonZeroU32::new(textures.len() as u32).unwrap());
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Texture bind group layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
+        let texture_views: Vec<_> = textures.iter().map(|texture| &texture.view).collect();
+
+        let glyph_info_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("glyph info bind group layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: tex_count,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: tex_count,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
                     visibility: wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage { read_only: true },
@@ -129,13 +128,51 @@ impl State {
                         min_binding_size: None,
                     },
                     count: None,
+                }],
+            });
+
+        let tex_count = Some(NonZeroU32::new(textures.len() as u32).unwrap());
+        let shared_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Texture bind group layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: tex_count,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: tex_count,
+                    },
+                ],
+            });
+
+        let shared_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("shared bind group"),
+            layout: &shared_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureViewArray(texture_views.as_slice()),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
                 },
             ],
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[&bind_group_layout],
+            bind_group_layouts: &[&shared_bind_group_layout, &glyph_info_bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -185,11 +222,14 @@ impl State {
 
         let window_handle = window.clone();
         let this = Arc::new(Self {
+            sampler,
             textures,
             glyph_lut,
             vertex_count: Mutex::new(0),
             render_pipeline,
-            bind_group_layout,
+            shared_bind_group_layout,
+            shared_bind_group,
+            glyph_info_bind_group_layout,
             window,
             surface,
             device,
@@ -251,8 +291,9 @@ impl State {
 
         if let Some(grid_render) = grid_render.as_ref() {
             render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_bind_group(0, &self.shared_bind_group, &[]);
             render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-            render_pass.set_bind_group(0, &grid_render.bind_group, &[]);
+            render_pass.set_bind_group(1, &grid_render.bind_group, &[]);
             render_pass.draw(0..vertex_count, 0..1);
         }
         drop(render_pass);
@@ -374,12 +415,8 @@ impl State {
             }
         }
 
-        let pipeline = GridRender::new(
-            &self.device,
-            &self.bind_group_layout,
-            &self.textures,
-            glyph_info,
-        );
+        let pipeline =
+            GridRender::new(&self.device, &self.glyph_info_bind_group_layout, glyph_info);
 
         *self.vertex_buffer.lock().unwrap() =
             self.device.create_buffer_init(&BufferInitDescriptor {
@@ -420,7 +457,6 @@ impl GridRender {
     pub fn new(
         device: &wgpu::Device,
         bind_group_layout: &wgpu::BindGroupLayout,
-        textures: &[Texture],
         data: Vec<GlyphInfo>,
     ) -> Self {
         let info_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -429,31 +465,17 @@ impl GridRender {
             contents: bytemuck::cast_slice(&data),
         });
 
-        // TODO: Do this processing somewhere else to avoid repeated work
-        let views: Vec<_> = textures.iter().map(|texture| &texture.view).collect();
-        let samplers: Vec<_> = textures.iter().map(|texture| &texture.sampler).collect();
-
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("bind group"),
+            label: Some("glyph info bind group"),
             layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureViewArray(views.as_slice()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::SamplerArray(samplers.as_slice()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &info_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                },
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &info_buffer,
+                    offset: 0,
+                    size: None,
+                }),
+            }],
         });
 
         Self {

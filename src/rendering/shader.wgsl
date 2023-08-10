@@ -8,10 +8,10 @@ struct Fg {
 }
 
 @group(0) @binding(0)
-var textures: binding_array<texture_2d<f32>>;
+var glyph_textures: binding_array<texture_2d<f32>>;
 @group(0) @binding(1)
-var samplers: binding_array<sampler>;
-@group(0) @binding(2)
+var glyph_sampler: sampler;
+@group(1) @binding(0)
 var<storage, read> fg: array<Fg>;
 
 struct VertexOutput {
@@ -41,8 +41,8 @@ fn vs_main(
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // let sample = textureSampleLevel(
-    //     textures[in.tex_index],
-    //     samplers[in.tex_index],
+    //     glyph_textures[in.tex_index],
+    //     glyph_sampler,
     //     in.tex_coord,
     //     0.0
     // );
