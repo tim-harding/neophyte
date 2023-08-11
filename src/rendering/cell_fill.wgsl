@@ -42,6 +42,7 @@ fn vs_main(
         f32(in_vertex_index % 2u),
         f32(((in_vertex_index + 5u) % 6u) / 3u),
     );
+    let null_highlight_multiplier = min(f32(grid_cell.highlight_index), 1.0);
     let hl_info = highlights[grid_cell.highlight_index];
 
     var out: VertexOutput;
@@ -49,7 +50,8 @@ fn vs_main(
     out.clip_position = vec4<f32>(
         (
             grid_coord * vec2<f32>(grid_info.glyph_size) + 
-            tex_coord * vec2<f32>(grid_info.glyph_size)
+            tex_coord * vec2<f32>(grid_info.glyph_size) *
+            null_highlight_multiplier
         ) / vec2<f32>(grid_info.surface_size) * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
         0.0, 
         1.0
