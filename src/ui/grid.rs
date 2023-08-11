@@ -1,13 +1,15 @@
 #![allow(unused)]
 
-use crate::event::grid_line::Cell;
-use crate::event::hl_attr_define::Attributes;
-use crate::event::{Anchor, GridScroll, HlAttrDefine};
-use crate::ui::print::hl_attr_to_colorspec;
-use crate::util::vec2::Vec2;
-use std::collections::HashMap;
-use std::fmt::{self, Debug, Display, Formatter};
-use std::io::Write;
+use crate::{
+    event::{grid_line::Cell, hl_attr_define::Attributes, Anchor, GridScroll, HlAttrDefine},
+    ui::print::hl_attr_to_colorspec,
+    util::vec2::Vec2,
+};
+use std::{
+    collections::HashMap,
+    fmt::{self, Debug, Display, Formatter},
+    io::Write,
+};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 use super::Highlights;

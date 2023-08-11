@@ -28,6 +28,9 @@ pub struct State {
     grid_render: Mutex<Option<GridRender>>,
     grid_bind_group_layout: wgpu::BindGroupLayout,
     vertex_count: Mutex<u32>,
+    highlights: Mutex<Vec<HighlightInfo>>,
+    highlights_bind_group: Mutex<Option<wgpu::BindGroup>>,
+    highlights_bind_group_layout: wgpu::BindGroupLayout,
 }
 
 impl State {
@@ -108,6 +111,21 @@ impl State {
             usage: wgpu::BufferUsages::STORAGE,
         });
 
+        let highlights_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Highlights bind group layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
+
         let grid_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Grid bind group layout"),
@@ -142,7 +160,7 @@ impl State {
                         binding: 1,
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: tex_count,
+                        count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 2,
@@ -182,7 +200,11 @@ impl State {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[&font_bind_group_layout, &grid_bind_group_layout],
+            bind_group_layouts: &[
+                &highlights_bind_group_layout,
+                &font_bind_group_layout,
+                &grid_bind_group_layout,
+            ],
             push_constant_ranges: &[wgpu::PushConstantRange {
                 stages: wgpu::ShaderStages::VERTEX,
                 range: 0..GridInfo::SIZE as u32,
@@ -248,6 +270,9 @@ impl State {
                 b: 0.0,
                 a: 1.0,
             }),
+            highlights: Mutex::new(vec![]),
+            highlights_bind_group: Mutex::new(None),
+            highlights_bind_group_layout,
         });
 
         {
@@ -276,6 +301,7 @@ impl State {
             });
 
         let grid_render = self.grid_render.lock().unwrap();
+        let highlights_bind_group = self.highlights_bind_group.lock().unwrap();
         let clear_color = *self.clear_color.lock().unwrap();
         let vertex_count = *self.vertex_count.lock().unwrap();
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -292,15 +318,18 @@ impl State {
         });
 
         if let Some(grid_render) = grid_render.as_ref() {
-            render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.font_bind_group, &[]);
-            render_pass.set_bind_group(1, &grid_render.bind_group, &[]);
-            render_pass.set_push_constants(
-                wgpu::ShaderStages::VERTEX,
-                0,
-                cast_slice(&[grid_render.info]),
-            );
-            render_pass.draw(0..vertex_count, 0..1);
+            if let Some(highlights_bind_group) = highlights_bind_group.as_ref() {
+                render_pass.set_pipeline(&self.render_pipeline);
+                render_pass.set_bind_group(0, &highlights_bind_group, &[]);
+                render_pass.set_bind_group(1, &self.font_bind_group, &[]);
+                render_pass.set_bind_group(2, &grid_render.bind_group, &[]);
+                render_pass.set_push_constants(
+                    wgpu::ShaderStages::VERTEX,
+                    0,
+                    cast_slice(&[grid_render.info]),
+                );
+                render_pass.draw(0..vertex_count, 0..1);
+            }
         }
         drop(render_pass);
 
@@ -341,14 +370,48 @@ impl State {
 
         let fg_default = ui.default_colors.rgb_fg.unwrap_or(Rgb::new(255, 255, 255));
         let bg_default = ui.default_colors.rgb_bg.unwrap_or(Rgb::new(0, 0, 0));
+
+        let srgb = |n| (n as f32 / 255.0).powf(2.2);
+        let srgb = |c: Rgb| [srgb(c.r()), srgb(c.g()), srgb(c.b())];
+        let mut highlights = self.highlights.lock().unwrap();
+        for highlight in ui.highlights.iter() {
+            highlights.push(HighlightInfo {
+                fg: srgb(highlight.1.rgb_attr.foreground.unwrap_or(fg_default)),
+                bg: srgb(highlight.1.rgb_attr.background.unwrap_or(bg_default)),
+            });
+        }
+
+        let highlights_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Highlight buffer"),
+                contents: cast_slice(highlights.as_slice()),
+                usage: wgpu::BufferUsages::STORAGE,
+            });
+
+        *self.highlights_bind_group.lock().unwrap() =
+            Some(self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Highlights bind group"),
+                layout: &self.highlights_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &highlights_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                }],
+            }));
+
+        let srgb = |n| (n as f64 / 255.0).powf(2.2);
         *self.clear_color.lock().unwrap() = wgpu::Color {
-            r: (bg_default.r() as f64 / 255.0).powf(2.2),
-            g: (bg_default.g() as f64 / 255.0).powf(2.2),
-            b: (bg_default.b() as f64 / 255.0).powf(2.2),
+            r: srgb(bg_default.r()),
+            g: srgb(bg_default.g()),
+            b: srgb(bg_default.b()),
             a: 1.0,
         };
-        let mut glyph_info = vec![];
 
+        let mut glyph_info = vec![];
         for (cell_line, hl_line) in grid.cells.rows().zip(grid.highlights.rows()) {
             for (c, hl) in cell_line.zip(hl_line) {
                 let (fg, _bg) = if let Some(hl) = ui.highlights.get(&hl) {
@@ -465,5 +528,16 @@ pub struct GridInfo {
 }
 
 impl GridInfo {
+    pub const SIZE: usize = std::mem::size_of::<Self>();
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
+pub struct HighlightInfo {
+    fg: [f32; 3],
+    bg: [f32; 3],
+}
+
+impl HighlightInfo {
     pub const SIZE: usize = std::mem::size_of::<Self>();
 }
