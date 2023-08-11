@@ -1,3 +1,4 @@
+use bytemuck::{Pod, Zeroable};
 use std::ops::{Add, Mul, Sub};
 
 #[repr(C)]
@@ -7,8 +8,8 @@ pub struct Vec2<T> {
     pub y: T,
 }
 
-unsafe impl<T> bytemuck::Pod for Vec2<T> where T: bytemuck::Pod {}
-unsafe impl<T> bytemuck::Zeroable for Vec2<T> where T: bytemuck::Zeroable {}
+unsafe impl<T> Pod for Vec2<T> where T: Pod {}
+unsafe impl<T> Zeroable for Vec2<T> where T: Zeroable {}
 
 impl<T> Vec2<T> {
     pub fn new(x: T, y: T) -> Self {
@@ -85,6 +86,16 @@ macro_rules! vec_try_from {
     };
 }
 
+macro_rules! vec_from {
+    ($t:ty, $u:ty) => {
+        impl From<Vec2<$t>> for Vec2<$u> {
+            fn from(value: Vec2<$t>) -> Self {
+                Vec2::new(value.x as $u, value.y as $u)
+            }
+        }
+    };
+}
+
 vec_try_from!(u64, i64);
 vec_try_from!(i64, u64);
 vec_try_from!(u32, i32);
@@ -95,6 +106,15 @@ vec_try_from!(u8, i8);
 vec_try_from!(i8, u8);
 vec_try_from!(u64, usize);
 vec_try_from!(usize, u64);
+vec_try_from!(u32, u64);
+vec_try_from!(u16, u64);
+vec_try_from!(u8, u64);
+vec_from!(u64, u32);
+vec_from!(u64, u16);
+vec_from!(u64, u8);
+vec_from!(i64, i32);
+vec_from!(i64, i16);
+vec_from!(i64, i8);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, thiserror::Error)]
 #[error("Failed to convert between vector types")]

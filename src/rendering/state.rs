@@ -3,7 +3,9 @@ use crate::{
     event::hl_attr_define::Rgb,
     text::{cache::FontCache, font::Font},
     ui::Ui,
+    util::vec2::Vec2,
 };
+use bytemuck::{cast_slice, Pod, Zeroable};
 use std::{
     num::NonZeroU32,
     sync::{mpsc::Receiver, Arc, Mutex},
@@ -106,7 +108,7 @@ impl State {
 
         let font_info_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Font info buffer"),
-            contents: bytemuck::cast_slice(font_cache.info.as_slice()),
+            contents: cast_slice(font_cache.info.as_slice()),
             usage: wgpu::BufferUsages::STORAGE,
         });
 
@@ -186,8 +188,8 @@ impl State {
             label: Some("Render Pipeline Layout"),
             bind_group_layouts: &[&font_bind_group_layout, &grid_bind_group_layout],
             push_constant_ranges: &[wgpu::PushConstantRange {
-                stages: wgpu::ShaderStages::FRAGMENT,
-                range: 0..4,
+                stages: wgpu::ShaderStages::VERTEX,
+                range: 0..GridInfo::SIZE as u32,
             }],
         });
 
@@ -195,7 +197,7 @@ impl State {
 
         let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Vertex buffer"),
-            contents: bytemuck::cast_slice(&[GlyphVertex::default(); 0]),
+            contents: cast_slice(&[GlyphVertex::default(); 0]),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
@@ -306,7 +308,11 @@ impl State {
             render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
             render_pass.set_bind_group(0, &self.font_bind_group, &[]);
             render_pass.set_bind_group(1, &grid_render.bind_group, &[]);
-            render_pass.set_push_constants(wgpu::ShaderStages::FRAGMENT, 0, &0.5f32.to_le_bytes());
+            render_pass.set_push_constants(
+                wgpu::ShaderStages::VERTEX,
+                0,
+                cast_slice(&[grid_render.info]),
+            );
             render_pass.draw(0..vertex_count, 0..1);
         }
         drop(render_pass);
@@ -429,12 +435,23 @@ impl State {
             }
         }
 
-        let pipeline = GridRender::new(&self.device, &self.grid_bind_group_layout, glyph_info);
+        let grid_info = GridInfo {
+            surface_size: Vec2::new(size.width, size.height),
+            grid_size: grid.size().into(),
+            glyph_size: Vec2::new(advance as u32, 24),
+        };
+
+        let pipeline = GridRender::new(
+            &self.device,
+            &self.grid_bind_group_layout,
+            glyph_info,
+            grid_info,
+        );
 
         *self.vertex_buffer.lock().unwrap() =
             self.device.create_buffer_init(&BufferInitDescriptor {
                 label: Some("Vertex buffer"),
-                contents: bytemuck::cast_slice(&vertices),
+                contents: cast_slice(&vertices),
                 usage: wgpu::BufferUsages::VERTEX,
             });
 
@@ -444,7 +461,7 @@ impl State {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Default, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
 pub struct GlyphVertex {
     pos: [f32; 2],
 }
@@ -464,6 +481,7 @@ impl GlyphVertex {
 pub struct GridRender {
     pub bind_group: wgpu::BindGroup,
     pub info_buffer: wgpu::Buffer,
+    pub info: GridInfo,
 }
 
 impl GridRender {
@@ -471,11 +489,12 @@ impl GridRender {
         device: &wgpu::Device,
         bind_group_layout: &wgpu::BindGroupLayout,
         data: Vec<GlyphInfo>,
+        info: GridInfo,
     ) -> Self {
         let info_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("info buffer"),
             usage: wgpu::BufferUsages::STORAGE,
-            contents: bytemuck::cast_slice(&data),
+            contents: cast_slice(&data),
         });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -494,14 +513,30 @@ impl GridRender {
         Self {
             bind_group,
             info_buffer,
+            info,
         }
     }
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Default, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
 pub struct GlyphInfo {
     color: [f32; 4],
     // TODO: Do SOA layout so alignment doesn't take up a bunch of excess space
     texture_index: [u32; 4],
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
+pub struct GridInfo {
+    // The dimensions of the texture we're drawing to
+    surface_size: Vec2<u32>,
+    // The dimensions of the Neovim grid
+    grid_size: Vec2<u32>,
+    // The dimensions of a single glyph. (font_height, advance)
+    glyph_size: Vec2<u32>,
+}
+
+impl GridInfo {
+    pub const SIZE: usize = std::mem::size_of::<Self>();
 }

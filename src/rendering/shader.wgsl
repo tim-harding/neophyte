@@ -8,8 +8,19 @@ struct GridCell {
 }
 
 struct GlyphInfo {
+    // The dimensions of the glyph texture
     size: vec2<u32>,
+    // Displacement from the glyph position origin
     placement_offset: vec2<i32>,
+}
+
+struct GridInfo {
+    // The dimensions of the texture we're drawing to
+    surface_size: vec2<u32>,
+    // The dimensions of the Neovim grid
+    grid_size: vec2<u32>,
+    // The dimensions of a single glyph. (font_height, advance)
+    glyph_size: vec2<u32>,
 }
 
 @group(0) @binding(0)
@@ -20,13 +31,14 @@ var glyph_sampler: sampler;
 var<storage, read> glyphs: array<GlyphInfo>;
 @group(1) @binding(0)
 var<storage, read> grid_cells: array<GridCell>;
-var<push_constant> alpha_mul: f32;
+var<push_constant> grid_info: GridInfo;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) tex_index: u32,
     @location(1) tex_coord: vec2<f32>,
     @location(2) color: vec3<f32>,
+    @location(3) grid_pos: vec2<u32>,
 }
 
 @vertex
@@ -54,5 +66,5 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         in.tex_coord,
         0.0
     );
-    return vec4<f32>(in.color, sample.r * alpha_mul);
+    return vec4<f32>(in.color, sample.r);
 }
