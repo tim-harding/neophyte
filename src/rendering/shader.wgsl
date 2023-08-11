@@ -4,7 +4,7 @@ struct VertexInput {
 
 struct GridCell {
     color: vec4<f32>,
-    index: vec4<u32>,
+    glyph_index: vec4<u32>,
 }
 
 struct GlyphInfo {
@@ -14,6 +14,7 @@ struct GlyphInfo {
     placement_offset: vec2<i32>,
 }
 
+// TODO: Maybe store these as f32 to avoid casting in the shader
 struct GridInfo {
     // The dimensions of the texture we're drawing to
     surface_size: vec2<u32>,
@@ -38,7 +39,6 @@ struct VertexOutput {
     @location(0) tex_index: u32,
     @location(1) tex_coord: vec2<f32>,
     @location(2) color: vec3<f32>,
-    @location(3) grid_pos: vec2<u32>,
 }
 
 @vertex
@@ -46,15 +46,33 @@ fn vs_main(
     @builtin(vertex_index) in_vertex_index: u32,
     model: VertexInput,
 ) -> VertexOutput {
-    var out: VertexOutput;
-    let x = grid_cells[in_vertex_index / 6u];
-    out.color = x.color.rgb;
-    out.tex_index = x.index.r;
-    out.tex_coord = vec2<f32>(
+    let grid_index = in_vertex_index / 6u;
+    let grid_cell = grid_cells[grid_index];
+    let glyph_index = grid_cell.glyph_index.r;
+    let grid_coord = vec2<f32>(
+        f32(grid_index % grid_info.grid_size.x),
+        f32(grid_index / grid_info.grid_size.x),
+    );
+    let tex_coord = vec2<f32>(
         f32(in_vertex_index % 2u),
         f32(((in_vertex_index + 5u) % 6u) / 3u),
     );
-    out.clip_position = vec4<f32>(model.position, 0.0, 1.0);
+    let glyph_info = glyphs[glyph_index];
+
+    var out: VertexOutput;
+    out.color = grid_cell.color.rgb;
+    out.tex_index = glyph_index;
+    out.tex_coord = tex_coord;
+    out.clip_position = vec4<f32>(
+        (
+            grid_coord * vec2<f32>(grid_info.glyph_size) + 
+            tex_coord * vec2<f32>(glyph_info.size) +
+            vec2<f32>(glyph_info.placement_offset) * vec2<f32>(1.0, -1.0) +
+            vec2<f32>(0.0, 24.0)
+        ) / vec2<f32>(grid_info.surface_size) * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
+        0.0, 
+        1.0
+    );
     return out;
 }
 
