@@ -26,11 +26,8 @@ pub struct State {
     size: Mutex<PhysicalSize<u32>>,
     window: Arc<Window>,
     glyph_lut: GlyphLut,
-    textures: Vec<Texture>,
     font: Font,
-    sampler: wgpu::Sampler,
     glyph_info_bind_group_layout: wgpu::BindGroupLayout,
-    shared_bind_group_layout: wgpu::BindGroupLayout,
     shared_bind_group: wgpu::BindGroup,
     render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: Mutex<wgpu::Buffer>,
@@ -222,12 +219,9 @@ impl State {
 
         let window_handle = window.clone();
         let this = Arc::new(Self {
-            sampler,
-            textures,
             glyph_lut,
             vertex_count: Mutex::new(0),
             render_pipeline,
-            shared_bind_group_layout,
             shared_bind_group,
             glyph_info_bind_group_layout,
             window,
