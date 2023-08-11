@@ -372,13 +372,17 @@ impl State {
         let bg_default = ui.default_colors.rgb_bg.unwrap_or(Rgb::new(0, 0, 0));
 
         let srgb = |n| (n as f32 / 255.0).powf(2.2);
-        let srgb = |c: Rgb| [srgb(c.r()), srgb(c.g()), srgb(c.b())];
+        let srgb = |c: Rgb| [srgb(c.r()), srgb(c.g()), srgb(c.b()), 0.0];
         let mut highlights = self.highlights.lock().unwrap();
         for highlight in ui.highlights.iter() {
-            highlights.push(HighlightInfo {
+            let i = *highlight.0 as usize;
+            if i + 1 > highlights.len() {
+                highlights.resize(i + 1, HighlightInfo::default());
+            }
+            highlights[i] = HighlightInfo {
                 fg: srgb(highlight.1.rgb_attr.foreground.unwrap_or(fg_default)),
                 bg: srgb(highlight.1.rgb_attr.background.unwrap_or(bg_default)),
-            });
+            };
         }
 
         let highlights_buffer = self
@@ -444,7 +448,7 @@ impl State {
 
                 glyph_info.push(GlyphInfo {
                     color: mul,
-                    texture_index: [*glyph_index as u32, 0, 0, 0],
+                    texture_index: [*glyph_index as u32, hl, 0, 0],
                 });
             }
         }
@@ -534,8 +538,8 @@ impl GridInfo {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
 pub struct HighlightInfo {
-    fg: [f32; 3],
-    bg: [f32; 3],
+    fg: [f32; 4],
+    bg: [f32; 4],
 }
 
 impl HighlightInfo {

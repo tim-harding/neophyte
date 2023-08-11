@@ -16,7 +16,7 @@ use super::Highlights;
 
 // TODO: Add fallback to string if the cell requires more than a char
 
-pub type HighlightId = u16;
+pub type HighlightId = u32;
 
 #[derive(Default, Clone)]
 pub struct Grid {
