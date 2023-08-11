@@ -8,7 +8,6 @@ struct GridCell {
 }
 
 struct GlyphInfo {
-    atlas_origin: vec2<u32>,
     size: vec2<u32>,
     placement_offset: vec2<i32>,
 }
@@ -54,7 +53,5 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         in.tex_coord,
         0.0
     );
-    let r = sample.r;
-
-    return vec4<f32>(r, r, r, 1.0);
+    return vec4<f32>(in.color, sample.r);
 }
