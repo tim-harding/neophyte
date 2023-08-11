@@ -19,11 +19,6 @@ impl Font {
         })
     }
 
-    pub fn advance(&self, size: f32) -> f32 {
-        let metrics = self.as_ref().metrics(&[]).linear_scale(size);
-        metrics.average_width / metrics.units_per_em as f32
-    }
-
     pub fn as_ref(&self) -> FontRef {
         // Unlike the FontRef constructors, this does not construct a new key,
         // enabling performance optimizations and caching mechanisms
@@ -33,6 +28,11 @@ impl Font {
             key: self.key,
         }
     }
+}
+
+pub fn advance(font: FontRef, size: f32) -> f32 {
+    let metrics = font.metrics(&[]).linear_scale(size);
+    metrics.average_width / metrics.units_per_em as f32
 }
 
 #[derive(Debug, thiserror::Error)]

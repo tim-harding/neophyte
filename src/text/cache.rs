@@ -8,6 +8,8 @@ use swash::{
     FontRef, GlyphId,
 };
 
+use super::font::advance;
+
 // TODO: Cache glyphs lazily
 
 #[derive(Clone, Default)]
@@ -25,6 +27,16 @@ impl FontCache {
         let mut out = Self::default();
         let mut scale_context = ScaleContext::new();
         let mut scaler = scale_context.builder(font).size(size).hint(true).build();
+        out.data.push(vec![0]);
+        out.data.push(vec![1]);
+        out.info.push(GlyphInfo {
+            size: Vec2::new(1, 1),
+            placement_offset: Vec2::default(),
+        });
+        out.info.push(GlyphInfo {
+            size: Vec2::new(1, 1),
+            placement_offset: Vec2::default(),
+        });
         font.charmap().enumerate(|_c, id| {
             let image = Render::new(&[
                 Source::ColorOutline(0),

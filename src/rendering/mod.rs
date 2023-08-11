@@ -2,7 +2,11 @@ pub mod state;
 mod texture;
 
 use self::state::State;
-use crate::{session::Neovim, text::font::Font, ui::Ui};
+use crate::{
+    session::Neovim,
+    text::font::{advance, Font},
+    ui::Ui,
+};
 use std::sync::{mpsc::Receiver, Arc};
 use wgpu::SurfaceError;
 use winit::{
@@ -167,7 +171,7 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
                 state.resize(*physical_size);
                 neovim.ui_try_resize_grid(
                     1,
-                    physical_size.width as u64 / font.advance(24.0) as u64,
+                    physical_size.width as u64 / advance(font.as_ref(), 24.0) as u64,
                     physical_size.height as u64 / 24,
                 )
             }
@@ -180,7 +184,7 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
                 let cell_height = 24.0 * *scale_factor as f32;
                 neovim.ui_try_resize_grid(
                     1,
-                    new_inner_size.width as u64 / font.advance(cell_height) as u64,
+                    new_inner_size.width as u64 / advance(font.as_ref(), cell_height) as u64,
                     new_inner_size.height as u64 / cell_height as u64,
                 )
             }
