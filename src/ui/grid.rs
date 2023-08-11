@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+use super::Highlights;
 use crate::{
     event::{grid_line::Cell, hl_attr_define::Attributes, Anchor, GridScroll, HlAttrDefine},
     ui::print::hl_attr_to_colorspec,
@@ -11,8 +12,6 @@ use std::{
     io::Write,
 };
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-
-use super::Highlights;
 
 // TODO: Add fallback to string if the cell requires more than a char
 
@@ -139,7 +138,7 @@ impl Grid {
         for cell in cells {
             let c = cell.text.chars().into_iter().next().unwrap();
             if let Some(hl_id) = cell.hl_id {
-                highlight = hl_id as HighlightId;
+                highlight = hl_id as HighlightId + 1;
             }
             // TODO: Skip iterations for lines that won't be copied
             if let Some(repeat) = cell.repeat {

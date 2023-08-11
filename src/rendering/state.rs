@@ -23,7 +23,8 @@ pub struct State {
     font_cache: FontCache,
     font: Font,
     font_bind_group: wgpu::BindGroup,
-    render_pipeline: wgpu::RenderPipeline,
+    glyph_render_pipeline: wgpu::RenderPipeline,
+    cell_fill_render_pipeline: wgpu::RenderPipeline,
     clear_color: Mutex<wgpu::Color>,
     grid_render: Mutex<Option<GridRender>>,
     grid_bind_group_layout: wgpu::BindGroupLayout,
@@ -198,62 +199,113 @@ impl State {
             ],
         });
 
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[
-                &highlights_bind_group_layout,
-                &font_bind_group_layout,
-                &grid_bind_group_layout,
-            ],
-            push_constant_ranges: &[wgpu::PushConstantRange {
-                stages: wgpu::ShaderStages::VERTEX,
-                range: 0..GridInfo::SIZE as u32,
-            }],
-        });
+        let glyph_shader = device.create_shader_module(include_wgsl!("glyph.wgsl"));
+        let cell_fill_shader = device.create_shader_module(include_wgsl!("cell_fill.wgsl"));
 
-        let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
+        let cell_fill_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Cell fill pipeline layout"),
+                bind_group_layouts: &[&highlights_bind_group_layout, &grid_bind_group_layout],
+                push_constant_ranges: &[wgpu::PushConstantRange {
+                    stages: wgpu::ShaderStages::VERTEX,
+                    range: 0..GridInfo::SIZE as u32,
+                }],
+            });
 
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "vs_main",
-                buffers: &[],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-            }),
-            // How to interpret vertices when converting to triangles
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview: None,
-        });
+        let cell_fill_render_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Cell fill render pipeline"),
+                layout: Some(&cell_fill_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &cell_fill_shader,
+                    entry_point: "vs_main",
+                    buffers: &[],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &cell_fill_shader,
+                    entry_point: "fs_main",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: config.format,
+                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                // How to interpret vertices when converting to triangles
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: Some(wgpu::Face::Back),
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    unclipped_depth: false,
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                multiview: None,
+            });
+
+        let glyph_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[
+                    &highlights_bind_group_layout,
+                    &grid_bind_group_layout,
+                    &font_bind_group_layout,
+                ],
+                push_constant_ranges: &[wgpu::PushConstantRange {
+                    stages: wgpu::ShaderStages::VERTEX,
+                    range: 0..GridInfo::SIZE as u32,
+                }],
+            });
+
+        let glyph_render_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Render pipeline"),
+                layout: Some(&glyph_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &glyph_shader,
+                    entry_point: "vs_main",
+                    buffers: &[],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &glyph_shader,
+                    entry_point: "fs_main",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: config.format,
+                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                // How to interpret vertices when converting to triangles
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: Some(wgpu::Face::Back),
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    unclipped_depth: false,
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                multiview: None,
+            });
 
         let window_handle = window.clone();
         let this = Arc::new(Self {
             font_cache,
             vertex_count: Mutex::new(0),
-            render_pipeline,
+            glyph_render_pipeline,
+            cell_fill_render_pipeline,
             font_bind_group,
             grid_bind_group_layout,
             window,
@@ -270,7 +322,10 @@ impl State {
                 b: 0.0,
                 a: 1.0,
             }),
-            highlights: Mutex::new(vec![]),
+            highlights: Mutex::new(vec![HighlightInfo {
+                fg: [0.0, 0.0, 0.0, 0.0],
+                bg: [0.0, 0.0, 0.0, 0.0],
+            }]),
             highlights_bind_group: Mutex::new(None),
             highlights_bind_group_layout,
         });
@@ -319,10 +374,20 @@ impl State {
 
         if let Some(grid_render) = grid_render.as_ref() {
             if let Some(highlights_bind_group) = highlights_bind_group.as_ref() {
-                render_pass.set_pipeline(&self.render_pipeline);
+                render_pass.set_pipeline(&self.cell_fill_render_pipeline);
                 render_pass.set_bind_group(0, &highlights_bind_group, &[]);
-                render_pass.set_bind_group(1, &self.font_bind_group, &[]);
-                render_pass.set_bind_group(2, &grid_render.bind_group, &[]);
+                render_pass.set_bind_group(1, &grid_render.bind_group, &[]);
+                render_pass.set_push_constants(
+                    wgpu::ShaderStages::VERTEX,
+                    0,
+                    cast_slice(&[grid_render.info]),
+                );
+                render_pass.draw(0..vertex_count, 0..1);
+
+                render_pass.set_pipeline(&self.glyph_render_pipeline);
+                render_pass.set_bind_group(0, &highlights_bind_group, &[]);
+                render_pass.set_bind_group(1, &grid_render.bind_group, &[]);
+                render_pass.set_bind_group(2, &self.font_bind_group, &[]);
                 render_pass.set_push_constants(
                     wgpu::ShaderStages::VERTEX,
                     0,
@@ -372,10 +437,10 @@ impl State {
         let bg_default = ui.default_colors.rgb_bg.unwrap_or(Rgb::new(0, 0, 0));
 
         let srgb = |n| (n as f32 / 255.0).powf(2.2);
-        let srgb = |c: Rgb| [srgb(c.r()), srgb(c.g()), srgb(c.b()), 0.0];
+        let srgb = |c: Rgb| [srgb(c.r()), srgb(c.g()), srgb(c.b()), 1.0];
         let mut highlights = self.highlights.lock().unwrap();
         for highlight in ui.highlights.iter() {
-            let i = *highlight.0 as usize;
+            let i = *highlight.0 as usize + 1;
             if i + 1 > highlights.len() {
                 highlights.resize(i + 1, HighlightInfo::default());
             }
@@ -422,7 +487,10 @@ impl State {
                 let glyph_index = match self.font_cache.lut.get(&id) {
                     Some(glyph) => glyph,
                     None => {
-                        glyph_info.push(GlyphInfo::default());
+                        glyph_info.push(GlyphInfo {
+                            glyph_index: 0,
+                            highlight_index: hl,
+                        });
                         continue;
                     }
                 };
