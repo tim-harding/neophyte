@@ -1,6 +1,6 @@
 struct GridCell {
-    color: vec4<f32>,
-    glyph_index: vec4<u32>,
+    glyph_index: u32,
+    highlight_index: u32,
 }
 
 struct GlyphInfo {
@@ -50,8 +50,6 @@ fn vs_main(
 ) -> VertexOutput {
     let grid_index = in_vertex_index / 6u;
     let grid_cell = grid_cells[grid_index];
-    let glyph_index = grid_cell.glyph_index.r;
-    let hl_index = grid_cell.glyph_index.g;
     let grid_coord = vec2<f32>(
         f32(grid_index % grid_info.grid_size.x),
         f32(grid_index / grid_info.grid_size.x),
@@ -60,12 +58,12 @@ fn vs_main(
         f32(in_vertex_index % 2u),
         f32(((in_vertex_index + 5u) % 6u) / 3u),
     );
-    let glyph_info = glyphs[glyph_index];
-    let hl_info = highlights[hl_index];
+    let glyph_info = glyphs[grid_cell.glyph_index];
+    let hl_info = highlights[grid_cell.highlight_index];
 
     var out: VertexOutput;
     out.color = hl_info.fg;
-    out.tex_index = glyph_index;
+    out.tex_index = grid_cell.glyph_index;
     out.tex_coord = tex_coord;
     out.clip_position = vec4<f32>(
         (

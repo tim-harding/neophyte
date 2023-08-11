@@ -418,37 +418,18 @@ impl State {
         let mut glyph_info = vec![];
         for (cell_line, hl_line) in grid.cells.rows().zip(grid.highlights.rows()) {
             for (c, hl) in cell_line.zip(hl_line) {
-                let (fg, _bg) = if let Some(hl) = ui.highlights.get(&hl) {
-                    (
-                        hl.rgb_attr.foreground.unwrap_or(fg_default),
-                        hl.rgb_attr.background.unwrap_or(bg_default),
-                    )
-                } else {
-                    (Rgb::WHITE, Rgb::BLACK)
-                };
-
-                let mul = [
-                    (fg.r() as f32 / 255.0).powf(2.2),
-                    (fg.g() as f32 / 255.0).powf(2.2),
-                    (fg.b() as f32 / 255.0).powf(2.2),
-                    1.0,
-                ];
-
                 let id = charmap.map(c);
                 let glyph_index = match self.font_cache.lut.get(&id) {
                     Some(glyph) => glyph,
                     None => {
-                        glyph_info.push(GlyphInfo {
-                            color: mul,
-                            texture_index: [0, 0, 0, 0],
-                        });
+                        glyph_info.push(GlyphInfo::default());
                         continue;
                     }
                 };
 
                 glyph_info.push(GlyphInfo {
-                    color: mul,
-                    texture_index: [*glyph_index as u32, hl, 0, 0],
+                    glyph_index: *glyph_index as u32,
+                    highlight_index: hl,
                 });
             }
         }
@@ -515,9 +496,8 @@ impl GridRender {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
 pub struct GlyphInfo {
-    color: [f32; 4],
-    // TODO: Do SOA layout so alignment doesn't take up a bunch of excess space
-    texture_index: [u32; 4],
+    glyph_index: u32,
+    highlight_index: u32,
 }
 
 #[repr(C)]
@@ -540,8 +520,4 @@ impl GridInfo {
 pub struct HighlightInfo {
     fg: [f32; 4],
     bg: [f32; 4],
-}
-
-impl HighlightInfo {
-    pub const SIZE: usize = std::mem::size_of::<Self>();
 }
