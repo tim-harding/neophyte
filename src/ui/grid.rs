@@ -3,7 +3,6 @@
 use crate::event::grid_line::Cell;
 use crate::event::hl_attr_define::Attributes;
 use crate::event::{Anchor, GridScroll, HlAttrDefine};
-use crate::rendering::state::GlyphVertex;
 use crate::ui::print::hl_attr_to_colorspec;
 use crate::util::vec2::Vec2;
 use std::collections::HashMap;
@@ -291,9 +290,4 @@ where
 pub struct CursorRenderInfo {
     pub hl: HighlightId,
     pub pos: Vec2<u64>,
-}
-
-#[derive(Debug, Copy, Clone, Default)]
-pub struct GlyphQuad {
-    vertices: [GlyphVertex; 4],
 }

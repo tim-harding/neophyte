@@ -10,10 +10,7 @@ use std::{
     num::NonZeroU32,
     sync::{mpsc::Receiver, Arc, Mutex},
 };
-use wgpu::{
-    include_wgsl,
-    util::{BufferInitDescriptor, DeviceExt},
-};
+use wgpu::{include_wgsl, util::DeviceExt};
 use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct State {
@@ -27,7 +24,6 @@ pub struct State {
     font: Font,
     font_bind_group: wgpu::BindGroup,
     render_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: Mutex<wgpu::Buffer>,
     clear_color: Mutex<wgpu::Color>,
     grid_render: Mutex<Option<GridRender>>,
     grid_bind_group_layout: wgpu::BindGroupLayout,
@@ -195,19 +191,13 @@ impl State {
 
         let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
 
-        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("Vertex buffer"),
-            contents: cast_slice(&[GlyphVertex::default(); 0]),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[GlyphVertex::desc()],
+                buffers: &[],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -252,7 +242,6 @@ impl State {
             size: Mutex::new(size),
             font,
             grid_render: Mutex::new(None),
-            vertex_buffer: Mutex::new(vertex_buffer),
             clear_color: Mutex::new(wgpu::Color {
                 r: 0.0,
                 g: 0.0,
@@ -287,7 +276,6 @@ impl State {
             });
 
         let grid_render = self.grid_render.lock().unwrap();
-        let vertex_buffer = self.vertex_buffer.lock().unwrap();
         let clear_color = *self.clear_color.lock().unwrap();
         let vertex_count = *self.vertex_count.lock().unwrap();
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -305,7 +293,6 @@ impl State {
 
         if let Some(grid_render) = grid_render.as_ref() {
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
             render_pass.set_bind_group(0, &self.font_bind_group, &[]);
             render_pass.set_bind_group(1, &grid_render.bind_group, &[]);
             render_pass.set_push_constants(
@@ -347,11 +334,8 @@ impl State {
         // TODO: Should only rebuild the pipeline as the result of a resize
 
         let size = *self.size.lock().unwrap();
-        let clip_x = |n| (n / size.width as f32) * 2.0 - 1.0;
-        let clip_y = |n| (n / size.height as f32) * -2.0 + 1.0;
         let font = self.font.as_ref();
         let charmap = font.charmap();
-        let mut vertices = vec![];
         let metrics = font.metrics(&[]).linear_scale(24.0);
         let advance = (metrics.average_width / metrics.units_per_em as f32).round();
 
@@ -365,11 +349,7 @@ impl State {
         };
         let mut glyph_info = vec![];
 
-        for (row_i, (cell_line, hl_line)) in
-            grid.cells.rows().zip(grid.highlights.rows()).enumerate()
-        {
-            let mut offset_x = 0.0;
-            let offset_y = row_i as f32 * 24.0;
+        for (cell_line, hl_line) in grid.cells.rows().zip(grid.highlights.rows()) {
             for (c, hl) in cell_line.zip(hl_line) {
                 let (fg, _bg) = if let Some(hl) = ui.highlights.get(&hl) {
                     (
@@ -391,47 +371,18 @@ impl State {
                 let glyph_index = match self.font_cache.lut.get(&id) {
                     Some(glyph) => glyph,
                     None => {
-                        vertices.extend_from_slice(&[GlyphVertex::default(); 6]);
                         glyph_info.push(GlyphInfo {
                             color: mul,
                             texture_index: [0, 0, 0, 0],
                         });
-                        offset_x += advance;
                         continue;
                     }
                 };
-                let info = &self.font_cache.info[*glyph_index];
-
-                let left = offset_x + info.placement_offset.x as f32;
-                let right = left + info.size.x as f32;
-                let top = offset_y - info.placement_offset.y as f32 + 24.0;
-                let bottom = top + info.size.y as f32;
-
-                let left = clip_x(left);
-                let right = clip_x(right);
-                let top = clip_y(top);
-                let bottom = clip_y(bottom);
 
                 glyph_info.push(GlyphInfo {
                     color: mul,
                     texture_index: [*glyph_index as u32, 0, 0, 0],
                 });
-
-                vertices.extend_from_slice(&[
-                    GlyphVertex {
-                        pos: [left, bottom],
-                    },
-                    GlyphVertex { pos: [right, top] },
-                    GlyphVertex { pos: [left, top] },
-                    GlyphVertex { pos: [right, top] },
-                    GlyphVertex {
-                        pos: [left, bottom],
-                    },
-                    GlyphVertex {
-                        pos: [right, bottom],
-                    },
-                ]);
-                offset_x += advance;
             }
         }
 
@@ -441,6 +392,8 @@ impl State {
             glyph_size: Vec2::new(advance as u32, 24),
         };
 
+        *self.vertex_count.lock().unwrap() = glyph_info.len() as u32 * 6;
+
         let pipeline = GridRender::new(
             &self.device,
             &self.grid_bind_group_layout,
@@ -448,33 +401,7 @@ impl State {
             grid_info,
         );
 
-        *self.vertex_buffer.lock().unwrap() =
-            self.device.create_buffer_init(&BufferInitDescriptor {
-                label: Some("Vertex buffer"),
-                contents: cast_slice(&vertices),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-
         *self.grid_render.lock().unwrap() = Some(pipeline);
-        *self.vertex_count.lock().unwrap() = vertices.len() as u32;
-    }
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
-pub struct GlyphVertex {
-    pos: [f32; 2],
-}
-
-impl GlyphVertex {
-    const ATTRIBS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x2];
-
-    pub fn desc() -> wgpu::VertexBufferLayout<'static> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &Self::ATTRIBS,
-        }
     }
 }
 

@@ -1,7 +1,3 @@
-struct VertexInput {
-    @location(0) position: vec2<f32>,
-}
-
 struct GridCell {
     color: vec4<f32>,
     glyph_index: vec4<u32>,
@@ -44,7 +40,6 @@ struct VertexOutput {
 @vertex
 fn vs_main(
     @builtin(vertex_index) in_vertex_index: u32,
-    model: VertexInput,
 ) -> VertexOutput {
     let grid_index = in_vertex_index / 6u;
     let grid_cell = grid_cells[grid_index];
