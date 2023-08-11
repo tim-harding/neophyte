@@ -56,7 +56,7 @@ impl State {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features: wgpu::Features::TEXTURE_BINDING_ARRAY | wgpu::Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING | wgpu::Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+                    features: wgpu::Features::TEXTURE_BINDING_ARRAY | wgpu::Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING | wgpu::Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING | wgpu::Features::PUSH_CONSTANTS,
                     limits: adapter.limits(),
                 },
                 None,
@@ -185,7 +185,10 @@ impl State {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
             bind_group_layouts: &[&font_bind_group_layout, &grid_bind_group_layout],
-            push_constant_ranges: &[],
+            push_constant_ranges: &[wgpu::PushConstantRange {
+                stages: wgpu::ShaderStages::FRAGMENT,
+                range: 0..4,
+            }],
         });
 
         let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
@@ -303,6 +306,7 @@ impl State {
             render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
             render_pass.set_bind_group(0, &self.font_bind_group, &[]);
             render_pass.set_bind_group(1, &grid_render.bind_group, &[]);
+            render_pass.set_push_constants(wgpu::ShaderStages::FRAGMENT, 0, &0.5f32.to_le_bytes());
             render_pass.draw(0..vertex_count, 0..1);
         }
         drop(render_pass);

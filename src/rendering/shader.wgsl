@@ -20,6 +20,7 @@ var glyph_sampler: sampler;
 var<storage, read> glyphs: array<GlyphInfo>;
 @group(1) @binding(0)
 var<storage, read> grid_cells: array<GridCell>;
+var<push_constant> alpha_mul: f32;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
@@ -53,5 +54,5 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         in.tex_coord,
         0.0
     );
-    return vec4<f32>(in.color, sample.r);
+    return vec4<f32>(in.color, sample.r * alpha_mul);
 }
