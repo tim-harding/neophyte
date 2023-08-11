@@ -15,3 +15,6 @@ winit = "0.28.6"
 wgpu = "0.17.0"
 pollster = "0.3.0"
 bytemuck = { version = "1.13.1", features = ["derive"] }
+
+[patch.crates-io]
+naga = { git = "https://github.com/gfx-rs/naga" }

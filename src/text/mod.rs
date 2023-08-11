@@ -1,4 +1,4 @@
-pub mod atlas;
+pub mod cache;
 pub mod font;
 
 use crate::text::font::Font;

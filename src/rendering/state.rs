@@ -1,11 +1,13 @@
 use super::texture::Texture;
 use crate::{
     event::hl_attr_define::Rgb,
-    text::{atlas::FontAtlas, font::Font},
+    text::{cache::FontCache, font::Font},
     ui::Ui,
-    util::vec2::Vec2,
 };
-use std::sync::{mpsc::Receiver, Arc, Mutex};
+use std::{
+    num::NonZeroU32,
+    sync::{mpsc::Receiver, Arc, Mutex},
+};
 use wgpu::{
     include_wgsl,
     util::{BufferInitDescriptor, DeviceExt},
@@ -19,14 +21,14 @@ pub struct State {
     config: Mutex<wgpu::SurfaceConfiguration>,
     size: Mutex<PhysicalSize<u32>>,
     window: Arc<Window>,
-    atlas: FontAtlas,
+    font_cache: FontCache,
     font: Font,
+    font_bind_group: wgpu::BindGroup,
+    render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: Mutex<wgpu::Buffer>,
     clear_color: Mutex<wgpu::Color>,
     grid_render: Mutex<Option<GridRender>>,
     grid_bind_group_layout: wgpu::BindGroupLayout,
-    font_bind_group: wgpu::BindGroup,
-    render_pipeline: wgpu::RenderPipeline,
     vertex_count: Mutex<u32>,
 }
 
@@ -54,8 +56,8 @@ impl State {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features: wgpu::Features::empty(),
-                    limits: wgpu::Limits::default(),
+                    features: wgpu::Features::TEXTURE_BINDING_ARRAY | wgpu::Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING | wgpu::Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+                    limits: adapter.limits(),
                 },
                 None,
             )
@@ -81,23 +83,53 @@ impl State {
         };
         surface.configure(&device, &config);
 
-        let atlas = FontAtlas::from_font(font.as_ref(), 24.0);
-        let atlas_texture = Texture::new(
-            &device,
-            &queue,
-            atlas.atlas_data(),
-            Vec2::new(atlas.size() as u32, atlas.size() as u32),
-        );
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("Texture sampler"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+
+        let font_cache = FontCache::from_font(font.as_ref(), 24.0);
+        let textures: Vec<_> = font_cache
+            .data
+            .iter()
+            .zip(font_cache.info.iter())
+            .map(|(data, info)| Texture::new(&device, &queue, data, info.size))
+            .collect();
+
+        let views: Vec<_> = textures.iter().map(|texture| &texture.view).collect();
 
         let font_info_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Font info buffer"),
-            contents: bytemuck::cast_slice(atlas.glyph_info()),
+            contents: bytemuck::cast_slice(font_cache.info.as_slice()),
             usage: wgpu::BufferUsages::STORAGE,
         });
 
+        let grid_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Grid bind group layout"),
+
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
+
+        let tex_count = Some(NonZeroU32::new(textures.len() as u32).unwrap());
         let font_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Font bind group layout"),
+                label: Some("Texture bind group layout"),
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
@@ -107,13 +139,13 @@ impl State {
                             view_dimension: wgpu::TextureViewDimension::D2,
                             multisampled: false,
                         },
-                        count: None,
+                        count: tex_count,
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
+                        count: tex_count,
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 2,
@@ -128,32 +160,17 @@ impl State {
                 ],
             });
 
-        let grid_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Grid bind group layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            });
-
         let font_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Font bind group"),
             layout: &font_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&atlas_texture.view),
+                    resource: wgpu::BindingResource::TextureViewArray(views.as_slice()),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&atlas_texture.sampler),
+                    resource: wgpu::BindingResource::Sampler(&sampler),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
@@ -218,17 +235,17 @@ impl State {
 
         let window_handle = window.clone();
         let this = Arc::new(Self {
-            grid_bind_group_layout,
+            font_cache,
             vertex_count: Mutex::new(0),
             render_pipeline,
             font_bind_group,
+            grid_bind_group_layout,
             window,
             surface,
             device,
             queue,
             config: Mutex::new(config),
             size: Mutex::new(size),
-            atlas,
             font,
             grid_render: Mutex::new(None),
             vertex_buffer: Mutex::new(vertex_buffer),
@@ -361,18 +378,20 @@ impl State {
                     1.0,
                 ];
 
-                glyph_info.extend_from_slice(&mul);
-
                 let id = charmap.map(c);
-                let info_index = match self.atlas.index_for_glyph(id) {
+                let glyph_index = match self.font_cache.lut.get(&id) {
                     Some(glyph) => glyph,
                     None => {
                         vertices.extend_from_slice(&[GlyphVertex::default(); 6]);
+                        glyph_info.push(GlyphInfo {
+                            color: mul,
+                            texture_index: [0, 0, 0, 0],
+                        });
                         offset_x += advance;
                         continue;
                     }
                 };
-                let info = &self.atlas.glyph_info()[info_index];
+                let info = &self.font_cache.info[*glyph_index];
 
                 let left = offset_x + info.placement_offset.x as f32;
                 let right = left + info.size.x as f32;
@@ -384,37 +403,23 @@ impl State {
                 let top = clip_y(top);
                 let bottom = clip_y(bottom);
 
-                let u_min = info.atlas_origin.x as f32 / self.atlas.size() as f32;
-                let u_max =
-                    (info.atlas_origin.x as f32 + info.size.x as f32) / self.atlas.size() as f32;
-                let v_min = info.atlas_origin.y as f32 / self.atlas.size() as f32;
-                let v_max =
-                    (info.atlas_origin.y as f32 + info.size.y as f32) / self.atlas.size() as f32;
+                glyph_info.push(GlyphInfo {
+                    color: mul,
+                    texture_index: [*glyph_index as u32, 0, 0, 0],
+                });
 
                 vertices.extend_from_slice(&[
                     GlyphVertex {
                         pos: [left, bottom],
-                        tex: [u_min, v_max],
                     },
-                    GlyphVertex {
-                        pos: [right, top],
-                        tex: [u_max, v_min],
-                    },
-                    GlyphVertex {
-                        pos: [left, top],
-                        tex: [u_min, v_min],
-                    },
-                    GlyphVertex {
-                        pos: [right, top],
-                        tex: [u_max, v_min],
-                    },
+                    GlyphVertex { pos: [right, top] },
+                    GlyphVertex { pos: [left, top] },
+                    GlyphVertex { pos: [right, top] },
                     GlyphVertex {
                         pos: [left, bottom],
-                        tex: [u_min, v_max],
                     },
                     GlyphVertex {
                         pos: [right, bottom],
-                        tex: [u_max, v_max],
                     },
                 ]);
                 offset_x += advance;
@@ -439,12 +444,10 @@ impl State {
 #[derive(Debug, Clone, Copy, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GlyphVertex {
     pos: [f32; 2],
-    tex: [f32; 2],
 }
 
 impl GlyphVertex {
-    const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
+    const ATTRIBS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x2];
 
     pub fn desc() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
@@ -464,7 +467,7 @@ impl GridRender {
     pub fn new(
         device: &wgpu::Device,
         bind_group_layout: &wgpu::BindGroupLayout,
-        data: Vec<f32>,
+        data: Vec<GlyphInfo>,
     ) -> Self {
         let info_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("info buffer"),
@@ -473,7 +476,7 @@ impl GridRender {
         });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Grid bind group"),
+            label: Some("glyph info bind group"),
             layout: &bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
@@ -484,6 +487,7 @@ impl GridRender {
                 }),
             }],
         });
+
         Self {
             bind_group,
             info_buffer,
@@ -494,5 +498,7 @@ impl GridRender {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GlyphInfo {
-    color: [f32; 3],
+    color: [f32; 4],
+    // TODO: Do SOA layout so alignment doesn't take up a bunch of excess space
+    texture_index: [u32; 4],
 }
