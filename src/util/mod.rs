@@ -1,8 +1,6 @@
-mod double_buffer;
 mod parse;
 pub mod vec2;
 
-pub use double_buffer::DoubleBuffer;
 pub use parse::Parse;
 
 use rmpv::Value;

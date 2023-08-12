@@ -1,44 +1,28 @@
-use super::texture::Texture;
-use crate::{
-    event::hl_attr_define::Rgb,
-    text::{
-        cache::FontCache,
-        font::{metrics, Font},
-    },
-    ui::Ui,
-    util::vec2::Vec2,
-};
-use bytemuck::{cast_slice, Pod, Zeroable};
-use std::{
-    num::NonZeroU32,
-    sync::{mpsc::Receiver, Arc, Mutex},
-};
+use super::{state_read::StateRead, state_write::StateWrite};
+use super::{state_surface_config::StateSurfaceConfig, texture::Texture};
+use crate::text::cache::FontCache;
+use crate::text::font::Font;
+use crate::ui::Ui;
+use crate::util::vec2::Vec2;
+use bytemuck::cast_slice;
+use bytemuck::{Pod, Zeroable};
+use std::num::NonZeroU32;
+use std::sync::{Arc, RwLock};
 use wgpu::{include_wgsl, util::DeviceExt};
-use winit::{dpi::PhysicalSize, window::Window};
+use winit::dpi::PhysicalSize;
+use winit::window::Window;
 
 pub struct State {
-    surface: wgpu::Surface,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    config: Mutex<wgpu::SurfaceConfiguration>,
-    size: Mutex<PhysicalSize<u32>>,
-    window: Arc<Window>,
-    font_cache: FontCache,
-    font: Font,
-    font_bind_group: wgpu::BindGroup,
-    glyph_render_pipeline: wgpu::RenderPipeline,
-    cell_fill_render_pipeline: wgpu::RenderPipeline,
-    clear_color: Mutex<wgpu::Color>,
-    grid_render: Mutex<Option<GridRender>>,
-    grid_bind_group_layout: wgpu::BindGroupLayout,
-    vertex_count: Mutex<u32>,
-    highlights: Mutex<Vec<HighlightInfo>>,
-    highlights_bind_group: Mutex<Option<wgpu::BindGroup>>,
-    highlights_bind_group_layout: wgpu::BindGroupLayout,
+    surface_config: StateSurfaceConfig,
+    constant: Arc<StateConstant>,
+    read: Arc<RwLock<Option<StateRead>>>,
+    write: StateWrite,
 }
 
 impl State {
-    pub async fn new(window: Arc<Window>, rx: Receiver<Ui>, font: Font) -> Arc<Self> {
+    pub async fn new(window: Arc<Window>, font: Font) -> Self {
+        let font_cache = FontCache::from_font(font.as_ref(), 24.0);
+
         let size = window.inner_size();
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -99,7 +83,6 @@ impl State {
             ..Default::default()
         });
 
-        let font_cache = FontCache::from_font(font.as_ref(), 24.0);
         let textures: Vec<_> = font_cache
             .data
             .iter()
@@ -108,42 +91,6 @@ impl State {
             .collect();
 
         let views: Vec<_> = textures.iter().map(|texture| &texture.view).collect();
-
-        let font_info_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Font info buffer"),
-            contents: cast_slice(font_cache.info.as_slice()),
-            usage: wgpu::BufferUsages::STORAGE,
-        });
-
-        let highlights_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Highlights bind group layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            });
-
-        let grid_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Grid bind group layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            });
 
         let tex_count = Some(NonZeroU32::new(textures.len() as u32).unwrap());
         let font_bind_group_layout =
@@ -179,31 +126,35 @@ impl State {
                 ],
             });
 
-        let font_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Font bind group"),
-            layout: &font_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
+        let grid_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Grid bind group layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureViewArray(views.as_slice()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &font_info_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                },
-            ],
-        });
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
 
-        let glyph_shader = device.create_shader_module(include_wgsl!("glyph.wgsl"));
-        let cell_fill_shader = device.create_shader_module(include_wgsl!("cell_fill.wgsl"));
+        let highlights_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Highlights bind group layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
 
         let cell_fill_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -214,6 +165,9 @@ impl State {
                     range: 0..GridInfo::SIZE as u32,
                 }],
             });
+
+        let glyph_shader = device.create_shader_module(include_wgsl!("glyph.wgsl"));
+        let cell_fill_shader = device.create_shader_module(include_wgsl!("cell_fill.wgsl"));
 
         let cell_fill_render_pipeline =
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -251,6 +205,35 @@ impl State {
                 },
                 multiview: None,
             });
+
+        let font_info_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Font info buffer"),
+            contents: cast_slice(font_cache.info.as_slice()),
+            usage: wgpu::BufferUsages::STORAGE,
+        });
+
+        let font_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Font bind group"),
+            layout: &font_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureViewArray(views.as_slice()),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &font_info_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
+            ],
+        });
 
         let glyph_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -303,281 +286,92 @@ impl State {
                 multiview: None,
             });
 
-        let window_handle = window.clone();
-        let this = Arc::new(Self {
-            font_cache,
-            vertex_count: Mutex::new(0),
-            glyph_render_pipeline,
-            cell_fill_render_pipeline,
-            font_bind_group,
-            grid_bind_group_layout,
-            window,
-            surface,
-            device,
-            queue,
-            config: Mutex::new(config),
-            size: Mutex::new(size),
-            font,
-            grid_render: Mutex::new(None),
-            clear_color: Mutex::new(wgpu::Color {
-                r: 0.0,
-                g: 0.0,
-                b: 0.0,
-                a: 1.0,
+        Self {
+            surface_config: StateSurfaceConfig::new(config),
+            constant: Arc::new(StateConstant {
+                device,
+                queue,
+                surface,
+                grid_bind_group_layout,
+                highlights_bind_group_layout,
+                cell_fill_render_pipeline,
+                glyph_render_pipeline,
+                font_bind_group,
             }),
-            highlights: Mutex::new(vec![HighlightInfo {
-                fg: [0.0, 0.0, 0.0, 0.0],
-                bg: [0.0, 0.0, 0.0, 0.0],
-            }]),
-            highlights_bind_group: Mutex::new(None),
-            highlights_bind_group_layout,
-        });
-
-        {
-            let this = this.clone();
-            std::thread::spawn(move || {
-                while let Ok(ui) = rx.recv() {
-                    this.update_text(ui);
-                    window_handle.request_redraw();
-                }
-            });
+            read: Arc::new(RwLock::new(None)),
+            write: StateWrite::new(font, font_cache),
         }
+    }
 
-        this
+    pub fn update_text(&mut self, ui: Ui) {
+        let read = self
+            .write
+            .update_text(ui, &self.constant, self.surface_config.size());
+        // Separate statement so that the lock is taken as late as possible
+        *self.read.write().unwrap() = Some(read);
+    }
+
+    pub fn winit_state(&self) -> StateWinit {
+        StateWinit {
+            surface_config: self.surface_config.clone(),
+            constant: self.constant.clone(),
+            read: self.read.clone(),
+        }
+    }
+}
+
+pub struct StateConstant {
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
+    pub surface: wgpu::Surface,
+    pub grid_bind_group_layout: wgpu::BindGroupLayout,
+    pub highlights_bind_group_layout: wgpu::BindGroupLayout,
+    pub cell_fill_render_pipeline: wgpu::RenderPipeline,
+    pub glyph_render_pipeline: wgpu::RenderPipeline,
+    pub font_bind_group: wgpu::BindGroup,
+}
+
+pub struct StateWinit {
+    surface_config: StateSurfaceConfig,
+    constant: Arc<StateConstant>,
+    read: Arc<RwLock<Option<StateRead>>>,
+}
+
+impl StateWinit {
+    pub fn resize(&self, size: PhysicalSize<u32>) {
+        self.surface_config.resize(size, self.constant.as_ref());
     }
 
     pub fn render(&self) -> Result<(), wgpu::SurfaceError> {
-        let output = self.surface.get_current_texture()?;
-        // Controls how the render code interacts with the texture
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render encoder"),
-            });
-
-        let grid_render = self.grid_render.lock().unwrap();
-        let highlights_bind_group = self.highlights_bind_group.lock().unwrap();
-        let clear_color = *self.clear_color.lock().unwrap();
-        let vertex_count = *self.vertex_count.lock().unwrap();
-        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Render pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &view,
-                resolve_target: None, // No multisampling
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(clear_color),
-                    store: true,
-                },
-            })],
-            depth_stencil_attachment: None,
-        });
-
-        if let Some(grid_render) = grid_render.as_ref() {
-            if let Some(highlights_bind_group) = highlights_bind_group.as_ref() {
-                render_pass.set_pipeline(&self.cell_fill_render_pipeline);
-                render_pass.set_bind_group(0, &highlights_bind_group, &[]);
-                render_pass.set_bind_group(1, &grid_render.bind_group, &[]);
-                render_pass.set_push_constants(
-                    wgpu::ShaderStages::VERTEX,
-                    0,
-                    cast_slice(&[grid_render.info]),
-                );
-                render_pass.draw(0..vertex_count, 0..1);
-
-                render_pass.set_pipeline(&self.glyph_render_pipeline);
-                render_pass.set_bind_group(0, &highlights_bind_group, &[]);
-                render_pass.set_bind_group(1, &grid_render.bind_group, &[]);
-                render_pass.set_bind_group(2, &self.font_bind_group, &[]);
-                render_pass.set_push_constants(
-                    wgpu::ShaderStages::VERTEX,
-                    0,
-                    cast_slice(&[grid_render.info]),
-                );
-                render_pass.draw(0..vertex_count, 0..1);
-            }
-        }
-        drop(render_pass);
-
-        self.queue.submit(std::iter::once(encoder.finish()));
-        output.present();
-        Ok(())
-    }
-
-    pub fn resize(&self, new_size: PhysicalSize<u32>) {
-        if new_size.width > 0 && new_size.height > 0 {
-            *self.size.lock().unwrap() = new_size;
-            let mut lock = self.config.lock().unwrap();
-            lock.width = new_size.width;
-            lock.height = new_size.height;
-            self.surface.configure(&self.device, &*lock);
+        let read = self.read.read().unwrap();
+        if let Some(read) = read.as_ref() {
+            read.render(self.constant.as_ref())
+        } else {
+            Ok(())
         }
     }
 
-    pub fn window(&self) -> &Window {
-        &self.window
-    }
-
-    pub fn size(&self) -> PhysicalSize<u32> {
-        *self.size.lock().unwrap()
-    }
-
-    pub fn update(&self) {}
-
-    fn update_text(&self, ui: Ui) {
-        let grid = ui.composite();
-        // TODO: Should only rebuild the pipeline as the result of a resize
-
-        let size = *self.size.lock().unwrap();
-        let font = self.font.as_ref();
-        let charmap = font.charmap();
-        let metrics = metrics(font, 24.0);
-
-        let fg_default = ui.default_colors.rgb_fg.unwrap_or(Rgb::new(255, 255, 255));
-        let bg_default = ui.default_colors.rgb_bg.unwrap_or(Rgb::new(0, 0, 0));
-
-        let srgb = |n| (n as f32 / 255.0).powf(2.2);
-        let srgb = |c: Rgb| [srgb(c.r()), srgb(c.g()), srgb(c.b()), 1.0];
-        let mut highlights = self.highlights.lock().unwrap();
-        for highlight in ui.highlights.iter() {
-            let i = *highlight.0 as usize;
-            if i + 1 > highlights.len() {
-                highlights.resize(i + 1, HighlightInfo::default());
-            }
-            highlights[i] = HighlightInfo {
-                fg: srgb(highlight.1.rgb_attr.foreground.unwrap_or(fg_default)),
-                bg: srgb(highlight.1.rgb_attr.background.unwrap_or(bg_default)),
-            };
-        }
-
-        let highlights_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Highlight buffer"),
-                contents: cast_slice(highlights.as_slice()),
-                usage: wgpu::BufferUsages::STORAGE,
-            });
-
-        *self.highlights_bind_group.lock().unwrap() =
-            Some(self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("Highlights bind group"),
-                layout: &self.highlights_bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &highlights_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                }],
-            }));
-
-        let srgb = |n| (n as f64 / 255.0).powf(2.2);
-        *self.clear_color.lock().unwrap() = wgpu::Color {
-            r: srgb(bg_default.r()),
-            g: srgb(bg_default.g()),
-            b: srgb(bg_default.b()),
-            a: 1.0,
-        };
-
-        let mut glyph_info = vec![];
-        for (cell_line, hl_line) in grid.cells.rows().zip(grid.highlights.rows()) {
-            for (c, hl) in cell_line.zip(hl_line) {
-                let id = charmap.map(c);
-                let glyph_index = match self.font_cache.lut.get(&id) {
-                    Some(glyph) => glyph,
-                    None => {
-                        glyph_info.push(GlyphInfo {
-                            glyph_index: 0,
-                            highlight_index: hl,
-                        });
-                        continue;
-                    }
-                };
-
-                glyph_info.push(GlyphInfo {
-                    glyph_index: *glyph_index as u32,
-                    highlight_index: hl,
-                });
-            }
-        }
-
-        let grid_info = GridInfo {
-            surface_size: Vec2::new(size.width, size.height),
-            cell_size: Vec2::new(metrics.advance as u32, metrics.cell_height()),
-            grid_width: grid.size().x as u32,
-            baseline: metrics.ascent as u32,
-        };
-
-        *self.vertex_count.lock().unwrap() = glyph_info.len() as u32 * 6;
-
-        let pipeline = GridRender::new(
-            &self.device,
-            &self.grid_bind_group_layout,
-            glyph_info,
-            grid_info,
-        );
-
-        *self.grid_render.lock().unwrap() = Some(pipeline);
-    }
-}
-
-pub struct GridRender {
-    pub bind_group: wgpu::BindGroup,
-    pub info_buffer: wgpu::Buffer,
-    pub info: GridInfo,
-}
-
-impl GridRender {
-    pub fn new(
-        device: &wgpu::Device,
-        bind_group_layout: &wgpu::BindGroupLayout,
-        data: Vec<GlyphInfo>,
-        info: GridInfo,
-    ) -> Self {
-        let info_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("info buffer"),
-            usage: wgpu::BufferUsages::STORAGE,
-            contents: cast_slice(&data),
-        });
-
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("glyph info bind group"),
-            layout: &bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &info_buffer,
-                    offset: 0,
-                    size: None,
-                }),
-            }],
-        });
-
-        Self {
-            bind_group,
-            info_buffer,
-            info,
-        }
+    pub fn rebuild_swap_chain(&self) {
+        let size = self.surface_config.size();
+        let size = PhysicalSize::new(size.x, size.y);
+        self.surface_config.resize(size, self.constant.as_ref())
     }
 }
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
 pub struct GlyphInfo {
-    glyph_index: u32,
-    highlight_index: u32,
+    pub glyph_index: u32,
+    pub highlight_index: u32,
 }
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
 pub struct GridInfo {
-    surface_size: Vec2<u32>,
-    cell_size: Vec2<u32>,
-    grid_width: u32,
-    baseline: u32,
+    pub surface_size: Vec2<u32>,
+    pub cell_size: Vec2<u32>,
+    pub grid_width: u32,
+    pub baseline: u32,
 }
 
 impl GridInfo {
@@ -587,6 +381,6 @@ impl GridInfo {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
 pub struct HighlightInfo {
-    fg: [f32; 4],
-    bg: [f32; 4],
+    pub fg: [f32; 4],
+    pub bg: [f32; 4],
 }
