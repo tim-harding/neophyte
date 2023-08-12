@@ -21,7 +21,11 @@ pub struct State {
 
 impl State {
     pub async fn new(window: Arc<Window>, font: Font) -> Self {
-        let font_cache = FontCache::from_font(font.as_ref(), 24.0);
+        let mut font_cache = FontCache::new();
+        let font_ref = font.as_ref();
+        font_ref.charmap().enumerate(|_c, id| {
+            font_cache.get(font_ref, 24.0, id);
+        });
 
         let size = window.inner_size();
 
