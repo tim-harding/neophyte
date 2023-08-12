@@ -4,12 +4,14 @@ mod texture;
 use self::state::State;
 use crate::{
     session::Neovim,
-    text::font::{advance, Font},
+    text::font::{metrics, Font},
     ui::Ui,
 };
 use std::sync::{mpsc::Receiver, Arc};
+use swash::FontRef;
 use wgpu::SurfaceError;
 use winit::{
+    dpi::PhysicalSize,
     event::{ElementState, Event, KeyboardInput, ModifiersState, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
@@ -21,6 +23,7 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
     let state = State::new(window.clone(), rx, font.clone()).await;
     let mut modifiers = ModifiersState::default();
+    let mut scale_factor = 1.0;
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
             window_id,
@@ -168,25 +171,27 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
             }
 
             WindowEvent::Resized(physical_size) => {
-                state.resize(*physical_size);
-                neovim.ui_try_resize_grid(
-                    1,
-                    physical_size.width as u64 / advance(font.as_ref(), 24.0) as u64,
-                    physical_size.height as u64 / 24,
-                )
+                resize(
+                    &state,
+                    scale_factor,
+                    *physical_size,
+                    &mut neovim,
+                    font.as_ref(),
+                );
             }
 
             WindowEvent::ScaleFactorChanged {
                 new_inner_size,
-                scale_factor,
+                scale_factor: new_scale_factor,
             } => {
-                state.resize(**new_inner_size);
-                let cell_height = 24.0 * *scale_factor as f32;
-                neovim.ui_try_resize_grid(
-                    1,
-                    new_inner_size.width as u64 / advance(font.as_ref(), cell_height) as u64,
-                    new_inner_size.height as u64 / cell_height as u64,
-                )
+                scale_factor = *new_scale_factor as f32;
+                resize(
+                    &state,
+                    scale_factor,
+                    **new_inner_size,
+                    &mut neovim,
+                    font.as_ref(),
+                );
             }
 
             WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
@@ -206,4 +211,14 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
 
         _ => {}
     })
+}
+
+fn resize(state: &State, scale: f32, size: PhysicalSize<u32>, neovim: &mut Neovim, font: FontRef) {
+    state.resize(size);
+    let metrics = metrics(font, 24.0 * scale);
+    neovim.ui_try_resize_grid(
+        1,
+        size.width as u64 / metrics.advance as u64,
+        size.height as u64 / metrics.cell_height() as u64,
+    )
 }

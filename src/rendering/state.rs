@@ -1,7 +1,10 @@
 use super::texture::Texture;
 use crate::{
     event::hl_attr_define::Rgb,
-    text::{cache::FontCache, font::Font},
+    text::{
+        cache::FontCache,
+        font::{metrics, Font},
+    },
     ui::Ui,
     util::vec2::Vec2,
 };
@@ -430,8 +433,7 @@ impl State {
         let size = *self.size.lock().unwrap();
         let font = self.font.as_ref();
         let charmap = font.charmap();
-        let metrics = font.metrics(&[]).linear_scale(24.0);
-        let advance = (metrics.average_width / metrics.units_per_em as f32).round();
+        let metrics = metrics(font, 24.0);
 
         let fg_default = ui.default_colors.rgb_fg.unwrap_or(Rgb::new(255, 255, 255));
         let bg_default = ui.default_colors.rgb_bg.unwrap_or(Rgb::new(0, 0, 0));
@@ -440,7 +442,7 @@ impl State {
         let srgb = |c: Rgb| [srgb(c.r()), srgb(c.g()), srgb(c.b()), 1.0];
         let mut highlights = self.highlights.lock().unwrap();
         for highlight in ui.highlights.iter() {
-            let i = *highlight.0 as usize + 1;
+            let i = *highlight.0 as usize;
             if i + 1 > highlights.len() {
                 highlights.resize(i + 1, HighlightInfo::default());
             }
@@ -504,8 +506,9 @@ impl State {
 
         let grid_info = GridInfo {
             surface_size: Vec2::new(size.width, size.height),
-            grid_size: grid.size().into(),
-            glyph_size: Vec2::new(advance as u32, 24),
+            cell_size: Vec2::new(metrics.advance as u32, metrics.cell_height()),
+            grid_width: grid.size().x as u32,
+            baseline: metrics.ascent as u32,
         };
 
         *self.vertex_count.lock().unwrap() = glyph_info.len() as u32 * 6;
@@ -571,12 +574,10 @@ pub struct GlyphInfo {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
 pub struct GridInfo {
-    // The dimensions of the texture we're drawing to
     surface_size: Vec2<u32>,
-    // The dimensions of the Neovim grid
-    grid_size: Vec2<u32>,
-    // The dimensions of a single glyph. (font_height, advance)
-    glyph_size: Vec2<u32>,
+    cell_size: Vec2<u32>,
+    grid_width: u32,
+    baseline: u32,
 }
 
 impl GridInfo {

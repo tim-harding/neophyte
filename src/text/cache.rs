@@ -1,14 +1,10 @@
-#![allow(unused)]
-
 use crate::util::vec2::Vec2;
+use bytemuck::{Pod, Zeroable};
 use std::collections::HashMap;
 use swash::{
-    scale::{image::Image, Render, ScaleContext, Source, StrikeWith},
-    zeno::Placement,
+    scale::{Render, ScaleContext, Source, StrikeWith},
     FontRef, GlyphId,
 };
-
-use super::font::advance;
 
 // TODO: Cache glyphs lazily
 
@@ -28,11 +24,6 @@ impl FontCache {
         let mut scale_context = ScaleContext::new();
         let mut scaler = scale_context.builder(font).size(size).hint(true).build();
         out.data.push(vec![0]);
-        out.data.push(vec![1]);
-        out.info.push(GlyphInfo {
-            size: Vec2::new(1, 1),
-            placement_offset: Vec2::default(),
-        });
         out.info.push(GlyphInfo {
             size: Vec2::new(1, 1),
             placement_offset: Vec2::default(),
@@ -60,13 +51,8 @@ impl FontCache {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct GlyphInfo {
     pub size: Vec2<u32>,
     pub placement_offset: Vec2<i32>,
-}
-
-pub struct GlyphEntry {
-    pub placement: Placement,
-    pub index: u32,
 }

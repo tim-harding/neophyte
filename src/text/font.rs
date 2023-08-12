@@ -30,9 +30,29 @@ impl Font {
     }
 }
 
-pub fn advance(font: FontRef, size: f32) -> f32 {
-    let metrics = font.metrics(&[]).linear_scale(size);
-    metrics.average_width / metrics.units_per_em as f32
+// TODO: Store and materialize metrics
+pub fn metrics(font: FontRef, size: f32) -> Metrics {
+    let metrics = font.metrics(&[]).scale(size);
+    Metrics {
+        advance: metrics.average_width,
+        ascent: metrics.ascent,
+        descent: metrics.descent,
+        leading: metrics.leading,
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Metrics {
+    pub advance: f32,
+    pub ascent: f32,
+    pub descent: f32,
+    pub leading: f32,
+}
+
+impl Metrics {
+    pub fn cell_height(&self) -> u32 {
+        (self.ascent + self.descent + self.leading).ceil() as u32
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

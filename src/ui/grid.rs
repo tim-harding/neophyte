@@ -138,8 +138,7 @@ impl Grid {
         for cell in cells {
             let c = cell.text.chars().into_iter().next().unwrap();
             if let Some(hl_id) = cell.hl_id {
-                // Zero is reserved as the null highlight
-                highlight = hl_id as HighlightId + 1;
+                highlight = hl_id as HighlightId;
             }
             // TODO: Skip iterations for lines that won't be copied
             if let Some(repeat) = cell.repeat {

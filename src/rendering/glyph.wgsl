@@ -12,12 +12,10 @@ struct GlyphInfo {
 
 // TODO: Maybe store these as f32 to avoid casting in the shader
 struct GridInfo {
-    // The dimensions of the texture we're drawing to
     surface_size: vec2<u32>,
-    // The dimensions of the Neovim grid
-    grid_size: vec2<u32>,
-    // The dimensions of a single glyph. (font_height, advance)
-    glyph_size: vec2<u32>,
+    cell_size: vec2<u32>,
+    grid_width: u32,
+    baseline: u32,
 }
 
 struct HighlightInfo {
@@ -51,8 +49,8 @@ fn vs_main(
     let grid_index = in_vertex_index / 6u;
     let grid_cell = grid_cells[grid_index];
     let grid_coord = vec2<f32>(
-        f32(grid_index % grid_info.grid_size.x),
-        f32(grid_index / grid_info.grid_size.x),
+        f32(grid_index % grid_info.grid_width),
+        f32(grid_index / grid_info.grid_width),
     );
     let tex_coord = vec2<f32>(
         f32(in_vertex_index % 2u),
@@ -67,10 +65,10 @@ fn vs_main(
     out.tex_coord = tex_coord;
     out.clip_position = vec4<f32>(
         (
-            grid_coord * vec2<f32>(grid_info.glyph_size) + 
+            grid_coord * vec2<f32>(grid_info.cell_size) + 
             tex_coord * vec2<f32>(glyph_info.size) +
             vec2<f32>(glyph_info.placement_offset) * vec2<f32>(1.0, -1.0) +
-            vec2<f32>(0.0, 24.0)
+            vec2<f32>(0.0, f32(grid_info.baseline))
         ) / vec2<f32>(grid_info.surface_size) * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
         0.0, 
         1.0
