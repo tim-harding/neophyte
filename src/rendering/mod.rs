@@ -123,6 +123,7 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
                         VirtualKeyCode::F22 => "F22",
                         VirtualKeyCode::F23 => "F23",
                         VirtualKeyCode::F24 => "F24",
+                        VirtualKeyCode::Back => "BS",
                         VirtualKeyCode::Home => "Home",
                         VirtualKeyCode::Delete => "Del",
                         VirtualKeyCode::End => "End",
