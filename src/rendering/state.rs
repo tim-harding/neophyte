@@ -1,16 +1,19 @@
-use super::{state_read::StateRead, state_write::StateWrite};
-use super::{state_surface_config::StateSurfaceConfig, texture::Texture};
-use crate::text::cache::FontCache;
-use crate::text::font::Font;
-use crate::ui::Ui;
-use crate::util::vec2::Vec2;
-use bytemuck::cast_slice;
-use bytemuck::{Pod, Zeroable};
-use std::num::NonZeroU32;
-use std::sync::{Arc, RwLock};
+use super::{
+    state_read::StateRead, state_surface_config::StateSurfaceConfig, state_write::StateWrite,
+    texture::Texture,
+};
+use crate::{
+    text::{cache::FontCache, font::Font},
+    ui::Ui,
+    util::vec2::Vec2,
+};
+use bytemuck::{cast_slice, Pod, Zeroable};
+use std::{
+    num::NonZeroU32,
+    sync::{Arc, RwLock},
+};
 use wgpu::{include_wgsl, util::DeviceExt};
-use winit::dpi::PhysicalSize;
-use winit::window::Window;
+use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct State {
     surface_config: StateSurfaceConfig,
@@ -49,7 +52,11 @@ impl State {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features: wgpu::Features::TEXTURE_BINDING_ARRAY | wgpu::Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING | wgpu::Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING | wgpu::Features::PUSH_CONSTANTS,
+                    features:
+                        wgpu::Features::TEXTURE_BINDING_ARRAY |
+                        wgpu::Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING |
+                        wgpu::Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING |
+                        wgpu::Features::PUSH_CONSTANTS,
                     limits: adapter.limits(),
                 },
                 None,
