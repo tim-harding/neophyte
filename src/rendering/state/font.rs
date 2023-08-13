@@ -1,4 +1,4 @@
-use super::{surface_config::SurfaceConfig, ConstantState, GridInfo};
+use super::{grid::GridInfo, surface_config::SurfaceConfig, ConstantState};
 use crate::{rendering::texture::Texture, text::cache::FontCache};
 use bytemuck::cast_slice;
 use std::num::NonZeroU32;
@@ -13,11 +13,14 @@ pub struct Constant {
 
 pub struct Read {
     pub bind_group: wgpu::BindGroup,
+    // TODO: This might actually belong with the grid module. Or maybe the
+    // pipelines deserves their own special thing. Or maybe I should just rename
+    // this module to glyphs or something because font pipeline feels like a bad
+    // smell.
     pub pipeline: wgpu::RenderPipeline,
 }
 
 pub struct Write {
-    pub font_cache: FontCache,
     textures: Vec<Texture>,
     next_glyph_to_upload: usize,
 }
@@ -27,17 +30,17 @@ impl Write {
         &mut self,
         constant: &ConstantState,
         surface_config: &SurfaceConfig,
+        font_cache: &FontCache,
     ) -> Option<Read> {
         // Only update pipeline if there are textures to upload
-        if self.next_glyph_to_upload == self.font_cache.data.len() {
+        if self.next_glyph_to_upload == font_cache.data.len() {
             return None;
         }
 
-        for (data, info) in self
-            .font_cache
+        for (data, info) in font_cache
             .data
             .iter()
-            .zip(self.font_cache.info.iter())
+            .zip(font_cache.info.iter())
             .skip(self.next_glyph_to_upload)
         {
             self.textures.push(Texture::new(
@@ -93,7 +96,7 @@ impl Write {
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Font info buffer"),
-                    contents: cast_slice(self.font_cache.info.as_slice()),
+                    contents: cast_slice(font_cache.info.as_slice()),
                     usage: wgpu::BufferUsages::STORAGE,
                 });
 
@@ -104,7 +107,7 @@ impl Write {
                     label: Some("Render Pipeline Layout"),
                     bind_group_layouts: &[
                         &constant.highlights.bind_group_layout,
-                        &constant.grid_bind_group_layout,
+                        &constant.grid.bind_group_layout,
                         &font_bind_group_layout,
                     ],
                     push_constant_ranges: &[wgpu::PushConstantRange {
@@ -185,7 +188,6 @@ impl Write {
 pub fn new(device: &wgpu::Device) -> (Write, Constant) {
     (
         Write {
-            font_cache: FontCache::new(),
             textures: vec![],
             next_glyph_to_upload: 0,
         },

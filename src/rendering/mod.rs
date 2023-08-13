@@ -4,7 +4,10 @@ mod texture;
 use self::state::State;
 use crate::{
     session::Neovim,
-    text::font::{metrics, Font},
+    text::{
+        cache::FontCache,
+        font::{metrics, Font},
+    },
     ui::Ui,
 };
 use std::{
@@ -24,14 +27,16 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
     let font = Font::from_file("/usr/share/fonts/OTF/CascadiaCode-Regular.otf", 0).unwrap();
     let event_loop = EventLoop::new();
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
-    let (state, mut write_state) = state::init(window.clone(), font.clone()).await; // TODO: Font cloning
+    let (state, mut write_state) = state::init(window.clone()).await; // TODO: Font cloning
 
     {
+        let font = font.clone();
         let window = window.clone();
         let state = state.clone();
         thread::spawn(move || {
+            let mut font_cache = FontCache::new();
             while let Ok(ui) = rx.recv() {
-                state.update_text(ui, &mut write_state);
+                state.update(ui, &mut write_state, &font, &mut font_cache);
                 window.request_redraw();
             }
         });

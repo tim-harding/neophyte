@@ -1,18 +1,14 @@
-use super::{font, highlights, ConstantState, GridInfo};
+use super::{font, grid, highlights, ConstantState};
 use bytemuck::cast_slice;
 
 pub struct ReadState {
-    pub grid_bind_group: wgpu::BindGroup,
-    pub grid_info: GridInfo,
-    pub vertex_count: u32,
+    pub grid: grid::Read,
     pub font: font::Read,
     pub highlights: highlights::Read,
 }
 
 pub struct ReadStateUpdates {
-    pub grid_bind_group: wgpu::BindGroup,
-    pub grid_info: GridInfo,
-    pub vertex_count: u32,
+    pub grid: Option<grid::Read>,
     pub font: Option<font::Read>,
     pub highlights: Option<highlights::Read>,
 }
@@ -20,16 +16,12 @@ pub struct ReadStateUpdates {
 impl ReadState {
     pub fn from_updates(updates: ReadStateUpdates) -> Option<Self> {
         let ReadStateUpdates {
-            grid_bind_group,
-            grid_info,
-            vertex_count,
+            grid,
             font,
             highlights,
         } = updates;
         Some(Self {
-            grid_bind_group,
-            grid_info,
-            vertex_count,
+            grid: grid?,
             font: font?,
             highlights: highlights?,
         })
@@ -37,15 +29,13 @@ impl ReadState {
 
     pub fn apply_updates(&mut self, updates: ReadStateUpdates) {
         let ReadStateUpdates {
-            grid_bind_group,
-            grid_info,
-            vertex_count,
+            grid,
             font,
             highlights,
         } = updates;
-        self.grid_bind_group = grid_bind_group;
-        self.grid_info = grid_info;
-        self.vertex_count = vertex_count;
+        if let Some(grid) = grid {
+            self.grid = grid;
+        }
         if let Some(font) = font {
             self.font = font;
         }
@@ -78,26 +68,26 @@ impl ReadState {
             depth_stencil_attachment: None,
         });
 
-        render_pass.set_pipeline(&constant.cell_fill_render_pipeline);
+        render_pass.set_pipeline(&constant.grid.cell_fill_render_pipeline);
         render_pass.set_bind_group(0, &self.highlights.bind_group, &[]);
-        render_pass.set_bind_group(1, &self.grid_bind_group, &[]);
+        render_pass.set_bind_group(1, &self.grid.bind_group, &[]);
         render_pass.set_push_constants(
             wgpu::ShaderStages::VERTEX,
             0,
-            cast_slice(&[self.grid_info]),
+            cast_slice(&[self.grid.grid_info]),
         );
-        render_pass.draw(0..self.vertex_count, 0..1);
+        render_pass.draw(0..self.grid.vertex_count, 0..1);
 
         render_pass.set_pipeline(&self.font.pipeline);
         render_pass.set_bind_group(0, &self.highlights.bind_group, &[]);
-        render_pass.set_bind_group(1, &self.grid_bind_group, &[]);
+        render_pass.set_bind_group(1, &self.grid.bind_group, &[]);
         render_pass.set_bind_group(2, &self.font.bind_group, &[]);
         render_pass.set_push_constants(
             wgpu::ShaderStages::VERTEX,
             0,
-            cast_slice(&[self.grid_info]),
+            cast_slice(&[self.grid.grid_info]),
         );
-        render_pass.draw(0..self.vertex_count, 0..1);
+        render_pass.draw(0..self.grid.vertex_count, 0..1);
         drop(render_pass);
 
         constant.queue.submit(std::iter::once(encoder.finish()));
