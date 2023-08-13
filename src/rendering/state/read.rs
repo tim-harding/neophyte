@@ -1,17 +1,17 @@
-use super::{font::StateFontRead, GridInfo, StateConstant};
+use super::{font, ConstantState, GridInfo};
 use bytemuck::cast_slice;
 
-pub struct StateRead {
+pub struct ReadState {
     pub clear_color: wgpu::Color,
     pub highlights_bind_group: wgpu::BindGroup,
     pub grid_bind_group: wgpu::BindGroup,
     pub grid_info: GridInfo,
-    pub font: StateFontRead,
+    pub font: font::Read,
     pub vertex_count: u32,
 }
 
-impl StateRead {
-    pub fn render(&self, constant: &StateConstant) -> Result<(), wgpu::SurfaceError> {
+impl ReadState {
+    pub fn render(&self, constant: &ConstantState) -> Result<(), wgpu::SurfaceError> {
         let output = constant.surface.get_current_texture()?;
         let view = output
             .texture

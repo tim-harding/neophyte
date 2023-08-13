@@ -3,9 +3,7 @@ mod read;
 mod surface_config;
 mod write;
 
-use self::{
-    font::StateFontConstant, read::StateRead, surface_config::StateSurfaceConfig, write::StateWrite,
-};
+use self::{read::ReadState, surface_config::SurfaceConfig, write::WriteState};
 use crate::{text::font::Font, ui::Ui, util::vec2::Vec2};
 use bytemuck::{Pod, Zeroable};
 use std::sync::{Arc, RwLock};
@@ -13,10 +11,10 @@ use wgpu::include_wgsl;
 use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct State {
-    surface_config: StateSurfaceConfig,
-    constant: Arc<StateConstant>,
-    read: Arc<RwLock<Option<StateRead>>>,
-    write: StateWrite,
+    surface_config: SurfaceConfig,
+    constant: Arc<ConstantState>,
+    read: Arc<RwLock<Option<ReadState>>>,
+    write: WriteState,
 }
 
 impl State {
@@ -156,8 +154,8 @@ impl State {
         let (font_write, font_constant) = font::new(&device);
 
         Self {
-            surface_config: StateSurfaceConfig::new(config),
-            constant: Arc::new(StateConstant {
+            surface_config: SurfaceConfig::new(config),
+            constant: Arc::new(ConstantState {
                 font: font_constant,
                 device,
                 queue,
@@ -167,7 +165,7 @@ impl State {
                 cell_fill_render_pipeline,
             }),
             read: Arc::new(RwLock::new(None)),
-            write: StateWrite::new(font, font_write),
+            write: WriteState::new(font, font_write),
         }
     }
 
@@ -188,20 +186,20 @@ impl State {
     }
 }
 
-pub struct StateConstant {
+pub struct ConstantState {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub surface: wgpu::Surface,
     pub grid_bind_group_layout: wgpu::BindGroupLayout,
     pub highlights_bind_group_layout: wgpu::BindGroupLayout,
     pub cell_fill_render_pipeline: wgpu::RenderPipeline,
-    pub font: StateFontConstant,
+    pub font: font::Constant,
 }
 
 pub struct StateWinit {
-    surface_config: StateSurfaceConfig,
-    constant: Arc<StateConstant>,
-    read: Arc<RwLock<Option<StateRead>>>,
+    surface_config: SurfaceConfig,
+    constant: Arc<ConstantState>,
+    read: Arc<RwLock<Option<ReadState>>>,
 }
 
 impl StateWinit {

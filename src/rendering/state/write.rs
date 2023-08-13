@@ -1,6 +1,6 @@
 use super::{
-    font::StateFontWrite, read::StateRead, surface_config::StateSurfaceConfig, GlyphInfo, GridInfo,
-    HighlightInfo, StateConstant,
+    font, read::ReadState, surface_config::SurfaceConfig, ConstantState, GlyphInfo, GridInfo,
+    HighlightInfo,
 };
 use crate::{
     event::hl_attr_define::Rgb,
@@ -11,14 +11,14 @@ use crate::{
 use bytemuck::cast_slice;
 use wgpu::util::DeviceExt;
 
-pub struct StateWrite {
+pub struct WriteState {
     pub highlights: Vec<HighlightInfo>,
     pub font: Font,
-    pub font_write: StateFontWrite,
+    pub font_write: font::Write,
 }
 
-impl StateWrite {
-    pub fn new(font: Font, font_write: StateFontWrite) -> Self {
+impl WriteState {
+    pub fn new(font: Font, font_write: font::Write) -> Self {
         Self {
             font,
             font_write,
@@ -30,9 +30,9 @@ impl StateWrite {
     pub fn update_text(
         &mut self,
         ui: Ui,
-        constant: &StateConstant,
-        surface_config: &StateSurfaceConfig,
-    ) -> StateRead {
+        constant: &ConstantState,
+        surface_config: &SurfaceConfig,
+    ) -> ReadState {
         let grid = ui.composite();
         let font = self.font.as_ref();
         let charmap = font.charmap();
@@ -143,7 +143,7 @@ impl StateWrite {
 
         let font = self.font_write.get_read(constant, &surface_config);
 
-        StateRead {
+        ReadState {
             font,
             clear_color,
             highlights_bind_group,

@@ -1,4 +1,4 @@
-use super::{surface_config::StateSurfaceConfig, GridInfo, StateConstant};
+use super::{surface_config::SurfaceConfig, ConstantState, GridInfo};
 use crate::{rendering::texture::Texture, text::cache::FontCache};
 use bytemuck::cast_slice;
 use std::num::NonZeroU32;
@@ -6,28 +6,24 @@ use wgpu::{include_wgsl, util::DeviceExt};
 
 // TODO: Resizable buffer
 
-pub struct StateFontConstant {
+pub struct Constant {
     pub sampler: wgpu::Sampler,
     pub glyph_shader: wgpu::ShaderModule,
 }
 
-pub struct StateFontRead {
+pub struct Read {
     pub bind_group: wgpu::BindGroup,
     pub pipeline: wgpu::RenderPipeline,
 }
 
-pub struct StateFontWrite {
+pub struct Write {
     pub font_cache: FontCache,
     textures: Vec<Texture>,
     next_glyph_to_upload: usize,
 }
 
-impl StateFontWrite {
-    pub fn get_read(
-        &mut self,
-        constant: &StateConstant,
-        surface_config: &StateSurfaceConfig,
-    ) -> StateFontRead {
+impl Write {
+    pub fn get_read(&mut self, constant: &ConstantState, surface_config: &SurfaceConfig) -> Read {
         // TODO: Only update pipeline if there are textures to upload
 
         for (data, info) in self
@@ -150,7 +146,7 @@ impl StateFontWrite {
                     multiview: None,
                 });
 
-        StateFontRead {
+        Read {
             bind_group: constant
                 .device
                 .create_bind_group(&wgpu::BindGroupDescriptor {
@@ -180,14 +176,14 @@ impl StateFontWrite {
     }
 }
 
-pub fn new(device: &wgpu::Device) -> (StateFontWrite, StateFontConstant) {
+pub fn new(device: &wgpu::Device) -> (Write, Constant) {
     (
-        StateFontWrite {
+        Write {
             font_cache: FontCache::new(),
             textures: vec![],
             next_glyph_to_upload: 0,
         },
-        StateFontConstant {
+        Constant {
             sampler: device.create_sampler(&wgpu::SamplerDescriptor {
                 label: Some("Texture sampler"),
                 address_mode_u: wgpu::AddressMode::ClampToEdge,

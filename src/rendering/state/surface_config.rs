@@ -1,21 +1,21 @@
-use super::StateConstant;
+use super::ConstantState;
 use crate::util::vec2::Vec2;
 use std::sync::{Arc, RwLock};
 use winit::dpi::PhysicalSize;
 
 #[derive(Clone)]
-pub struct StateSurfaceConfig {
+pub struct SurfaceConfig {
     config: Arc<RwLock<wgpu::SurfaceConfiguration>>,
 }
 
-impl StateSurfaceConfig {
+impl SurfaceConfig {
     pub fn new(config: wgpu::SurfaceConfiguration) -> Self {
         Self {
             config: Arc::new(RwLock::new(config)),
         }
     }
 
-    pub fn resize(&self, new_size: PhysicalSize<u32>, constant: &StateConstant) {
+    pub fn resize(&self, new_size: PhysicalSize<u32>, constant: &ConstantState) {
         if new_size.width > 0 && new_size.height > 0 {
             {
                 let mut lock = self.config.write().unwrap();
