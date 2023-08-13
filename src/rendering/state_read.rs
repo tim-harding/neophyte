@@ -1,4 +1,7 @@
-use super::state::{GridInfo, StateConstant};
+use super::{
+    state::{GridInfo, StateConstant},
+    state_font::StateFontRead,
+};
 use bytemuck::cast_slice;
 
 pub struct StateRead {
@@ -6,6 +9,7 @@ pub struct StateRead {
     pub highlights_bind_group: wgpu::BindGroup,
     pub grid_bind_group: wgpu::BindGroup,
     pub grid_info: GridInfo,
+    pub font: StateFontRead,
     pub vertex_count: u32,
 }
 
@@ -44,10 +48,10 @@ impl StateRead {
         );
         render_pass.draw(0..self.vertex_count, 0..1);
 
-        render_pass.set_pipeline(&constant.glyph_render_pipeline);
+        render_pass.set_pipeline(&self.font.pipeline);
         render_pass.set_bind_group(0, &self.highlights_bind_group, &[]);
         render_pass.set_bind_group(1, &self.grid_bind_group, &[]);
-        render_pass.set_bind_group(2, &constant.font_bind_group, &[]);
+        render_pass.set_bind_group(2, &self.font.bind_group, &[]);
         render_pass.set_push_constants(
             wgpu::ShaderStages::VERTEX,
             0,

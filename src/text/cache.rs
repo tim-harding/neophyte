@@ -13,7 +13,7 @@ pub struct FontCache {
     /// Info about glyphs. Use lut to get the index for a glyph
     pub info: Vec<GlyphInfo>,
     /// Maps a glyph to an index into the info or images array.
-    pub lut: HashMap<GlyphId, usize>,
+    lut: HashMap<GlyphId, usize>,
 }
 
 impl FontCache {

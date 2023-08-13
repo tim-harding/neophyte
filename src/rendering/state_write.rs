@@ -1,13 +1,12 @@
 use super::{
     state::{GlyphInfo, GridInfo, HighlightInfo, StateConstant},
+    state_font::StateFontWrite,
     state_read::StateRead,
+    state_surface_config::StateSurfaceConfig,
 };
 use crate::{
     event::hl_attr_define::Rgb,
-    text::{
-        cache::FontCache,
-        font::{metrics, Font},
-    },
+    text::font::{metrics, Font},
     ui::Ui,
     util::vec2::Vec2,
 };
@@ -16,15 +15,15 @@ use wgpu::util::DeviceExt;
 
 pub struct StateWrite {
     pub highlights: Vec<HighlightInfo>,
-    pub font_cache: FontCache,
     pub font: Font,
+    pub font_write: StateFontWrite,
 }
 
 impl StateWrite {
-    pub fn new(font: Font, font_cache: FontCache) -> Self {
+    pub fn new(font: Font, font_write: StateFontWrite) -> Self {
         Self {
-            font_cache,
             font,
+            font_write,
             highlights: vec![],
         }
     }
@@ -33,8 +32,8 @@ impl StateWrite {
     pub fn update_text(
         &mut self,
         ui: Ui,
-        env: &StateConstant,
-        surface_size: Vec2<u32>,
+        constant: &StateConstant,
+        surface_config: &StateSurfaceConfig,
     ) -> StateRead {
         let grid = ui.composite();
         let font = self.font.as_ref();
@@ -57,26 +56,29 @@ impl StateWrite {
             };
         }
 
-        let highlights_buffer = env
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Highlight buffer"),
-                contents: cast_slice(self.highlights.as_slice()),
-                usage: wgpu::BufferUsages::STORAGE,
-            });
+        let highlights_buffer =
+            constant
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Highlight buffer"),
+                    contents: cast_slice(self.highlights.as_slice()),
+                    usage: wgpu::BufferUsages::STORAGE,
+                });
 
-        let highlights_bind_group = env.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Highlights bind group"),
-            layout: &env.highlights_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &highlights_buffer,
-                    offset: 0,
-                    size: None,
-                }),
-            }],
-        });
+        let highlights_bind_group = constant
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Highlights bind group"),
+                layout: &constant.highlights_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &highlights_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                }],
+            });
 
         let srgb = |n| (n as f64 / 255.0).powf(2.2);
         let clear_color = wgpu::Color {
@@ -90,7 +92,7 @@ impl StateWrite {
         for (cell_line, hl_line) in grid.cells.rows().zip(grid.highlights.rows()) {
             for (c, hl) in cell_line.zip(hl_line) {
                 let id = charmap.map(c);
-                let glyph_index = match self.font_cache.lut.get(&id) {
+                let glyph_index = match self.font_write.font_cache.get(font, 24.0, id) {
                     Some(glyph) => glyph,
                     None => {
                         glyph_info.push(GlyphInfo {
@@ -102,14 +104,14 @@ impl StateWrite {
                 };
 
                 glyph_info.push(GlyphInfo {
-                    glyph_index: *glyph_index as u32,
+                    glyph_index: glyph_index as u32,
                     highlight_index: hl,
                 });
             }
         }
 
         let grid_info = GridInfo {
-            surface_size,
+            surface_size: surface_config.size(),
             cell_size: Vec2::new(metrics.advance as u32, metrics.cell_height()),
             grid_width: grid.size().x as u32,
             baseline: metrics.ascent as u32,
@@ -117,28 +119,34 @@ impl StateWrite {
 
         let vertex_count = glyph_info.len() as u32 * 6;
 
-        let glyph_info_buffer = env
+        let glyph_info_buffer =
+            constant
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("info buffer"),
+                    usage: wgpu::BufferUsages::STORAGE,
+                    contents: cast_slice(glyph_info.as_slice()),
+                });
+
+        let grid_bind_group = constant
             .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("info buffer"),
-                usage: wgpu::BufferUsages::STORAGE,
-                contents: cast_slice(glyph_info.as_slice()),
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("glyph info bind group"),
+                layout: &constant.grid_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &glyph_info_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                }],
             });
 
-        let grid_bind_group = env.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("glyph info bind group"),
-            layout: &env.grid_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &glyph_info_buffer,
-                    offset: 0,
-                    size: None,
-                }),
-            }],
-        });
+        let font = self.font_write.get_read(constant, &surface_config);
 
         StateRead {
+            font,
             clear_color,
             highlights_bind_group,
             grid_bind_group,

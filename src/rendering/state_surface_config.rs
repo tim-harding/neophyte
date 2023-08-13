@@ -31,4 +31,8 @@ impl StateSurfaceConfig {
         let lock = self.config.read().unwrap();
         Vec2::new(lock.width, lock.height)
     }
+
+    pub fn format(&self) -> wgpu::TextureFormat {
+        self.config.read().unwrap().format
+    }
 }

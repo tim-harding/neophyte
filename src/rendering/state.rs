@@ -1,18 +1,13 @@
 use super::{
-    state_read::StateRead, state_surface_config::StateSurfaceConfig, state_write::StateWrite,
-    texture::Texture,
+    state_font::{self, StateFontConstant},
+    state_read::StateRead,
+    state_surface_config::StateSurfaceConfig,
+    state_write::StateWrite,
 };
-use crate::{
-    text::{cache::FontCache, font::Font},
-    ui::Ui,
-    util::vec2::Vec2,
-};
-use bytemuck::{cast_slice, Pod, Zeroable};
-use std::{
-    num::NonZeroU32,
-    sync::{Arc, RwLock},
-};
-use wgpu::{include_wgsl, util::DeviceExt};
+use crate::{text::font::Font, ui::Ui, util::vec2::Vec2};
+use bytemuck::{Pod, Zeroable};
+use std::sync::{Arc, RwLock};
+use wgpu::include_wgsl;
 use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct State {
@@ -24,12 +19,6 @@ pub struct State {
 
 impl State {
     pub async fn new(window: Arc<Window>, font: Font) -> Self {
-        let mut font_cache = FontCache::new();
-        let font_ref = font.as_ref();
-        font_ref.charmap().enumerate(|_c, id| {
-            font_cache.get(font_ref, 24.0, id);
-        });
-
         let size = window.inner_size();
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -83,60 +72,6 @@ impl State {
         };
         surface.configure(&device, &config);
 
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("Texture sampler"),
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
-
-        let textures: Vec<_> = font_cache
-            .data
-            .iter()
-            .zip(font_cache.info.iter())
-            .map(|(data, info)| Texture::new(&device, &queue, data, info.size))
-            .collect();
-
-        let views: Vec<_> = textures.iter().map(|texture| &texture.view).collect();
-
-        let tex_count = Some(NonZeroU32::new(textures.len() as u32).unwrap());
-        let font_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Texture bind group layout"),
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: tex_count,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: wgpu::ShaderStages::VERTEX,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Storage { read_only: true },
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    },
-                ],
-            });
-
         let grid_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Grid bind group layout"),
@@ -177,7 +112,6 @@ impl State {
                 }],
             });
 
-        let glyph_shader = device.create_shader_module(include_wgsl!("glyph.wgsl"));
         let cell_fill_shader = device.create_shader_module(include_wgsl!("cell_fill.wgsl"));
 
         let cell_fill_render_pipeline =
@@ -217,107 +151,28 @@ impl State {
                 multiview: None,
             });
 
-        let font_info_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Font info buffer"),
-            contents: cast_slice(font_cache.info.as_slice()),
-            usage: wgpu::BufferUsages::STORAGE,
-        });
-
-        let font_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Font bind group"),
-            layout: &font_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureViewArray(views.as_slice()),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &font_info_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                },
-            ],
-        });
-
-        let glyph_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[
-                    &highlights_bind_group_layout,
-                    &grid_bind_group_layout,
-                    &font_bind_group_layout,
-                ],
-                push_constant_ranges: &[wgpu::PushConstantRange {
-                    stages: wgpu::ShaderStages::VERTEX,
-                    range: 0..GridInfo::SIZE as u32,
-                }],
-            });
-
-        let glyph_render_pipeline =
-            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("Render pipeline"),
-                layout: Some(&glyph_pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &glyph_shader,
-                    entry_point: "vs_main",
-                    buffers: &[],
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &glyph_shader,
-                    entry_point: "fs_main",
-                    targets: &[Some(wgpu::ColorTargetState {
-                        format: config.format,
-                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                        write_mask: wgpu::ColorWrites::ALL,
-                    })],
-                }),
-                // How to interpret vertices when converting to triangles
-                primitive: wgpu::PrimitiveState {
-                    topology: wgpu::PrimitiveTopology::TriangleList,
-                    strip_index_format: None,
-                    front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: Some(wgpu::Face::Back),
-                    polygon_mode: wgpu::PolygonMode::Fill,
-                    unclipped_depth: false,
-                    conservative: false,
-                },
-                depth_stencil: None,
-                multisample: wgpu::MultisampleState {
-                    count: 1,
-                    mask: !0,
-                    alpha_to_coverage_enabled: false,
-                },
-                multiview: None,
-            });
+        let (font_write, font_constant) = state_font::new(&device);
 
         Self {
             surface_config: StateSurfaceConfig::new(config),
             constant: Arc::new(StateConstant {
+                font: font_constant,
                 device,
                 queue,
                 surface,
                 grid_bind_group_layout,
                 highlights_bind_group_layout,
                 cell_fill_render_pipeline,
-                glyph_render_pipeline,
-                font_bind_group,
             }),
             read: Arc::new(RwLock::new(None)),
-            write: StateWrite::new(font, font_cache),
+            write: StateWrite::new(font, font_write),
         }
     }
 
     pub fn update_text(&mut self, ui: Ui) {
         let read = self
             .write
-            .update_text(ui, &self.constant, self.surface_config.size());
+            .update_text(ui, &self.constant, &self.surface_config);
         // Separate statement so that the lock is taken as late as possible
         *self.read.write().unwrap() = Some(read);
     }
@@ -338,8 +193,7 @@ pub struct StateConstant {
     pub grid_bind_group_layout: wgpu::BindGroupLayout,
     pub highlights_bind_group_layout: wgpu::BindGroupLayout,
     pub cell_fill_render_pipeline: wgpu::RenderPipeline,
-    pub glyph_render_pipeline: wgpu::RenderPipeline,
-    pub font_bind_group: wgpu::BindGroup,
+    pub font: StateFontConstant,
 }
 
 pub struct StateWinit {
