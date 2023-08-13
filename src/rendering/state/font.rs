@@ -50,7 +50,6 @@ impl Write {
 
         self.next_glyph_to_upload = self.textures.len();
 
-        // TODO: Cache this array
         let views: Vec<_> = self.textures.iter().map(|texture| &texture.view).collect();
 
         let tex_count = Some(NonZeroU32::new(self.textures.len() as u32).unwrap());
@@ -104,7 +103,7 @@ impl Write {
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Render Pipeline Layout"),
                     bind_group_layouts: &[
-                        &constant.highlights_bind_group_layout,
+                        &constant.highlights.bind_group_layout,
                         &constant.grid_bind_group_layout,
                         &font_bind_group_layout,
                     ],

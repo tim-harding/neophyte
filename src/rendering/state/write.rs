@@ -1,11 +1,8 @@
 use super::{
-    font,
-    read::{ReadState, ReadStateUpdates},
-    surface_config::SurfaceConfig,
-    ConstantState, GlyphInfo, GridInfo, HighlightInfo,
+    font, highlights, read::ReadStateUpdates, surface_config::SurfaceConfig, ConstantState,
+    GlyphInfo, GridInfo,
 };
 use crate::{
-    event::hl_attr_define::Rgb,
     text::font::{metrics, Font},
     ui::Ui,
     util::vec2::Vec2,
@@ -14,17 +11,17 @@ use bytemuck::cast_slice;
 use wgpu::util::DeviceExt;
 
 pub struct WriteState {
-    pub highlights: Vec<HighlightInfo>,
     pub font: Font,
     pub font_write: font::Write,
+    pub highlights: highlights::Write,
 }
 
 impl WriteState {
-    pub fn new(font: Font, font_write: font::Write) -> Self {
+    pub fn new(font: Font, font_write: font::Write, highlights: highlights::Write) -> Self {
         Self {
             font,
             font_write,
-            highlights: vec![],
+            highlights,
         }
     }
 
@@ -40,53 +37,7 @@ impl WriteState {
         let charmap = font.charmap();
         let metrics = metrics(font, 24.0);
 
-        let fg_default = ui.default_colors.rgb_fg.unwrap_or(Rgb::new(255, 255, 255));
-        let bg_default = ui.default_colors.rgb_bg.unwrap_or(Rgb::new(0, 0, 0));
-
-        let srgb = |n| (n as f32 / 255.0).powf(2.2);
-        let srgb = |c: Rgb| [srgb(c.r()), srgb(c.g()), srgb(c.b()), 1.0];
-        for highlight in ui.highlights.iter() {
-            let i = *highlight.0 as usize;
-            if i + 1 > self.highlights.len() {
-                self.highlights.resize(i + 1, HighlightInfo::default());
-            }
-            self.highlights[i] = HighlightInfo {
-                fg: srgb(highlight.1.rgb_attr.foreground.unwrap_or(fg_default)),
-                bg: srgb(highlight.1.rgb_attr.background.unwrap_or(bg_default)),
-            };
-        }
-
-        let highlights_buffer =
-            constant
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Highlight buffer"),
-                    contents: cast_slice(self.highlights.as_slice()),
-                    usage: wgpu::BufferUsages::STORAGE,
-                });
-
-        let highlights_bind_group = constant
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("Highlights bind group"),
-                layout: &constant.highlights_bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &highlights_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                }],
-            });
-
-        let srgb = |n| (n as f64 / 255.0).powf(2.2);
-        let clear_color = wgpu::Color {
-            r: srgb(bg_default.r()),
-            g: srgb(bg_default.g()),
-            b: srgb(bg_default.b()),
-            a: 1.0,
-        };
+        let highlights = self.highlights.updates(&ui, &constant);
 
         let mut glyph_info = vec![];
         for (cell_line, hl_line) in grid.cells.rows().zip(grid.highlights.rows()) {
@@ -146,12 +97,11 @@ impl WriteState {
         let font = self.font_write.updates(constant, &surface_config);
 
         ReadStateUpdates {
-            font,
-            clear_color,
-            highlights_bind_group,
             grid_bind_group,
             grid_info,
             vertex_count,
+            font,
+            highlights,
         }
     }
 }

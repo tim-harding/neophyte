@@ -1,4 +1,5 @@
 mod font;
+mod highlights;
 mod read;
 mod surface_config;
 mod write;
@@ -22,9 +23,9 @@ pub struct ConstantState {
     pub queue: wgpu::Queue,
     pub surface: wgpu::Surface,
     pub grid_bind_group_layout: wgpu::BindGroupLayout,
-    pub highlights_bind_group_layout: wgpu::BindGroupLayout,
     pub cell_fill_render_pipeline: wgpu::RenderPipeline,
     pub font: font::Constant,
+    pub highlights: highlights::Constant,
 }
 
 impl State {
@@ -125,25 +126,15 @@ pub async fn init(window: Arc<Window>, font: Font) -> (State, WriteState) {
             }],
         });
 
-    let highlights_bind_group_layout =
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Highlights bind group layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
+    let (highlights_write, highlights_constant) = highlights::init(&device);
 
     let cell_fill_pipeline_layout =
         device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Cell fill pipeline layout"),
-            bind_group_layouts: &[&highlights_bind_group_layout, &grid_bind_group_layout],
+            bind_group_layouts: &[
+                &highlights_constant.bind_group_layout,
+                &grid_bind_group_layout,
+            ],
             push_constant_ranges: &[wgpu::PushConstantRange {
                 stages: wgpu::ShaderStages::VERTEX,
                 range: 0..GridInfo::SIZE as u32,
@@ -195,17 +186,17 @@ pub async fn init(window: Arc<Window>, font: Font) -> (State, WriteState) {
         State {
             surface_config: SurfaceConfig::new(config),
             constant: Arc::new(ConstantState {
-                font: font_constant,
                 device,
                 queue,
                 surface,
                 grid_bind_group_layout,
-                highlights_bind_group_layout,
                 cell_fill_render_pipeline,
+                font: font_constant,
+                highlights: highlights_constant,
             }),
             read: Arc::new(RwLock::new(None)),
         },
-        WriteState::new(font, font_write),
+        WriteState::new(font, font_write, highlights_write),
     )
 }
 
@@ -227,11 +218,4 @@ pub struct GridInfo {
 
 impl GridInfo {
     pub const SIZE: usize = std::mem::size_of::<Self>();
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
-pub struct HighlightInfo {
-    pub fg: [f32; 4],
-    pub bg: [f32; 4],
 }

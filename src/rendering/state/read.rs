@@ -1,60 +1,56 @@
-use super::{font, ConstantState, GridInfo};
+use super::{font, highlights, ConstantState, GridInfo};
 use bytemuck::cast_slice;
 
 pub struct ReadState {
-    pub clear_color: wgpu::Color,
-    pub highlights_bind_group: wgpu::BindGroup,
     pub grid_bind_group: wgpu::BindGroup,
     pub grid_info: GridInfo,
     pub vertex_count: u32,
     pub font: font::Read,
+    pub highlights: highlights::Read,
 }
 
 pub struct ReadStateUpdates {
-    pub clear_color: wgpu::Color,
-    pub highlights_bind_group: wgpu::BindGroup,
     pub grid_bind_group: wgpu::BindGroup,
     pub grid_info: GridInfo,
     pub vertex_count: u32,
     pub font: Option<font::Read>,
+    pub highlights: Option<highlights::Read>,
 }
 
 impl ReadState {
     pub fn from_updates(updates: ReadStateUpdates) -> Option<Self> {
         let ReadStateUpdates {
-            clear_color,
-            highlights_bind_group,
             grid_bind_group,
             grid_info,
             vertex_count,
             font,
+            highlights,
         } = updates;
         Some(Self {
-            clear_color,
-            highlights_bind_group,
             grid_bind_group,
             grid_info,
             vertex_count,
             font: font?,
+            highlights: highlights?,
         })
     }
 
     pub fn apply_updates(&mut self, updates: ReadStateUpdates) {
         let ReadStateUpdates {
-            clear_color,
-            highlights_bind_group,
             grid_bind_group,
             grid_info,
             vertex_count,
             font,
+            highlights,
         } = updates;
-        self.clear_color = clear_color;
-        self.highlights_bind_group = highlights_bind_group;
         self.grid_bind_group = grid_bind_group;
         self.grid_info = grid_info;
         self.vertex_count = vertex_count;
         if let Some(font) = font {
             self.font = font;
+        }
+        if let Some(highlights) = highlights {
+            self.highlights = highlights;
         }
     }
 
@@ -75,7 +71,7 @@ impl ReadState {
                 view: &view,
                 resolve_target: None, // No multisampling
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(self.clear_color),
+                    load: wgpu::LoadOp::Clear(self.highlights.clear_color),
                     store: true,
                 },
             })],
@@ -83,7 +79,7 @@ impl ReadState {
         });
 
         render_pass.set_pipeline(&constant.cell_fill_render_pipeline);
-        render_pass.set_bind_group(0, &self.highlights_bind_group, &[]);
+        render_pass.set_bind_group(0, &self.highlights.bind_group, &[]);
         render_pass.set_bind_group(1, &self.grid_bind_group, &[]);
         render_pass.set_push_constants(
             wgpu::ShaderStages::VERTEX,
@@ -93,7 +89,7 @@ impl ReadState {
         render_pass.draw(0..self.vertex_count, 0..1);
 
         render_pass.set_pipeline(&self.font.pipeline);
-        render_pass.set_bind_group(0, &self.highlights_bind_group, &[]);
+        render_pass.set_bind_group(0, &self.highlights.bind_group, &[]);
         render_pass.set_bind_group(1, &self.grid_bind_group, &[]);
         render_pass.set_bind_group(2, &self.font.bind_group, &[]);
         render_pass.set_push_constants(
