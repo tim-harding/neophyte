@@ -1,8 +1,4 @@
-pub mod state;
-mod state_font;
-mod state_read;
-mod state_surface_config;
-mod state_write;
+mod state;
 mod texture;
 
 use self::state::{State, StateWinit};

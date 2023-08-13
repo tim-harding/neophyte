@@ -1,7 +1,4 @@
-use super::{
-    state::{GridInfo, StateConstant},
-    state_font::StateFontRead,
-};
+use super::{font::StateFontRead, GridInfo, StateConstant};
 use bytemuck::cast_slice;
 
 pub struct StateRead {

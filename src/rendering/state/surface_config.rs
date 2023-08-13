@@ -1,4 +1,4 @@
-use super::state::StateConstant;
+use super::StateConstant;
 use crate::util::vec2::Vec2;
 use std::sync::{Arc, RwLock};
 use winit::dpi::PhysicalSize;

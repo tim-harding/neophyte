@@ -1,8 +1,6 @@
 use super::{
-    state::{GlyphInfo, GridInfo, HighlightInfo, StateConstant},
-    state_font::StateFontWrite,
-    state_read::StateRead,
-    state_surface_config::StateSurfaceConfig,
+    font::StateFontWrite, read::StateRead, surface_config::StateSurfaceConfig, GlyphInfo, GridInfo,
+    HighlightInfo, StateConstant,
 };
 use crate::{
     event::hl_attr_define::Rgb,

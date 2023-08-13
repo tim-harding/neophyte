@@ -1,9 +1,5 @@
-use super::{
-    state::{GridInfo, StateConstant},
-    state_surface_config::StateSurfaceConfig,
-    texture::Texture,
-};
-use crate::text::cache::FontCache;
+use super::{surface_config::StateSurfaceConfig, GridInfo, StateConstant};
+use crate::{rendering::texture::Texture, text::cache::FontCache};
 use bytemuck::cast_slice;
 use std::num::NonZeroU32;
 use wgpu::{include_wgsl, util::DeviceExt};

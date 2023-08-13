@@ -1,8 +1,10 @@
-use super::{
-    state_font::{self, StateFontConstant},
-    state_read::StateRead,
-    state_surface_config::StateSurfaceConfig,
-    state_write::StateWrite,
+mod font;
+mod read;
+mod surface_config;
+mod write;
+
+use self::{
+    font::StateFontConstant, read::StateRead, surface_config::StateSurfaceConfig, write::StateWrite,
 };
 use crate::{text::font::Font, ui::Ui, util::vec2::Vec2};
 use bytemuck::{Pod, Zeroable};
@@ -151,7 +153,7 @@ impl State {
                 multiview: None,
             });
 
-        let (font_write, font_constant) = state_font::new(&device);
+        let (font_write, font_constant) = font::new(&device);
 
         Self {
             surface_config: StateSurfaceConfig::new(config),
