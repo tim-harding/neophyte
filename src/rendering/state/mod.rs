@@ -29,9 +29,12 @@ pub struct ConstantState {
 
 impl State {
     pub fn update_text(&self, ui: Ui, write: &mut WriteState) {
-        let read = write.update_text(ui, &self.constant, &self.surface_config);
-        // Separate statement so that the lock is taken as late as possible
-        *self.read.write().unwrap() = Some(read);
+        let updates = write.updates(ui, &self.constant, &self.surface_config);
+        let mut read = self.read.write().unwrap();
+        match read.as_mut() {
+            Some(read) => read.apply_updates(updates),
+            None => *read = ReadState::from_updates(updates),
+        }
     }
 
     pub fn resize(&self, size: PhysicalSize<u32>) {

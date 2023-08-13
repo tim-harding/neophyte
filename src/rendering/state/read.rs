@@ -6,11 +6,58 @@ pub struct ReadState {
     pub highlights_bind_group: wgpu::BindGroup,
     pub grid_bind_group: wgpu::BindGroup,
     pub grid_info: GridInfo,
-    pub font: font::Read,
     pub vertex_count: u32,
+    pub font: font::Read,
+}
+
+pub struct ReadStateUpdates {
+    pub clear_color: wgpu::Color,
+    pub highlights_bind_group: wgpu::BindGroup,
+    pub grid_bind_group: wgpu::BindGroup,
+    pub grid_info: GridInfo,
+    pub vertex_count: u32,
+    pub font: Option<font::Read>,
 }
 
 impl ReadState {
+    pub fn from_updates(updates: ReadStateUpdates) -> Option<Self> {
+        let ReadStateUpdates {
+            clear_color,
+            highlights_bind_group,
+            grid_bind_group,
+            grid_info,
+            vertex_count,
+            font,
+        } = updates;
+        Some(Self {
+            clear_color,
+            highlights_bind_group,
+            grid_bind_group,
+            grid_info,
+            vertex_count,
+            font: font?,
+        })
+    }
+
+    pub fn apply_updates(&mut self, updates: ReadStateUpdates) {
+        let ReadStateUpdates {
+            clear_color,
+            highlights_bind_group,
+            grid_bind_group,
+            grid_info,
+            vertex_count,
+            font,
+        } = updates;
+        self.clear_color = clear_color;
+        self.highlights_bind_group = highlights_bind_group;
+        self.grid_bind_group = grid_bind_group;
+        self.grid_info = grid_info;
+        self.vertex_count = vertex_count;
+        if let Some(font) = font {
+            self.font = font;
+        }
+    }
+
     pub fn render(&self, constant: &ConstantState) -> Result<(), wgpu::SurfaceError> {
         let output = constant.surface.get_current_texture()?;
         let view = output

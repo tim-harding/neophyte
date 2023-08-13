@@ -1,6 +1,8 @@
 use super::{
-    font, read::ReadState, surface_config::SurfaceConfig, ConstantState, GlyphInfo, GridInfo,
-    HighlightInfo,
+    font,
+    read::{ReadState, ReadStateUpdates},
+    surface_config::SurfaceConfig,
+    ConstantState, GlyphInfo, GridInfo, HighlightInfo,
 };
 use crate::{
     event::hl_attr_define::Rgb,
@@ -27,12 +29,12 @@ impl WriteState {
     }
 
     // TODO: Should only rebuild the pipeline as the result of a resize
-    pub fn update_text(
+    pub fn updates(
         &mut self,
         ui: Ui,
         constant: &ConstantState,
         surface_config: &SurfaceConfig,
-    ) -> ReadState {
+    ) -> ReadStateUpdates {
         let grid = ui.composite();
         let font = self.font.as_ref();
         let charmap = font.charmap();
@@ -141,9 +143,9 @@ impl WriteState {
                 }],
             });
 
-        let font = self.font_write.get_read(constant, &surface_config);
+        let font = self.font_write.updates(constant, &surface_config);
 
-        ReadState {
+        ReadStateUpdates {
             font,
             clear_color,
             highlights_bind_group,

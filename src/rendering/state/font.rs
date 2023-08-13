@@ -23,8 +23,15 @@ pub struct Write {
 }
 
 impl Write {
-    pub fn get_read(&mut self, constant: &ConstantState, surface_config: &SurfaceConfig) -> Read {
-        // TODO: Only update pipeline if there are textures to upload
+    pub fn updates(
+        &mut self,
+        constant: &ConstantState,
+        surface_config: &SurfaceConfig,
+    ) -> Option<Read> {
+        // Only update pipeline if there are textures to upload
+        if self.next_glyph_to_upload == self.font_cache.data.len() {
+            return None;
+        }
 
         for (data, info) in self
             .font_cache
@@ -146,7 +153,7 @@ impl Write {
                     multiview: None,
                 });
 
-        Read {
+        Some(Read {
             bind_group: constant
                 .device
                 .create_bind_group(&wgpu::BindGroupDescriptor {
@@ -172,7 +179,7 @@ impl Write {
                     ],
                 }),
             pipeline: glyph_render_pipeline,
-        }
+        })
     }
 }
 
