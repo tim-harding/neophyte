@@ -1,7 +1,7 @@
 mod state;
 mod texture;
 
-use self::state::{State, StateWinit};
+use self::state::State;
 use crate::{
     session::Neovim,
     text::font::{metrics, Font},
@@ -24,14 +24,14 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
     let font = Font::from_file("/usr/share/fonts/OTF/CascadiaCode-Regular.otf", 0).unwrap();
     let event_loop = EventLoop::new();
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
-    let mut state = State::new(window.clone(), font.clone()).await; // TODO: Font cloning
-    let winit_state = state.winit_state();
+    let (state, mut write_state) = state::init(window.clone(), font.clone()).await; // TODO: Font cloning
 
     {
         let window = window.clone();
+        let state = state.clone();
         thread::spawn(move || {
             while let Ok(ui) = rx.recv() {
-                state.update_text(ui);
+                state.update_text(ui, &mut write_state);
                 window.request_redraw();
             }
         });
@@ -188,7 +188,7 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
 
             WindowEvent::Resized(physical_size) => {
                 resize(
-                    &winit_state,
+                    &state,
                     scale_factor,
                     *physical_size,
                     &mut neovim,
@@ -202,7 +202,7 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
             } => {
                 scale_factor = *new_scale_factor as f32;
                 resize(
-                    &winit_state,
+                    &state,
                     scale_factor,
                     **new_inner_size,
                     &mut neovim,
@@ -215,26 +215,18 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
             _ => {}
         },
 
-        Event::RedrawRequested(window_id) if window_id == window.id() => {
-            match winit_state.render() {
-                Ok(_) => {}
-                Err(SurfaceError::Lost) => winit_state.rebuild_swap_chain(),
-                Err(SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                Err(e) => eprintln!("{e:?}"),
-            }
-        }
+        Event::RedrawRequested(window_id) if window_id == window.id() => match state.render() {
+            Ok(_) => {}
+            Err(SurfaceError::Lost) => state.rebuild_swap_chain(),
+            Err(SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+            Err(e) => eprintln!("{e:?}"),
+        },
 
         _ => {}
     })
 }
 
-fn resize(
-    state: &StateWinit,
-    scale: f32,
-    size: PhysicalSize<u32>,
-    neovim: &mut Neovim,
-    font: FontRef,
-) {
+fn resize(state: &State, scale: f32, size: PhysicalSize<u32>, neovim: &mut Neovim, font: FontRef) {
     state.resize(size);
     let metrics = metrics(font, 24.0 * scale);
     neovim.ui_try_resize_grid(
