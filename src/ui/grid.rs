@@ -263,7 +263,7 @@ where
         self.buffer[start..end].iter_mut()
     }
 
-    pub fn rows(&self) -> impl Iterator<Item = impl Iterator<Item = T> + '_> + '_ {
+    pub fn rows(&self) -> impl Iterator<Item = impl Iterator<Item = T> + '_ + Clone> + '_ + Clone {
         self.buffer
             .chunks(self.size.x as usize)
             .map(|chunk| chunk.into_iter().cloned())

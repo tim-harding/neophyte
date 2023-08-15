@@ -8,6 +8,13 @@ use crate::{
     util::vec2::Vec2,
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
+use swash::{
+    shape::ShapeContext,
+    text::{
+        cluster::{CharCluster, Parser, Token},
+        Script,
+    },
+};
 use wgpu::{include_wgsl, util::DeviceExt};
 
 pub struct Read {
@@ -32,25 +39,51 @@ impl Write {
         let charmap = font.charmap();
         let metrics = metrics(font, 24.0);
         let mut glyph_info = vec![];
+        // TODO: Cache
+        let mut shape_context = ShapeContext::new();
         for (cell_line, hl_line) in grid.cells.rows().zip(grid.highlights.rows()) {
-            for (c, hl) in cell_line.zip(hl_line) {
-                let id = charmap.map(c);
-                let glyph_index = match font_cache.get(font, 24.0, id) {
-                    Some(glyph) => glyph,
-                    None => {
-                        glyph_info.push(GlyphInfo {
-                            glyph_index: 0,
-                            highlight_index: hl,
-                        });
-                        continue;
-                    }
-                };
+            let mut shaper = shape_context.builder(font).script(Script::Latin).build();
+            let mut cluster = CharCluster::new();
+            let mut parser = Parser::new(
+                Script::Latin,
+                cell_line
+                    .zip(hl_line)
+                    .enumerate()
+                    .map(|(i, (c, hl))| Token {
+                        ch: c,
+                        // We essentially just store UTF-32, so each character is one code unit.
+                        offset: i as u32,
+                        len: 1,
+                        info: c.into(),
+                        data: hl,
+                    }),
+            );
 
-                glyph_info.push(GlyphInfo {
-                    glyph_index: glyph_index as u32,
-                    highlight_index: hl,
-                });
+            while parser.next(&mut cluster) {
+                // NOTE: Why does the shaper builder take a font if we select the best font here?
+                cluster.map(|c| charmap.map(c));
+                shaper.add_cluster(&cluster);
             }
+
+            shaper.shape_with(|glyph_cluster| {
+                for glyph in glyph_cluster.glyphs {
+                    let glyph_index = match font_cache.get(font, 24.0, glyph.id) {
+                        Some(glyph) => glyph,
+                        None => {
+                            glyph_info.push(GlyphInfo {
+                                glyph_index: 0,
+                                highlight_index: glyph_cluster.data,
+                            });
+                            continue;
+                        }
+                    };
+
+                    glyph_info.push(GlyphInfo {
+                        glyph_index: glyph_index as u32,
+                        highlight_index: glyph_cluster.data,
+                    });
+                }
+            });
         }
 
         let grid_info = GridInfo {
