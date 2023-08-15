@@ -6,27 +6,27 @@ use crate::event::{
 #[derive(Debug, Default, Clone)]
 pub struct Options {
     /// Enable shaping
-    arabicshape: bool,
+    pub arabicshape: bool,
     /// ,hat to do with characters with East Asian Width Class Ambiguous
-    ambiwidth: Ambiwidth,
+    pub ambiwidth: Ambiwidth,
     /// Emoji characters are considered to be full width
-    emoji: bool,
+    pub emoji: bool,
     /// Fonts to use with fallbacks
-    guifont: Vec<String>,
+    pub guifont: (Vec<String>, u32),
     /// Fonts to use for double-width characters with fallbacks
-    guifontwide: Vec<String>,
+    pub guifontwide: (Vec<String>, u32),
     /// Number of pixel lines inserted between characters
-    linespace: u64,
+    pub linespace: u64,
     /// Window focus follows mouse pointer
-    mousefocus: bool,
+    pub mousefocus: bool,
     /// mouse move events are available for mapping
-    mousemoveevent: bool,
+    pub mousemoveevent: bool,
     /// Enables pseudo-transparency for the popup-menu. Valid values are in the
     /// range of 0 for fully opaque popupmenu (disabled) to 100 for fully
     /// transparent background
-    pumblend: u64,
+    pub pumblend: u64,
     /// When the line with tab page labels will be displayed
-    showtabline: Showtabline,
+    pub showtabline: Showtabline,
 }
 
 impl Options {
@@ -47,38 +47,81 @@ impl Options {
     }
 }
 
-fn fonts_from_option(option: String) -> Vec<String> {
-    let mut start = 0;
-    let mut leading_whitespace = true;
-    let mut found_escape = false;
+fn fonts_from_option(option: String) -> (Vec<String>, u32) {
+    let mut height = 12u32;
+    let mut state = ParseState::Normal;
     let mut out = vec![];
-    for (i, char) in option.chars().enumerate() {
-        if char.is_whitespace() && leading_whitespace {
-            start = i;
-        }
-        leading_whitespace = false;
-        match char {
-            '\\' => found_escape = true,
-            ',' => {
-                if found_escape {
-                    out.push(option.chars().skip(start).take(i - start).collect());
-                    start = i;
-                    leading_whitespace = true;
+    let mut current = String::new();
+    for c in option.chars() {
+        match state {
+            ParseState::Normal => {
+                if c.is_whitespace() && current.is_empty() {
+                    continue;
                 }
-                found_escape = false;
+
+                match c {
+                    '\\' => state = ParseState::Escape,
+                    ',' => {
+                        out.push(current);
+                        current = String::default();
+                        state = ParseState::Normal;
+                    }
+                    '_' => current.push(' '),
+                    ':' => state = ParseState::OptionStart,
+                    _ => current.push(c),
+                }
             }
-            _ => found_escape = false,
+
+            ParseState::Escape => current.push(c),
+
+            ParseState::OptionStart => {
+                if c == 'h' {
+                    state = ParseState::OptionHeight;
+                    height = 0;
+                } else {
+                    state = ParseState::OptionUnknown;
+                }
+            }
+
+            ParseState::OptionHeight => match c {
+                '0'..='9' => height = height * 10 + c as u32 - '0' as u32,
+                ',' => {
+                    out.push(current);
+                    current = String::default();
+                    state = ParseState::Normal;
+                }
+                ':' => state = ParseState::OptionStart,
+                _ => log::warn!("Bad font height option"),
+            },
+
+            ParseState::OptionUnknown => match c {
+                ',' => {
+                    out.push(current);
+                    current = String::default();
+                    state = ParseState::Normal;
+                }
+                ':' => state = ParseState::OptionStart,
+                _ => {}
+            },
         }
-        if char == '\\' {
-            found_escape = true;
-        }
-        if char == ',' && found_escape {}
     }
 
-    if out.is_empty() {
-        vec![option]
-    } else {
-        out.push(option.chars().skip(start).collect());
-        out
+    if !current.is_empty() {
+        out.push(current);
     }
+
+    (out, height)
+}
+
+enum ParseState {
+    /// Appending chars as normal
+    Normal,
+    /// Found a backslash escape sequence
+    Escape,
+    /// Found a :
+    OptionStart,
+    /// Found a :h
+    OptionHeight,
+    /// An unknown option is being specified
+    OptionUnknown,
 }

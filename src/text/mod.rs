@@ -1,5 +1,6 @@
 pub mod cache;
 pub mod font;
+pub mod fonts;
 
 use crate::text::font::Font;
 use png::{ColorType, Encoder};

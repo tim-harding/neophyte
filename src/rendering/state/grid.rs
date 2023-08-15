@@ -1,9 +1,6 @@
 use super::{highlights, ConstantState};
 use crate::{
-    text::{
-        cache::FontCache,
-        font::{metrics, Font},
-    },
+    text::{cache::FontCache, font::metrics, fonts::Fonts},
     ui::Ui,
     util::vec2::Vec2,
 };
@@ -31,18 +28,25 @@ impl Write {
         constant: &ConstantState,
         surface_size: Vec2<u32>,
         ui: &Ui,
-        font: &Font,
+        fonts: &mut Fonts,
         font_cache: &mut FontCache,
     ) -> Option<Read> {
+        if ui.options.guifont.1 > 0 {
+            fonts.reload(ui.options.guifont.0.clone(), ui.options.guifont.1)
+        }
         let grid = ui.composite();
-        let font = font.as_ref();
-        let charmap = font.charmap();
-        let metrics = metrics(font, 24.0);
+        let default_font = fonts.first_regular().unwrap();
+        let default_font = default_font.as_ref();
+        let charmap = default_font.charmap();
+        let metrics = metrics(default_font, fonts.size() as f32);
         let mut glyph_info = vec![];
         // TODO: Cache
         let mut shape_context = ShapeContext::new();
         for (cell_line, hl_line) in grid.cells.rows().zip(grid.highlights.rows()) {
-            let mut shaper = shape_context.builder(font).script(Script::Latin).build();
+            let mut shaper = shape_context
+                .builder(default_font)
+                .script(Script::Latin)
+                .build();
             let mut cluster = CharCluster::new();
             let mut parser = Parser::new(
                 Script::Latin,
@@ -67,16 +71,17 @@ impl Write {
 
             shaper.shape_with(|glyph_cluster| {
                 for glyph in glyph_cluster.glyphs {
-                    let glyph_index = match font_cache.get(font, 24.0, glyph.id) {
-                        Some(glyph) => glyph,
-                        None => {
-                            glyph_info.push(GlyphInfo {
-                                glyph_index: 0,
-                                highlight_index: glyph_cluster.data,
-                            });
-                            continue;
-                        }
-                    };
+                    let glyph_index =
+                        match font_cache.get(default_font, fonts.size() as f32, glyph.id) {
+                            Some(glyph) => glyph,
+                            None => {
+                                glyph_info.push(GlyphInfo {
+                                    glyph_index: 0,
+                                    highlight_index: glyph_cluster.data,
+                                });
+                                continue;
+                            }
+                        };
 
                     glyph_info.push(GlyphInfo {
                         glyph_index: glyph_index as u32,
@@ -84,6 +89,10 @@ impl Write {
                     });
                 }
             });
+        }
+
+        if glyph_info.is_empty() {
+            return None;
         }
 
         let grid_info = GridInfo {

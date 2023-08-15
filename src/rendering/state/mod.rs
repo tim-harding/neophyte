@@ -7,7 +7,7 @@ mod write;
 
 use self::{read::ReadState, surface_config::SurfaceConfig, write::WriteState};
 use crate::{
-    text::{cache::FontCache, font::Font},
+    text::{cache::FontCache, fonts::Fonts},
     ui::Ui,
 };
 use std::sync::{Arc, RwLock};
@@ -30,8 +30,14 @@ pub struct ConstantState {
 }
 
 impl State {
-    pub fn update(&self, ui: Ui, write: &mut WriteState, font: &Font, font_cache: &mut FontCache) {
-        let updates = write.updates(ui, &self.constant, &self.surface_config, font, font_cache);
+    pub fn update(
+        &self,
+        ui: Ui,
+        write: &mut WriteState,
+        fonts: &mut Fonts,
+        font_cache: &mut FontCache,
+    ) {
+        let updates = write.updates(ui, &self.constant, &self.surface_config, fonts, font_cache);
         let mut read = self.read.write().unwrap();
         match read.as_mut() {
             Some(read) => read.apply_updates(updates),

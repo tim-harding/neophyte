@@ -4,14 +4,12 @@ mod texture;
 use self::state::State;
 use crate::{
     session::Neovim,
-    text::{
-        cache::FontCache,
-        font::{metrics, Font},
-    },
+    text::{cache::FontCache, font::metrics, fonts::Fonts},
     ui::Ui,
 };
 use std::{
-    sync::{mpsc::Receiver, Arc},
+    ops::DerefMut,
+    sync::{mpsc::Receiver, Arc, Mutex},
     thread,
 };
 use swash::FontRef;
@@ -24,19 +22,24 @@ use winit::{
 };
 
 pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
-    let font = Font::from_file("/usr/share/fonts/OTF/CascadiaCode-Regular.otf", 0).unwrap();
+    let fonts = Arc::new(Mutex::new(Fonts::new()));
     let event_loop = EventLoop::new();
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
     let (state, mut write_state) = state::init(window.clone()).await; // TODO: Font cloning
 
     {
-        let font = font.clone();
+        let fonts = fonts.clone();
         let window = window.clone();
         let state = state.clone();
         thread::spawn(move || {
             let mut font_cache = FontCache::new();
             while let Ok(ui) = rx.recv() {
-                state.update(ui, &mut write_state, &font, &mut font_cache);
+                state.update(
+                    ui,
+                    &mut write_state,
+                    fonts.lock().unwrap().deref_mut(),
+                    &mut font_cache,
+                );
                 window.request_redraw();
             }
         });
@@ -192,12 +195,14 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
             }
 
             WindowEvent::Resized(physical_size) => {
+                let mut lock = fonts.lock().unwrap();
                 resize(
                     &state,
                     scale_factor,
                     *physical_size,
                     &mut neovim,
-                    font.as_ref(),
+                    lock.first_regular().unwrap().as_ref(),
+                    lock.size() as f32,
                 );
             }
 
@@ -206,12 +211,14 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
                 scale_factor: new_scale_factor,
             } => {
                 scale_factor = *new_scale_factor as f32;
+                let mut lock = fonts.lock().unwrap();
                 resize(
                     &state,
                     scale_factor,
                     **new_inner_size,
                     &mut neovim,
-                    font.as_ref(),
+                    lock.first_regular().unwrap().as_ref(),
+                    lock.size() as f32,
                 );
             }
 
@@ -231,9 +238,16 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
     })
 }
 
-fn resize(state: &State, scale: f32, size: PhysicalSize<u32>, neovim: &mut Neovim, font: FontRef) {
+fn resize(
+    state: &State,
+    scale: f32,
+    size: PhysicalSize<u32>,
+    neovim: &mut Neovim,
+    font: FontRef,
+    font_size: f32,
+) {
     state.resize(size);
-    let metrics = metrics(font, 24.0 * scale);
+    let metrics = metrics(font, font_size * scale);
     neovim.ui_try_resize_grid(
         1,
         size.width as u64 / metrics.advance as u64,

@@ -123,14 +123,15 @@ impl Neovim {
     pub fn ui_attach(&mut self) {
         let extensions = [
             "rgb",
-            "ext_popupmenu",
-            "ext_tabline",
-            "ext_cmdline",
-            "ext_wildmenu",
             "ext_linegrid",
-            "ext_hlstate",
-            "ext_termcolors",
-            "ext_messages",
+            "ext_multigrid",
+            // "ext_popupmenu",
+            // "ext_tabline",
+            // "ext_cmdline",
+            // "ext_wildmenu",
+            // "ext_hlstate",
+            // "ext_termcolors",
+            // "ext_messages",
         ];
         let extensions = Value::Map(
             extensions

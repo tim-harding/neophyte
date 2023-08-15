@@ -19,6 +19,15 @@ impl Font {
         })
     }
 
+    pub fn from_bytes(data: Vec<u8>, index: usize) -> Option<Self> {
+        let font = FontRef::from_index(&data, index)?;
+        Some(Self {
+            offset: font.offset,
+            key: font.key,
+            data: Arc::new(data),
+        })
+    }
+
     pub fn as_ref(&self) -> FontRef {
         // Unlike the FontRef constructors, this does not construct a new key,
         // enabling performance optimizations and caching mechanisms
