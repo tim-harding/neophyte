@@ -9,7 +9,7 @@ use swash::{
 use super::fonts::Fonts;
 
 pub struct FontCache {
-    scale_context: ScaleContext, // TODO: Externalize
+    scale_context: ScaleContext,
     /// The glyph image data
     pub data: Vec<Vec<u8>>,
     /// Info about glyphs. Use lut to get the index for a glyph
@@ -33,7 +33,13 @@ impl FontCache {
         }
     }
 
-    pub fn get(&mut self, fonts: &mut Fonts, size: f32, glyph_id: GlyphId) -> Option<usize> {
+    pub fn clear(&mut self) {
+        self.data.clear();
+        self.info.clear();
+        self.lut.clear();
+    }
+
+    pub fn get(&mut self, fonts: &Fonts, size: f32, glyph_id: GlyphId) -> Option<usize> {
         match self.lut.entry(glyph_id) {
             Entry::Occupied(entry) => Some(*entry.get()),
             Entry::Vacant(entry) => {
@@ -74,8 +80,8 @@ impl FontCache {
                     }
                 };
 
-                for font in fonts.fonts_mut() {
-                    if let Some(regular) = font.regular() {
+                for font in fonts.guifonts() {
+                    if let Some(regular) = &font.regular {
                         match try_cache(regular.as_ref(), size, glyph_id) {
                             TryCacheResult::Ok(index) => {
                                 entry.insert(index);
@@ -87,7 +93,7 @@ impl FontCache {
                     }
                 }
 
-                if let Some(fallback) = fonts.fallback_mut().regular() {
+                if let Some(fallback) = &fonts.fallback().regular {
                     match try_cache(fallback.as_ref(), size, glyph_id) {
                         TryCacheResult::Ok(index) => {
                             entry.insert(index);

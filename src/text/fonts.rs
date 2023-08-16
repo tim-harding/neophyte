@@ -3,8 +3,8 @@ use font_loader::system_fonts::{self, FontPropertyBuilder};
 
 pub struct Fonts {
     size: u32,
-    fonts: Vec<FontInfo<NamePropertyBuilder>>,
-    fallback: FontInfo<FallbackPropertyBuilder>,
+    fonts: Vec<FontInfo>,
+    fallback: FontInfo,
 }
 
 impl Fonts {
@@ -22,7 +22,7 @@ impl Fonts {
         self.fonts = font_names
             .into_iter()
             .map(|name| {
-                if let Some(i) = old.iter().position(|old| old.name() == name) {
+                if let Some(i) = old.iter().position(|old| old.name == name) {
                     old.swap_remove(i)
                 } else {
                     FontInfo::with_name(name)
@@ -31,143 +31,59 @@ impl Fonts {
             .collect();
     }
 
-    pub fn first_regular(&mut self) -> Option<Font> {
+    pub fn first_regular(&self) -> Option<&Font> {
         self.fonts
-            .iter_mut()
-            .find_map(|font_info| font_info.regular())
-            .or_else(|| self.fallback.regular())
+            .iter()
+            .find_map(|font_info| font_info.regular.as_ref())
+            .or_else(|| self.fallback.regular.as_ref())
     }
 
     pub fn size(&self) -> u32 {
         self.size
     }
 
-    pub fn fonts(&self) -> impl Iterator<Item = &FontInfo<NamePropertyBuilder>> {
+    pub fn guifonts(&self) -> impl Iterator<Item = &FontInfo> {
         self.fonts.iter()
     }
 
-    pub fn fonts_mut(&mut self) -> impl Iterator<Item = &mut FontInfo<NamePropertyBuilder>> {
-        self.fonts.iter_mut()
-    }
-
-    pub fn fallback(&self) -> &FontInfo<FallbackPropertyBuilder> {
+    pub fn fallback(&self) -> &FontInfo {
         &self.fallback
     }
-
-    pub fn fallback_mut(&mut self) -> &mut FontInfo<FallbackPropertyBuilder> {
-        &mut self.fallback
-    }
 }
 
-pub struct FontInfo<T: PropertyBuilder> {
-    builder: T,
-    regular: FontState,
-    bold: FontState,
-    italic: FontState,
-    bold_italic: FontState,
+pub struct FontInfo {
+    pub name: String,
+    pub regular: Option<Font>,
+    pub bold: Option<Font>,
+    pub italic: Option<Font>,
+    pub bold_italic: Option<Font>,
 }
 
-impl FontInfo<NamePropertyBuilder> {
+impl FontInfo {
     pub fn with_name(name: String) -> Self {
-        Self::new(NamePropertyBuilder { name })
-    }
-}
-
-impl FontInfo<FallbackPropertyBuilder> {
-    pub fn fallback() -> Self {
-        Self::new(FallbackPropertyBuilder)
-    }
-}
-
-impl<T: PropertyBuilder> FontInfo<T> {
-    pub fn new(builder: T) -> Self {
+        let builder = || FontPropertyBuilder::new().family(&name);
         Self {
-            builder,
-            regular: FontState::Unloaded,
-            bold: FontState::Unloaded,
-            italic: FontState::Unloaded,
-            bold_italic: FontState::Unloaded,
+            regular: get(builder()),
+            bold: get(builder().bold()),
+            italic: get(builder().italic()),
+            bold_italic: get(builder().bold().italic()),
+            name,
         }
     }
 
-    pub fn name(&self) -> &str {
-        self.builder.name()
-    }
-
-    pub fn regular(&mut self) -> Option<Font> {
-        get(self.builder.create(), &mut self.bold_italic)
-    }
-
-    pub fn bold(&mut self) -> Option<Font> {
-        get(self.builder.create().bold(), &mut self.bold_italic)
-    }
-
-    pub fn italic(&mut self) -> Option<Font> {
-        get(self.builder.create().italic(), &mut self.bold_italic)
-    }
-
-    pub fn bold_italic(&mut self) -> Option<Font> {
-        get(self.builder.create().bold().italic(), &mut self.bold_italic)
+    pub fn fallback() -> Self {
+        let builder = || FontPropertyBuilder::new().monospace();
+        Self {
+            name: String::default(),
+            regular: get(builder()),
+            bold: get(builder().bold()),
+            italic: get(builder().italic()),
+            bold_italic: get(builder().bold().italic()),
+        }
     }
 }
 
-fn get(builder: FontPropertyBuilder, font_state: &mut FontState) -> Option<Font> {
-    match font_state {
-        FontState::Loaded(font) => return Some(font.clone()),
-        FontState::Missing => None,
-        FontState::Unloaded => match system_fonts::get(&builder.build()) {
-            Some((data, index)) => {
-                *font_state = match Font::from_bytes(data, index as usize) {
-                    Some(font) => FontState::Loaded(font),
-                    None => FontState::Missing,
-                };
-                match &font_state {
-                    FontState::Loaded(font) => Some(font.clone()),
-                    FontState::Unloaded | FontState::Missing => None,
-                }
-            }
-            None => None,
-        },
-    }
-}
-
-#[derive(Clone)]
-enum FontState {
-    /// The font has been loaded
-    Loaded(Font),
-    /// The font has not been loaded
-    Unloaded,
-    /// Font loading was attempted and failed
-    Missing,
-}
-
-pub trait PropertyBuilder {
-    fn create(&self) -> FontPropertyBuilder;
-    fn name(&self) -> &str;
-}
-
-pub struct NamePropertyBuilder {
-    name: String,
-}
-
-impl PropertyBuilder for NamePropertyBuilder {
-    fn create(&self) -> FontPropertyBuilder {
-        FontPropertyBuilder::new().family(self.name.as_str())
-    }
-
-    fn name(&self) -> &str {
-        &self.name
-    }
-}
-
-pub struct FallbackPropertyBuilder;
-
-impl PropertyBuilder for FallbackPropertyBuilder {
-    fn create(&self) -> FontPropertyBuilder {
-        FontPropertyBuilder::new().monospace()
-    }
-
-    fn name(&self) -> &str {
-        ""
-    }
+fn get(builder: FontPropertyBuilder) -> Option<Font> {
+    system_fonts::get(&builder.build())
+        .and_then(|(data, index)| Font::from_bytes(data, index as usize))
 }

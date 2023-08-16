@@ -4,7 +4,7 @@ mod texture;
 use self::state::State;
 use crate::{
     session::Neovim,
-    text::{cache::FontCache, font::metrics, fonts::Fonts},
+    text::{cache::FontCache, font::Font, fonts::Fonts},
     ui::Ui,
 };
 use std::{
@@ -12,7 +12,6 @@ use std::{
     sync::{mpsc::Receiver, Arc, Mutex},
     thread,
 };
-use swash::FontRef;
 use wgpu::SurfaceError;
 use winit::{
     dpi::PhysicalSize,
@@ -201,7 +200,7 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
                     scale_factor,
                     *physical_size,
                     &mut neovim,
-                    lock.first_regular().unwrap().as_ref(),
+                    &lock.first_regular().unwrap(),
                     lock.size() as f32,
                 );
             }
@@ -217,7 +216,7 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
                     scale_factor,
                     **new_inner_size,
                     &mut neovim,
-                    lock.first_regular().unwrap().as_ref(),
+                    &lock.first_regular().unwrap(),
                     lock.size() as f32,
                 );
             }
@@ -243,11 +242,11 @@ fn resize(
     scale: f32,
     size: PhysicalSize<u32>,
     neovim: &mut Neovim,
-    font: FontRef,
+    font: &Font,
     font_size: f32,
 ) {
     state.resize(size);
-    let metrics = metrics(font, font_size * scale);
+    let metrics = font.metrics(font_size * scale);
     neovim.ui_try_resize_grid(
         1,
         size.width as u64 / metrics.advance as u64,

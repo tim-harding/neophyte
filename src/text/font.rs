@@ -1,9 +1,10 @@
 use std::{fs, io, path::Path, sync::Arc};
-use swash::{CacheKey, FontRef};
+use swash::{proxy::CharmapProxy, CacheKey, Charmap, FontRef};
 
 #[derive(Clone)]
 pub struct Font {
     data: Arc<Vec<u8>>,
+    charmap: CharmapProxy,
     offset: u32,
     key: CacheKey,
 }
@@ -14,6 +15,7 @@ impl Font {
         let font = FontRef::from_index(&data, index).ok_or(FontFromFileError::Font)?;
         Ok(Self {
             offset: font.offset,
+            charmap: font.charmap().proxy(),
             key: font.key,
             data: Arc::new(data),
         })
@@ -23,9 +25,24 @@ impl Font {
         let font = FontRef::from_index(&data, index)?;
         Some(Self {
             offset: font.offset,
+            charmap: font.charmap().proxy(),
             key: font.key,
             data: Arc::new(data),
         })
+    }
+
+    pub fn charmap(&self) -> Charmap {
+        self.charmap.materialize(&self.as_ref())
+    }
+
+    pub fn metrics(&self, size: f32) -> Metrics {
+        let metrics = self.as_ref().metrics(&[]).scale(size);
+        Metrics {
+            advance: metrics.average_width,
+            ascent: metrics.ascent,
+            descent: metrics.descent,
+            leading: metrics.leading,
+        }
     }
 
     pub fn as_ref(&self) -> FontRef {
@@ -36,17 +53,6 @@ impl Font {
             offset: self.offset,
             key: self.key,
         }
-    }
-}
-
-// TODO: Store and materialize metrics
-pub fn metrics(font: FontRef, size: f32) -> Metrics {
-    let metrics = font.metrics(&[]).scale(size);
-    Metrics {
-        advance: metrics.average_width,
-        ascent: metrics.ascent,
-        descent: metrics.descent,
-        leading: metrics.leading,
     }
 }
 

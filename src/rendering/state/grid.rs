@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-
 use super::{highlights, ConstantState};
 use crate::{
-    text::{cache::FontCache, font::metrics, fonts::Fonts},
+    text::{cache::FontCache, fonts::Fonts},
     ui::Ui,
     util::vec2::Vec2,
 };
@@ -10,7 +8,7 @@ use bytemuck::{cast_slice, Pod, Zeroable};
 use swash::{
     shape::ShapeContext,
     text::{
-        cluster::{CharCluster, Parser, Token},
+        cluster::{CharCluster, Parser, Status, Token},
         Script,
     },
 };
@@ -22,7 +20,10 @@ pub struct Read {
     pub vertex_count: u32,
 }
 
-pub struct Write;
+#[derive(Default)]
+pub struct Write {
+    pub shape_context: ShapeContext,
+}
 
 impl Write {
     pub fn updates(
@@ -34,23 +35,15 @@ impl Write {
         font_cache: &mut FontCache,
     ) -> Option<Read> {
         if ui.options.guifont.1 > 0 {
-            // TODO: Also need to resize grid and clear font cache
+            // TODO: Also need to resize grid
+            font_cache.clear();
             fonts.reload(ui.options.guifont.0.clone(), ui.options.guifont.1)
         }
+
         let grid = ui.composite();
-        let default_font = fonts.first_regular().unwrap();
-        let default_font = default_font.as_ref();
-        let charmap = default_font.charmap();
-        let metrics = metrics(default_font, fonts.size() as f32);
         let mut glyph_info = vec![];
-        // TODO: Cache
-        let mut shape_context = ShapeContext::new();
 
         for (cell_line, mut hl_line) in grid.cells.rows().zip(grid.highlights.rows()) {
-            let mut shaper = shape_context
-                .builder(default_font)
-                .script(Script::Latin)
-                .build();
             let mut cluster = CharCluster::new();
             let mut parser = Parser::new(
                 Script::Latin,
@@ -60,41 +53,119 @@ impl Write {
                     offset: i as u32,
                     len: 1,
                     info: c.into(),
-                    data: 0,
+                    data: c as u32,
                 }),
             );
 
-            while parser.next(&mut cluster) {
-                // NOTE: Why does the shaper builder take a font if we select the best font here?
-                cluster.map(|c| charmap.map(c));
-                shaper.add_cluster(&cluster);
-            }
+            let mut current_font_index: Option<usize> = None;
+            let mut is_parser_empty = false;
+            while !is_parser_empty {
+                match current_font_index {
+                    Some(i) => match &fonts.guifonts().nth(i).unwrap().regular {
+                        Some(font) => {
+                            let mut shaper = self
+                                .shape_context
+                                .builder(font.as_ref())
+                                .script(Script::Arabic)
+                                .build();
 
-            shaper.shape_with(|glyph_cluster| {
-                for glyph in glyph_cluster.glyphs {
-                    let hl = hl_line.next().unwrap_or(0);
-                    let glyph_index = match font_cache.get(fonts, fonts.size() as f32, glyph.id) {
-                        Some(glyph) => glyph,
-                        None => {
-                            glyph_info.push(GlyphInfo {
-                                glyph_index: 0,
-                                highlight_index: hl,
+                            loop {
+                                if !parser.next(&mut cluster) {
+                                    is_parser_empty = true;
+                                    break;
+                                }
+
+                                let mut best_font_index = None;
+                                for (i, font) in fonts.guifonts().enumerate() {
+                                    if let Some(regular) = &font.regular {
+                                        match cluster.map(|c| regular.charmap().map(c)) {
+                                            Status::Discard => {}
+                                            Status::Keep => best_font_index = Some(i),
+                                            Status::Complete => {
+                                                best_font_index = Some(i);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                match best_font_index {
+                                    Some(best_font_index) => {
+                                        if i == best_font_index {
+                                            shaper.add_cluster(&cluster);
+                                        } else {
+                                            break;
+                                        }
+                                    }
+
+                                    None => break,
+                                }
+
+                                current_font_index = best_font_index;
+                            }
+
+                            shaper.shape_with(|glyph_cluster| {
+                                for glyph in glyph_cluster.glyphs {
+                                    let hl = hl_line.next().unwrap_or(0);
+                                    let glyph_index = match font_cache.get(
+                                        fonts,
+                                        fonts.size() as f32,
+                                        glyph.id,
+                                    ) {
+                                        Some(glyph) => glyph,
+                                        None => {
+                                            glyph_info.push(GlyphInfo {
+                                                glyph_index: 0,
+                                                highlight_index: hl,
+                                            });
+                                            continue;
+                                        }
+                                    };
+
+                                    glyph_info.push(GlyphInfo {
+                                        glyph_index: glyph_index as u32,
+                                        highlight_index: hl,
+                                    });
+                                }
                             });
-                            continue;
                         }
-                    };
+                        None => todo!(),
+                    },
 
-                    glyph_info.push(GlyphInfo {
-                        glyph_index: glyph_index as u32,
-                        highlight_index: hl,
-                    });
+                    None => loop {
+                        if !parser.next(&mut cluster) {
+                            is_parser_empty = true;
+                            break;
+                        }
+
+                        let mut best_font_index = None;
+                        for (i, font) in fonts.guifonts().enumerate() {
+                            if let Some(regular) = &font.regular {
+                                match cluster.map(|c| regular.charmap().map(c)) {
+                                    Status::Discard => {}
+                                    Status::Keep => best_font_index = Some(i),
+                                    Status::Complete => {
+                                        best_font_index = Some(i);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if current_font_index != best_font_index {
+                            current_font_index = best_font_index;
+                            break;
+                        }
+                    },
                 }
-            });
+            }
         }
 
         if glyph_info.is_empty() {
             return None;
         }
+
+        let metrics = fonts.first_regular().unwrap().metrics(fonts.size() as f32);
 
         let grid_info = GridInfo {
             surface_size,
@@ -211,7 +282,7 @@ pub fn init(
         });
 
     (
-        Write,
+        Write::default(),
         Constant {
             bind_group_layout,
             cell_fill_render_pipeline,
