@@ -10,7 +10,7 @@ pub struct Fonts {
 impl Fonts {
     pub fn new() -> Self {
         Self {
-            size: 12,
+            size: 16,
             fonts: vec![],
             fallback: FontInfo::fallback(),
         }
@@ -46,8 +46,16 @@ impl Fonts {
         self.fonts.iter()
     }
 
+    pub fn fonts_mut(&mut self) -> impl Iterator<Item = &mut FontInfo<NamePropertyBuilder>> {
+        self.fonts.iter_mut()
+    }
+
     pub fn fallback(&self) -> &FontInfo<FallbackPropertyBuilder> {
         &self.fallback
+    }
+
+    pub fn fallback_mut(&mut self) -> &mut FontInfo<FallbackPropertyBuilder> {
+        &mut self.fallback
     }
 }
 

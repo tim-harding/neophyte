@@ -6,6 +6,8 @@ use swash::{
     FontRef, GlyphId,
 };
 
+use super::fonts::Fonts;
+
 pub struct FontCache {
     scale_context: ScaleContext, // TODO: Externalize
     /// The glyph image data
@@ -31,40 +33,88 @@ impl FontCache {
         }
     }
 
-    pub fn get(&mut self, font: FontRef, size: f32, glyph_id: GlyphId) -> Option<usize> {
+    pub fn get(&mut self, fonts: &mut Fonts, size: f32, glyph_id: GlyphId) -> Option<usize> {
         match self.lut.entry(glyph_id) {
             Entry::Occupied(entry) => Some(*entry.get()),
             Entry::Vacant(entry) => {
-                let mut scaler = self
-                    .scale_context
-                    .builder(font)
-                    .size(size)
-                    .hint(true)
-                    .build();
-
-                Render::new(&[
-                    Source::ColorOutline(0),
-                    Source::ColorBitmap(StrikeWith::BestFit),
-                    Source::Outline,
-                ])
-                .render(&mut scaler, glyph_id)
-                .and_then(|image| {
-                    if image.data.len() > 0 {
-                        let index = self.data.len();
-                        self.info.push(GlyphInfo {
-                            size: Vec2::new(image.placement.width, image.placement.height),
-                            placement_offset: Vec2::new(image.placement.left, image.placement.top),
-                        });
-                        self.data.push(image.data);
-                        entry.insert(index);
-                        Some(index)
-                    } else {
-                        None
+                let mut try_cache = |font: FontRef,
+                                     size: f32,
+                                     glyph_id: GlyphId|
+                 -> TryCacheResult {
+                    let mut scaler = self
+                        .scale_context
+                        .builder(font)
+                        .size(size)
+                        .hint(true)
+                        .build();
+                    match Render::new(&[
+                        Source::ColorOutline(0),
+                        Source::ColorBitmap(StrikeWith::BestFit),
+                        Source::Outline,
+                    ])
+                    .render(&mut scaler, glyph_id)
+                    {
+                        Some(image) => {
+                            if image.data.len() > 0 {
+                                let index = self.data.len();
+                                self.info.push(GlyphInfo {
+                                    size: Vec2::new(image.placement.width, image.placement.height),
+                                    placement_offset: Vec2::new(
+                                        image.placement.left,
+                                        image.placement.top,
+                                    ),
+                                });
+                                self.data.push(image.data);
+                                TryCacheResult::Ok(index)
+                            } else {
+                                TryCacheResult::Empty
+                            }
+                        }
+                        None => TryCacheResult::Failed,
                     }
-                })
+                };
+
+                for font in fonts.fonts_mut() {
+                    if let Some(regular) = font.regular() {
+                        match try_cache(regular.as_ref(), size, glyph_id) {
+                            TryCacheResult::Ok(index) => {
+                                entry.insert(index);
+                                return Some(index);
+                            }
+                            TryCacheResult::Empty => return None,
+                            TryCacheResult::Failed => {}
+                        }
+                    }
+                }
+
+                if let Some(fallback) = fonts.fallback_mut().regular() {
+                    match try_cache(fallback.as_ref(), size, glyph_id) {
+                        TryCacheResult::Ok(index) => {
+                            entry.insert(index);
+                            Some(index)
+                        }
+                        TryCacheResult::Empty | TryCacheResult::Failed => None,
+                    }
+                } else {
+                    None
+                }
             }
         }
     }
+}
+
+enum TryCacheResult {
+    Ok(usize),
+    Empty,
+    Failed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FontStyle {
+    Regular,
+    Bold,
+    Italic,
+    BoldItalic,
 }
 
 #[repr(C)]
