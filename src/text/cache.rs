@@ -35,7 +35,12 @@ impl FontCache {
 
     pub fn clear(&mut self) {
         self.data.clear();
+        self.data.push(vec![0]);
         self.info.clear();
+        self.info.push(GlyphInfo {
+            size: Vec2::new(1, 1),
+            placement_offset: Vec2::default(),
+        });
         self.lut.clear();
     }
 
