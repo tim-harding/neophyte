@@ -36,7 +36,8 @@ impl Write {
     ) -> Option<Read> {
         if ui.options.guifont.1 > 0 {
             // TODO: Also need to resize grid
-            font_cache.clear();
+            // TODO: Clear font cache
+            // TODO: Also reload textures on GPU
             fonts.reload(ui.options.guifont.0.clone(), ui.options.guifont.1)
         }
 
@@ -69,6 +70,8 @@ impl Write {
                                 .script(Script::Arabic)
                                 .build();
 
+                            shaper.add_cluster(&cluster);
+
                             loop {
                                 if !parser.next(&mut cluster) {
                                     is_parser_empty = true;
@@ -94,21 +97,23 @@ impl Write {
                                         if i == best_font_index {
                                             shaper.add_cluster(&cluster);
                                         } else {
+                                            current_font_index = Some(best_font_index);
                                             break;
                                         }
                                     }
 
-                                    None => break,
+                                    None => {
+                                        current_font_index = best_font_index;
+                                        break;
+                                    }
                                 }
-
-                                current_font_index = best_font_index;
                             }
 
                             shaper.shape_with(|glyph_cluster| {
                                 for glyph in glyph_cluster.glyphs {
                                     let hl = hl_line.next().unwrap_or(0);
                                     let glyph_index = match font_cache.get(
-                                        fonts,
+                                        font.as_ref(),
                                         fonts.size() as f32,
                                         glyph.id,
                                     ) {
