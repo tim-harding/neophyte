@@ -22,6 +22,26 @@ impl Write {
         };
 
         let srgb = |n| (n as f32 / 255.0).powf(2.2);
+        if self.highlights.is_empty() {
+            self.highlights.resize(
+                1,
+                HighlightInfo {
+                    fg: [
+                        srgb(fg_default.r()),
+                        srgb(fg_default.g()),
+                        srgb(fg_default.b()),
+                        1.0,
+                    ],
+                    bg: [
+                        srgb(bg_default.r()),
+                        srgb(bg_default.g()),
+                        srgb(bg_default.b()),
+                        1.0,
+                    ],
+                },
+            )
+        }
+
         let srgb = |c: Rgb| [srgb(c.r()), srgb(c.g()), srgb(c.b()), 1.0];
         for highlight in ui.highlights.iter() {
             let i = *highlight.0 as usize;

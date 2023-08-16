@@ -90,7 +90,6 @@ impl Write {
                     });
                 }
             });
-            println!();
         }
 
         if glyph_info.is_empty() {
