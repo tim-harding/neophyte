@@ -2,7 +2,7 @@
 
 use super::Highlights;
 use crate::{
-    event::{grid_line::Cell, hl_attr_define::Attributes, Anchor, GridScroll, HlAttrDefine},
+    event::{grid_line, hl_attr_define::Attributes, Anchor, GridScroll, HlAttrDefine},
     ui::print::hl_attr_to_colorspec,
     util::vec2::Vec2,
 };
@@ -10,17 +10,15 @@ use std::{
     collections::HashMap,
     fmt::{self, Debug, Display, Formatter},
     io::Write,
+    marker::PhantomData,
+    vec::IntoIter,
 };
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-// TODO: Add fallback to string if the cell requires more than a char
-
-pub type HighlightId = u32;
-
 #[derive(Default, Clone)]
 pub struct Grid {
-    pub cells: InnerGrid<char>,
-    pub highlights: InnerGrid<HighlightId>,
+    size: Vec2<u64>,
+    buffer: Vec<Cell>,
     pub show: bool,
     pub window: Window,
 }
@@ -48,27 +46,114 @@ pub struct NormalWindow {
     pub size: Vec2<u64>,
 }
 
+#[derive(Default, Clone)]
+pub struct Cell {
+    pub text: String,
+    pub highlight: u64,
+}
+
 impl Grid {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     pub fn resize(&mut self, size: Vec2<u64>) {
-        self.cells.resize(size);
-        self.highlights.resize(size);
+        let mut old = std::mem::take(&mut self.buffer).into_iter();
+        self.buffer = vec![Cell::default(); size.area() as usize];
+        for y in 0..self.size.y.min(size.y) {
+            let offset = y * size.x;
+            for x in 0..self.size.x.min(size.x) {
+                self.buffer[(offset + x) as usize] = old.next().unwrap();
+            }
+            for _ in size.x..self.size.x {
+                let _ = old.next();
+            }
+        }
+        self.size = size;
+    }
+
+    pub fn index_for(&self, position: Vec2<u64>) -> usize {
+        (position.y * self.size.x + position.x) as usize
+    }
+
+    pub fn get(&self, position: Vec2<u64>) -> &Cell {
+        &self.buffer[self.index_for(position)]
+    }
+
+    pub fn take(&mut self, position: Vec2<u64>) -> Cell {
+        let i = self.index_for(position);
+        std::mem::take(&mut self.buffer[i])
+    }
+
+    pub fn set(&mut self, position: Vec2<u64>, value: Cell) {
+        let i = self.index_for(position);
+        self.buffer[i] = value;
     }
 
     pub fn clear(&mut self) {
-        self.cells.clear();
-        self.highlights.clear();
-    }
-
-    pub fn scroll(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64) {
-        self.cells.scroll(top, bot, left, right, rows);
-        self.highlights.scroll(top, bot, left, right, rows);
+        for dst in self.buffer.iter_mut() {
+            *dst = Cell::default();
+        }
     }
 
     pub fn size(&self) -> Vec2<u64> {
-        self.cells.size
+        self.size
     }
 
-    pub fn combine(&mut self, other: &Grid, cursor: Option<CursorRenderInfo>) {
+    pub fn scroll(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64) {
+        // TODO: Skip iterations for lines that won't be copied
+        let height = self.size.y;
+        let mut cut_and_paste = move |src_y, dst_y| {
+            for x in left..right {
+                let t = self.take(Vec2::new(x, src_y));
+                self.set(Vec2::new(x, dst_y), t);
+            }
+        };
+        if rows > 0 {
+            for y in top..bot {
+                if let Ok(dst_y) = ((y as i64) - rows).try_into() {
+                    cut_and_paste(y, dst_y);
+                }
+            }
+        } else {
+            for y in (top..bot).rev() {
+                let dst_y = ((y as i64) - rows) as u64;
+                if dst_y < height {
+                    cut_and_paste(y, dst_y);
+                }
+            }
+        }
+    }
+
+    pub fn row(&self, i: u64) -> impl Iterator<Item = &Cell> + '_ {
+        let w = self.size.x as usize;
+        let start = i as usize * w;
+        let end = start + w;
+        self.buffer[start..end].iter()
+    }
+
+    pub fn row_mut(&mut self, i: u64) -> impl Iterator<Item = &mut Cell> + '_ {
+        let w = self.size.x as usize;
+        let start = i as usize * w;
+        let end = start + w;
+        self.buffer[start..end].iter_mut()
+    }
+
+    pub fn rows(
+        &self,
+    ) -> impl Iterator<Item = impl Iterator<Item = &Cell> + '_ + Clone> + '_ + Clone {
+        self.buffer
+            .chunks(self.size.x as usize)
+            .map(|chunk| chunk.into_iter())
+    }
+
+    pub fn rows_mut(&mut self) -> impl Iterator<Item = impl Iterator<Item = &mut Cell> + '_> + '_ {
+        self.buffer
+            .chunks_mut(self.size.x as usize)
+            .map(|chunk| chunk.iter_mut())
+    }
+
+    pub fn combine(&mut self, other: Grid, cursor: Option<CursorRenderInfo>) {
         let start = match &other.window {
             Window::None => return,
             Window::External => return,
@@ -90,14 +175,33 @@ impl Grid {
             }
         };
 
-        self.cells.paste(&other.cells, start);
-        self.highlights.paste(&other.highlights, start);
+        let mut iter = other.buffer.into_iter();
+        let size_x = self.size.x;
+        for dst in self
+            .rows_mut()
+            .take(other.size.y as usize)
+            .skip(start.y as usize)
+        {
+            for _ in 0..start.x {
+                let _ = iter.next();
+            }
+            for dst in dst
+                .into_iter()
+                .take(size_x.min(other.size.x) as usize)
+                .skip(start.x as usize)
+            {
+                *dst = iter.next().unwrap();
+            }
+            for _ in size_x.saturating_sub(start.x)..other.size.x.saturating_sub(start.x) {
+                let _ = iter.next();
+            }
+        }
 
         // TODO: Take mode_info_set into consideration
         if let Some(cursor) = cursor {
             let pos = start + cursor.pos;
-            let i = self.highlights.index_for(pos);
-            self.highlights.buffer[i] = cursor.hl;
+            let i = self.index_for(pos);
+            self.buffer[i].highlight = cursor.hl;
         }
     }
 
@@ -105,19 +209,19 @@ impl Grid {
         let mut f = StandardStream::stdout(ColorChoice::Always);
         let mut prev_hl = 0;
         writeln!(f, "┏{:━<1$}┓", "", self.size().x as usize);
-        for (cell_row, hl_row) in self.cells.rows().zip(self.highlights.rows()) {
+        for cell_row in self.rows() {
             f.reset();
             write!(f, "┃");
-            for (c, hl) in cell_row.into_iter().zip(hl_row.into_iter()) {
-                if hl != prev_hl {
-                    if let Some(hl_attr) = highlights.get(&hl) {
+            for cell in cell_row.into_iter() {
+                if cell.highlight != prev_hl {
+                    if let Some(hl_attr) = highlights.get(&cell.highlight) {
                         f.set_color(&hl_attr_to_colorspec(hl_attr));
                     } else {
                         f.reset();
                     }
-                    prev_hl = hl;
+                    prev_hl = cell.highlight;
                 }
-                write!(f, "{c}");
+                write!(f, "{}", cell.text);
             }
             f.reset();
             write!(f, "┃\n");
@@ -126,32 +230,25 @@ impl Grid {
         writeln!(f, "┗{:━<1$}┛", "", self.size().x as usize);
     }
 
-    pub fn grid_line(&mut self, row: u64, col_start: u64, cells: Vec<Cell>) {
+    pub fn grid_line(&mut self, row: u64, col_start: u64, cells: Vec<grid_line::Cell>) {
         // TODO: Apply changes to glyph quads
-        let mut row = self
-            .cells
-            .row_mut(row)
-            .into_iter()
-            .zip(self.highlights.row_mut(row).into_iter())
-            .skip(col_start as usize);
+        let mut row = self.row_mut(row).into_iter().skip(col_start as usize);
         let mut highlight = 0;
         for cell in cells {
-            let c = cell.text.chars().into_iter().next().unwrap();
             if let Some(hl_id) = cell.hl_id {
-                highlight = hl_id as HighlightId;
+                highlight = hl_id;
             }
             // TODO: Skip iterations for lines that won't be copied
             if let Some(repeat) = cell.repeat {
-                for _ in 0..repeat {
+                for _ in 0..repeat - 1 {
                     let dst = row.next().unwrap();
-                    *dst.0 = c;
-                    *dst.1 = highlight;
+                    dst.text = cell.text.clone();
+                    dst.highlight = highlight;
                 }
-            } else {
-                let dst = row.next().unwrap();
-                *dst.0 = c;
-                *dst.1 = highlight;
             }
+            let dst = row.next().unwrap();
+            dst.text = cell.text;
+            dst.highlight = highlight;
         }
     }
 }
@@ -159,10 +256,10 @@ impl Grid {
 impl Debug for Grid {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "┏{:━<1$}┓\n", "", self.size().x as usize);
-        for row in self.cells.rows() {
+        for row in self.rows() {
             write!(f, "┃");
             for cell in row {
-                write!(f, "{cell}")?;
+                write!(f, "{}", cell.text)?;
             }
             write!(f, "┃\n")?;
         }
@@ -171,124 +268,7 @@ impl Debug for Grid {
     }
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct InnerGrid<T>
-where
-    T: Debug + Copy + Clone + Send + Sync + Default + 'static,
-{
-    size: Vec2<u64>,
-    buffer: Vec<T>,
-}
-
-impl<T> InnerGrid<T>
-where
-    T: Debug + Copy + Clone + Send + Sync + Default + 'static,
-{
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn resize(&mut self, size: Vec2<u64>) {
-        let old = std::mem::take(&mut self.buffer);
-        self.buffer = vec![T::default(); size.area() as usize];
-        if self.size.x > 0 {
-            for (src, dst) in old
-                .chunks(self.size.x as usize)
-                .zip(self.buffer.chunks_mut(size.x as usize))
-            {
-                for (src, dst) in src.into_iter().zip(dst.iter_mut()) {
-                    *dst = *src;
-                }
-            }
-        }
-        self.size = size;
-    }
-
-    pub fn index_for(&self, position: Vec2<u64>) -> usize {
-        (position.y * self.size.x + position.x) as usize
-    }
-
-    pub fn get(&self, position: Vec2<u64>) -> T {
-        self.buffer[self.index_for(position)]
-    }
-
-    pub fn set(&mut self, position: Vec2<u64>, value: T) {
-        let i = self.index_for(position);
-        self.buffer[i] = value;
-    }
-
-    pub fn clear(&mut self) {
-        for dst in self.buffer.iter_mut() {
-            *dst = T::default();
-        }
-    }
-
-    pub fn scroll(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64) {
-        // TODO: Skip iterations for lines that won't be copied
-        // TODO: Maybe use chunks and iterators?
-        let height = self.size.y;
-        let mut copy = move |src_y, dst_y| {
-            for x in left..right {
-                let t = self.get(Vec2::new(x, src_y));
-                self.set(Vec2::new(x, dst_y), t);
-            }
-        };
-        if rows > 0 {
-            for y in top..bot {
-                if let Ok(dst_y) = ((y as i64) - rows).try_into() {
-                    copy(y, dst_y);
-                }
-            }
-        } else {
-            for y in (top..bot).rev() {
-                let dst_y = ((y as i64) - rows) as u64;
-                if dst_y < height {
-                    copy(y, dst_y);
-                }
-            }
-        }
-    }
-
-    pub fn row(&self, i: u64) -> impl Iterator<Item = T> + '_ {
-        let w = self.size.x as usize;
-        let start = i as usize * w;
-        let end = start + w;
-        self.buffer[start..end].iter().cloned()
-    }
-
-    pub fn row_mut(&mut self, i: u64) -> impl Iterator<Item = &mut T> + '_ {
-        let w = self.size.x as usize;
-        let start = i as usize * w;
-        let end = start + w;
-        self.buffer[start..end].iter_mut()
-    }
-
-    pub fn rows(&self) -> impl Iterator<Item = impl Iterator<Item = T> + '_ + Clone> + '_ + Clone {
-        self.buffer
-            .chunks(self.size.x as usize)
-            .map(|chunk| chunk.into_iter().cloned())
-    }
-
-    pub fn rows_mut(&mut self) -> impl Iterator<Item = impl Iterator<Item = &mut T> + '_> + '_ {
-        self.buffer
-            .chunks_mut(self.size.x as usize)
-            .map(|chunk| chunk.iter_mut())
-    }
-
-    pub fn cells(&self) -> impl Iterator<Item = T> + '_ {
-        self.buffer.iter().cloned()
-    }
-
-    pub fn paste(&mut self, other: &Self, offset: Vec2<u64>) {
-        for (src, dst) in other.rows().zip(self.rows_mut().skip(offset.y as usize)) {
-            for (src, dst) in src.into_iter().zip(dst.into_iter().skip(offset.x as usize)) {
-                *dst = src;
-            }
-        }
-    }
-}
-
 pub struct CursorRenderInfo {
-    pub hl: HighlightId,
+    pub hl: u64,
     pub pos: Vec2<u64>,
 }

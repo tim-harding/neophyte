@@ -5,12 +5,7 @@ mod options;
 mod print;
 mod ui_thread;
 
-use self::{
-    cmdline::Cmdline,
-    grid::{CursorRenderInfo, HighlightId},
-    messages::Messages,
-    options::Options,
-};
+use self::{cmdline::Cmdline, grid::CursorRenderInfo, messages::Messages, options::Options};
 use crate::{
     event::{
         mode_info_set::ModeInfo, Anchor, DefaultColorsSet, Event, GlobalEvent, GridLine,
@@ -23,8 +18,8 @@ use grid::Grid;
 use std::{collections::HashMap, sync::mpsc::Sender};
 pub use ui_thread::ui_thread;
 
-pub type Highlights = HashMap<HighlightId, HlAttrDefine>;
-pub type HighlightGroups = HashMap<String, HighlightId>;
+pub type Highlights = HashMap<u64, HlAttrDefine>;
+pub type HighlightGroups = HashMap<String, u64>;
 
 #[derive(Debug, Clone)]
 pub struct Ui {
@@ -103,7 +98,7 @@ impl Ui {
             Event::OptionSet(event) => self.options.event(event),
             Event::DefaultColorsSet(event) => self.default_colors = event,
             Event::HlAttrDefine(event) => {
-                self.highlights.insert(event.id as HighlightId, event);
+                self.highlights.insert(event.id, event);
             }
             Event::ModeChange(event) => self.current_mode = event.mode_idx,
             Event::ModeInfoSet(event) => {
@@ -122,8 +117,7 @@ impl Ui {
                 self.modes = event.mode_info;
             }
             Event::HlGroupSet(event) => {
-                self.highlight_groups
-                    .insert(event.name, event.hl_id as HighlightId);
+                self.highlight_groups.insert(event.name, event.hl_id);
             }
 
             Event::GridResize(event) => {
@@ -266,7 +260,7 @@ impl Ui {
     pub fn composite(&self) -> Grid {
         let mut outer_grid = self.grids.get(&1).unwrap_or(&Grid::default()).clone();
         for (id, grid) in self.grids.iter() {
-            outer_grid.combine(grid, self.cursor_render_info(*id));
+            outer_grid.combine(grid.clone(), self.cursor_render_info(*id));
         }
         outer_grid
     }

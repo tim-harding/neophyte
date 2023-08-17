@@ -44,17 +44,18 @@ impl Write {
         let grid = ui.composite();
         let mut glyph_info = vec![];
 
-        for (cell_line, mut hl_line) in grid.cells.rows().zip(grid.highlights.rows()) {
+        for cell_line in grid.rows() {
             let mut cluster = CharCluster::new();
             let mut parser = Parser::new(
                 Script::Latin,
-                cell_line.enumerate().map(|(i, c)| Token {
-                    ch: c,
-                    // We essentially just store UTF-32, so each character is one code unit.
-                    offset: i as u32,
-                    len: 1,
-                    info: c.into(),
-                    data: c as u32,
+                cell_line.enumerate().flat_map(|(cell_i, cell)| {
+                    cell.text.chars().map(move |c| Token {
+                        ch: c,
+                        offset: cell_i as u32,
+                        len: 0,
+                        info: c.into(),
+                        data: cell.highlight as u32,
+                    })
                 }),
             );
 
@@ -111,7 +112,6 @@ impl Write {
 
                             shaper.shape_with(|glyph_cluster| {
                                 for glyph in glyph_cluster.glyphs {
-                                    let hl = hl_line.next().unwrap_or(0);
                                     let glyph_index = match font_cache.get(
                                         font.as_ref(),
                                         fonts.size() as f32,
@@ -121,7 +121,7 @@ impl Write {
                                         None => {
                                             glyph_info.push(GlyphInfo {
                                                 glyph_index: 0,
-                                                highlight_index: hl,
+                                                highlight_index: glyph.data,
                                             });
                                             continue;
                                         }
@@ -129,7 +129,7 @@ impl Write {
 
                                     glyph_info.push(GlyphInfo {
                                         glyph_index: glyph_index as u32,
-                                        highlight_index: hl,
+                                        highlight_index: glyph.data,
                                     });
                                 }
                             });

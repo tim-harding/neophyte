@@ -1,4 +1,4 @@
-use super::{grid::HighlightId, Highlights};
+use super::Highlights;
 use crate::event::{hl_attr_define::Rgb, Content, HlAttrDefine};
 use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
@@ -16,7 +16,7 @@ pub fn eprint_content(content: &Content, hl_attrs: &Highlights) {
 
 fn display_content(content: &Content, hl_attrs: &Highlights, mut f: StandardStream) {
     for chunk in content.chunks.iter() {
-        if let Some(hl_attr) = hl_attrs.get(&(chunk.attr_id as HighlightId)) {
+        if let Some(hl_attr) = hl_attrs.get(&(chunk.attr_id)) {
             f.set_color(&hl_attr_to_colorspec(hl_attr)).unwrap();
         } else {
             f.reset().unwrap();
