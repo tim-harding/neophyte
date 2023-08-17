@@ -9,7 +9,7 @@ use crate::{
 };
 use std::{
     ops::DerefMut,
-    sync::{mpsc::Receiver, Arc, Mutex},
+    sync::{mpsc::Receiver, Arc, RwLock},
     thread,
 };
 use wgpu::SurfaceError;
@@ -21,7 +21,7 @@ use winit::{
 };
 
 pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
-    let fonts = Arc::new(Mutex::new(Fonts::new()));
+    let fonts = Arc::new(RwLock::new(Fonts::new()));
     let event_loop = EventLoop::new();
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
     let (state, mut write_state) = state::init(window.clone()).await; // TODO: Font cloning
@@ -36,13 +36,15 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
                 state.update(
                     ui,
                     &mut write_state,
-                    fonts.lock().unwrap().deref_mut(),
+                    fonts.write().unwrap().deref_mut(),
                     &mut font_cache,
                 );
                 window.request_redraw();
             }
         });
     }
+
+    // TODO: Handle IME
 
     let mut modifiers = ModifiersState::default();
     let mut scale_factor = 1.0;
@@ -53,6 +55,12 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
         } if window_id == window.id() => match event {
             WindowEvent::ModifiersChanged(new_modifiers) => {
                 modifiers = *new_modifiers;
+            }
+
+            WindowEvent::ReceivedCharacter(c) => {
+                if !c.is_control() && !c.is_whitespace() {
+                    send_keys(&format!("{c}"), &mut modifiers, &mut neovim);
+                }
             }
 
             WindowEvent::KeyboardInput {
@@ -66,42 +74,6 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
             } => {
                 let c = || {
                     Some(match virtual_keycode {
-                        VirtualKeyCode::Key1 => "1",
-                        VirtualKeyCode::Key2 => "2",
-                        VirtualKeyCode::Key3 => "3",
-                        VirtualKeyCode::Key4 => "4",
-                        VirtualKeyCode::Key5 => "5",
-                        VirtualKeyCode::Key6 => "6",
-                        VirtualKeyCode::Key7 => "7",
-                        VirtualKeyCode::Key8 => "8",
-                        VirtualKeyCode::Key9 => "9",
-                        VirtualKeyCode::Key0 => "0",
-                        VirtualKeyCode::A => "a",
-                        VirtualKeyCode::B => "b",
-                        VirtualKeyCode::C => "c",
-                        VirtualKeyCode::D => "d",
-                        VirtualKeyCode::E => "e",
-                        VirtualKeyCode::F => "f",
-                        VirtualKeyCode::G => "g",
-                        VirtualKeyCode::H => "h",
-                        VirtualKeyCode::I => "i",
-                        VirtualKeyCode::J => "j",
-                        VirtualKeyCode::K => "k",
-                        VirtualKeyCode::L => "l",
-                        VirtualKeyCode::M => "m",
-                        VirtualKeyCode::N => "n",
-                        VirtualKeyCode::O => "o",
-                        VirtualKeyCode::P => "p",
-                        VirtualKeyCode::Q => "q",
-                        VirtualKeyCode::R => "r",
-                        VirtualKeyCode::S => "s",
-                        VirtualKeyCode::T => "t",
-                        VirtualKeyCode::U => "u",
-                        VirtualKeyCode::V => "v",
-                        VirtualKeyCode::W => "w",
-                        VirtualKeyCode::X => "x",
-                        VirtualKeyCode::Y => "y",
-                        VirtualKeyCode::Z => "z",
                         VirtualKeyCode::Escape => "Esc",
                         VirtualKeyCode::F1 => "F1",
                         VirtualKeyCode::F2 => "F2",
@@ -139,7 +111,6 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
                         VirtualKeyCode::Down => "Down",
                         VirtualKeyCode::Return => "Enter",
                         VirtualKeyCode::Space => "Space",
-                        VirtualKeyCode::Caret => "^",
                         VirtualKeyCode::Numpad0 => "k0",
                         VirtualKeyCode::Numpad1 => "k1",
                         VirtualKeyCode::Numpad2 => "k2",
@@ -158,43 +129,17 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
                         VirtualKeyCode::NumpadEquals => "kEqual",
                         VirtualKeyCode::NumpadMultiply => "kMultiply",
                         VirtualKeyCode::NumpadSubtract => "kMinus",
-                        VirtualKeyCode::Apostrophe => "'",
-                        VirtualKeyCode::Asterisk => "*",
-                        VirtualKeyCode::Backslash => "Bslash",
-                        VirtualKeyCode::Colon => ":",
-                        VirtualKeyCode::Comma => ",",
-                        VirtualKeyCode::Equals => "=",
-                        VirtualKeyCode::Grave => "`",
-                        VirtualKeyCode::Minus => "-",
-                        VirtualKeyCode::Period => ".",
-                        VirtualKeyCode::Plus => "+",
-                        VirtualKeyCode::RBracket => "[",
-                        VirtualKeyCode::Semicolon => ";",
-                        VirtualKeyCode::Slash => "/",
                         VirtualKeyCode::Tab => "Tab",
-                        VirtualKeyCode::Underline => "_",
                         _ => return None,
                     })
                 };
                 if let Some(c) = c() {
-                    let c = if modifiers.is_empty() {
-                        match c.len() {
-                            1 => c.to_string(),
-                            _ => format!("<{c}>"),
-                        }
-                    } else {
-                        let ctrl = if modifiers.ctrl() { "C" } else { "" };
-                        let shift = if modifiers.shift() { "S" } else { "" };
-                        let alt = if modifiers.alt() { "A" } else { "" };
-                        let logo = if modifiers.logo() { "D" } else { "" };
-                        format!("<{ctrl}{shift}{alt}{logo}-{c}>")
-                    };
-                    neovim.input(c);
+                    send_keys(c, &mut modifiers, &mut neovim);
                 }
             }
 
             WindowEvent::Resized(physical_size) => {
-                let mut lock = fonts.lock().unwrap();
+                let lock = fonts.read().unwrap();
                 resize(
                     &state,
                     scale_factor,
@@ -210,7 +155,7 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
                 scale_factor: new_scale_factor,
             } => {
                 scale_factor = *new_scale_factor as f32;
-                let mut lock = fonts.lock().unwrap();
+                let lock = fonts.read().unwrap();
                 resize(
                     &state,
                     scale_factor,
@@ -252,4 +197,20 @@ fn resize(
         size.width as u64 / metrics.advance as u64,
         size.height as u64 / metrics.cell_height() as u64,
     )
+}
+
+fn send_keys(c: &str, modifiers: &mut ModifiersState, neovim: &mut Neovim) {
+    let c = if modifiers.is_empty() {
+        match c.len() {
+            1 => c.to_string(),
+            _ => format!("<{c}>"),
+        }
+    } else {
+        let ctrl = if modifiers.ctrl() { "C" } else { "" };
+        let shift = if modifiers.shift() { "S" } else { "" };
+        let alt = if modifiers.alt() { "A" } else { "" };
+        let logo = if modifiers.logo() { "D" } else { "" };
+        format!("<{ctrl}{shift}{alt}{logo}-{c}>")
+    };
+    neovim.input(c);
 }
