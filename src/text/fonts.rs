@@ -32,8 +32,7 @@ impl Fonts {
     }
 
     pub fn first_regular(&self) -> Option<&Font> {
-        self.fonts
-            .iter()
+        self.guifonts()
             .find_map(|font_info| font_info.regular.as_ref())
             .or_else(|| self.fallback.regular.as_ref())
     }
@@ -43,11 +42,7 @@ impl Fonts {
     }
 
     pub fn guifonts(&self) -> impl Iterator<Item = &FontInfo> {
-        self.fonts.iter()
-    }
-
-    pub fn fallback(&self) -> &FontInfo {
-        &self.fallback
+        self.fonts.iter().chain(std::iter::once(&self.fallback))
     }
 }
 

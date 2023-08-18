@@ -47,7 +47,6 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
     // TODO: Handle IME
 
     let mut modifiers = ModifiersState::default();
-    let mut scale_factor = 1.0;
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
             window_id,
@@ -142,27 +141,25 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
                 let lock = fonts.read().unwrap();
                 resize(
                     &state,
-                    scale_factor,
                     *physical_size,
                     &mut neovim,
                     &lock.first_regular().unwrap(),
-                    lock.size() as f32,
+                    lock.size(),
                 );
             }
 
             WindowEvent::ScaleFactorChanged {
                 new_inner_size,
-                scale_factor: new_scale_factor,
+                // TODO: Use the scale factor
+                scale_factor: _,
             } => {
-                scale_factor = *new_scale_factor as f32;
                 let lock = fonts.read().unwrap();
                 resize(
                     &state,
-                    scale_factor,
                     **new_inner_size,
                     &mut neovim,
                     &lock.first_regular().unwrap(),
-                    lock.size() as f32,
+                    lock.size(),
                 );
             }
 
@@ -184,19 +181,21 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
 
 fn resize(
     state: &State,
-    scale: f32,
     size: PhysicalSize<u32>,
     neovim: &mut Neovim,
     font: &Font,
-    font_size: f32,
+    font_size: u32,
 ) {
     state.resize(size);
-    let metrics = font.as_ref().metrics(&[]).scale(font_size * scale);
-    println!("{metrics:?}");
+    let metrics = font.as_ref().metrics(&[]);
+    let scale_factor = font_size as f32 / metrics.average_width;
+    let em_px = (metrics.units_per_em as f32 * scale_factor).ceil() as u32;
+    let descent_px = (metrics.descent as f32 * scale_factor).ceil() as u32;
+    let cell_height_px = em_px + descent_px;
     neovim.ui_try_resize_grid(
         1,
-        (size.width as f32 / metrics.average_width.ceil()) as u64,
-        (size.height as f32 / (metrics.descent.ceil() + font_size)) as u64,
+        (size.width / font_size) as u64,
+        (size.height / cell_height_px) as u64,
     )
 }
 

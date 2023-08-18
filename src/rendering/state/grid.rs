@@ -49,23 +49,21 @@ impl Write {
         let grid = ui.composite();
         let mut glyph_info = vec![];
         let mut bg_info = vec![];
-        let metrics = fonts
-            .first_regular()
-            .unwrap()
-            .as_ref()
-            .metrics(&[])
-            .scale(fonts.size() as f32);
 
-        println!("{metrics:?}");
+        let metrics = fonts.first_regular().unwrap().as_ref().metrics(&[]);
+
+        let scale_factor = fonts.size() as f32 / metrics.average_width;
+        let em = metrics.units_per_em as f32 * scale_factor;
+        let em_px = em.ceil() as u32;
+        let descent = metrics.descent * scale_factor;
+        let descent_px = descent.ceil() as u32;
+        let cell_height_px = em_px + descent_px;
 
         let grid_info = GridInfo {
             surface_size,
-            cell_size: Vec2::new(
-                metrics.average_width.ceil() as u32,
-                fonts.size() + metrics.descent.ceil() as u32,
-            ),
+            cell_size: Vec2::new(fonts.size(), cell_height_px),
             grid_width: grid.size().x as u32,
-            baseline: fonts.size(),
+            baseline: em_px,
         };
 
         for (cell_line_i, cell_line) in grid.rows().enumerate() {
@@ -138,25 +136,21 @@ impl Write {
                             shaper.shape_with(|glyph_cluster| {
                                 for glyph in glyph_cluster.glyphs {
                                     bg_info.push(BgInfo {
-                                        x: x.ceil() as i32,
-                                        y: cell_line_i as i32 * grid_info.cell_size.y as i32,
+                                        x: (x * scale_factor).round() as i32,
+                                        y: cell_line_i as i32 * cell_height_px as i32,
                                         highlight_index: glyph.data,
-                                        width: (glyph.advance * fonts.size() as f32
-                                            / metrics.units_per_em as f32)
-                                            .ceil()
-                                            as u32,
+                                        width: (glyph.advance * scale_factor).round() as u32,
                                     });
 
                                     let glyph_index = match font_cache.get(
                                         font.as_ref(),
-                                        fonts.size() as f32,
+                                        em.floor(),
                                         glyph.id,
                                         FontStyle::Regular,
                                     ) {
                                         Some(glyph) => glyph,
                                         None => {
-                                            x += glyph.advance * fonts.size() as f32
-                                                / metrics.units_per_em as f32;
+                                            x += glyph.advance;
                                             continue;
                                         }
                                     };
@@ -167,17 +161,15 @@ impl Write {
                                         highlight_index: glyph.data,
                                         position: offset * Vec2::new(1, -1)
                                             + Vec2::new(
-                                                glyph.x as i32 * fonts.size() as i32
-                                                    / metrics.units_per_em as i32
-                                                    + x as i32,
-                                                glyph.y as i32 * fonts.size() as i32
-                                                    / metrics.units_per_em as i32
-                                                    + cell_line_i as i32
-                                                        * grid_info.cell_size.y as i32,
+                                                ((glyph.x + x) * scale_factor).round() as i32,
+                                                (glyph.y * scale_factor
+                                                    + (cell_line_i as u32 * grid_info.cell_size.y)
+                                                        as f32)
+                                                    .round()
+                                                    as i32,
                                             ),
                                     });
-                                    x += glyph.advance * fonts.size() as f32
-                                        / metrics.units_per_em as f32;
+                                    x += glyph.advance;
                                 }
                             });
                         }
