@@ -4,17 +4,13 @@ use font_loader::system_fonts::{self, FontPropertyBuilder};
 pub struct Fonts {
     size: u32,
     fonts: Vec<FontInfo>,
-    fallback: Font,
 }
 
 impl Fonts {
     pub fn new() -> Self {
-        let (bytes, i) =
-            system_fonts::get(&FontPropertyBuilder::new().monospace().build()).unwrap();
         Self {
             size: 16,
             fonts: vec![],
-            fallback: Font::from_bytes(bytes, i as usize).unwrap(),
         }
     }
 
@@ -34,9 +30,7 @@ impl Fonts {
     }
 
     pub fn with_style(&self, style: FontStyle) -> Option<&Font> {
-        self.iter()
-            .find_map(|font_info| font_info.style(style))
-            .or_else(|| Some(&self.fallback))
+        self.iter().find_map(|font_info| font_info.style(style))
     }
 
     pub fn size(&self) -> u32 {
@@ -65,17 +59,6 @@ impl FontInfo {
             italic: get(builder().italic()),
             bold_italic: get(builder().bold().italic()),
             name,
-        }
-    }
-
-    pub fn fallback() -> Self {
-        let builder = || FontPropertyBuilder::new().monospace();
-        Self {
-            name: String::default(),
-            regular: get(builder()),
-            bold: get(builder().bold()),
-            italic: get(builder().italic()),
-            bold_italic: get(builder().bold().italic()),
         }
     }
 

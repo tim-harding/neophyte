@@ -86,14 +86,14 @@ impl Write {
                 }),
             );
 
-            let mut current_font_index: Option<usize> = None;
+            let mut current_font: Option<(usize, FontStyle)> = None;
             let mut is_parser_empty = false;
             let mut x = 0.0f32;
             while !is_parser_empty {
-                match current_font_index {
-                    Some(i) => {
-                        let font_info = fonts.iter().nth(i).unwrap();
-                        match &font_info.regular {
+                match current_font {
+                    Some(current_font_unwrapped) => {
+                        let font_info = fonts.iter().nth(current_font_unwrapped.0).unwrap();
+                        match &font_info.style(current_font_unwrapped.1) {
                             Some(font) => {
                                 let mut shaper = self
                                     .shape_context
@@ -109,32 +109,55 @@ impl Write {
                                         break;
                                     }
 
-                                    let mut best_font_index = None;
-                                    for (i, font) in fonts.iter().enumerate() {
-                                        if let Some(regular) = &font.regular {
-                                            match cluster.map(|c| regular.charmap().map(c)) {
+                                    let mut best_font = None;
+                                    for (i, font_info) in fonts.iter().enumerate() {
+                                        let style = ui
+                                            .highlights
+                                            .get(&(cluster.user_data() as u64))
+                                            .map(|highlight| {
+                                                let Attributes { bold, italic, .. } =
+                                                    highlight.rgb_attr;
+                                                let bold = bold.unwrap_or_default();
+                                                let italic = italic.unwrap_or_default();
+                                                FontStyle::new(bold, italic)
+                                            })
+                                            .unwrap_or_default();
+
+                                        if let Some(font) = &font_info.style(style) {
+                                            match cluster.map(|c| font.charmap().map(c)) {
                                                 Status::Discard => {}
-                                                Status::Keep => best_font_index = Some(i),
+                                                Status::Keep => best_font = Some((i, style)),
                                                 Status::Complete => {
-                                                    best_font_index = Some(i);
+                                                    best_font = Some((i, style));
                                                     break;
+                                                }
+                                            }
+                                        } else if style != FontStyle::Regular {
+                                            if let Some(font) = &font_info.regular {
+                                                match cluster.map(|c| font.charmap().map(c)) {
+                                                    Status::Discard => {}
+                                                    Status::Keep => best_font = Some((i, style)),
+                                                    Status::Complete => {
+                                                        best_font = Some((i, style));
+                                                        break;
+                                                    }
                                                 }
                                             }
                                         }
                                     }
 
-                                    match best_font_index {
-                                        Some(best_font_index) => {
-                                            if i == best_font_index {
+                                    match best_font {
+                                        Some(best_font) => {
+                                            if current_font_unwrapped == best_font {
                                                 shaper.add_cluster(&cluster);
                                             } else {
-                                                current_font_index = Some(best_font_index);
+                                                current_font = Some(best_font);
                                                 break;
                                             }
                                         }
 
                                         None => {
-                                            current_font_index = best_font_index;
+                                            current_font = best_font;
                                             break;
                                         }
                                     }
@@ -149,24 +172,11 @@ impl Write {
                                             width: (glyph.advance * scale_factor).round() as u32,
                                         });
 
-                                        let style = ui
-                                            .highlights
-                                            .get(&(glyph.data as u64))
-                                            .map(|highlight| {
-                                                let Attributes { bold, italic, .. } =
-                                                    highlight.rgb_attr;
-                                                let bold = bold.unwrap_or_default();
-                                                let italic = italic.unwrap_or_default();
-                                                FontStyle::new(bold, italic)
-                                            })
-                                            .unwrap_or_default();
-
-                                        let font = font_info.style(style).unwrap_or(font);
                                         let glyph_index = match font_cache.get(
                                             font.as_ref(),
                                             em,
                                             glyph.id,
-                                            style,
+                                            current_font_unwrapped.1,
                                         ) {
                                             Some(glyph) => glyph,
                                             None => {
@@ -204,22 +214,44 @@ impl Write {
                             break;
                         }
 
-                        let mut best_font_index = None;
-                        for (i, font) in fonts.iter().enumerate() {
-                            if let Some(regular) = &font.regular {
-                                match cluster.map(|c| regular.charmap().map(c)) {
+                        let mut best_font = None;
+                        for (i, font_info) in fonts.iter().enumerate() {
+                            let style = ui
+                                .highlights
+                                .get(&(cluster.user_data() as u64))
+                                .map(|highlight| {
+                                    let Attributes { bold, italic, .. } = highlight.rgb_attr;
+                                    let bold = bold.unwrap_or_default();
+                                    let italic = italic.unwrap_or_default();
+                                    FontStyle::new(bold, italic)
+                                })
+                                .unwrap_or_default();
+
+                            if let Some(font) = &font_info.style(style) {
+                                match cluster.map(|c| font.charmap().map(c)) {
                                     Status::Discard => {}
-                                    Status::Keep => best_font_index = Some(i),
+                                    Status::Keep => best_font = Some((i, style)),
                                     Status::Complete => {
-                                        best_font_index = Some(i);
+                                        best_font = Some((i, style));
                                         break;
+                                    }
+                                }
+                            } else if style != FontStyle::Regular {
+                                if let Some(font) = &font_info.regular {
+                                    match cluster.map(|c| font.charmap().map(c)) {
+                                        Status::Discard => {}
+                                        Status::Keep => best_font = Some((i, style)),
+                                        Status::Complete => {
+                                            best_font = Some((i, style));
+                                            break;
+                                        }
                                     }
                                 }
                             }
                         }
 
-                        if current_font_index != best_font_index {
-                            current_font_index = best_font_index;
+                        if current_font != best_font {
+                            current_font = best_font;
                             break;
                         }
                     },
