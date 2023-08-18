@@ -67,7 +67,7 @@ impl Write {
         let grid_info = GridInfo {
             surface_size,
             cell_size: Vec2::new(fonts.size(), cell_height_px),
-            grid_width: grid.size().x as u32,
+            grid_width: grid.size.x as u32,
             baseline: em_px,
         };
 

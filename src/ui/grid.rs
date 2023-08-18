@@ -17,8 +17,9 @@ use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 #[derive(Default, Clone)]
 pub struct Grid {
-    size: Vec2<u64>,
-    buffer: Vec<Cell>,
+    pub id: u64,
+    pub size: Vec2<u64>,
+    pub buffer: Vec<Cell>,
     pub show: bool,
     pub window: Window,
 }
@@ -53,8 +54,11 @@ pub struct Cell {
 }
 
 impl Grid {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(id: u64) -> Self {
+        Self {
+            id,
+            ..Default::default()
+        }
     }
 
     pub fn resize(&mut self, size: Vec2<u64>) {
@@ -94,10 +98,6 @@ impl Grid {
         for dst in self.buffer.iter_mut() {
             *dst = Cell::default();
         }
-    }
-
-    pub fn size(&self) -> Vec2<u64> {
-        self.size
     }
 
     pub fn scroll(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64) {
@@ -165,7 +165,7 @@ impl Grid {
                 };
                 // TODO: Should be relative to anchor grid
                 anchor_pos
-                    - other.size()
+                    - other.size
                         * match window.anchor {
                             Anchor::Nw => Vec2::new(0, 0),
                             Anchor::Ne => Vec2::new(0, 1),
@@ -179,21 +179,15 @@ impl Grid {
         let size_x = self.size.x;
         for dst in self
             .rows_mut()
-            .take(other.size.y as usize)
             .skip(start.y as usize)
+            .take(other.size.y as usize)
         {
-            for _ in 0..start.x {
-                let _ = iter.next();
-            }
             for dst in dst
                 .into_iter()
-                .take(size_x.min(other.size.x) as usize)
                 .skip(start.x as usize)
+                .take(other.size.x as usize)
             {
                 *dst = iter.next().unwrap();
-            }
-            for _ in size_x.saturating_sub(start.x)..other.size.x.saturating_sub(start.x) {
-                let _ = iter.next();
             }
         }
 
@@ -208,7 +202,7 @@ impl Grid {
     pub fn print_colored(&self, highlights: &Highlights) {
         let mut f = StandardStream::stdout(ColorChoice::Always);
         let mut prev_hl = 0;
-        writeln!(f, "┏{:━<1$}┓", "", self.size().x as usize);
+        writeln!(f, "┏{:━<1$}┓", "", self.size.x as usize);
         for cell_row in self.rows() {
             f.reset();
             write!(f, "┃");
@@ -227,7 +221,7 @@ impl Grid {
             write!(f, "┃\n");
         }
         f.reset();
-        writeln!(f, "┗{:━<1$}┛", "", self.size().x as usize);
+        writeln!(f, "┗{:━<1$}┛", "", self.size.x as usize);
     }
 
     pub fn grid_line(&mut self, row: u64, col_start: u64, cells: Vec<grid_line::Cell>) {
@@ -255,7 +249,7 @@ impl Grid {
 
 impl Debug for Grid {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "┏{:━<1$}┓\n", "", self.size().x as usize);
+        write!(f, "┏{:━<1$}┓\n", "", self.size.x as usize);
         for row in self.rows() {
             write!(f, "┃");
             for cell in row {
@@ -263,7 +257,7 @@ impl Debug for Grid {
             }
             write!(f, "┃\n")?;
         }
-        write!(f, "┗{:━<1$}┛", "", self.size().x as usize);
+        write!(f, "┗{:━<1$}┛", "", self.size.x as usize);
         Ok(())
     }
 }
