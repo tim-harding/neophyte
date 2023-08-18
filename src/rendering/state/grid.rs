@@ -163,18 +163,17 @@ impl Write {
                                 }
 
                                 shaper.shape_with(|glyph_cluster| {
-                                    for glyph in glyph_cluster.glyphs {
-                                        let x = glyph_cluster.source.start * fonts.size();
-                                        if glyph.data > 0 {
-                                            bg_info.push(BgInfo {
-                                                x: x as i32,
-                                                y: cell_line_i as i32 * cell_height_px as i32,
-                                                highlight_index: glyph.data,
-                                                width: (glyph.advance * scale_factor).round()
-                                                    as u32,
-                                            });
-                                        }
+                                    let x = glyph_cluster.source.start * fonts.size();
+                                    if glyph_cluster.data > 0 {
+                                        bg_info.push(BgInfo {
+                                            x: x as i32,
+                                            y: cell_line_i as i32 * cell_height_px as i32,
+                                            highlight_index: glyph_cluster.data,
+                                            width: fonts.size(),
+                                        });
+                                    }
 
+                                    for glyph in glyph_cluster.glyphs {
                                         let glyph_index = match font_cache.get(
                                             font.as_ref(),
                                             em,
