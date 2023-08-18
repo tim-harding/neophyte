@@ -47,10 +47,6 @@ fn vs_main(
 ) -> VertexOutput {
     let grid_index = in_vertex_index / 6u;
     let grid_cell = grid_cells[grid_index];
-    let grid_coord = vec2<f32>(
-        f32(grid_index % grid_info.grid_width),
-        f32(grid_index / grid_info.grid_width),
-    );
     let tex_coord = vec2<f32>(
         f32(in_vertex_index % 2u),
         f32(((in_vertex_index + 5u) % 6u) / 3u),

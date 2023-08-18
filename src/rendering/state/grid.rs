@@ -18,9 +18,11 @@ use swash::{
 use wgpu::{include_wgsl, util::DeviceExt};
 
 pub struct Read {
-    pub bind_group: wgpu::BindGroup,
+    pub glyph_bind_group: wgpu::BindGroup,
+    pub bg_bind_group: wgpu::BindGroup,
     pub grid_info: GridInfo,
-    pub vertex_count: u32,
+    pub glyph_count: usize,
+    pub bg_count: usize,
 }
 
 #[derive(Default)]
@@ -46,12 +48,25 @@ impl Write {
 
         let grid = ui.composite();
         let mut glyph_info = vec![];
+        let mut bg_info = vec![];
         let metrics = fonts
             .first_regular()
             .unwrap()
             .as_ref()
             .metrics(&[])
             .scale(fonts.size() as f32);
+
+        println!("{metrics:?}");
+
+        let grid_info = GridInfo {
+            surface_size,
+            cell_size: Vec2::new(
+                metrics.average_width.ceil() as u32,
+                fonts.size() + metrics.descent.ceil() as u32,
+            ),
+            grid_width: grid.size().x as u32,
+            baseline: fonts.size(),
+        };
 
         for (cell_line_i, cell_line) in grid.rows().enumerate() {
             let mut cluster = CharCluster::new();
@@ -70,7 +85,7 @@ impl Write {
 
             let mut current_font_index: Option<usize> = None;
             let mut is_parser_empty = false;
-            let mut x = 0.0;
+            let mut x = 0.0f32;
             while !is_parser_empty {
                 match current_font_index {
                     Some(i) => match &fonts.guifonts().nth(i).unwrap().regular {
@@ -122,6 +137,16 @@ impl Write {
 
                             shaper.shape_with(|glyph_cluster| {
                                 for glyph in glyph_cluster.glyphs {
+                                    bg_info.push(BgInfo {
+                                        x: x.ceil() as i32,
+                                        y: cell_line_i as i32 * grid_info.cell_size.y as i32,
+                                        highlight_index: glyph.data,
+                                        width: (glyph.advance * fonts.size() as f32
+                                            / metrics.units_per_em as f32)
+                                            .ceil()
+                                            as u32,
+                                    });
+
                                     let glyph_index = match font_cache.get(
                                         font.as_ref(),
                                         fonts.size() as f32,
@@ -147,7 +172,8 @@ impl Write {
                                                     + x as i32,
                                                 glyph.y as i32 * fonts.size() as i32
                                                     / metrics.units_per_em as i32
-                                                    + cell_line_i as i32 * fonts.size() as i32,
+                                                    + cell_line_i as i32
+                                                        * grid_info.cell_size.y as i32,
                                             ),
                                     });
                                     x += glyph.advance * fonts.size() as f32
@@ -191,28 +217,25 @@ impl Write {
             return None;
         }
 
-        let grid_info = GridInfo {
-            surface_size,
-            cell_size: Vec2::new(
-                metrics.average_width.ceil() as u32,
-                (metrics.ascent + metrics.descent + metrics.leading).ceil() as u32,
-            ),
-            grid_width: grid.size().x as u32,
-            baseline: metrics.ascent as u32,
-        };
-
-        let vertex_count = glyph_info.len() as u32 * 6;
-
         let glyph_info_buffer =
             constant
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("info buffer"),
+                    label: Some("glyph info buffer"),
                     usage: wgpu::BufferUsages::STORAGE,
                     contents: cast_slice(glyph_info.as_slice()),
                 });
 
-        let bind_group = constant
+        let bg_info_buffer =
+            constant
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("bg info buffer"),
+                    usage: wgpu::BufferUsages::STORAGE,
+                    contents: cast_slice(bg_info.as_slice()),
+                });
+
+        let glyph_bind_group = constant
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("glyph info bind group"),
@@ -227,10 +250,27 @@ impl Write {
                 }],
             });
 
+        let bg_bind_group = constant
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("bg info bind group"),
+                layout: &constant.grid.bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &bg_info_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                }],
+            });
+
         Some(Read {
-            bind_group,
+            glyph_bind_group,
+            bg_bind_group,
             grid_info,
-            vertex_count,
+            glyph_count: glyph_info.len(),
+            bg_count: bg_info.len(),
         })
     }
 }
@@ -315,6 +355,15 @@ pub fn init(
             cell_fill_render_pipeline,
         },
     )
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
+pub struct BgInfo {
+    pub x: i32,
+    pub y: i32,
+    pub highlight_index: u32,
+    pub width: u32,
 }
 
 #[repr(C)]

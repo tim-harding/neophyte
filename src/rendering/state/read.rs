@@ -70,24 +70,24 @@ impl ReadState {
 
         render_pass.set_pipeline(&constant.grid.cell_fill_render_pipeline);
         render_pass.set_bind_group(0, &self.highlights.bind_group, &[]);
-        render_pass.set_bind_group(1, &self.grid.bind_group, &[]);
+        render_pass.set_bind_group(1, &self.grid.bg_bind_group, &[]);
         render_pass.set_push_constants(
             wgpu::ShaderStages::VERTEX,
             0,
             cast_slice(&[self.grid.grid_info]),
         );
-        render_pass.draw(0..self.grid.vertex_count, 0..1);
+        render_pass.draw(0..self.grid.bg_count as u32 * 6, 0..1);
 
         render_pass.set_pipeline(&self.font.pipeline);
         render_pass.set_bind_group(0, &self.highlights.bind_group, &[]);
-        render_pass.set_bind_group(1, &self.grid.bind_group, &[]);
+        render_pass.set_bind_group(1, &self.grid.glyph_bind_group, &[]);
         render_pass.set_bind_group(2, &self.font.bind_group, &[]);
         render_pass.set_push_constants(
             wgpu::ShaderStages::VERTEX,
             0,
             cast_slice(&[self.grid.grid_info]),
         );
-        render_pass.draw(0..self.grid.vertex_count, 0..1);
+        render_pass.draw(0..self.grid.glyph_count as u32 * 6, 0..1);
         drop(render_pass);
 
         constant.queue.submit(std::iter::once(encoder.finish()));
