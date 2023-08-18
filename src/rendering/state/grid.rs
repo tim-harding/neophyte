@@ -165,12 +165,15 @@ impl Write {
 
                                 shaper.shape_with(|glyph_cluster| {
                                     for glyph in glyph_cluster.glyphs {
-                                        bg_info.push(BgInfo {
-                                            x: (x * scale_factor).round() as i32,
-                                            y: cell_line_i as i32 * cell_height_px as i32,
-                                            highlight_index: glyph.data,
-                                            width: (glyph.advance * scale_factor).round() as u32,
-                                        });
+                                        if glyph.data > 0 {
+                                            bg_info.push(BgInfo {
+                                                x: (x * scale_factor).round() as i32,
+                                                y: cell_line_i as i32 * cell_height_px as i32,
+                                                highlight_index: glyph.data,
+                                                width: (glyph.advance * scale_factor).round()
+                                                    as u32,
+                                            });
+                                        }
 
                                         let glyph_index = match font_cache.get(
                                             font.as_ref(),

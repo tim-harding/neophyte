@@ -34,7 +34,6 @@ fn vs_main(
 ) -> VertexOutput {
     let grid_index = in_vertex_index / 6u;
     let grid_cell = grid_cells[grid_index];
-    let null_highlight_multiplier = min(f32(grid_cell.highlight_index), 1.0);
     let hl_info = highlights[grid_cell.highlight_index];
     let tex_coord = vec2<f32>(
         f32(in_vertex_index % 2u),
@@ -47,8 +46,7 @@ fn vs_main(
         (
             vec2<f32>(f32(grid_cell.x), f32(grid_cell.y)) + 
             tex_coord * 
-            vec2<f32>(f32(grid_cell.width), f32(grid_info.cell_size.y)) *
-            null_highlight_multiplier
+            vec2<f32>(f32(grid_cell.width), f32(grid_info.cell_size.y))
         ) / vec2<f32>(grid_info.surface_size) * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
         0.0, 
         1.0
