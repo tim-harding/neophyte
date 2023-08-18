@@ -1,5 +1,5 @@
 use super::ConstantState;
-use crate::{event::hl_attr_define::Rgb, ui::Ui};
+use crate::{event::hl_attr_define::Rgb, ui::Ui, util::srgb};
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::util::DeviceExt;
 
@@ -13,15 +13,13 @@ impl Write {
         let fg_default = ui.default_colors.rgb_fg.unwrap_or(Rgb::new(255, 255, 255));
         let bg_default = ui.default_colors.rgb_bg.unwrap_or(Rgb::new(0, 0, 0));
 
-        let srgb = |n| (n as f64 / 255.0).powf(2.2);
         let clear_color = wgpu::Color {
-            r: srgb(bg_default.r()),
-            g: srgb(bg_default.g()),
-            b: srgb(bg_default.b()),
+            r: srgb(bg_default.r()) as f64,
+            g: srgb(bg_default.g()) as f64,
+            b: srgb(bg_default.b()) as f64,
             a: 1.0,
         };
 
-        let srgb = |n| (n as f32 / 255.0).powf(2.2);
         if self.highlights.is_empty() {
             self.highlights.resize(
                 1,
