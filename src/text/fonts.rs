@@ -4,15 +4,17 @@ use font_loader::system_fonts::{self, FontPropertyBuilder};
 pub struct Fonts {
     size: u32,
     fonts: Vec<FontInfo>,
-    fallback: FontInfo,
+    fallback: Font,
 }
 
 impl Fonts {
     pub fn new() -> Self {
+        let (bytes, i) =
+            system_fonts::get(&FontPropertyBuilder::new().monospace().build()).unwrap();
         Self {
             size: 16,
             fonts: vec![],
-            fallback: FontInfo::fallback(),
+            fallback: Font::from_bytes(bytes, i as usize).unwrap(),
         }
     }
 
@@ -31,18 +33,18 @@ impl Fonts {
             .collect();
     }
 
-    pub fn first_regular(&self) -> Option<&Font> {
-        self.guifonts()
-            .find_map(|font_info| font_info.regular.as_ref())
-            .or_else(|| self.fallback.regular.as_ref())
+    pub fn with_style(&self, style: FontStyle) -> Option<&Font> {
+        self.iter()
+            .find_map(|font_info| font_info.style(style))
+            .or_else(|| Some(&self.fallback))
     }
 
     pub fn size(&self) -> u32 {
         self.size
     }
 
-    pub fn guifonts(&self) -> impl Iterator<Item = &FontInfo> {
-        self.fonts.iter().chain(std::iter::once(&self.fallback))
+    pub fn iter(&self) -> impl Iterator<Item = &FontInfo> {
+        self.fonts.iter()
     }
 }
 
@@ -76,9 +78,43 @@ impl FontInfo {
             bold_italic: get(builder().bold().italic()),
         }
     }
+
+    pub fn style_or_regular(&self, style: FontStyle) -> Option<&Font> {
+        self.style(style).or_else(|| self.regular.as_ref())
+    }
+
+    pub fn style(&self, style: FontStyle) -> Option<&Font> {
+        match style {
+            FontStyle::Regular => self.regular.as_ref(),
+            FontStyle::Bold => self.bold.as_ref(),
+            FontStyle::Italic => self.italic.as_ref(),
+            FontStyle::BoldItalic => self.bold_italic.as_ref(),
+        }
+    }
 }
 
 fn get(builder: FontPropertyBuilder) -> Option<Font> {
     system_fonts::get(&builder.build())
         .and_then(|(data, index)| Font::from_bytes(data, index as usize))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum FontStyle {
+    #[default]
+    Regular,
+    Bold,
+    Italic,
+    BoldItalic,
+}
+
+impl FontStyle {
+    pub fn new(bold: bool, italic: bool) -> Self {
+        use FontStyle::*;
+        match (bold, italic) {
+            (true, true) => BoldItalic,
+            (true, false) => Bold,
+            (false, true) => Italic,
+            (false, false) => Regular,
+        }
+    }
 }

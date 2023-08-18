@@ -1,8 +1,9 @@
 use super::{highlights, ConstantState};
 use crate::{
+    event::hl_attr_define::Attributes,
     text::{
-        cache::{FontCache, FontStyle},
-        fonts::Fonts,
+        cache::FontCache,
+        fonts::{FontStyle, Fonts},
     },
     ui::Ui,
     util::vec2::Vec2,
@@ -50,7 +51,11 @@ impl Write {
         let mut glyph_info = vec![];
         let mut bg_info = vec![];
 
-        let metrics = fonts.first_regular().unwrap().as_ref().metrics(&[]);
+        let metrics = fonts
+            .with_style(FontStyle::Regular)
+            .unwrap()
+            .as_ref()
+            .metrics(&[]);
 
         let scale_factor = fonts.size() as f32 / metrics.average_width;
         let em = metrics.units_per_em as f32 * scale_factor;
@@ -86,95 +91,112 @@ impl Write {
             let mut x = 0.0f32;
             while !is_parser_empty {
                 match current_font_index {
-                    Some(i) => match &fonts.guifonts().nth(i).unwrap().regular {
-                        Some(font) => {
-                            let mut shaper = self
-                                .shape_context
-                                .builder(font.as_ref())
-                                .script(Script::Arabic)
-                                .build();
+                    Some(i) => {
+                        let font_info = fonts.iter().nth(i).unwrap();
+                        match &font_info.regular {
+                            Some(font) => {
+                                let mut shaper = self
+                                    .shape_context
+                                    .builder(font.as_ref())
+                                    .script(Script::Arabic)
+                                    .build();
 
-                            shaper.add_cluster(&cluster);
+                                shaper.add_cluster(&cluster);
 
-                            loop {
-                                if !parser.next(&mut cluster) {
-                                    is_parser_empty = true;
-                                    break;
-                                }
+                                loop {
+                                    if !parser.next(&mut cluster) {
+                                        is_parser_empty = true;
+                                        break;
+                                    }
 
-                                let mut best_font_index = None;
-                                for (i, font) in fonts.guifonts().enumerate() {
-                                    if let Some(regular) = &font.regular {
-                                        match cluster.map(|c| regular.charmap().map(c)) {
-                                            Status::Discard => {}
-                                            Status::Keep => best_font_index = Some(i),
-                                            Status::Complete => {
-                                                best_font_index = Some(i);
-                                                break;
+                                    let mut best_font_index = None;
+                                    for (i, font) in fonts.iter().enumerate() {
+                                        if let Some(regular) = &font.regular {
+                                            match cluster.map(|c| regular.charmap().map(c)) {
+                                                Status::Discard => {}
+                                                Status::Keep => best_font_index = Some(i),
+                                                Status::Complete => {
+                                                    best_font_index = Some(i);
+                                                    break;
+                                                }
                                             }
                                         }
                                     }
-                                }
 
-                                match best_font_index {
-                                    Some(best_font_index) => {
-                                        if i == best_font_index {
-                                            shaper.add_cluster(&cluster);
-                                        } else {
-                                            current_font_index = Some(best_font_index);
+                                    match best_font_index {
+                                        Some(best_font_index) => {
+                                            if i == best_font_index {
+                                                shaper.add_cluster(&cluster);
+                                            } else {
+                                                current_font_index = Some(best_font_index);
+                                                break;
+                                            }
+                                        }
+
+                                        None => {
+                                            current_font_index = best_font_index;
                                             break;
                                         }
                                     }
+                                }
 
-                                    None => {
-                                        current_font_index = best_font_index;
-                                        break;
+                                shaper.shape_with(|glyph_cluster| {
+                                    for glyph in glyph_cluster.glyphs {
+                                        bg_info.push(BgInfo {
+                                            x: (x * scale_factor).round() as i32,
+                                            y: cell_line_i as i32 * cell_height_px as i32,
+                                            highlight_index: glyph.data,
+                                            width: (glyph.advance * scale_factor).round() as u32,
+                                        });
+
+                                        let style = ui
+                                            .highlights
+                                            .get(&(glyph.data as u64))
+                                            .map(|highlight| {
+                                                let Attributes { bold, italic, .. } =
+                                                    highlight.rgb_attr;
+                                                let bold = bold.unwrap_or_default();
+                                                let italic = italic.unwrap_or_default();
+                                                FontStyle::new(bold, italic)
+                                            })
+                                            .unwrap_or_default();
+
+                                        let font = font_info.style(style).unwrap_or(font);
+                                        let glyph_index = match font_cache.get(
+                                            font.as_ref(),
+                                            em,
+                                            glyph.id,
+                                            style,
+                                        ) {
+                                            Some(glyph) => glyph,
+                                            None => {
+                                                x += glyph.advance;
+                                                continue;
+                                            }
+                                        };
+
+                                        let offset = font_cache.offset[glyph_index];
+                                        glyph_info.push(GlyphInfo {
+                                            glyph_index: glyph_index as u32,
+                                            highlight_index: glyph.data,
+                                            position: offset * Vec2::new(1, -1)
+                                                + Vec2::new(
+                                                    ((glyph.x + x) * scale_factor).round() as i32,
+                                                    (glyph.y * scale_factor
+                                                        + (cell_line_i as u32
+                                                            * grid_info.cell_size.y)
+                                                            as f32)
+                                                        .round()
+                                                        as i32,
+                                                ),
+                                        });
+                                        x += glyph.advance;
                                     }
-                                }
+                                });
                             }
-
-                            shaper.shape_with(|glyph_cluster| {
-                                for glyph in glyph_cluster.glyphs {
-                                    bg_info.push(BgInfo {
-                                        x: (x * scale_factor).round() as i32,
-                                        y: cell_line_i as i32 * cell_height_px as i32,
-                                        highlight_index: glyph.data,
-                                        width: (glyph.advance * scale_factor).round() as u32,
-                                    });
-
-                                    let glyph_index = match font_cache.get(
-                                        font.as_ref(),
-                                        em.floor(),
-                                        glyph.id,
-                                        FontStyle::Regular,
-                                    ) {
-                                        Some(glyph) => glyph,
-                                        None => {
-                                            x += glyph.advance;
-                                            continue;
-                                        }
-                                    };
-
-                                    let offset = font_cache.offset[glyph_index];
-                                    glyph_info.push(GlyphInfo {
-                                        glyph_index: glyph_index as u32,
-                                        highlight_index: glyph.data,
-                                        position: offset * Vec2::new(1, -1)
-                                            + Vec2::new(
-                                                ((glyph.x + x) * scale_factor).round() as i32,
-                                                (glyph.y * scale_factor
-                                                    + (cell_line_i as u32 * grid_info.cell_size.y)
-                                                        as f32)
-                                                    .round()
-                                                    as i32,
-                                            ),
-                                    });
-                                    x += glyph.advance;
-                                }
-                            });
+                            None => todo!(),
                         }
-                        None => todo!(),
-                    },
+                    }
 
                     None => loop {
                         if !parser.next(&mut cluster) {
@@ -183,7 +205,7 @@ impl Write {
                         }
 
                         let mut best_font_index = None;
-                        for (i, font) in fonts.guifonts().enumerate() {
+                        for (i, font) in fonts.iter().enumerate() {
                             if let Some(regular) = &font.regular {
                                 match cluster.map(|c| regular.charmap().map(c)) {
                                     Status::Discard => {}

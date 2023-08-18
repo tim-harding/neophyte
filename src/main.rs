@@ -2,7 +2,7 @@ mod event;
 mod rendering;
 mod rpc;
 mod session;
-mod text;
+pub mod text;
 mod ui;
 mod util;
 

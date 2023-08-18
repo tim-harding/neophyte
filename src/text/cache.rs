@@ -5,6 +5,8 @@ use swash::{
     FontRef, GlyphId,
 };
 
+use super::fonts::FontStyle;
+
 #[derive(Default)]
 pub struct FontCache {
     pub data: Vec<Vec<u8>>,
@@ -77,12 +79,4 @@ impl FontCache {
 struct CacheKey {
     glyph_id: GlyphId,
     style: FontStyle,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum FontStyle {
-    Regular,
-    Bold,
-    Italic,
-    BoldItalic,
 }

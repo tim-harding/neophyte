@@ -4,7 +4,11 @@ mod texture;
 use self::state::State;
 use crate::{
     session::Neovim,
-    text::{cache::FontCache, font::Font, fonts::Fonts},
+    text::{
+        cache::FontCache,
+        font::Font,
+        fonts::{FontStyle, Fonts},
+    },
     ui::Ui,
 };
 use std::{
@@ -143,7 +147,7 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
                     &state,
                     *physical_size,
                     &mut neovim,
-                    &lock.first_regular().unwrap(),
+                    &lock.with_style(FontStyle::Regular).unwrap(),
                     lock.size(),
                 );
             }
@@ -158,7 +162,7 @@ pub async fn run(rx: Receiver<Ui>, mut neovim: Neovim) {
                     &state,
                     **new_inner_size,
                     &mut neovim,
-                    &lock.first_regular().unwrap(),
+                    &lock.with_style(FontStyle::Regular).unwrap(),
                     lock.size(),
                 );
             }
