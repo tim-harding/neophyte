@@ -88,7 +88,6 @@ impl Write {
 
             let mut current_font: Option<(usize, FontStyle)> = None;
             let mut is_parser_empty = false;
-            let mut x = 0.0f32;
             while !is_parser_empty {
                 match current_font {
                     Some(current_font_unwrapped) => {
@@ -165,9 +164,10 @@ impl Write {
 
                                 shaper.shape_with(|glyph_cluster| {
                                     for glyph in glyph_cluster.glyphs {
+                                        let x = glyph_cluster.source.start * fonts.size();
                                         if glyph.data > 0 {
                                             bg_info.push(BgInfo {
-                                                x: (x * scale_factor).round() as i32,
+                                                x: x as i32,
                                                 y: cell_line_i as i32 * cell_height_px as i32,
                                                 highlight_index: glyph.data,
                                                 width: (glyph.advance * scale_factor).round()
@@ -183,7 +183,6 @@ impl Write {
                                         ) {
                                             Some(glyph) => glyph,
                                             None => {
-                                                x += glyph.advance;
                                                 continue;
                                             }
                                         };
@@ -194,7 +193,8 @@ impl Write {
                                             highlight_index: glyph.data,
                                             position: offset * Vec2::new(1, -1)
                                                 + Vec2::new(
-                                                    ((glyph.x + x) * scale_factor).round() as i32,
+                                                    (glyph.x * scale_factor).round() as i32
+                                                        + x as i32,
                                                     (glyph.y * scale_factor
                                                         + (cell_line_i as u32
                                                             * grid_info.cell_size.y)
@@ -203,7 +203,6 @@ impl Write {
                                                         as i32,
                                                 ),
                                         });
-                                        x += glyph.advance;
                                     }
                                 });
                             }
