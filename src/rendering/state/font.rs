@@ -37,17 +37,17 @@ impl Write {
             return None;
         }
 
-        for (data, info) in font_cache
+        for (data, size) in font_cache
             .data
             .iter()
-            .zip(font_cache.info.iter())
+            .zip(font_cache.size.iter())
             .skip(self.next_glyph_to_upload)
         {
             self.textures.push(Texture::new(
                 &constant.device,
                 &constant.queue,
                 data.as_slice(),
-                info.size,
+                *size,
             ));
         }
 
@@ -96,7 +96,7 @@ impl Write {
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Font info buffer"),
-                    contents: cast_slice(font_cache.info.as_slice()),
+                    contents: cast_slice(font_cache.size.as_slice()),
                     usage: wgpu::BufferUsages::STORAGE,
                 });
 

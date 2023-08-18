@@ -1,6 +1,9 @@
 use super::{highlights, ConstantState};
 use crate::{
-    text::{cache::FontCache, fonts::Fonts},
+    text::{
+        cache::{FontCache, FontStyle},
+        fonts::Fonts,
+    },
     ui::Ui,
     util::vec2::Vec2,
 };
@@ -43,8 +46,14 @@ impl Write {
 
         let grid = ui.composite();
         let mut glyph_info = vec![];
+        let metrics = fonts
+            .first_regular()
+            .unwrap()
+            .as_ref()
+            .metrics(&[])
+            .scale(fonts.size() as f32);
 
-        for cell_line in grid.rows() {
+        for (cell_line_i, cell_line) in grid.rows().enumerate() {
             let mut cluster = CharCluster::new();
             let mut parser = Parser::new(
                 Script::Latin,
@@ -61,6 +70,7 @@ impl Write {
 
             let mut current_font_index: Option<usize> = None;
             let mut is_parser_empty = false;
+            let mut x = 0.0;
             while !is_parser_empty {
                 match current_font_index {
                     Some(i) => match &fonts.guifonts().nth(i).unwrap().regular {
@@ -116,21 +126,32 @@ impl Write {
                                         font.as_ref(),
                                         fonts.size() as f32,
                                         glyph.id,
+                                        FontStyle::Regular,
                                     ) {
                                         Some(glyph) => glyph,
                                         None => {
-                                            glyph_info.push(GlyphInfo {
-                                                glyph_index: 0,
-                                                highlight_index: glyph.data,
-                                            });
+                                            x += glyph.advance * fonts.size() as f32
+                                                / metrics.units_per_em as f32;
                                             continue;
                                         }
                                     };
 
+                                    let offset = font_cache.offset[glyph_index];
                                     glyph_info.push(GlyphInfo {
                                         glyph_index: glyph_index as u32,
                                         highlight_index: glyph.data,
+                                        position: offset * Vec2::new(1, -1)
+                                            + Vec2::new(
+                                                glyph.x as i32 * fonts.size() as i32
+                                                    / metrics.units_per_em as i32
+                                                    + x as i32,
+                                                glyph.y as i32 * fonts.size() as i32
+                                                    / metrics.units_per_em as i32
+                                                    + cell_line_i as i32 * fonts.size() as i32,
+                                            ),
                                     });
+                                    x += glyph.advance * fonts.size() as f32
+                                        / metrics.units_per_em as f32;
                                 }
                             });
                         }
@@ -170,11 +191,12 @@ impl Write {
             return None;
         }
 
-        let metrics = fonts.first_regular().unwrap().metrics(fonts.size() as f32);
-
         let grid_info = GridInfo {
             surface_size,
-            cell_size: Vec2::new(metrics.advance as u32, metrics.cell_height()),
+            cell_size: Vec2::new(
+                metrics.average_width.ceil() as u32,
+                (metrics.ascent + metrics.descent + metrics.leading).ceil() as u32,
+            ),
             grid_width: grid.size().x as u32,
             baseline: metrics.ascent as u32,
         };
@@ -300,6 +322,7 @@ pub fn init(
 pub struct GlyphInfo {
     pub glyph_index: u32,
     pub highlight_index: u32,
+    pub position: Vec2<i32>,
 }
 
 #[repr(C)]

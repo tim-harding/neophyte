@@ -35,16 +35,6 @@ impl Font {
         self.charmap.materialize(&self.as_ref())
     }
 
-    pub fn metrics(&self, size: f32) -> Metrics {
-        let metrics = self.as_ref().metrics(&[]).scale(size);
-        Metrics {
-            advance: metrics.average_width,
-            ascent: metrics.ascent,
-            descent: metrics.descent,
-            leading: metrics.leading,
-        }
-    }
-
     pub fn as_ref(&self) -> FontRef {
         // Unlike the FontRef constructors, this does not construct a new key,
         // enabling performance optimizations and caching mechanisms
@@ -53,20 +43,6 @@ impl Font {
             offset: self.offset,
             key: self.key,
         }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Metrics {
-    pub advance: f32,
-    pub ascent: f32,
-    pub descent: f32,
-    pub leading: f32,
-}
-
-impl Metrics {
-    pub fn cell_height(&self) -> u32 {
-        (self.ascent + self.descent + self.leading).ceil() as u32
     }
 }
 

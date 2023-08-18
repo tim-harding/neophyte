@@ -1,6 +1,7 @@
 struct GridCell {
     glyph_index: u32,
     highlight_index: u32,
+    position: vec2<i32>,
 }
 
 struct GridInfo {

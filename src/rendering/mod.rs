@@ -191,11 +191,11 @@ fn resize(
     font_size: f32,
 ) {
     state.resize(size);
-    let metrics = font.metrics(font_size * scale);
+    let metrics = font.as_ref().metrics(&[]).scale(font_size * scale);
     neovim.ui_try_resize_grid(
         1,
-        size.width as u64 / metrics.advance as u64,
-        size.height as u64 / metrics.cell_height() as u64,
+        size.width as u64 / metrics.average_width.ceil() as u64,
+        size.height as u64 / (metrics.ascent + metrics.descent + metrics.leading).ceil() as u64,
     )
 }
 

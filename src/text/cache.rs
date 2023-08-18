@@ -1,50 +1,39 @@
 use crate::util::vec2::Vec2;
-use bytemuck::{Pod, Zeroable};
 use std::collections::{hash_map::Entry, HashMap};
 use swash::{
     scale::{Render, ScaleContext, Source, StrikeWith},
     FontRef, GlyphId,
 };
 
+#[derive(Default)]
 pub struct FontCache {
-    scale_context: ScaleContext,
-    /// The glyph image data
     pub data: Vec<Vec<u8>>,
-    /// Info about glyphs. Use lut to get the index for a glyph
-    pub info: Vec<GlyphInfo>,
-    /// Maps a glyph to an index into the info or images array.
-    lut: HashMap<GlyphId, usize>,
+    pub size: Vec<Vec2<u32>>,
+    pub offset: Vec<Vec2<i32>>,
+    scale_context: ScaleContext,
+    lut: HashMap<CacheKey, Option<usize>>,
 }
 
 impl FontCache {
     pub fn new() -> Self {
-        Self {
-            // For a glyph ID of zero, use one-pixel black texture with a
-            // zero-sized placement so nothing renders
-            data: vec![vec![0]],
-            info: vec![GlyphInfo {
-                size: Vec2::new(1, 1),
-                placement_offset: Vec2::default(),
-            }],
-            lut: HashMap::default(),
-            scale_context: ScaleContext::new(),
-        }
+        Self::default()
     }
 
     pub fn clear(&mut self) {
         self.data.clear();
-        self.data.push(vec![0]);
-        self.info.clear();
-        self.info.push(GlyphInfo {
-            size: Vec2::new(1, 1),
-            placement_offset: Vec2::default(),
-        });
         self.lut.clear();
     }
 
-    pub fn get(&mut self, font: FontRef, size: f32, glyph_id: GlyphId) -> Option<usize> {
-        match self.lut.entry(glyph_id) {
-            Entry::Occupied(entry) => Some(*entry.get()),
+    pub fn get(
+        &mut self,
+        font: FontRef,
+        size: f32,
+        glyph_id: GlyphId,
+        style: FontStyle,
+    ) -> Option<usize> {
+        let key = CacheKey { glyph_id, style };
+        match self.lut.entry(key) {
+            Entry::Occupied(entry) => *entry.get(),
             Entry::Vacant(entry) => {
                 let mut scaler = self
                     .scale_context
@@ -60,46 +49,40 @@ impl FontCache {
                 .render(&mut scaler, glyph_id)
                 {
                     Some(image) => {
-                        if image.data.len() > 0 {
+                        let placement = image.placement;
+                        let size = Vec2::new(placement.width, placement.height);
+                        if size.area() > 0 {
                             let index = self.data.len();
-                            self.info.push(GlyphInfo {
-                                size: Vec2::new(image.placement.width, image.placement.height),
-                                placement_offset: Vec2::new(
-                                    image.placement.left,
-                                    image.placement.top,
-                                ),
-                            });
-                            entry.insert(index);
+                            entry.insert(Some(index));
                             self.data.push(image.data);
+                            self.size.push(size);
+                            self.offset.push(Vec2::new(placement.left, placement.top));
                             Some(index)
                         } else {
+                            entry.insert(None);
                             None
                         }
                     }
-                    None => None,
+                    None => {
+                        entry.insert(None);
+                        None
+                    }
                 }
             }
         }
     }
 }
 
-enum TryCacheResult {
-    Ok(usize),
-    Empty,
-    Failed,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct CacheKey {
+    glyph_id: GlyphId,
+    style: FontStyle,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FontStyle {
     Regular,
     Bold,
     Italic,
     BoldItalic,
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Pod, Zeroable)]
-pub struct GlyphInfo {
-    pub size: Vec2<u32>,
-    pub placement_offset: Vec2<i32>,
 }

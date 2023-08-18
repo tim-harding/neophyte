@@ -1,13 +1,12 @@
 struct GridCell {
     glyph_index: u32,
     highlight_index: u32,
+    position: vec2<i32>,
 }
 
 struct GlyphInfo {
     // The dimensions of the glyph texture
     size: vec2<u32>,
-    // Displacement from the glyph position origin
-    placement_offset: vec2<i32>,
 }
 
 // TODO: Maybe store these as f32 to avoid casting in the shader
@@ -65,9 +64,8 @@ fn vs_main(
     out.tex_coord = tex_coord;
     out.clip_position = vec4<f32>(
         (
-            grid_coord * vec2<f32>(grid_info.cell_size) + 
+            vec2<f32>(grid_cell.position) + 
             tex_coord * vec2<f32>(glyph_info.size) +
-            vec2<f32>(glyph_info.placement_offset) * vec2<f32>(1.0, -1.0) +
             vec2<f32>(0.0, f32(grid_info.baseline))
         ) / vec2<f32>(grid_info.surface_size) * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
         0.0, 
