@@ -48,6 +48,7 @@ impl Write {
                 &constant.queue,
                 data.as_slice(),
                 *size,
+                wgpu::TextureFormat::R8Unorm,
             ));
         }
 
