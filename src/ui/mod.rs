@@ -3,7 +3,6 @@ pub mod grid;
 mod messages;
 mod options;
 mod print;
-mod ui_thread;
 
 use self::{cmdline::Cmdline, grid::CursorRenderInfo, messages::Messages, options::Options};
 use crate::{
@@ -11,6 +10,7 @@ use crate::{
         mode_info_set::ModeInfo, Anchor, DefaultColorsSet, Event, GlobalEvent, GridLine,
         GridScroll, HlAttrDefine, PopupmenuShow, TablineUpdate, WinFloatPos, WinPos,
     },
+    rendering::state::RenderEvent,
     ui::grid::{FloatingWindow, Window},
     util::vec2::Vec2,
 };
@@ -19,7 +19,6 @@ use std::{
     collections::{hash_map::Entry, HashMap},
     sync::mpsc::Sender,
 };
-pub use ui_thread::ui_thread;
 
 pub type Highlights = HashMap<u64, HlAttrDefine>;
 pub type HighlightGroups = HashMap<String, u64>;
@@ -44,7 +43,7 @@ pub struct Ui {
     pub options: Options,
     pub default_colors: DefaultColorsSet,
     pub tabline: Option<TablineUpdate>,
-    pub tx: Sender<Self>,
+    pub tx: Sender<RenderEvent>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -67,7 +66,7 @@ impl Default for CursorInfo {
 }
 
 impl Ui {
-    pub fn new(tx: Sender<Self>) -> Self {
+    pub fn new(tx: Sender<RenderEvent>) -> Self {
         Self {
             title: Default::default(),
             icon: Default::default(),
@@ -256,7 +255,7 @@ impl Ui {
             Event::GlobalEvent(GlobalEvent::BusyStart) => self.cursor.enabled = false,
             Event::GlobalEvent(GlobalEvent::BusyStop) => self.cursor.enabled = true,
             Event::GlobalEvent(GlobalEvent::Flush) => {
-                self.tx.send(self.clone()).unwrap();
+                self.tx.send(RenderEvent::Flush(self.clone())).unwrap();
             }
 
             Event::GlobalEvent(GlobalEvent::Suspend)
