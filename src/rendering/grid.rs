@@ -266,6 +266,7 @@ impl Write {
 
         let glyph_info_buffer =
             constant
+                .shared
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("glyph info buffer"),
@@ -275,6 +276,7 @@ impl Write {
 
         let bg_info_buffer =
             constant
+                .shared
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("bg info buffer"),
@@ -282,22 +284,25 @@ impl Write {
                     contents: cast_slice(bg_info.as_slice()),
                 });
 
-        let glyph_bind_group = constant
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("glyph info bind group"),
-                layout: &constant.grid.bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &glyph_info_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                }],
-            });
+        let glyph_bind_group =
+            constant
+                .shared
+                .device
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("glyph info bind group"),
+                    layout: &constant.grid.bind_group_layout,
+                    entries: &[wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                            buffer: &glyph_info_buffer,
+                            offset: 0,
+                            size: None,
+                        }),
+                    }],
+                });
 
         let bg_bind_group = constant
+            .shared
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("bg info bind group"),

@@ -53,6 +53,7 @@ impl Write {
         }
 
         let buffer = constant
+            .shared
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Highlight buffer"),
@@ -61,6 +62,7 @@ impl Write {
             });
 
         let bind_group = constant
+            .shared
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Highlights bind group"),

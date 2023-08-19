@@ -1,6 +1,4 @@
-use super::{
-    font, grid, highlights, read::ReadStateUpdates, surface_config::SurfaceConfig, ConstantState,
-};
+use super::{font, grid, highlights, read::ReadStateUpdates, ConstantState};
 use crate::{
     text::{cache::FontCache, fonts::Fonts},
     ui::Ui,
@@ -18,16 +16,19 @@ impl WriteState {
         &mut self,
         ui: Ui,
         constant: &ConstantState,
-        surface_config: &SurfaceConfig,
         fonts: &mut Fonts,
         font_cache: &mut FontCache,
     ) -> ReadStateUpdates {
         ReadStateUpdates {
-            grid: self
-                .grid
-                .updates(constant, surface_config.size(), &ui, fonts, font_cache),
+            grid: self.grid.updates(
+                constant,
+                constant.shared.surface_size(),
+                &ui,
+                fonts,
+                font_cache,
+            ),
             highlights: self.highlights.updates(&ui, &constant),
-            font: self.font.updates(constant, &surface_config, font_cache),
+            font: self.font.updates(constant, font_cache),
         }
     }
 }

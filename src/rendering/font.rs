@@ -1,4 +1,4 @@
-use super::{grid::GridInfo, surface_config::SurfaceConfig, ConstantState};
+use super::{grid::GridInfo, ConstantState};
 use crate::{rendering::texture::Texture, text::cache::FontCache};
 use bytemuck::cast_slice;
 use std::num::NonZeroU32;
@@ -26,12 +26,7 @@ pub struct Write {
 }
 
 impl Write {
-    pub fn updates(
-        &mut self,
-        constant: &ConstantState,
-        surface_config: &SurfaceConfig,
-        font_cache: &FontCache,
-    ) -> Option<Read> {
+    pub fn updates(&mut self, constant: &ConstantState, font_cache: &FontCache) -> Option<Read> {
         // Only update pipeline if there are textures to upload
         if self.next_glyph_to_upload == font_cache.data.len() {
             return None;
@@ -44,8 +39,8 @@ impl Write {
             .skip(self.next_glyph_to_upload)
         {
             self.textures.push(Texture::new(
-                &constant.device,
-                &constant.queue,
+                &constant.shared.device,
+                &constant.shared.queue,
                 data.as_slice(),
                 *size,
                 wgpu::TextureFormat::R8Unorm,
@@ -59,6 +54,7 @@ impl Write {
         let tex_count = Some(NonZeroU32::new(self.textures.len() as u32).unwrap());
         let font_bind_group_layout =
             constant
+                .shared
                 .device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     label: Some("Texture bind group layout"),
@@ -94,6 +90,7 @@ impl Write {
 
         let font_info_buffer =
             constant
+                .shared
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Font info buffer"),
@@ -103,6 +100,7 @@ impl Write {
 
         let glyph_pipeline_layout =
             constant
+                .shared
                 .device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Render Pipeline Layout"),
@@ -119,6 +117,7 @@ impl Write {
 
         let glyph_render_pipeline =
             constant
+                .shared
                 .device
                 .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                     label: Some("Render pipeline"),
@@ -132,7 +131,7 @@ impl Write {
                         module: &constant.font.glyph_shader,
                         entry_point: "fs_main",
                         targets: &[Some(wgpu::ColorTargetState {
-                            format: surface_config.format(),
+                            format: constant.shared.surface_config.format,
                             blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                             write_mask: wgpu::ColorWrites::ALL,
                         })],
@@ -158,6 +157,7 @@ impl Write {
 
         Some(Read {
             bind_group: constant
+                .shared
                 .device
                 .create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("Font bind group"),

@@ -45,15 +45,17 @@ impl ReadState {
     }
 
     pub fn render(&self, constant: &ConstantState) -> Result<(), wgpu::SurfaceError> {
-        let output = constant.surface.get_current_texture()?;
+        let output = constant.shared.surface.get_current_texture()?;
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = constant
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render encoder"),
-            });
+        let mut encoder =
+            constant
+                .shared
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Render encoder"),
+                });
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render pass"),
@@ -90,7 +92,10 @@ impl ReadState {
         render_pass.draw(0..self.grid.glyph_count as u32 * 6, 0..1);
         drop(render_pass);
 
-        constant.queue.submit(std::iter::once(encoder.finish()));
+        constant
+            .shared
+            .queue
+            .submit(std::iter::once(encoder.finish()));
         output.present();
         Ok(())
     }
