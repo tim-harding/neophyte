@@ -30,6 +30,7 @@ pub struct Ui {
     pub cursor: CursorInfo,
     pub mouse: bool,
     pub highlights: Highlights,
+    pub new_highlights: Vec<u64>,
     pub highlight_groups: HighlightGroups,
     pub messages: Messages,
     pub cmdline: Cmdline,
@@ -74,6 +75,7 @@ impl Ui {
             cursor: Default::default(),
             mouse: Default::default(),
             highlights: Default::default(),
+            new_highlights: vec![],
             highlight_groups: Default::default(),
             messages: Default::default(),
             cmdline: Default::default(),
@@ -123,6 +125,7 @@ impl Ui {
             Event::OptionSet(event) => self.options.event(event),
             Event::DefaultColorsSet(event) => self.default_colors = event,
             Event::HlAttrDefine(event) => {
+                self.new_highlights.push(event.id);
                 self.highlights.insert(event.id, event);
             }
             Event::ModeChange(event) => self.current_mode = event.mode_idx,
@@ -289,6 +292,7 @@ impl Ui {
             Event::GlobalEvent(GlobalEvent::BusyStop) => self.cursor.enabled = true,
             Event::GlobalEvent(GlobalEvent::Flush) => {
                 self.tx.send(RenderEvent::Flush(self.clone())).unwrap();
+                self.new_highlights.clear();
             }
 
             Event::GlobalEvent(GlobalEvent::Suspend)

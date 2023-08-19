@@ -50,37 +50,40 @@ impl HighlightsBindGroup {
         }
 
         let srgb = |c: Rgb| [srgb(c.r()), srgb(c.g()), srgb(c.b()), 1.0];
-        for highlight in ui.highlights.iter() {
-            let i = *highlight.0 as usize;
+        for id in ui.new_highlights.iter() {
+            let highlight = ui.highlights.get(id).unwrap();
+            let i = *id as usize;
             if i + 1 > self.highlights.len() {
                 self.highlights.resize(i + 1, HighlightInfo::default());
             }
             self.highlights[i] = HighlightInfo {
-                fg: srgb(highlight.1.rgb_attr.foreground.unwrap_or(fg_default)),
-                bg: srgb(highlight.1.rgb_attr.background.unwrap_or(bg_default)),
+                fg: srgb(highlight.rgb_attr.foreground.unwrap_or(fg_default)),
+                bg: srgb(highlight.rgb_attr.background.unwrap_or(bg_default)),
             };
         }
 
-        let buffer = shared
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Highlight buffer"),
-                contents: cast_slice(self.highlights.as_slice()),
-                usage: wgpu::BufferUsages::STORAGE,
-            });
+        if !ui.new_highlights.is_empty() {
+            let buffer = shared
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Highlight buffer"),
+                    contents: cast_slice(self.highlights.as_slice()),
+                    usage: wgpu::BufferUsages::STORAGE,
+                });
 
-        self.bind_group = Some(shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Highlights bind group"),
-            layout: &highlights_bind_group_layout.bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &buffer,
-                    offset: 0,
-                    size: None,
-                }),
-            }],
-        }));
+            self.bind_group = Some(shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Highlights bind group"),
+                layout: &highlights_bind_group_layout.bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                }],
+            }));
+        }
     }
 }
 
