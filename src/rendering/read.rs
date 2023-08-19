@@ -1,4 +1,4 @@
-use super::{font, grid, highlights, ConstantState};
+use super::{font, grid, highlights, State};
 use bytemuck::cast_slice;
 
 pub struct ReadState {
@@ -44,13 +44,13 @@ impl ReadState {
         }
     }
 
-    pub fn render(&self, constant: &ConstantState) -> Result<(), wgpu::SurfaceError> {
-        let output = constant.shared.surface.get_current_texture()?;
+    pub fn render(&self, state: &State) -> Result<(), wgpu::SurfaceError> {
+        let output = state.shared.surface.get_current_texture()?;
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
         let mut encoder =
-            constant
+            state
                 .shared
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -70,7 +70,7 @@ impl ReadState {
             depth_stencil_attachment: None,
         });
 
-        render_pass.set_pipeline(&constant.grid.cell_fill_render_pipeline);
+        render_pass.set_pipeline(&state.grid.cell_fill_render_pipeline);
         render_pass.set_bind_group(0, &self.highlights.bind_group, &[]);
         render_pass.set_bind_group(1, &self.grid.bg_bind_group, &[]);
         render_pass.set_push_constants(
@@ -92,10 +92,7 @@ impl ReadState {
         render_pass.draw(0..self.grid.glyph_count as u32 * 6, 0..1);
         drop(render_pass);
 
-        constant
-            .shared
-            .queue
-            .submit(std::iter::once(encoder.finish()));
+        state.shared.queue.submit(std::iter::once(encoder.finish()));
         output.present();
         Ok(())
     }

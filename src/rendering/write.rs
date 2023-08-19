@@ -1,4 +1,4 @@
-use super::{font, grid, highlights, read::ReadStateUpdates, ConstantState};
+use super::{font, grid, highlights, read::ReadStateUpdates, State};
 use crate::{
     text::{cache::FontCache, fonts::Fonts},
     ui::Ui,
@@ -15,20 +15,14 @@ impl WriteState {
     pub fn updates(
         &mut self,
         ui: Ui,
-        constant: &ConstantState,
+        state: &State,
         fonts: &mut Fonts,
         font_cache: &mut FontCache,
     ) -> ReadStateUpdates {
         ReadStateUpdates {
-            grid: self.grid.updates(
-                constant,
-                constant.shared.surface_size(),
-                &ui,
-                fonts,
-                font_cache,
-            ),
-            highlights: self.highlights.updates(&ui, &constant),
-            font: self.font.updates(constant, font_cache),
+            grid: self.grid.updates(state, &ui, fonts, font_cache),
+            highlights: self.highlights.updates(&ui, &state),
+            font: self.font.updates(state, font_cache),
         }
     }
 }

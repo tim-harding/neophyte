@@ -69,15 +69,11 @@ pub fn render_loop(window: Arc<Window>, neovim: Neovim, rx: Receiver<RenderEvent
 }
 
 pub struct State {
-    constant: ConstantState,
-    read: Option<ReadState>,
-}
-
-pub struct ConstantState {
     pub shared: Shared,
     pub grid: grid::Constant,
     pub font: font::Constant,
     pub highlights: highlights::Constant,
+    read: Option<ReadState>,
 }
 
 impl State {
@@ -88,7 +84,7 @@ impl State {
         fonts: &mut Fonts,
         font_cache: &mut FontCache,
     ) {
-        let updates = write.updates(ui, &self.constant, fonts, font_cache);
+        let updates = write.updates(ui, self, fonts, font_cache);
         match self.read.as_mut() {
             Some(read) => read.apply_updates(updates),
             None => self.read = ReadState::from_updates(updates),
@@ -96,21 +92,21 @@ impl State {
     }
 
     pub fn resize(&mut self, size: PhysicalSize<u32>) {
-        self.constant.shared.resize(size);
+        self.shared.resize(size);
     }
 
     pub fn render(&self) -> Result<(), wgpu::SurfaceError> {
         if let Some(read) = self.read.as_ref() {
-            read.render(&self.constant)
+            read.render(&self)
         } else {
             Ok(())
         }
     }
 
     pub fn rebuild_swap_chain(&mut self) {
-        let size = self.constant.shared.surface_size();
+        let size = self.shared.surface_size();
         let size = PhysicalSize::new(size.x, size.y);
-        self.constant.shared.resize(size)
+        self.shared.resize(size)
     }
 }
 
@@ -123,12 +119,10 @@ pub async fn init(window: Arc<Window>) -> (State, WriteState) {
 
     (
         State {
-            constant: ConstantState {
-                shared,
-                grid: grid_constant,
-                font: font_constant,
-                highlights: highlights_constant,
-            },
+            shared,
+            grid: grid_constant,
+            font: font_constant,
+            highlights: highlights_constant,
             read: None,
         },
         WriteState {

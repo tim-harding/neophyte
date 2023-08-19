@@ -1,4 +1,4 @@
-use super::ConstantState;
+use super::State;
 use crate::{event::hl_attr_define::Rgb, ui::Ui, util::srgb};
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::util::DeviceExt;
@@ -9,7 +9,7 @@ pub struct Write {
 }
 
 impl Write {
-    pub fn updates(&mut self, ui: &Ui, constant: &ConstantState) -> Option<Read> {
+    pub fn updates(&mut self, ui: &Ui, state: &State) -> Option<Read> {
         let fg_default = ui.default_colors.rgb_fg.unwrap_or(Rgb::new(255, 255, 255));
         let bg_default = ui.default_colors.rgb_bg.unwrap_or(Rgb::new(0, 0, 0));
 
@@ -52,7 +52,7 @@ impl Write {
             };
         }
 
-        let buffer = constant
+        let buffer = state
             .shared
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -61,12 +61,12 @@ impl Write {
                 usage: wgpu::BufferUsages::STORAGE,
             });
 
-        let bind_group = constant
+        let bind_group = state
             .shared
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Highlights bind group"),
-                layout: &constant.highlights.bind_group_layout,
+                layout: &state.highlights.bind_group_layout,
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
                     resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {

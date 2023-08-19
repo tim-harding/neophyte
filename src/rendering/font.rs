@@ -1,4 +1,4 @@
-use super::{grid::GridInfo, ConstantState};
+use super::{grid::GridInfo, State};
 use crate::{rendering::texture::Texture, text::cache::FontCache};
 use bytemuck::cast_slice;
 use std::num::NonZeroU32;
@@ -26,7 +26,7 @@ pub struct Write {
 }
 
 impl Write {
-    pub fn updates(&mut self, constant: &ConstantState, font_cache: &FontCache) -> Option<Read> {
+    pub fn updates(&mut self, state: &State, font_cache: &FontCache) -> Option<Read> {
         // Only update pipeline if there are textures to upload
         if self.next_glyph_to_upload == font_cache.data.len() {
             return None;
@@ -39,8 +39,8 @@ impl Write {
             .skip(self.next_glyph_to_upload)
         {
             self.textures.push(Texture::new(
-                &constant.shared.device,
-                &constant.shared.queue,
+                &state.shared.device,
+                &state.shared.queue,
                 data.as_slice(),
                 *size,
                 wgpu::TextureFormat::R8Unorm,
@@ -53,7 +53,7 @@ impl Write {
 
         let tex_count = Some(NonZeroU32::new(self.textures.len() as u32).unwrap());
         let font_bind_group_layout =
-            constant
+            state
                 .shared
                 .device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -89,7 +89,7 @@ impl Write {
                 });
 
         let font_info_buffer =
-            constant
+            state
                 .shared
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -99,14 +99,14 @@ impl Write {
                 });
 
         let glyph_pipeline_layout =
-            constant
+            state
                 .shared
                 .device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Render Pipeline Layout"),
                     bind_group_layouts: &[
-                        &constant.highlights.bind_group_layout,
-                        &constant.grid.bind_group_layout,
+                        &state.highlights.bind_group_layout,
+                        &state.grid.bind_group_layout,
                         &font_bind_group_layout,
                     ],
                     push_constant_ranges: &[wgpu::PushConstantRange {
@@ -116,22 +116,22 @@ impl Write {
                 });
 
         let glyph_render_pipeline =
-            constant
+            state
                 .shared
                 .device
                 .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                     label: Some("Render pipeline"),
                     layout: Some(&glyph_pipeline_layout),
                     vertex: wgpu::VertexState {
-                        module: &constant.font.glyph_shader,
+                        module: &state.font.glyph_shader,
                         entry_point: "vs_main",
                         buffers: &[],
                     },
                     fragment: Some(wgpu::FragmentState {
-                        module: &constant.font.glyph_shader,
+                        module: &state.font.glyph_shader,
                         entry_point: "fs_main",
                         targets: &[Some(wgpu::ColorTargetState {
-                            format: constant.shared.surface_config.format,
+                            format: state.shared.surface_config.format,
                             blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                             write_mask: wgpu::ColorWrites::ALL,
                         })],
@@ -156,7 +156,7 @@ impl Write {
                 });
 
         Some(Read {
-            bind_group: constant
+            bind_group: state
                 .shared
                 .device
                 .create_bind_group(&wgpu::BindGroupDescriptor {
@@ -169,7 +169,7 @@ impl Write {
                         },
                         wgpu::BindGroupEntry {
                             binding: 1,
-                            resource: wgpu::BindingResource::Sampler(&constant.font.sampler),
+                            resource: wgpu::BindingResource::Sampler(&state.font.sampler),
                         },
                         wgpu::BindGroupEntry {
                             binding: 2,
