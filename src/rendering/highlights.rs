@@ -3,27 +3,26 @@ use crate::{event::hl_attr_define::Rgb, ui::Ui, util::srgb};
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::util::DeviceExt;
 
+// TODO: Only update bind group if changed. Probably in response to dedicated UI event.
+// TODO: Use resizable buffer.
 #[derive(Default)]
-pub struct Write {
+pub struct HighlightsBindGroup {
     pub highlights: Vec<HighlightInfo>,
-}
-
-pub struct Read {
     pub clear_color: wgpu::Color,
-    pub bind_group: wgpu::BindGroup,
+    pub bind_group: Option<wgpu::BindGroup>,
 }
 
-impl Write {
-    pub fn updates(
+impl HighlightsBindGroup {
+    pub fn update(
         &mut self,
         ui: &Ui,
         highlights_bind_group_layout: &HighlightsBindGroupLayout,
         shared: &Shared,
-    ) -> Option<Read> {
+    ) {
         let fg_default = ui.default_colors.rgb_fg.unwrap_or(Rgb::new(255, 255, 255));
         let bg_default = ui.default_colors.rgb_bg.unwrap_or(Rgb::new(0, 0, 0));
 
-        let clear_color = wgpu::Color {
+        self.clear_color = wgpu::Color {
             r: srgb(bg_default.r()) as f64,
             g: srgb(bg_default.g()) as f64,
             b: srgb(bg_default.b()) as f64,
@@ -70,7 +69,7 @@ impl Write {
                 usage: wgpu::BufferUsages::STORAGE,
             });
 
-        let bind_group = shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        self.bind_group = Some(shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Highlights bind group"),
             layout: &highlights_bind_group_layout.bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
@@ -81,12 +80,7 @@ impl Write {
                     size: None,
                 }),
             }],
-        });
-
-        Some(Read {
-            clear_color,
-            bind_group,
-        })
+        }));
     }
 }
 

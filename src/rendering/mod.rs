@@ -78,21 +78,18 @@ pub struct State {
     pub highlights_bind_group_layout: highlights::HighlightsBindGroupLayout,
     pub grid: grid::Write,
     pub font: font::Write,
-    pub highlights: highlights::Write,
+    pub highlights: highlights::HighlightsBindGroup,
     read: Option<ReadState>,
 }
 
 impl State {
     pub fn update(&mut self, ui: Ui, fonts: &mut Fonts, font_cache: &mut FontCache) {
+        self.highlights
+            .update(&ui, &self.highlights_bind_group_layout, &self.shared);
         let updates = ReadStateUpdates {
             grid: self
                 .grid
                 .updates(&self.grid_constant, &self.shared, &ui, fonts, font_cache),
-            highlights: self.highlights.updates(
-                &ui,
-                &self.highlights_bind_group_layout,
-                &self.shared,
-            ),
             font: self.font.updates(
                 &self.shared,
                 font_cache,
@@ -144,6 +141,6 @@ pub async fn init(window: Arc<Window>) -> State {
         read: None,
         grid: grid_write,
         font: font_write,
-        highlights: highlights::Write::default(),
+        highlights: highlights::HighlightsBindGroup::default(),
     }
 }
