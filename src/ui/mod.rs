@@ -10,7 +10,7 @@ use crate::{
         mode_info_set::ModeInfo, Anchor, DefaultColorsSet, Event, GlobalEvent, GridLine,
         GridScroll, HlAttrDefine, PopupmenuShow, TablineUpdate, WinFloatPos, WinPos,
     },
-    rendering::state::RenderEvent,
+    rendering::RenderEvent,
     ui::grid::{FloatingWindow, Window},
     util::vec2::Vec2,
 };

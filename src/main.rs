@@ -7,7 +7,7 @@ mod ui;
 mod util;
 
 use event::Event;
-use rendering::state::{render_loop, RenderEvent};
+use rendering::{render_loop, RenderEvent};
 use session::Neovim;
 use std::{
     sync::{mpsc, Arc},
