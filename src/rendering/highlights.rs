@@ -8,11 +8,16 @@ pub struct Write {
     pub highlights: Vec<HighlightInfo>,
 }
 
+pub struct Read {
+    pub clear_color: wgpu::Color,
+    pub bind_group: wgpu::BindGroup,
+}
+
 impl Write {
     pub fn updates(
         &mut self,
         ui: &Ui,
-        highlights_constant: &Constant,
+        highlights_bind_group_layout: &HighlightsBindGroupLayout,
         shared: &Shared,
     ) -> Option<Read> {
         let fg_default = ui.default_colors.rgb_fg.unwrap_or(Rgb::new(255, 255, 255));
@@ -67,7 +72,7 @@ impl Write {
 
         let bind_group = shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Highlights bind group"),
-            layout: &highlights_constant.bind_group_layout,
+            layout: &highlights_bind_group_layout.bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
@@ -85,19 +90,20 @@ impl Write {
     }
 }
 
-pub struct Read {
-    pub clear_color: wgpu::Color,
-    pub bind_group: wgpu::BindGroup,
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
+pub struct HighlightInfo {
+    pub fg: [f32; 4],
+    pub bg: [f32; 4],
 }
 
-pub struct Constant {
+pub struct HighlightsBindGroupLayout {
     pub bind_group_layout: wgpu::BindGroupLayout,
 }
 
-pub fn init(device: &wgpu::Device) -> (Write, Constant) {
-    (
-        Write::default(),
-        Constant {
+impl HighlightsBindGroupLayout {
+    pub fn new(device: &wgpu::Device) -> Self {
+        Self {
             bind_group_layout: device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Highlights bind group layout"),
                 entries: &[wgpu::BindGroupLayoutEntry {
@@ -111,13 +117,6 @@ pub fn init(device: &wgpu::Device) -> (Write, Constant) {
                     count: None,
                 }],
             }),
-        },
-    )
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
-pub struct HighlightInfo {
-    pub fg: [f32; 4],
-    pub bg: [f32; 4],
+        }
+    }
 }

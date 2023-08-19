@@ -36,7 +36,7 @@ impl Write {
         font_cache: &FontCache,
         grid_constant: &grid::Constant,
         font_constant: &Constant,
-        highlights_constant: &highlights::Constant,
+        highlights_constant: &highlights::HighlightsBindGroupLayout,
     ) -> Option<Read> {
         // Only update pipeline if there are textures to upload
         if self.next_glyph_to_upload == font_cache.data.len() {

@@ -6,6 +6,7 @@ mod shared;
 mod texture;
 
 use self::{
+    highlights::HighlightsBindGroupLayout,
     read::{ReadState, ReadStateUpdates},
     shared::Shared,
 };
@@ -74,7 +75,7 @@ pub struct State {
     pub shared: Shared,
     pub grid_constant: grid::Constant,
     pub font_constant: font::Constant,
-    pub highlights_constant: highlights::Constant,
+    pub highlights_bind_group_layout: highlights::HighlightsBindGroupLayout,
     pub grid: grid::Write,
     pub font: font::Write,
     pub highlights: highlights::Write,
@@ -87,15 +88,17 @@ impl State {
             grid: self
                 .grid
                 .updates(&self.grid_constant, &self.shared, &ui, fonts, font_cache),
-            highlights: self
-                .highlights
-                .updates(&ui, &self.highlights_constant, &self.shared),
+            highlights: self.highlights.updates(
+                &ui,
+                &self.highlights_bind_group_layout,
+                &self.shared,
+            ),
             font: self.font.updates(
                 &self.shared,
                 font_cache,
                 &self.grid_constant,
                 &self.font_constant,
-                &self.highlights_constant,
+                &self.highlights_bind_group_layout,
             ),
         };
         match self.read.as_mut() {
@@ -125,19 +128,22 @@ impl State {
 
 pub async fn init(window: Arc<Window>) -> State {
     let shared = Shared::new(window).await;
-    let (highlights_write, highlights_constant) = highlights::init(&shared.device);
-    let (grid_write, grid_constant) =
-        grid::init(&shared.device, shared.surface_format, &highlights_constant);
+    let highlights_bind_group_layout = HighlightsBindGroupLayout::new(&shared.device);
+    let (grid_write, grid_constant) = grid::init(
+        &shared.device,
+        shared.surface_format,
+        &highlights_bind_group_layout,
+    );
     let (font_write, font_constant) = font::new(&shared.device);
 
     State {
         shared,
         grid_constant,
         font_constant,
-        highlights_constant,
+        highlights_bind_group_layout,
         read: None,
         grid: grid_write,
         font: font_write,
-        highlights: highlights_write,
+        highlights: highlights::Write::default(),
     }
 }

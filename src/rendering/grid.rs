@@ -325,7 +325,7 @@ pub struct Constant {
 pub fn init(
     device: &wgpu::Device,
     texture_format: wgpu::TextureFormat,
-    highlights: &highlights::Constant,
+    highlights: &highlights::HighlightsBindGroupLayout,
 ) -> (Write, Constant) {
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("Grid bind group layout"),
