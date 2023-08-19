@@ -85,16 +85,16 @@ impl State {
     pub fn update(&mut self, ui: Ui, fonts: &mut Fonts, font_cache: &mut FontCache) {
         self.highlights
             .update(&ui, &self.highlights_bind_group_layout, &self.shared);
+        self.font.updates(
+            &self.shared,
+            font_cache,
+            &self.grid_constant,
+            &self.highlights_bind_group_layout,
+        );
         let updates = ReadStateUpdates {
             grid: self
                 .grid
                 .updates(&self.grid_constant, &self.shared, &ui, fonts, font_cache),
-            font: self.font.updates(
-                &self.shared,
-                font_cache,
-                &self.grid_constant,
-                &self.highlights_bind_group_layout,
-            ),
         };
         match self.read.as_mut() {
             Some(read) => read.apply_updates(updates),

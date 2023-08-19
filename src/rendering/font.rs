@@ -8,22 +8,16 @@ use bytemuck::cast_slice;
 use std::num::NonZeroU32;
 use wgpu::{include_wgsl, util::DeviceExt};
 
-// TODO: Resizable buffer
+// TODO: Resizable glyph info buffer
+// TODO: Separate out resources
 
 pub struct Write {
     textures: Vec<Texture>,
     next_glyph_to_upload: usize,
     pub sampler: wgpu::Sampler,
     pub glyph_shader: wgpu::ShaderModule,
-}
-
-pub struct Read {
-    pub bind_group: wgpu::BindGroup,
-    // TODO: This might actually belong with the grid module. Or maybe the
-    // pipelines deserves their own special thing. Or maybe I should just rename
-    // this module to glyphs or something because font pipeline feels like a bad
-    // smell.
-    pub pipeline: wgpu::RenderPipeline,
+    pub bind_group: Option<wgpu::BindGroup>,
+    pub pipeline: Option<wgpu::RenderPipeline>,
 }
 
 impl Write {
@@ -42,6 +36,8 @@ impl Write {
                 ..Default::default()
             }),
             glyph_shader: device.create_shader_module(include_wgsl!("glyph.wgsl")),
+            bind_group: None,
+            pipeline: None,
         }
     }
 
@@ -51,10 +47,10 @@ impl Write {
         font_cache: &FontCache,
         grid_constant: &grid::Constant,
         highlights_constant: &highlights::HighlightsBindGroupLayout,
-    ) -> Option<Read> {
+    ) {
         // Only update pipeline if there are textures to upload
         if self.next_glyph_to_upload == font_cache.data.len() {
-            return None;
+            return;
         }
 
         for (data, size) in font_cache
@@ -137,69 +133,65 @@ impl Write {
                     }],
                 });
 
-        let glyph_render_pipeline =
-            shared
-                .device
-                .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                    label: Some("Render pipeline"),
-                    layout: Some(&glyph_pipeline_layout),
-                    vertex: wgpu::VertexState {
-                        module: &self.glyph_shader,
-                        entry_point: "vs_main",
-                        buffers: &[],
-                    },
-                    fragment: Some(wgpu::FragmentState {
-                        module: &self.glyph_shader,
-                        entry_point: "fs_main",
-                        targets: &[Some(wgpu::ColorTargetState {
-                            format: shared.surface_config.format,
-                            blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                            write_mask: wgpu::ColorWrites::ALL,
-                        })],
-                    }),
-                    // How to interpret vertices when converting to triangles
-                    primitive: wgpu::PrimitiveState {
-                        topology: wgpu::PrimitiveTopology::TriangleList,
-                        strip_index_format: None,
-                        front_face: wgpu::FrontFace::Ccw,
-                        cull_mode: Some(wgpu::Face::Back),
-                        polygon_mode: wgpu::PolygonMode::Fill,
-                        unclipped_depth: false,
-                        conservative: false,
-                    },
-                    depth_stencil: None,
-                    multisample: wgpu::MultisampleState {
-                        count: 1,
-                        mask: !0,
-                        alpha_to_coverage_enabled: false,
-                    },
-                    multiview: None,
-                });
+        self.pipeline = Some(shared.device.create_render_pipeline(
+            &wgpu::RenderPipelineDescriptor {
+                label: Some("Render pipeline"),
+                layout: Some(&glyph_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &self.glyph_shader,
+                    entry_point: "vs_main",
+                    buffers: &[],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &self.glyph_shader,
+                    entry_point: "fs_main",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: shared.surface_config.format,
+                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                // How to interpret vertices when converting to triangles
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: Some(wgpu::Face::Back),
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    unclipped_depth: false,
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                multiview: None,
+            },
+        ));
 
-        Some(Read {
-            bind_group: shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("Font bind group"),
-                layout: &font_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureViewArray(views.as_slice()),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&self.sampler),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                            buffer: &font_info_buffer,
-                            offset: 0,
-                            size: None,
-                        }),
-                    },
-                ],
-            }),
-            pipeline: glyph_render_pipeline,
-        })
+        self.bind_group = Some(shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Font bind group"),
+            layout: &font_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureViewArray(views.as_slice()),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &font_info_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
+            ],
+        }));
     }
 }
