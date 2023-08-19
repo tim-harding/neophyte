@@ -1,14 +1,11 @@
 mod font;
 mod grid;
 mod highlights;
-mod read;
 mod shared;
+mod state;
 mod texture;
 
-use self::{
-    font::GlyphPipeline, grid::GridBindGroupLayout, highlights::HighlightsBindGroupLayout,
-    read::render, shared::Shared,
-};
+use self::state::State;
 use crate::{
     session::Neovim,
     text::{
@@ -30,7 +27,7 @@ pub enum RenderEvent {
 pub fn render_loop(window: Arc<Window>, neovim: Neovim, rx: Receiver<RenderEvent>) {
     let mut state = {
         let window = window.clone();
-        pollster::block_on(async { init(window.clone()).await })
+        pollster::block_on(async { State::new(window.clone()).await })
     };
     let mut fonts = Fonts::new();
     let window = window.clone();
@@ -74,68 +71,5 @@ pub fn render_loop(window: Arc<Window>, neovim: Neovim, rx: Receiver<RenderEvent
                 // TODO: Clear textures on the GPU
             }
         }
-    }
-}
-
-pub struct State {
-    pub shared: Shared,
-    pub grid: grid::Write,
-    pub glyph_pipeline: GlyphPipeline,
-    pub highlights_bind_group_layout: highlights::HighlightsBindGroupLayout,
-    pub highlights: highlights::HighlightsBindGroup,
-    pub grid_bind_group_layout: grid::GridBindGroupLayout,
-}
-
-impl State {
-    pub fn update(&mut self, ui: Ui, fonts: &mut Fonts, font_cache: &mut FontCache) {
-        self.highlights
-            .update(&ui, &self.highlights_bind_group_layout, &self.shared);
-        self.glyph_pipeline.update(
-            &self.shared,
-            font_cache,
-            &self.highlights_bind_group_layout,
-            &self.grid_bind_group_layout,
-        );
-        self.grid.updates(
-            &self.shared,
-            &ui,
-            fonts,
-            font_cache,
-            &self.grid_bind_group_layout,
-        );
-    }
-
-    pub fn resize(&mut self, size: PhysicalSize<u32>) {
-        self.shared.resize(size);
-    }
-
-    pub fn render(&self) -> Result<(), wgpu::SurfaceError> {
-        render(&self)
-    }
-
-    pub fn rebuild_swap_chain(&mut self) {
-        let size = self.shared.surface_size();
-        let size = PhysicalSize::new(size.x, size.y);
-        self.shared.resize(size)
-    }
-}
-
-async fn init(window: Arc<Window>) -> State {
-    let shared = Shared::new(window).await;
-    let highlights_bind_group_layout = HighlightsBindGroupLayout::new(&shared.device);
-    let grid_bind_group_layout = GridBindGroupLayout::new(&shared.device);
-    let grid_write = grid::Write::new(
-        &shared.device,
-        shared.surface_format,
-        &highlights_bind_group_layout,
-        &grid_bind_group_layout,
-    );
-    State {
-        glyph_pipeline: font::GlyphPipeline::new(&shared.device),
-        shared,
-        grid_bind_group_layout,
-        highlights_bind_group_layout,
-        grid: grid_write,
-        highlights: highlights::HighlightsBindGroup::default(),
     }
 }
