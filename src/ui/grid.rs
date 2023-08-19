@@ -215,7 +215,12 @@ impl Grid {
                     }
                     prev_hl = cell.highlight;
                 }
-                write!(f, "{}", cell.text);
+                let c = if cell.text.is_empty() {
+                    " "
+                } else {
+                    cell.text.as_str()
+                };
+                write!(f, "{}", c);
             }
             f.reset();
             write!(f, "┃\n");
@@ -253,6 +258,11 @@ impl Debug for Grid {
         for row in self.rows() {
             write!(f, "┃");
             for cell in row {
+                let c = if cell.text.is_empty() {
+                    " "
+                } else {
+                    cell.text.as_str()
+                };
                 write!(f, "{}", cell.text)?;
             }
             write!(f, "┃\n")?;
