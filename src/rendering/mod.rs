@@ -4,9 +4,11 @@ mod highlights;
 mod read;
 mod shared;
 mod texture;
-mod write;
 
-use self::{read::ReadState, shared::Shared, write::WriteState};
+use self::{
+    read::{ReadState, ReadStateUpdates},
+    shared::Shared,
+};
 use crate::{
     session::Neovim,
     text::{
@@ -25,7 +27,7 @@ pub enum RenderEvent {
 }
 
 pub fn render_loop(window: Arc<Window>, neovim: Neovim, rx: Receiver<RenderEvent>) {
-    let (mut state, mut write_state) = {
+    let mut state = {
         let window = window.clone();
         pollster::block_on(async { init(window.clone()).await })
     };
@@ -35,7 +37,7 @@ pub fn render_loop(window: Arc<Window>, neovim: Neovim, rx: Receiver<RenderEvent
     while let Ok(event) = rx.recv() {
         match event {
             RenderEvent::Flush(ui) => {
-                state.update(ui, &mut write_state, &mut fonts, &mut font_cache);
+                state.update(ui, &mut fonts, &mut font_cache);
                 window.request_redraw();
             }
             RenderEvent::Resized(size) => {
@@ -70,21 +72,32 @@ pub fn render_loop(window: Arc<Window>, neovim: Neovim, rx: Receiver<RenderEvent
 
 pub struct State {
     pub shared: Shared,
-    pub grid: grid::Constant,
-    pub font: font::Constant,
-    pub highlights: highlights::Constant,
+    pub grid_constant: grid::Constant,
+    pub font_constant: font::Constant,
+    pub highlights_constant: highlights::Constant,
+    pub grid: grid::Write,
+    pub font: font::Write,
+    pub highlights: highlights::Write,
     read: Option<ReadState>,
 }
 
 impl State {
-    pub fn update(
-        &mut self,
-        ui: Ui,
-        write: &mut WriteState,
-        fonts: &mut Fonts,
-        font_cache: &mut FontCache,
-    ) {
-        let updates = write.updates(ui, self, fonts, font_cache);
+    pub fn update(&mut self, ui: Ui, fonts: &mut Fonts, font_cache: &mut FontCache) {
+        let updates = ReadStateUpdates {
+            grid: self
+                .grid
+                .updates(&self.grid_constant, &self.shared, &ui, fonts, font_cache),
+            highlights: self
+                .highlights
+                .updates(&ui, &self.highlights_constant, &self.shared),
+            font: self.font.updates(
+                &self.shared,
+                font_cache,
+                &self.grid_constant,
+                &self.font_constant,
+                &self.highlights_constant,
+            ),
+        };
         match self.read.as_mut() {
             Some(read) => read.apply_updates(updates),
             None => self.read = ReadState::from_updates(updates),
@@ -110,25 +123,21 @@ impl State {
     }
 }
 
-pub async fn init(window: Arc<Window>) -> (State, WriteState) {
+pub async fn init(window: Arc<Window>) -> State {
     let shared = Shared::new(window).await;
     let (highlights_write, highlights_constant) = highlights::init(&shared.device);
     let (grid_write, grid_constant) =
         grid::init(&shared.device, shared.surface_format, &highlights_constant);
     let (font_write, font_constant) = font::new(&shared.device);
 
-    (
-        State {
-            shared,
-            grid: grid_constant,
-            font: font_constant,
-            highlights: highlights_constant,
-            read: None,
-        },
-        WriteState {
-            grid: grid_write,
-            font: font_write,
-            highlights: highlights_write,
-        },
-    )
+    State {
+        shared,
+        grid_constant,
+        font_constant,
+        highlights_constant,
+        read: None,
+        grid: grid_write,
+        font: font_write,
+        highlights: highlights_write,
+    }
 }

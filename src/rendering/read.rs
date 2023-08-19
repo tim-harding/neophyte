@@ -70,7 +70,7 @@ impl ReadState {
             depth_stencil_attachment: None,
         });
 
-        render_pass.set_pipeline(&state.grid.cell_fill_render_pipeline);
+        render_pass.set_pipeline(&state.grid_constant.cell_fill_render_pipeline);
         render_pass.set_bind_group(0, &self.highlights.bind_group, &[]);
         render_pass.set_bind_group(1, &self.grid.bg_bind_group, &[]);
         render_pass.set_push_constants(

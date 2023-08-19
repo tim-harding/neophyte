@@ -1,4 +1,4 @@
-use super::{highlights, State};
+use super::{highlights, shared::Shared};
 use crate::{
     event::hl_attr_define::Attributes,
     text::{
@@ -34,7 +34,8 @@ pub struct Write {
 impl Write {
     pub fn updates(
         &mut self,
-        state: &State,
+        grid_constant: &Constant,
+        shared: &Shared,
         ui: &Ui,
         fonts: &mut Fonts,
         font_cache: &mut FontCache,
@@ -64,7 +65,7 @@ impl Write {
         let cell_height_px = em_px + descent_px;
 
         let grid_info = GridInfo {
-            surface_size: state.shared.surface_size(),
+            surface_size: shared.surface_size(),
             cell_size: Vec2::new(fonts.size(), cell_height_px),
             grid_width: grid.size.x as u32,
             baseline: em_px,
@@ -264,8 +265,7 @@ impl Write {
         }
 
         let glyph_info_buffer =
-            state
-                .shared
+            shared
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("glyph info buffer"),
@@ -273,47 +273,39 @@ impl Write {
                     contents: cast_slice(glyph_info.as_slice()),
                 });
 
-        let bg_info_buffer =
-            state
-                .shared
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("bg info buffer"),
-                    usage: wgpu::BufferUsages::STORAGE,
-                    contents: cast_slice(bg_info.as_slice()),
-                });
-
-        let glyph_bind_group = state
-            .shared
+        let bg_info_buffer = shared
             .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("glyph info bind group"),
-                layout: &state.grid.bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &glyph_info_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                }],
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("bg info buffer"),
+                usage: wgpu::BufferUsages::STORAGE,
+                contents: cast_slice(bg_info.as_slice()),
             });
 
-        let bg_bind_group = state
-            .shared
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("bg info bind group"),
-                layout: &state.grid.bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &bg_info_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                }],
-            });
+        let glyph_bind_group = shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("glyph info bind group"),
+            layout: &grid_constant.bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &glyph_info_buffer,
+                    offset: 0,
+                    size: None,
+                }),
+            }],
+        });
+
+        let bg_bind_group = shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("bg info bind group"),
+            layout: &grid_constant.bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &bg_info_buffer,
+                    offset: 0,
+                    size: None,
+                }),
+            }],
+        });
 
         Some(Read {
             glyph_bind_group,

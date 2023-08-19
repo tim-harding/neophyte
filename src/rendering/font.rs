@@ -1,4 +1,8 @@
-use super::{grid::GridInfo, State};
+use super::{
+    grid::{self, GridInfo},
+    highlights,
+    shared::Shared,
+};
 use crate::{rendering::texture::Texture, text::cache::FontCache};
 use bytemuck::cast_slice;
 use std::num::NonZeroU32;
@@ -26,7 +30,14 @@ pub struct Write {
 }
 
 impl Write {
-    pub fn updates(&mut self, state: &State, font_cache: &FontCache) -> Option<Read> {
+    pub fn updates(
+        &mut self,
+        shared: &Shared,
+        font_cache: &FontCache,
+        grid_constant: &grid::Constant,
+        font_constant: &Constant,
+        highlights_constant: &highlights::Constant,
+    ) -> Option<Read> {
         // Only update pipeline if there are textures to upload
         if self.next_glyph_to_upload == font_cache.data.len() {
             return None;
@@ -39,8 +50,8 @@ impl Write {
             .skip(self.next_glyph_to_upload)
         {
             self.textures.push(Texture::new(
-                &state.shared.device,
-                &state.shared.queue,
+                &shared.device,
+                &shared.queue,
                 data.as_slice(),
                 *size,
                 wgpu::TextureFormat::R8Unorm,
@@ -53,8 +64,7 @@ impl Write {
 
         let tex_count = Some(NonZeroU32::new(self.textures.len() as u32).unwrap());
         let font_bind_group_layout =
-            state
-                .shared
+            shared
                 .device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     label: Some("Texture bind group layout"),
@@ -89,8 +99,7 @@ impl Write {
                 });
 
         let font_info_buffer =
-            state
-                .shared
+            shared
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Font info buffer"),
@@ -99,14 +108,13 @@ impl Write {
                 });
 
         let glyph_pipeline_layout =
-            state
-                .shared
+            shared
                 .device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Render Pipeline Layout"),
                     bind_group_layouts: &[
-                        &state.highlights.bind_group_layout,
-                        &state.grid.bind_group_layout,
+                        &highlights_constant.bind_group_layout,
+                        &grid_constant.bind_group_layout,
                         &font_bind_group_layout,
                     ],
                     push_constant_ranges: &[wgpu::PushConstantRange {
@@ -116,22 +124,21 @@ impl Write {
                 });
 
         let glyph_render_pipeline =
-            state
-                .shared
+            shared
                 .device
                 .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                     label: Some("Render pipeline"),
                     layout: Some(&glyph_pipeline_layout),
                     vertex: wgpu::VertexState {
-                        module: &state.font.glyph_shader,
+                        module: &font_constant.glyph_shader,
                         entry_point: "vs_main",
                         buffers: &[],
                     },
                     fragment: Some(wgpu::FragmentState {
-                        module: &state.font.glyph_shader,
+                        module: &font_constant.glyph_shader,
                         entry_point: "fs_main",
                         targets: &[Some(wgpu::ColorTargetState {
-                            format: state.shared.surface_config.format,
+                            format: shared.surface_config.format,
                             blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                             write_mask: wgpu::ColorWrites::ALL,
                         })],
@@ -156,31 +163,28 @@ impl Write {
                 });
 
         Some(Read {
-            bind_group: state
-                .shared
-                .device
-                .create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: Some("Font bind group"),
-                    layout: &font_bind_group_layout,
-                    entries: &[
-                        wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: wgpu::BindingResource::TextureViewArray(views.as_slice()),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 1,
-                            resource: wgpu::BindingResource::Sampler(&state.font.sampler),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 2,
-                            resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                                buffer: &font_info_buffer,
-                                offset: 0,
-                                size: None,
-                            }),
-                        },
-                    ],
-                }),
+            bind_group: shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Font bind group"),
+                layout: &font_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureViewArray(views.as_slice()),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&font_constant.sampler),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                            buffer: &font_info_buffer,
+                            offset: 0,
+                            size: None,
+                        }),
+                    },
+                ],
+            }),
             pipeline: glyph_render_pipeline,
         })
     }
