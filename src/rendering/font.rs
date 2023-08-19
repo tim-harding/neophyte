@@ -1,5 +1,5 @@
 use super::{
-    grid::{self, GridInfo},
+    grid::{GridBindGroupLayout, GridInfo},
     highlights,
     shared::Shared,
 };
@@ -45,8 +45,8 @@ impl Write {
         &mut self,
         shared: &Shared,
         font_cache: &FontCache,
-        grid_constant: &grid::Constant,
         highlights_constant: &highlights::HighlightsBindGroupLayout,
+        grid_bind_group_layout: &GridBindGroupLayout,
     ) {
         // Only update pipeline if there are textures to upload
         if self.next_glyph_to_upload == font_cache.data.len() {
@@ -124,7 +124,7 @@ impl Write {
                     label: Some("Render Pipeline Layout"),
                     bind_group_layouts: &[
                         &highlights_constant.bind_group_layout,
-                        &grid_constant.bind_group_layout,
+                        &grid_bind_group_layout.bind_group_layout,
                         &font_bind_group_layout,
                     ],
                     push_constant_ranges: &[wgpu::PushConstantRange {

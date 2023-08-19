@@ -6,9 +6,7 @@ mod shared;
 mod texture;
 
 use self::{
-    highlights::HighlightsBindGroupLayout,
-    read::{ReadState, ReadStateUpdates},
-    shared::Shared,
+    grid::GridBindGroupLayout, highlights::HighlightsBindGroupLayout, read::render, shared::Shared,
 };
 use crate::{
     session::Neovim,
@@ -73,12 +71,11 @@ pub fn render_loop(window: Arc<Window>, neovim: Neovim, rx: Receiver<RenderEvent
 
 pub struct State {
     pub shared: Shared,
-    pub grid_constant: grid::Constant,
     pub grid: grid::Write,
     pub font: font::Write,
     pub highlights_bind_group_layout: highlights::HighlightsBindGroupLayout,
     pub highlights: highlights::HighlightsBindGroup,
-    read: Option<ReadState>,
+    pub grid_bind_group_layout: grid::GridBindGroupLayout,
 }
 
 impl State {
@@ -88,18 +85,16 @@ impl State {
         self.font.updates(
             &self.shared,
             font_cache,
-            &self.grid_constant,
             &self.highlights_bind_group_layout,
+            &self.grid_bind_group_layout,
         );
-        let updates = ReadStateUpdates {
-            grid: self
-                .grid
-                .updates(&self.grid_constant, &self.shared, &ui, fonts, font_cache),
-        };
-        match self.read.as_mut() {
-            Some(read) => read.apply_updates(updates),
-            None => self.read = ReadState::from_updates(updates),
-        }
+        self.grid.updates(
+            &self.shared,
+            &ui,
+            fonts,
+            font_cache,
+            &self.grid_bind_group_layout,
+        );
     }
 
     pub fn resize(&mut self, size: PhysicalSize<u32>) {
@@ -107,11 +102,7 @@ impl State {
     }
 
     pub fn render(&self) -> Result<(), wgpu::SurfaceError> {
-        if let Some(read) = self.read.as_ref() {
-            read.render(&self)
-        } else {
-            Ok(())
-        }
+        render(&self)
     }
 
     pub fn rebuild_swap_chain(&mut self) {
@@ -124,17 +115,18 @@ impl State {
 pub async fn init(window: Arc<Window>) -> State {
     let shared = Shared::new(window).await;
     let highlights_bind_group_layout = HighlightsBindGroupLayout::new(&shared.device);
-    let (grid_write, grid_constant) = grid::init(
+    let grid_bind_group_layout = GridBindGroupLayout::new(&shared.device);
+    let grid_write = grid::Write::new(
         &shared.device,
         shared.surface_format,
         &highlights_bind_group_layout,
+        &grid_bind_group_layout,
     );
     State {
         font: font::Write::new(&shared.device),
         shared,
-        grid_constant,
+        grid_bind_group_layout,
         highlights_bind_group_layout,
-        read: None,
         grid: grid_write,
         highlights: highlights::HighlightsBindGroup::default(),
     }
