@@ -6,7 +6,8 @@ mod shared;
 mod texture;
 
 use self::{
-    grid::GridBindGroupLayout, highlights::HighlightsBindGroupLayout, read::render, shared::Shared,
+    font::GlyphPipeline, grid::GridBindGroupLayout, highlights::HighlightsBindGroupLayout,
+    read::render, shared::Shared,
 };
 use crate::{
     session::Neovim,
@@ -79,7 +80,7 @@ pub fn render_loop(window: Arc<Window>, neovim: Neovim, rx: Receiver<RenderEvent
 pub struct State {
     pub shared: Shared,
     pub grid: grid::Write,
-    pub font: font::Write,
+    pub glyph_pipeline: GlyphPipeline,
     pub highlights_bind_group_layout: highlights::HighlightsBindGroupLayout,
     pub highlights: highlights::HighlightsBindGroup,
     pub grid_bind_group_layout: grid::GridBindGroupLayout,
@@ -89,7 +90,7 @@ impl State {
     pub fn update(&mut self, ui: Ui, fonts: &mut Fonts, font_cache: &mut FontCache) {
         self.highlights
             .update(&ui, &self.highlights_bind_group_layout, &self.shared);
-        self.font.updates(
+        self.glyph_pipeline.update(
             &self.shared,
             font_cache,
             &self.highlights_bind_group_layout,
@@ -130,7 +131,7 @@ async fn init(window: Arc<Window>) -> State {
         &grid_bind_group_layout,
     );
     State {
-        font: font::Write::new(&shared.device),
+        glyph_pipeline: font::GlyphPipeline::new(&shared.device),
         shared,
         grid_bind_group_layout,
         highlights_bind_group_layout,

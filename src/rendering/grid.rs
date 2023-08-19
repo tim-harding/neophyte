@@ -46,7 +46,7 @@ pub struct Write {
     pub glyph_bind_group: Option<wgpu::BindGroup>,
     pub bg_bind_group: Option<wgpu::BindGroup>,
     pub grid_info: Option<GridInfo>,
-    pub glyph_count: Option<usize>,
+    pub glyph_count: Option<u32>,
     pub bg_count: Option<usize>,
     pub shape_context: ShapeContext,
     pub cell_fill_render_pipeline: wgpu::RenderPipeline,
@@ -320,7 +320,7 @@ impl Write {
             }],
         }));
 
-        self.glyph_count = Some(glyph_info.len());
+        self.glyph_count = Some(glyph_info.len() as u32);
         self.bg_count = Some(bg_info.len());
     }
 

@@ -9,9 +9,8 @@ use std::num::NonZeroU32;
 use wgpu::{include_wgsl, util::DeviceExt};
 
 // TODO: Resizable glyph info buffer
-// TODO: Separate out resources
 
-pub struct Write {
+pub struct GlyphPipeline {
     textures: Vec<Texture>,
     next_glyph_to_upload: usize,
     pub sampler: wgpu::Sampler,
@@ -20,9 +19,9 @@ pub struct Write {
     pub pipeline: Option<wgpu::RenderPipeline>,
 }
 
-impl Write {
+impl GlyphPipeline {
     pub fn new(device: &wgpu::Device) -> Self {
-        Write {
+        GlyphPipeline {
             textures: vec![],
             next_glyph_to_upload: 0,
             sampler: device.create_sampler(&wgpu::SamplerDescriptor {
@@ -41,7 +40,7 @@ impl Write {
         }
     }
 
-    pub fn updates(
+    pub fn update(
         &mut self,
         shared: &Shared,
         font_cache: &FontCache,
@@ -193,5 +192,29 @@ impl Write {
                 },
             ],
         }));
+    }
+
+    pub fn render<'b, 'c, 'a: 'b + 'c>(
+        &'a self,
+        render_pass: &'b mut wgpu::RenderPass<'c>,
+        highlights_bind_group: &'a wgpu::BindGroup,
+        glyph_bind_group: &'a wgpu::BindGroup,
+        glyph_count: u32,
+        grid_info: GridInfo,
+    ) {
+        let pipeline = match &self.pipeline {
+            Some(pipeline) => pipeline,
+            None => return,
+        };
+        let bind_group = match &self.bind_group {
+            Some(bind_group) => bind_group,
+            None => return,
+        };
+        render_pass.set_pipeline(&pipeline);
+        render_pass.set_bind_group(0, &highlights_bind_group, &[]);
+        render_pass.set_bind_group(1, &glyph_bind_group, &[]);
+        render_pass.set_bind_group(2, &bind_group, &[]);
+        render_pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, cast_slice(&[grid_info]));
+        render_pass.draw(0..glyph_count * 6, 0..1);
     }
 }

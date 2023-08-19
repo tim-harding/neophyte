@@ -3,8 +3,6 @@ use crate::{event::hl_attr_define::Rgb, ui::Ui, util::srgb};
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::util::DeviceExt;
 
-// TODO: Only update bind group if changed. Probably in response to dedicated UI event.
-// TODO: Use resizable buffer.
 #[derive(Default)]
 pub struct HighlightsBindGroup {
     pub highlights: Vec<HighlightInfo>,
@@ -87,6 +85,7 @@ impl HighlightsBindGroup {
     }
 }
 
+// TODO: Split into bind groups for FG and BG highlights
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
 pub struct HighlightInfo {
