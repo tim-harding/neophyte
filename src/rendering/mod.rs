@@ -112,7 +112,7 @@ impl State {
     }
 }
 
-pub async fn init(window: Arc<Window>) -> State {
+async fn init(window: Arc<Window>) -> State {
     let shared = Shared::new(window).await;
     let highlights_bind_group_layout = HighlightsBindGroupLayout::new(&shared.device);
     let grid_bind_group_layout = GridBindGroupLayout::new(&shared.device);

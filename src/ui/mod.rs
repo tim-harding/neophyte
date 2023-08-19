@@ -15,10 +15,7 @@ use crate::{
     util::vec2::Vec2,
 };
 use grid::Grid;
-use std::{
-    collections::{hash_map::Entry, HashMap},
-    sync::mpsc::Sender,
-};
+use std::{collections::HashMap, sync::mpsc::Sender};
 
 pub type Highlights = HashMap<u64, HlAttrDefine>;
 pub type HighlightGroups = HashMap<String, u64>;
@@ -28,7 +25,8 @@ pub struct Ui {
     pub title: String,
     pub icon: String,
     pub grids: Vec<Grid>,
-    pub grid_lut: HashMap<u64, usize>,
+    pub draw_order: Vec<u64>,
+    pub float_windows_start: usize,
     pub cursor: CursorInfo,
     pub mouse: bool,
     pub highlights: Highlights,
@@ -71,7 +69,8 @@ impl Ui {
             title: Default::default(),
             icon: Default::default(),
             grids: Default::default(),
-            grid_lut: Default::default(),
+            draw_order: vec![],
+            float_windows_start: 0,
             cursor: Default::default(),
             mouse: Default::default(),
             highlights: Default::default(),
@@ -90,14 +89,28 @@ impl Ui {
         }
     }
 
-    fn grid(&mut self, id: u64) -> &mut Grid {
-        match self.grid_lut.entry(id) {
-            Entry::Occupied(entry) => &mut self.grids[*entry.get()],
-            Entry::Vacant(entry) => {
-                let index = self.grids.len();
-                self.grids.push(Grid::new(id));
-                entry.insert(index);
-                self.grids.get_mut(index).unwrap()
+    fn grid_mut(&mut self, id: u64) -> &mut Grid {
+        let i = self
+            .grids
+            .binary_search_by(|probe| probe.id.cmp(&id))
+            .unwrap();
+        self.grids.get_mut(i).unwrap()
+    }
+
+    fn grid(&self, id: u64) -> &Grid {
+        let i = self
+            .grids
+            .binary_search_by(|probe| probe.id.cmp(&id))
+            .unwrap();
+        self.grids.get(i).unwrap()
+    }
+
+    fn get_or_create_grid(&mut self, id: u64) -> &mut Grid {
+        match self.grids.binary_search_by(|probe| probe.id.cmp(&id)) {
+            Ok(i) => self.grids.get_mut(i).unwrap(),
+            Err(i) => {
+                self.grids.insert(i, Grid::new(id));
+                self.grids.get_mut(i).unwrap()
             }
         }
     }
@@ -133,10 +146,10 @@ impl Ui {
             }
 
             Event::GridResize(event) => {
-                let grid = self.grid(event.grid);
+                let grid = self.get_or_create_grid(event.grid);
                 grid.resize(Vec2::new(event.width, event.height));
             }
-            Event::GridClear(event) => self.grid(event.grid).clear(),
+            Event::GridClear(event) => self.grid_mut(event.grid).clear(),
             Event::GridDestroy(event) => self.delete_grid(event.grid),
             Event::GridCursorGoto(event) => {
                 self.cursor.pos = Vec2::new(event.column, event.row);
@@ -152,7 +165,7 @@ impl Ui {
                     rows,
                     cols: _,
                 } = event;
-                let grid = self.grid(grid);
+                let grid = self.grid_mut(grid);
                 grid.scroll(top, bot, left, right, rows);
             }
             Event::GridLine(event) => {
@@ -162,7 +175,7 @@ impl Ui {
                     col_start,
                     cells,
                 } = event;
-                let grid = self.grid(grid);
+                let grid = self.grid_mut(grid);
                 grid.grid_line(row, col_start, cells);
             }
 
@@ -175,7 +188,15 @@ impl Ui {
                     width,
                     height,
                 } = event;
-                let grid = self.grid(grid);
+                match self.draw_order.iter().position(|&r| r == grid) {
+                    Some(i) => {
+                        self.draw_order.remove(i);
+                    }
+                    None => {}
+                }
+                self.draw_order.push(grid);
+                self.float_windows_start += 1;
+                let grid = self.grid_mut(grid);
                 grid.window = Window::Normal(grid::NormalWindow {
                     start: Vec2::new(start_col, start_row),
                     size: Vec2::new(width, height),
@@ -191,7 +212,14 @@ impl Ui {
                     anchor_col,
                     focusable,
                 } = event;
-                let grid = self.grid(grid);
+                match self.draw_order.iter().position(|&r| r == grid) {
+                    Some(i) => {
+                        self.draw_order.remove(i);
+                    }
+                    None => {}
+                }
+                self.draw_order.push(grid);
+                let grid = self.grid_mut(grid);
                 grid.window = Window::Floating(FloatingWindow {
                     anchor,
                     focusable,
@@ -200,17 +228,22 @@ impl Ui {
                 })
             }
             Event::WinExternalPos(event) => {
-                let grid = self.grid(event.grid);
+                let grid = self.grid_mut(event.grid);
                 grid.window = Window::External;
             }
             Event::WinHide(event) => {
-                let grid = self.grid(event.grid);
+                if let Some(i) = self.draw_order.iter().position(|&r| r == event.grid) {
+                    self.draw_order.remove(i);
+                }
+                let grid = self.grid_mut(event.grid);
                 grid.show = false;
             }
             Event::WinClose(event) => {
-                // TODO: Why have WinClose and GridDestroy? Should these
-                // resources be separate?
-                self.delete_grid(event.grid);
+                if let Some(i) = self.draw_order.iter().position(|&r| r == event.grid) {
+                    self.draw_order.remove(i);
+                }
+                let grid = self.grid_mut(event.grid);
+                grid.window = Window::None;
             }
             Event::WinViewport(_) => {} // For smooth scrolling
             Event::WinExtmark(_) => {}  // Ignored
@@ -234,7 +267,7 @@ impl Ui {
             Event::MsgHistoryShow(event) => self.messages.history = event.entries,
             Event::MsgRuler(event) => self.messages.ruler = event.content,
             Event::MsgSetPos(event) => {
-                let grid = self.grid(event.grid);
+                let grid = self.get_or_create_grid(event.grid);
                 grid.window = Window::Floating(FloatingWindow {
                     anchor: Anchor::Nw,
                     anchor_grid: 1,
@@ -266,22 +299,24 @@ impl Ui {
     }
 
     fn delete_grid(&mut self, grid: u64) {
-        match self.grid_lut.entry(grid) {
-            Entry::Occupied(entry) => {
-                let index = *entry.get();
-                entry.remove();
-                self.grids.swap_remove(index);
-                if let Some(grid) = self.grids.get(index) {
-                    *self.grid_lut.get_mut(&grid.id).unwrap() = index;
-                }
+        match self.grids.binary_search_by(|probe| probe.id.cmp(&grid)) {
+            Ok(i) => {
+                self.grids.remove(i);
             }
-            Entry::Vacant(_) => {}
+            Err(_) => {}
+        }
+        match self.draw_order.iter().position(|&r| r == grid) {
+            Some(i) => {
+                self.draw_order.remove(i);
+            }
+            None => {}
         }
     }
 
     pub fn composite(&self) -> Grid {
         let mut outer_grid = self.grids.get(0).unwrap_or(&Grid::default()).clone();
-        for grid in self.grids.iter().skip(1) {
+        for grid in self.draw_order.iter() {
+            let grid = self.grid(*grid);
             outer_grid.combine(grid.clone(), self.cursor_render_info(grid.id));
         }
         outer_grid

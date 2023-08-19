@@ -61,6 +61,7 @@ impl Write {
         font_cache: &mut FontCache,
         grid_bind_group_layout: &GridBindGroupLayout,
     ) {
+        // TODO: Only if font changed
         if ui.options.guifont.1 > 0 {
             // TODO: Also need to resize grid
             // TODO: Clear font cache
