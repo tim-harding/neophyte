@@ -74,10 +74,9 @@ pub fn render_loop(window: Arc<Window>, neovim: Neovim, rx: Receiver<RenderEvent
 pub struct State {
     pub shared: Shared,
     pub grid_constant: grid::Constant,
-    pub font_constant: font::Constant,
-    pub highlights_bind_group_layout: highlights::HighlightsBindGroupLayout,
     pub grid: grid::Write,
     pub font: font::Write,
+    pub highlights_bind_group_layout: highlights::HighlightsBindGroupLayout,
     pub highlights: highlights::HighlightsBindGroup,
     read: Option<ReadState>,
 }
@@ -94,7 +93,6 @@ impl State {
                 &self.shared,
                 font_cache,
                 &self.grid_constant,
-                &self.font_constant,
                 &self.highlights_bind_group_layout,
             ),
         };
@@ -131,16 +129,13 @@ pub async fn init(window: Arc<Window>) -> State {
         shared.surface_format,
         &highlights_bind_group_layout,
     );
-    let (font_write, font_constant) = font::new(&shared.device);
-
     State {
+        font: font::Write::new(&shared.device),
         shared,
         grid_constant,
-        font_constant,
         highlights_bind_group_layout,
         read: None,
         grid: grid_write,
-        font: font_write,
         highlights: highlights::HighlightsBindGroup::default(),
     }
 }

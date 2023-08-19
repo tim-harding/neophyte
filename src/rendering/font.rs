@@ -10,7 +10,9 @@ use wgpu::{include_wgsl, util::DeviceExt};
 
 // TODO: Resizable buffer
 
-pub struct Constant {
+pub struct Write {
+    textures: Vec<Texture>,
+    next_glyph_to_upload: usize,
     pub sampler: wgpu::Sampler,
     pub glyph_shader: wgpu::ShaderModule,
 }
@@ -24,18 +26,30 @@ pub struct Read {
     pub pipeline: wgpu::RenderPipeline,
 }
 
-pub struct Write {
-    textures: Vec<Texture>,
-    next_glyph_to_upload: usize,
-}
-
 impl Write {
+    pub fn new(device: &wgpu::Device) -> Self {
+        Write {
+            textures: vec![],
+            next_glyph_to_upload: 0,
+            sampler: device.create_sampler(&wgpu::SamplerDescriptor {
+                label: Some("Texture sampler"),
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                mag_filter: wgpu::FilterMode::Nearest,
+                min_filter: wgpu::FilterMode::Nearest,
+                mipmap_filter: wgpu::FilterMode::Nearest,
+                ..Default::default()
+            }),
+            glyph_shader: device.create_shader_module(include_wgsl!("glyph.wgsl")),
+        }
+    }
+
     pub fn updates(
         &mut self,
         shared: &Shared,
         font_cache: &FontCache,
         grid_constant: &grid::Constant,
-        font_constant: &Constant,
         highlights_constant: &highlights::HighlightsBindGroupLayout,
     ) -> Option<Read> {
         // Only update pipeline if there are textures to upload
@@ -130,12 +144,12 @@ impl Write {
                     label: Some("Render pipeline"),
                     layout: Some(&glyph_pipeline_layout),
                     vertex: wgpu::VertexState {
-                        module: &font_constant.glyph_shader,
+                        module: &self.glyph_shader,
                         entry_point: "vs_main",
                         buffers: &[],
                     },
                     fragment: Some(wgpu::FragmentState {
-                        module: &font_constant.glyph_shader,
+                        module: &self.glyph_shader,
                         entry_point: "fs_main",
                         targets: &[Some(wgpu::ColorTargetState {
                             format: shared.surface_config.format,
@@ -173,7 +187,7 @@ impl Write {
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&font_constant.sampler),
+                        resource: wgpu::BindingResource::Sampler(&self.sampler),
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
@@ -188,26 +202,4 @@ impl Write {
             pipeline: glyph_render_pipeline,
         })
     }
-}
-
-pub fn new(device: &wgpu::Device) -> (Write, Constant) {
-    (
-        Write {
-            textures: vec![],
-            next_glyph_to_upload: 0,
-        },
-        Constant {
-            sampler: device.create_sampler(&wgpu::SamplerDescriptor {
-                label: Some("Texture sampler"),
-                address_mode_u: wgpu::AddressMode::ClampToEdge,
-                address_mode_v: wgpu::AddressMode::ClampToEdge,
-                address_mode_w: wgpu::AddressMode::ClampToEdge,
-                mag_filter: wgpu::FilterMode::Nearest,
-                min_filter: wgpu::FilterMode::Nearest,
-                mipmap_filter: wgpu::FilterMode::Nearest,
-                ..Default::default()
-            }),
-            glyph_shader: device.create_shader_module(include_wgsl!("glyph.wgsl")),
-        },
-    )
 }
