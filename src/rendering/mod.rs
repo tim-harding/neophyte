@@ -23,6 +23,7 @@ pub enum RenderEvent {
     Flush(Ui),
     Resized(PhysicalSize<u32>),
     Redraw,
+    FontsChanged(Vec<String>, u32),
 }
 
 pub fn render_loop(window: Arc<Window>, neovim: Neovim, rx: Receiver<RenderEvent>) {
@@ -65,6 +66,12 @@ pub fn render_loop(window: Arc<Window>, neovim: Neovim, rx: Receiver<RenderEvent
                 Err(wgpu::SurfaceError::OutOfMemory) => panic!("Out of memory"),
                 Err(e) => eprintln!("{e:?}"),
             },
+
+            RenderEvent::FontsChanged(names, size) => {
+                fonts.reload(names, size);
+                // TODO: Clear font cache
+                // TODO: Clear textures on the GPU
+            }
         }
     }
 }

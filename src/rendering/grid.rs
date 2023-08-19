@@ -61,14 +61,6 @@ impl Write {
         font_cache: &mut FontCache,
         grid_bind_group_layout: &GridBindGroupLayout,
     ) {
-        // TODO: Only if font changed
-        if ui.options.guifont.1 > 0 {
-            // TODO: Also need to resize grid
-            // TODO: Clear font cache
-            // TODO: Also reload textures on GPU
-            fonts.reload(ui.options.guifont.0.clone(), ui.options.guifont.1)
-        }
-
         let grid = ui.composite();
         let mut glyph_info = vec![];
         let mut bg_info = vec![];

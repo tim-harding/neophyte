@@ -8,7 +8,7 @@ use self::{cmdline::Cmdline, grid::CursorRenderInfo, messages::Messages, options
 use crate::{
     event::{
         mode_info_set::ModeInfo, Anchor, DefaultColorsSet, Event, GlobalEvent, GridLine,
-        GridScroll, HlAttrDefine, PopupmenuShow, TablineUpdate, WinFloatPos, WinPos,
+        GridScroll, HlAttrDefine, OptionSet, PopupmenuShow, TablineUpdate, WinFloatPos, WinPos,
     },
     rendering::RenderEvent,
     ui::grid::{FloatingWindow, Window},
@@ -122,7 +122,16 @@ impl Ui {
         match event {
             Event::SetTitle(event) => self.title = event.title,
             Event::SetIcon(event) => self.icon = event.icon,
-            Event::OptionSet(event) => self.options.event(event),
+            Event::OptionSet(event) => {
+                let is_gui_font = matches!(event, OptionSet::Guifont(_));
+                self.options.event(event);
+                if is_gui_font {
+                    let _ = self.tx.send(RenderEvent::FontsChanged(
+                        self.options.guifont.0.clone(),
+                        self.options.guifont.1,
+                    ));
+                }
+            }
             Event::DefaultColorsSet(event) => self.default_colors = event,
             Event::HlAttrDefine(event) => {
                 self.new_highlights.push(event.id);
