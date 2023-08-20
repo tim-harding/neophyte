@@ -48,7 +48,6 @@ pub struct Write {
     pub grid_info: Option<GridInfo>,
     pub glyph_count: Option<u32>,
     pub bg_count: Option<usize>,
-    pub shape_context: ShapeContext,
     pub cell_fill_render_pipeline: wgpu::RenderPipeline,
 }
 
@@ -60,6 +59,7 @@ impl Write {
         highlights: &Highlights,
         fonts: &mut Fonts,
         font_cache: &mut FontCache,
+        shape_context: &mut ShapeContext,
         grid_bind_group_layout: &GridBindGroupLayout,
     ) {
         let mut glyph_info = vec![];
@@ -101,8 +101,7 @@ impl Write {
                         let font_info = fonts.iter().nth(current_font_unwrapped.0).unwrap();
                         match &font_info.style(current_font_unwrapped.1) {
                             Some(font) => {
-                                let mut shaper = self
-                                    .shape_context
+                                let mut shaper = shape_context
                                     .builder(font.as_ref())
                                     .script(Script::Arabic)
                                     .build();
@@ -379,7 +378,6 @@ impl Write {
 
         Self {
             cell_fill_render_pipeline,
-            shape_context: ShapeContext::new(),
             glyph_bind_group: None,
             bg_bind_group: None,
             grid_info: None,

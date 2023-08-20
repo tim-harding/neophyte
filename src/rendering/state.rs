@@ -10,9 +10,12 @@ use crate::{
 };
 use bytemuck::cast_slice;
 use std::sync::Arc;
+use swash::shape::ShapeContext;
 use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct State {
+    pub shape_context: ShapeContext,
+    pub font_cache: FontCache,
     pub shared: Shared,
     pub grids: Vec<grid::Write>,
     pub glyph_pipeline: GlyphPipeline,
@@ -27,6 +30,8 @@ impl State {
         let highlights_bind_group_layout = HighlightsBindGroupLayout::new(&shared.device);
         let grid_bind_group_layout = GridBindGroupLayout::new(&shared.device);
         Self {
+            shape_context: ShapeContext::new(),
+            font_cache: FontCache::new(),
             glyph_pipeline: GlyphPipeline::new(&shared.device),
             shared,
             grid_bind_group_layout,
@@ -36,12 +41,12 @@ impl State {
         }
     }
 
-    pub fn update(&mut self, ui: Ui, fonts: &mut Fonts, font_cache: &mut FontCache) {
+    pub fn update(&mut self, ui: Ui, fonts: &mut Fonts) {
         self.highlights
             .update(&ui, &self.highlights_bind_group_layout, &self.shared);
         self.glyph_pipeline.update(
             &self.shared,
-            font_cache,
+            &mut self.font_cache,
             &self.highlights_bind_group_layout,
             &self.grid_bind_group_layout,
         );
@@ -63,7 +68,8 @@ impl State {
                     ui_grid,
                     &highlights,
                     fonts,
-                    font_cache,
+                    &mut self.font_cache,
+                    &mut self.shape_context,
                     &self.grid_bind_group_layout,
                 );
                 grid

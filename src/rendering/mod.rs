@@ -8,10 +8,7 @@ mod texture;
 use self::state::State;
 use crate::{
     session::Neovim,
-    text::{
-        cache::FontCache,
-        fonts::{FontStyle, Fonts},
-    },
+    text::fonts::{FontStyle, Fonts},
     ui::Ui,
 };
 use std::sync::{mpsc::Receiver, Arc};
@@ -31,11 +28,10 @@ pub fn render_loop(window: Arc<Window>, neovim: Neovim, rx: Receiver<RenderEvent
     };
     let mut fonts = Fonts::new();
     let window = window.clone();
-    let mut font_cache = FontCache::new();
     while let Ok(event) = rx.recv() {
         match event {
             RenderEvent::Flush(ui) => {
-                state.update(ui, &mut fonts, &mut font_cache);
+                state.update(ui, &mut fonts);
                 window.request_redraw();
             }
             RenderEvent::Resized(size) => {
