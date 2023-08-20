@@ -64,7 +64,6 @@ impl State {
         self.grids = std::iter::once(1)
             .chain(ui.draw_order.into_iter())
             .map(|id| {
-                println!("{id}");
                 let grid_index = ui_grids
                     .binary_search_by(|probe| probe.id.cmp(&id))
                     .unwrap();
@@ -118,15 +117,13 @@ impl State {
 
             for grid in self.grids.iter() {
                 if let Some(bg_bind_group) = &grid.bg_bind_group {
-                    render_pass.set_pipeline(&self.cell_fill_pipeline.pipeline);
-                    render_pass.set_bind_group(0, &highlights_bind_group, &[]);
-                    render_pass.set_bind_group(1, &bg_bind_group, &[]);
-                    render_pass.set_push_constants(
-                        wgpu::ShaderStages::VERTEX,
-                        0,
-                        cast_slice(&[grid.grid_info]),
+                    self.cell_fill_pipeline.render(
+                        &mut render_pass,
+                        &highlights_bind_group,
+                        &bg_bind_group,
+                        grid.grid_info,
+                        grid.bg_count,
                     );
-                    render_pass.draw(0..grid.bg_count as u32 * 6, 0..1);
                 }
 
                 if let Some(glyph_bind_group) = &grid.glyph_bind_group {
