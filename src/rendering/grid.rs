@@ -5,7 +5,7 @@ use crate::{
         cache::FontCache,
         fonts::{FontStyle, Fonts},
     },
-    ui::{grid::Grid, Highlights},
+    ui::{self, Highlights},
     util::vec2::Vec2,
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
@@ -42,7 +42,7 @@ impl GridBindGroupLayout {
     }
 }
 
-pub struct Write {
+pub struct Grid {
     pub glyph_bind_group: Option<wgpu::BindGroup>,
     pub bg_bind_group: Option<wgpu::BindGroup>,
     pub grid_info: Option<GridInfo>,
@@ -51,11 +51,11 @@ pub struct Write {
     pub cell_fill_render_pipeline: wgpu::RenderPipeline,
 }
 
-impl Write {
+impl Grid {
     pub fn updates(
         &mut self,
         shared: &Shared,
-        grid: Grid,
+        grid: ui::grid::Grid,
         highlights: &Highlights,
         fonts: &mut Fonts,
         font_cache: &mut FontCache,

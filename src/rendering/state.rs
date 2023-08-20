@@ -17,7 +17,7 @@ pub struct State {
     pub shape_context: ShapeContext,
     pub font_cache: FontCache,
     pub shared: Shared,
-    pub grids: Vec<grid::Write>,
+    pub grids: Vec<grid::Grid>,
     pub glyph_pipeline: GlyphPipeline,
     pub highlights_bind_group_layout: HighlightsBindGroupLayout,
     pub highlights: HighlightsBindGroup,
@@ -57,7 +57,7 @@ impl State {
             .grids
             .into_iter()
             .map(|ui_grid| {
-                let mut grid = grid::Write::new(
+                let mut grid = grid::Grid::new(
                     &self.shared.device,
                     self.shared.surface_format,
                     &self.highlights_bind_group_layout.bind_group_layout,
