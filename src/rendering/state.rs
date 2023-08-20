@@ -14,7 +14,7 @@ use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct State {
     pub shared: Shared,
-    pub grid: grid::Write,
+    pub grids: Vec<grid::Write>,
     pub glyph_pipeline: GlyphPipeline,
     pub highlights_bind_group_layout: HighlightsBindGroupLayout,
     pub highlights: HighlightsBindGroup,
@@ -26,18 +26,12 @@ impl State {
         let shared = Shared::new(window).await;
         let highlights_bind_group_layout = HighlightsBindGroupLayout::new(&shared.device);
         let grid_bind_group_layout = GridBindGroupLayout::new(&shared.device);
-        let grid_write = grid::Write::new(
-            &shared.device,
-            shared.surface_format,
-            &highlights_bind_group_layout,
-            &grid_bind_group_layout,
-        );
         Self {
             glyph_pipeline: GlyphPipeline::new(&shared.device),
             shared,
             grid_bind_group_layout,
             highlights_bind_group_layout,
-            grid: grid_write,
+            grids: vec![],
             highlights: HighlightsBindGroup::default(),
         }
     }
@@ -51,13 +45,30 @@ impl State {
             &self.highlights_bind_group_layout,
             &self.grid_bind_group_layout,
         );
-        self.grid.updates(
-            &self.shared,
-            &ui,
-            fonts,
-            font_cache,
-            &self.grid_bind_group_layout,
-        );
+        // TODO: Caching
+        self.grids.clear();
+        let highlights = ui.highlights;
+        self.grids = ui
+            .grids
+            .into_iter()
+            .map(|ui_grid| {
+                let mut grid = grid::Write::new(
+                    &self.shared.device,
+                    self.shared.surface_format,
+                    &self.highlights_bind_group_layout.bind_group_layout,
+                    &self.grid_bind_group_layout.bind_group_layout,
+                );
+                grid.updates(
+                    &self.shared,
+                    ui_grid,
+                    &highlights,
+                    fonts,
+                    font_cache,
+                    &self.grid_bind_group_layout,
+                );
+                grid
+            })
+            .collect();
     }
 
     pub fn resize(&mut self, size: PhysicalSize<u32>) {
@@ -80,27 +91,6 @@ impl State {
             Some(highlights_bind_group) => highlights_bind_group,
             None => return Ok(()),
         };
-        let glyph_bind_group = match &self.grid.glyph_bind_group {
-            Some(glyph_bind_group) => glyph_bind_group,
-            None => return Ok(()),
-        };
-        let bg_bind_group = match &self.grid.bg_bind_group {
-            Some(bg_bind_group) => bg_bind_group,
-            None => return Ok(()),
-        };
-        let grid_info = match &self.grid.grid_info {
-            Some(grid_info) => *grid_info,
-            None => return Ok(()),
-        };
-        let glyph_count = match &self.grid.glyph_count {
-            Some(glyph_count) => *glyph_count,
-            None => return Ok(()),
-        };
-        let bg_count = match &self.grid.bg_count {
-            Some(bg_count) => *bg_count,
-            None => return Ok(()),
-        };
-
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render pass"),
@@ -115,19 +105,46 @@ impl State {
                 depth_stencil_attachment: None,
             });
 
-            render_pass.set_pipeline(&self.grid.cell_fill_render_pipeline);
-            render_pass.set_bind_group(0, &highlights_bind_group, &[]);
-            render_pass.set_bind_group(1, &bg_bind_group, &[]);
-            render_pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, cast_slice(&[grid_info]));
-            render_pass.draw(0..bg_count as u32 * 6, 0..1);
+            for grid in self.grids.iter() {
+                let glyph_bind_group = match &grid.glyph_bind_group {
+                    Some(glyph_bind_group) => glyph_bind_group,
+                    None => continue,
+                };
+                let bg_bind_group = match &grid.bg_bind_group {
+                    Some(bg_bind_group) => bg_bind_group,
+                    None => continue,
+                };
+                let grid_info = match &grid.grid_info {
+                    Some(grid_info) => *grid_info,
+                    None => continue,
+                };
+                let glyph_count = match &grid.glyph_count {
+                    Some(glyph_count) => *glyph_count,
+                    None => continue,
+                };
+                let bg_count = match &grid.bg_count {
+                    Some(bg_count) => *bg_count,
+                    None => continue,
+                };
 
-            self.glyph_pipeline.render(
-                &mut render_pass,
-                highlights_bind_group,
-                glyph_bind_group,
-                glyph_count,
-                grid_info,
-            );
+                render_pass.set_pipeline(&grid.cell_fill_render_pipeline);
+                render_pass.set_bind_group(0, &highlights_bind_group, &[]);
+                render_pass.set_bind_group(1, &bg_bind_group, &[]);
+                render_pass.set_push_constants(
+                    wgpu::ShaderStages::VERTEX,
+                    0,
+                    cast_slice(&[grid_info]),
+                );
+                render_pass.draw(0..bg_count as u32 * 6, 0..1);
+
+                self.glyph_pipeline.render(
+                    &mut render_pass,
+                    highlights_bind_group,
+                    glyph_bind_group,
+                    glyph_count,
+                    grid_info,
+                );
+            }
         }
 
         self.shared.queue.submit(std::iter::once(encoder.finish()));

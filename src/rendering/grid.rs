@@ -1,11 +1,11 @@
-use super::{highlights, shared::Shared};
+use super::shared::Shared;
 use crate::{
     event::hl_attr_define::Attributes,
     text::{
         cache::FontCache,
         fonts::{FontStyle, Fonts},
     },
-    ui::Ui,
+    ui::{grid::Grid, Highlights},
     util::vec2::Vec2,
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
@@ -56,12 +56,12 @@ impl Write {
     pub fn updates(
         &mut self,
         shared: &Shared,
-        ui: &Ui,
+        grid: Grid,
+        highlights: &Highlights,
         fonts: &mut Fonts,
         font_cache: &mut FontCache,
         grid_bind_group_layout: &GridBindGroupLayout,
     ) {
-        let grid = ui.composite();
         let mut glyph_info = vec![];
         let mut bg_info = vec![];
 
@@ -117,8 +117,7 @@ impl Write {
 
                                     let mut best_font = None;
                                     for (i, font_info) in fonts.iter().enumerate() {
-                                        let style = ui
-                                            .highlights
+                                        let style = highlights
                                             .get(&(cluster.user_data() as u64))
                                             .map(|highlight| {
                                                 let Attributes { bold, italic, .. } =
@@ -223,8 +222,7 @@ impl Write {
 
                         let mut best_font = None;
                         for (i, font_info) in fonts.iter().enumerate() {
-                            let style = ui
-                                .highlights
+                            let style = highlights
                                 .get(&(cluster.user_data() as u64))
                                 .map(|highlight| {
                                     let Attributes { bold, italic, .. } = highlight.rgb_attr;
@@ -327,16 +325,13 @@ impl Write {
     pub fn new(
         device: &wgpu::Device,
         texture_format: wgpu::TextureFormat,
-        highlights: &highlights::HighlightsBindGroupLayout,
-        grid_bind_group_layout: &GridBindGroupLayout,
+        highlights_bind_group_layout: &wgpu::BindGroupLayout,
+        grid_bind_group_layout: &wgpu::BindGroupLayout,
     ) -> Self {
         let cell_fill_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Cell fill pipeline layout"),
-                bind_group_layouts: &[
-                    &highlights.bind_group_layout,
-                    &grid_bind_group_layout.bind_group_layout,
-                ],
+                bind_group_layouts: &[&highlights_bind_group_layout, &grid_bind_group_layout],
                 push_constant_ranges: &[wgpu::PushConstantRange {
                     stages: wgpu::ShaderStages::VERTEX,
                     range: 0..GridInfo::SIZE as u32,
