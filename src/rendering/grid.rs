@@ -115,7 +115,7 @@ pub struct Grid {
 impl Grid {
     pub fn new(
         shared: &Shared,
-        grid: ui::grid::Grid,
+        grid: &ui::grid::Grid,
         highlights: &Highlights,
         fonts: &mut Fonts,
         font_cache: &mut FontCache,
@@ -385,6 +385,8 @@ impl Grid {
             grid_width: grid.size.x as u32,
             baseline: em_px,
         };
+
+        println!("{:#?}", grid_info);
 
         Self {
             glyph_bind_group,

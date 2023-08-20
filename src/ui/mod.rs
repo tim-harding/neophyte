@@ -99,7 +99,7 @@ impl Ui {
         self.grids.get_mut(i).unwrap()
     }
 
-    fn grid(&self, id: u64) -> &Grid {
+    pub fn grid(&self, id: u64) -> &Grid {
         let i = self
             .grids
             .binary_search_by(|probe| probe.id.cmp(&id))

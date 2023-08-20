@@ -48,7 +48,7 @@ impl State {
         }
     }
 
-    pub fn update(&mut self, ui: Ui, fonts: &mut Fonts) {
+    pub fn update(&mut self, mut ui: Ui, fonts: &mut Fonts) {
         self.highlights
             .update(&ui, &self.highlights_bind_group_layout, &self.shared);
         self.glyph_pipeline.update(
@@ -60,10 +60,15 @@ impl State {
         // TODO: Caching
         self.grids.clear();
         let highlights = ui.highlights;
-        self.grids = ui
-            .grids
-            .into_iter()
-            .map(|ui_grid| {
+        let ui_grids = std::mem::take(&mut ui.grids);
+        self.grids = std::iter::once(1)
+            .chain(ui.draw_order.into_iter())
+            .map(|id| {
+                println!("{id}");
+                let grid_index = ui_grids
+                    .binary_search_by(|probe| probe.id.cmp(&id))
+                    .unwrap();
+                let ui_grid = ui_grids.get(grid_index).unwrap();
                 grid::Grid::new(
                     &self.shared,
                     ui_grid,
