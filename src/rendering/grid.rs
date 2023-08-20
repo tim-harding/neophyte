@@ -1,4 +1,4 @@
-use super::shared::Shared;
+use super::{grid_bind_group_layout::GridBindGroupLayout, shared::Shared};
 use crate::{
     event::hl_attr_define::Attributes,
     text::{
@@ -17,30 +17,6 @@ use swash::{
     },
 };
 use wgpu::{include_wgsl, util::DeviceExt};
-
-pub struct GridBindGroupLayout {
-    pub bind_group_layout: wgpu::BindGroupLayout,
-}
-
-impl GridBindGroupLayout {
-    pub fn new(device: &wgpu::Device) -> Self {
-        Self {
-            bind_group_layout: device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Grid bind group layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            }),
-        }
-    }
-}
 
 pub struct CellFillPipeline {
     pub pipeline: wgpu::RenderPipeline,

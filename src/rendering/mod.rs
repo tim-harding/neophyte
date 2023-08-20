@@ -1,5 +1,6 @@
 mod font;
 mod grid;
+mod grid_bind_group_layout;
 mod highlights;
 mod shared;
 mod state;

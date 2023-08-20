@@ -1,7 +1,5 @@
 use super::{
-    grid::{GridBindGroupLayout, GridInfo},
-    highlights,
-    shared::Shared,
+    grid::GridInfo, grid_bind_group_layout::GridBindGroupLayout, highlights, shared::Shared,
 };
 use crate::{rendering::texture::Texture, text::cache::FontCache};
 use bytemuck::cast_slice;

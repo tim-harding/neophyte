@@ -1,6 +1,7 @@
 use super::{
     font::GlyphPipeline,
-    grid::{self, CellFillPipeline, GridBindGroupLayout},
+    grid::{self, CellFillPipeline},
+    grid_bind_group_layout::GridBindGroupLayout,
     highlights::{HighlightsBindGroup, HighlightsBindGroupLayout},
     shared::Shared,
 };
@@ -8,7 +9,6 @@ use crate::{
     text::{cache::FontCache, fonts::Fonts},
     ui::Ui,
 };
-use bytemuck::cast_slice;
 use std::sync::Arc;
 use swash::shape::ShapeContext;
 use winit::{dpi::PhysicalSize, window::Window};
@@ -22,7 +22,7 @@ pub struct State {
     pub cell_fill_pipeline: CellFillPipeline,
     pub highlights_bind_group_layout: HighlightsBindGroupLayout,
     pub highlights: HighlightsBindGroup,
-    pub grid_bind_group_layout: grid::GridBindGroupLayout,
+    pub grid_bind_group_layout: GridBindGroupLayout,
 }
 
 impl State {
