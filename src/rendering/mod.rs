@@ -1,5 +1,6 @@
 mod cell_fill_pipeline;
-mod font;
+mod emoji_pipeline;
+mod glyph_pipeline;
 mod grid;
 mod grid_bind_group_layout;
 mod highlights;

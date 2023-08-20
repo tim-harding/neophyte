@@ -8,7 +8,7 @@ use wgpu::{include_wgsl, util::DeviceExt};
 
 // TODO: Resizable glyph info buffer
 
-pub struct GlyphPipeline {
+pub struct EmojiPipeline {
     textures: Vec<Texture>,
     next_glyph_to_upload: usize,
     pub sampler: wgpu::Sampler,
@@ -17,9 +17,9 @@ pub struct GlyphPipeline {
     pub pipeline: Option<wgpu::RenderPipeline>,
 }
 
-impl GlyphPipeline {
+impl EmojiPipeline {
     pub fn new(device: &wgpu::Device) -> Self {
-        GlyphPipeline {
+        EmojiPipeline {
             textures: vec![],
             next_glyph_to_upload: 0,
             sampler: device.create_sampler(&wgpu::SamplerDescriptor {
@@ -45,14 +45,15 @@ impl GlyphPipeline {
         highlights_constant: &highlights::HighlightsBindGroupLayout,
         grid_bind_group_layout: &GridBindGroupLayout,
     ) {
-        if self.next_glyph_to_upload == font_cache.data.len() {
+        if self.next_glyph_to_upload == font_cache.emoji.data.len() {
             return;
         }
 
         for (data, size) in font_cache
+            .emoji
             .data
             .iter()
-            .zip(font_cache.size.iter())
+            .zip(font_cache.emoji.size.iter())
             .skip(self.next_glyph_to_upload)
         {
             self.textures.push(Texture::new(
@@ -109,7 +110,7 @@ impl GlyphPipeline {
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Font info buffer"),
-                    contents: cast_slice(font_cache.size.as_slice()),
+                    contents: cast_slice(font_cache.emoji.size.as_slice()),
                     usage: wgpu::BufferUsages::STORAGE,
                 });
 

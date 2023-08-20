@@ -2,7 +2,7 @@ use super::{grid_bind_group_layout::GridBindGroupLayout, shared::Shared};
 use crate::{
     event::hl_attr_define::Attributes,
     text::{
-        cache::FontCache,
+        cache::{CacheValue, FontCache, GlyphKind},
         fonts::{FontStyle, Fonts},
     },
     ui::{self, Highlights},
@@ -21,9 +21,11 @@ use wgpu::util::DeviceExt;
 pub struct Grid {
     pub glyph_bind_group: Option<wgpu::BindGroup>,
     pub bg_bind_group: Option<wgpu::BindGroup>,
+    pub emoji_bind_group: Option<wgpu::BindGroup>,
     pub grid_info: GridInfo,
     pub glyph_count: u32,
     pub bg_count: u32,
+    pub emoji_count: u32,
 }
 
 impl Grid {
@@ -38,6 +40,7 @@ impl Grid {
     ) -> Self {
         let mut glyph_info = vec![];
         let mut bg_info = vec![];
+        let mut emoji_info = vec![];
 
         let metrics = fonts
             .with_style(FontStyle::Regular)
@@ -153,7 +156,7 @@ impl Grid {
                                     }
 
                                     for glyph in glyph_cluster.glyphs {
-                                        let glyph_index = match font_cache.get(
+                                        let CacheValue { index, kind } = match font_cache.get(
                                             font.as_ref(),
                                             em,
                                             glyph.id,
@@ -164,22 +167,33 @@ impl Grid {
                                                 continue;
                                             }
                                         };
+                                        let glyph_index = index as u32;
 
-                                        let offset = font_cache.offset[glyph_index];
-                                        glyph_info.push(GlyphInfo {
-                                            glyph_index: glyph_index as u32,
-                                            highlight_index: glyph.data,
-                                            position: offset * Vec2::new(1, -1)
-                                                + Vec2::new(
-                                                    (glyph.x * scale_factor).round() as i32
-                                                        + x as i32,
-                                                    (glyph.y * scale_factor
-                                                        + (cell_line_i as u32 * cell_height_px)
-                                                            as f32)
-                                                        .round()
-                                                        as i32,
-                                                ),
-                                        });
+                                        let offset = match kind {
+                                            GlyphKind::Monochrome => {
+                                                font_cache.monochrome.offset[index]
+                                            }
+                                            GlyphKind::Emoji => font_cache.emoji.offset[index],
+                                        };
+                                        let position = offset * Vec2::new(1, -1)
+                                            + Vec2::new(
+                                                (glyph.x * scale_factor).round() as i32 + x as i32,
+                                                (glyph.y * scale_factor
+                                                    + (cell_line_i as u32 * cell_height_px) as f32)
+                                                    .round()
+                                                    as i32,
+                                            );
+                                        match kind {
+                                            GlyphKind::Monochrome => glyph_info.push(GlyphInfo {
+                                                glyph_index,
+                                                highlight_index: glyph.data,
+                                                position,
+                                            }),
+                                            GlyphKind::Emoji => emoji_info.push(EmojiCell {
+                                                position,
+                                                glyph_index,
+                                            }),
+                                        }
                                     }
                                 });
                             }
@@ -240,55 +254,26 @@ impl Grid {
         // TODO: Share a buffer between glyphs and BG cells. Probably don't need
         // optionals then.
 
-        let glyph_bind_group = if glyph_info.is_empty() {
-            None
-        } else {
-            let buffer = shared
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("glyph info buffer"),
-                    usage: wgpu::BufferUsages::STORAGE,
-                    contents: cast_slice(glyph_info.as_slice()),
-                });
+        let glyph_bind_group = bind_group_from_buffer(
+            cast_slice(glyph_info.as_slice()),
+            &shared.device,
+            &grid_bind_group_layout.bind_group_layout,
+            "glyph buffer/bind group",
+        );
 
-            Some(shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("glyph info bind group"),
-                layout: &grid_bind_group_layout.bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                }],
-            }))
-        };
+        let bg_bind_group = bind_group_from_buffer(
+            cast_slice(bg_info.as_slice()),
+            &shared.device,
+            &grid_bind_group_layout.bind_group_layout,
+            "bg buffer/bind group",
+        );
 
-        let bg_bind_group = if bg_info.is_empty() {
-            None
-        } else {
-            let buffer = shared
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("bg info buffer"),
-                    usage: wgpu::BufferUsages::STORAGE,
-                    contents: cast_slice(bg_info.as_slice()),
-                });
-
-            Some(shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("bg info bind group"),
-                layout: &grid_bind_group_layout.bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                }],
-            }))
-        };
+        let emoji_bind_group = bind_group_from_buffer(
+            cast_slice(emoji_info.as_slice()),
+            &shared.device,
+            &grid_bind_group_layout.bind_group_layout,
+            "emoji buffer/bind group",
+        );
 
         let cell_size = Vec2::new(fonts.size(), cell_height_px);
         let grid_info = GridInfo {
@@ -303,10 +288,42 @@ impl Grid {
         Self {
             glyph_bind_group,
             bg_bind_group,
+            emoji_bind_group,
             grid_info,
             glyph_count: glyph_info.len() as u32,
             bg_count: bg_info.len() as u32,
+            emoji_count: emoji_info.len() as u32,
         }
+    }
+}
+
+fn bind_group_from_buffer(
+    data: &[u8],
+    device: &wgpu::Device,
+    grid_bind_group_layout: &wgpu::BindGroupLayout,
+    label: &str,
+) -> Option<wgpu::BindGroup> {
+    if data.is_empty() {
+        None
+    } else {
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some(label),
+            usage: wgpu::BufferUsages::STORAGE,
+            contents: data,
+        });
+
+        Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some(label),
+            layout: grid_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &buffer,
+                    offset: 0,
+                    size: None,
+                }),
+            }],
+        }))
     }
 }
 
@@ -325,6 +342,13 @@ pub struct GlyphInfo {
     pub glyph_index: u32,
     pub highlight_index: u32,
     pub position: Vec2<i32>,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
+pub struct EmojiCell {
+    position: Vec2<i32>,
+    glyph_index: u32,
 }
 
 #[repr(C)]

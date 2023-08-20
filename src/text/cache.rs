@@ -1,19 +1,17 @@
+use super::fonts::FontStyle;
 use crate::util::vec2::Vec2;
 use std::collections::{hash_map::Entry, HashMap};
 use swash::{
-    scale::{Render, ScaleContext, Source, StrikeWith},
+    scale::{image::Content, Render, ScaleContext, Source, StrikeWith},
     FontRef, GlyphId,
 };
 
-use super::fonts::FontStyle;
-
 #[derive(Default)]
 pub struct FontCache {
-    pub data: Vec<Vec<u8>>,
-    pub size: Vec<Vec2<u32>>,
-    pub offset: Vec<Vec2<i32>>,
+    pub monochrome: Cached,
+    pub emoji: Cached,
     scale_context: ScaleContext,
-    lut: HashMap<CacheKey, Option<usize>>,
+    lut: HashMap<CacheKey, Option<CacheValue>>,
 }
 
 impl FontCache {
@@ -22,7 +20,8 @@ impl FontCache {
     }
 
     pub fn clear(&mut self) {
-        self.data.clear();
+        self.monochrome.clear();
+        self.emoji.clear();
         self.lut.clear();
     }
 
@@ -32,7 +31,7 @@ impl FontCache {
         size: f32,
         glyph_id: GlyphId,
         style: FontStyle,
-    ) -> Option<usize> {
+    ) -> Option<CacheValue> {
         let key = CacheKey { glyph_id, style };
         match self.lut.entry(key) {
             Entry::Occupied(entry) => *entry.get(),
@@ -53,13 +52,19 @@ impl FontCache {
                     Some(image) => {
                         let placement = image.placement;
                         let size = Vec2::new(placement.width, placement.height);
+                        let (dst, kind) = if image.content == Content::Color {
+                            (&mut self.emoji, GlyphKind::Emoji)
+                        } else {
+                            (&mut self.monochrome, GlyphKind::Monochrome)
+                        };
                         if size.area() > 0 {
-                            let index = self.data.len();
-                            entry.insert(Some(index));
-                            self.data.push(image.data);
-                            self.size.push(size);
-                            self.offset.push(Vec2::new(placement.left, placement.top));
-                            Some(index)
+                            let index = dst.data.len();
+                            let out = Some(CacheValue { index, kind });
+                            entry.insert(out);
+                            dst.data.push(image.data);
+                            dst.size.push(size);
+                            dst.offset.push(Vec2::new(placement.left, placement.top));
+                            out
                         } else {
                             entry.insert(None);
                             None
@@ -75,8 +80,35 @@ impl FontCache {
     }
 }
 
+#[derive(Default)]
+pub struct Cached {
+    pub data: Vec<Vec<u8>>,
+    pub size: Vec<Vec2<u32>>,
+    pub offset: Vec<Vec2<i32>>,
+}
+
+impl Cached {
+    pub fn clear(&mut self) {
+        self.data.clear();
+        self.size.clear();
+        self.offset.clear();
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct CacheKey {
     glyph_id: GlyphId,
     style: FontStyle,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct CacheValue {
+    pub index: usize,
+    pub kind: GlyphKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GlyphKind {
+    Monochrome,
+    Emoji,
 }
