@@ -42,18 +42,78 @@ impl GridBindGroupLayout {
     }
 }
 
+pub struct CellFillPipeline {
+    pub pipeline: wgpu::RenderPipeline,
+}
+
+impl CellFillPipeline {
+    pub fn new(
+        device: &wgpu::Device,
+        highlights_bind_group_layout: &wgpu::BindGroupLayout,
+        grid_bind_group_layout: &wgpu::BindGroupLayout,
+        texture_format: wgpu::TextureFormat,
+    ) -> Self {
+        let shader = device.create_shader_module(include_wgsl!("cell_fill.wgsl"));
+
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Cell fill pipeline layout"),
+            bind_group_layouts: &[&highlights_bind_group_layout, &grid_bind_group_layout],
+            push_constant_ranges: &[wgpu::PushConstantRange {
+                stages: wgpu::ShaderStages::VERTEX,
+                range: 0..GridInfo::SIZE as u32,
+            }],
+        });
+
+        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Cell fill render pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: "vs_main",
+                buffers: &[],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: "fs_main",
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: texture_format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            // How to interpret vertices when converting to triangles
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            multiview: None,
+        });
+
+        Self { pipeline }
+    }
+}
+
 pub struct Grid {
     pub glyph_bind_group: Option<wgpu::BindGroup>,
     pub bg_bind_group: Option<wgpu::BindGroup>,
-    pub grid_info: Option<GridInfo>,
-    pub glyph_count: Option<u32>,
-    pub bg_count: Option<usize>,
-    pub cell_fill_render_pipeline: wgpu::RenderPipeline,
+    pub grid_info: GridInfo,
+    pub glyph_count: u32,
+    pub bg_count: usize,
 }
 
 impl Grid {
-    pub fn updates(
-        &mut self,
+    pub fn new(
         shared: &Shared,
         grid: ui::grid::Grid,
         highlights: &Highlights,
@@ -61,7 +121,7 @@ impl Grid {
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
         grid_bind_group_layout: &GridBindGroupLayout,
-    ) {
+    ) -> Self {
         let mut glyph_info = vec![];
         let mut bg_info = vec![];
 
@@ -263,12 +323,13 @@ impl Grid {
             }
         }
 
-        if glyph_info.is_empty() {
-            return;
-        }
+        // TODO: Share a buffer between glyphs and BG cells. Probably don't need
+        // optionals then.
 
-        let glyph_info_buffer =
-            shared
+        let glyph_bind_group = if glyph_info.is_empty() {
+            None
+        } else {
+            let buffer = shared
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("glyph info buffer"),
@@ -276,113 +337,58 @@ impl Grid {
                     contents: cast_slice(glyph_info.as_slice()),
                 });
 
-        let bg_info_buffer = shared
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("bg info buffer"),
-                usage: wgpu::BufferUsages::STORAGE,
-                contents: cast_slice(bg_info.as_slice()),
-            });
+            Some(shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("glyph info bind group"),
+                layout: &grid_bind_group_layout.bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                }],
+            }))
+        };
 
-        self.grid_info = Some(GridInfo {
+        let bg_bind_group = if bg_info.is_empty() {
+            None
+        } else {
+            let buffer = shared
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("bg info buffer"),
+                    usage: wgpu::BufferUsages::STORAGE,
+                    contents: cast_slice(bg_info.as_slice()),
+                });
+
+            Some(shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("bg info bind group"),
+                layout: &grid_bind_group_layout.bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                }],
+            }))
+        };
+
+        let grid_info = GridInfo {
             surface_size: shared.surface_size(),
             cell_size: Vec2::new(fonts.size(), cell_height_px),
             grid_width: grid.size.x as u32,
             baseline: em_px,
-        });
-
-        self.glyph_bind_group = Some(shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("glyph info bind group"),
-            layout: &grid_bind_group_layout.bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &glyph_info_buffer,
-                    offset: 0,
-                    size: None,
-                }),
-            }],
-        }));
-
-        self.bg_bind_group = Some(shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("bg info bind group"),
-            layout: &grid_bind_group_layout.bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &bg_info_buffer,
-                    offset: 0,
-                    size: None,
-                }),
-            }],
-        }));
-
-        self.glyph_count = Some(glyph_info.len() as u32);
-        self.bg_count = Some(bg_info.len());
-    }
-
-    pub fn new(
-        device: &wgpu::Device,
-        texture_format: wgpu::TextureFormat,
-        highlights_bind_group_layout: &wgpu::BindGroupLayout,
-        grid_bind_group_layout: &wgpu::BindGroupLayout,
-    ) -> Self {
-        let cell_fill_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Cell fill pipeline layout"),
-                bind_group_layouts: &[&highlights_bind_group_layout, &grid_bind_group_layout],
-                push_constant_ranges: &[wgpu::PushConstantRange {
-                    stages: wgpu::ShaderStages::VERTEX,
-                    range: 0..GridInfo::SIZE as u32,
-                }],
-            });
-
-        let cell_fill_shader = device.create_shader_module(include_wgsl!("cell_fill.wgsl"));
-
-        let cell_fill_render_pipeline =
-            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("Cell fill render pipeline"),
-                layout: Some(&cell_fill_pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &cell_fill_shader,
-                    entry_point: "vs_main",
-                    buffers: &[],
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &cell_fill_shader,
-                    entry_point: "fs_main",
-                    targets: &[Some(wgpu::ColorTargetState {
-                        format: texture_format,
-                        blend: Some(wgpu::BlendState::REPLACE),
-                        write_mask: wgpu::ColorWrites::ALL,
-                    })],
-                }),
-                // How to interpret vertices when converting to triangles
-                primitive: wgpu::PrimitiveState {
-                    topology: wgpu::PrimitiveTopology::TriangleList,
-                    strip_index_format: None,
-                    front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: Some(wgpu::Face::Back),
-                    polygon_mode: wgpu::PolygonMode::Fill,
-                    unclipped_depth: false,
-                    conservative: false,
-                },
-                depth_stencil: None,
-                multisample: wgpu::MultisampleState {
-                    count: 1,
-                    mask: !0,
-                    alpha_to_coverage_enabled: false,
-                },
-                multiview: None,
-            });
+        };
 
         Self {
-            cell_fill_render_pipeline,
-            glyph_bind_group: None,
-            bg_bind_group: None,
-            grid_info: None,
-            glyph_count: None,
-            bg_count: None,
+            glyph_bind_group,
+            bg_bind_group,
+            grid_info,
+            glyph_count: glyph_info.len() as u32,
+            bg_count: bg_info.len(),
         }
     }
 }

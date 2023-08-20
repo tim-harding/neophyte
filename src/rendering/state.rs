@@ -1,6 +1,6 @@
 use super::{
     font::GlyphPipeline,
-    grid::{self, GridBindGroupLayout},
+    grid::{self, CellFillPipeline, GridBindGroupLayout},
     highlights::{HighlightsBindGroup, HighlightsBindGroupLayout},
     shared::Shared,
 };
@@ -19,6 +19,7 @@ pub struct State {
     pub shared: Shared,
     pub grids: Vec<grid::Grid>,
     pub glyph_pipeline: GlyphPipeline,
+    pub cell_fill_pipeline: CellFillPipeline,
     pub highlights_bind_group_layout: HighlightsBindGroupLayout,
     pub highlights: HighlightsBindGroup,
     pub grid_bind_group_layout: grid::GridBindGroupLayout,
@@ -33,6 +34,12 @@ impl State {
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
             glyph_pipeline: GlyphPipeline::new(&shared.device),
+            cell_fill_pipeline: CellFillPipeline::new(
+                &shared.device,
+                &highlights_bind_group_layout.bind_group_layout,
+                &grid_bind_group_layout.bind_group_layout,
+                shared.surface_format,
+            ),
             shared,
             grid_bind_group_layout,
             highlights_bind_group_layout,
@@ -57,13 +64,7 @@ impl State {
             .grids
             .into_iter()
             .map(|ui_grid| {
-                let mut grid = grid::Grid::new(
-                    &self.shared.device,
-                    self.shared.surface_format,
-                    &self.highlights_bind_group_layout.bind_group_layout,
-                    &self.grid_bind_group_layout.bind_group_layout,
-                );
-                grid.updates(
+                grid::Grid::new(
                     &self.shared,
                     ui_grid,
                     &highlights,
@@ -71,8 +72,7 @@ impl State {
                     &mut self.font_cache,
                     &mut self.shape_context,
                     &self.grid_bind_group_layout,
-                );
-                grid
+                )
             })
             .collect();
     }
@@ -112,44 +112,27 @@ impl State {
             });
 
             for grid in self.grids.iter() {
-                let glyph_bind_group = match &grid.glyph_bind_group {
-                    Some(glyph_bind_group) => glyph_bind_group,
-                    None => continue,
-                };
-                let bg_bind_group = match &grid.bg_bind_group {
-                    Some(bg_bind_group) => bg_bind_group,
-                    None => continue,
-                };
-                let grid_info = match &grid.grid_info {
-                    Some(grid_info) => *grid_info,
-                    None => continue,
-                };
-                let glyph_count = match &grid.glyph_count {
-                    Some(glyph_count) => *glyph_count,
-                    None => continue,
-                };
-                let bg_count = match &grid.bg_count {
-                    Some(bg_count) => *bg_count,
-                    None => continue,
-                };
+                if let Some(bg_bind_group) = &grid.bg_bind_group {
+                    render_pass.set_pipeline(&self.cell_fill_pipeline.pipeline);
+                    render_pass.set_bind_group(0, &highlights_bind_group, &[]);
+                    render_pass.set_bind_group(1, &bg_bind_group, &[]);
+                    render_pass.set_push_constants(
+                        wgpu::ShaderStages::VERTEX,
+                        0,
+                        cast_slice(&[grid.grid_info]),
+                    );
+                    render_pass.draw(0..grid.bg_count as u32 * 6, 0..1);
+                }
 
-                render_pass.set_pipeline(&grid.cell_fill_render_pipeline);
-                render_pass.set_bind_group(0, &highlights_bind_group, &[]);
-                render_pass.set_bind_group(1, &bg_bind_group, &[]);
-                render_pass.set_push_constants(
-                    wgpu::ShaderStages::VERTEX,
-                    0,
-                    cast_slice(&[grid_info]),
-                );
-                render_pass.draw(0..bg_count as u32 * 6, 0..1);
-
-                self.glyph_pipeline.render(
-                    &mut render_pass,
-                    highlights_bind_group,
-                    glyph_bind_group,
-                    glyph_count,
-                    grid_info,
-                );
+                if let Some(glyph_bind_group) = &grid.glyph_bind_group {
+                    self.glyph_pipeline.render(
+                        &mut render_pass,
+                        highlights_bind_group,
+                        glyph_bind_group,
+                        grid.glyph_count,
+                        grid.grid_info,
+                    );
+                }
             }
         }
 
