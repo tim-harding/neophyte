@@ -376,9 +376,12 @@ impl Grid {
             }))
         };
 
+        let cell_size = Vec2::new(fonts.size(), cell_height_px);
         let grid_info = GridInfo {
             surface_size: shared.surface_size(),
-            cell_size: Vec2::new(fonts.size(), cell_height_px),
+            cell_size,
+            // TODO: Relative to anchor grid
+            offset: (grid.window.offset(grid.size) * cell_size.into()).into(),
             grid_width: grid.size.x as u32,
             baseline: em_px,
         };
@@ -415,6 +418,7 @@ pub struct GlyphInfo {
 pub struct GridInfo {
     pub surface_size: Vec2<u32>,
     pub cell_size: Vec2<u32>,
+    pub offset: Vec2<f32>,
     pub grid_width: u32,
     pub baseline: u32,
 }

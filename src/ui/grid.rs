@@ -33,6 +33,30 @@ pub enum Window {
     External,
 }
 
+impl Window {
+    pub fn offset(&self, grid_size: Vec2<u64>) -> Vec2<f64> {
+        match &self {
+            Window::None => Vec2::default(),
+            Window::External => Vec2::default(),
+            Window::Normal(window) => window.start.into(),
+            Window::Floating(window) => {
+                let anchor_pos = {
+                    let (x, y) = window.anchor_pos.into();
+                    Vec2::new(x, y)
+                };
+                let offset = grid_size
+                    * match window.anchor {
+                        Anchor::Nw => Vec2::new(0, 0),
+                        Anchor::Ne => Vec2::new(0, 1),
+                        Anchor::Sw => Vec2::new(1, 0),
+                        Anchor::Se => Vec2::new(1, 1),
+                    };
+                anchor_pos - offset.into()
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct FloatingWindow {
     pub anchor: Anchor,
@@ -153,28 +177,13 @@ impl Grid {
             .map(|chunk| chunk.iter_mut())
     }
 
-    pub fn combine(&mut self, other: Grid, cursor: Option<CursorRenderInfo>) {
-        let start = match &other.window {
-            Window::None => return,
-            Window::External => return,
-            Window::Normal(window) => window.start,
-            Window::Floating(window) => {
-                let anchor_pos = {
-                    let (x, y) = window.anchor_pos.into();
-                    Vec2::new(x.floor() as u64, y.floor() as u64)
-                };
-                // TODO: Should be relative to anchor grid
-                anchor_pos
-                    - other.size
-                        * match window.anchor {
-                            Anchor::Nw => Vec2::new(0, 0),
-                            Anchor::Ne => Vec2::new(0, 1),
-                            Anchor::Sw => Vec2::new(1, 0),
-                            Anchor::Se => Vec2::new(1, 1),
-                        }
-            }
-        };
+    pub fn offset(&self) -> Vec2<f64> {
+        self.window.offset(self.size)
+    }
 
+    pub fn combine(&mut self, other: Grid, cursor: Option<CursorRenderInfo>) {
+        // TODO: Should be relative to the anchor grid
+        let start = other.offset();
         let mut iter = other.buffer.into_iter();
         let size_x = self.size.x;
         for dst in self
@@ -193,9 +202,12 @@ impl Grid {
 
         // TODO: Take mode_info_set into consideration
         if let Some(cursor) = cursor {
-            let pos = start + cursor.pos;
-            let i = self.index_for(pos);
-            self.buffer[i].highlight = cursor.hl;
+            let cursor_pos: Vec2<i64> = cursor.pos.try_into().unwrap();
+            let pos: Vec2<i64> = cursor_pos + start.into();
+            if let Ok(pos) = pos.try_into() {
+                let i = self.index_for(pos);
+                self.buffer[i].highlight = cursor.hl;
+            }
         }
     }
 

@@ -109,12 +109,29 @@ vec_try_from!(usize, u64);
 vec_try_from!(u32, u64);
 vec_try_from!(u16, u64);
 vec_try_from!(u8, u64);
+
 vec_from!(u64, u32);
 vec_from!(u64, u16);
 vec_from!(u64, u8);
+
 vec_from!(i64, i32);
 vec_from!(i64, i16);
 vec_from!(i64, i8);
+
+vec_from!(u64, f64);
+vec_from!(u32, f64);
+vec_from!(u16, f64);
+vec_from!(u8, f64);
+
+vec_from!(u64, f32);
+vec_from!(u32, f32);
+vec_from!(u16, f32);
+vec_from!(u8, f32);
+
+vec_from!(f64, f32);
+vec_from!(f32, f64);
+
+vec_from!(f64, i64);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, thiserror::Error)]
 #[error("Failed to convert between vector types")]

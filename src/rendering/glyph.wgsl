@@ -13,6 +13,7 @@ struct GlyphInfo {
 struct GridInfo {
     surface_size: vec2<u32>,
     cell_size: vec2<u32>,
+    offset: vec2<u32>,
     grid_width: u32,
     baseline: u32,
 }
@@ -61,6 +62,7 @@ fn vs_main(
     out.clip_position = vec4<f32>(
         (
             vec2<f32>(grid_cell.position) + 
+            vec2<f32>(grid_info.offset * grid_info.cell_size) +
             tex_coord * vec2<f32>(glyph_info.size) +
             vec2<f32>(0.0, f32(grid_info.baseline))
         ) / vec2<f32>(grid_info.surface_size) * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
