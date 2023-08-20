@@ -1,3 +1,4 @@
+mod cell_fill_pipeline;
 mod font;
 mod grid;
 mod grid_bind_group_layout;

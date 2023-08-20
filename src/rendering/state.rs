@@ -1,6 +1,7 @@
 use super::{
+    cell_fill_pipeline::CellFillPipeline,
     font::GlyphPipeline,
-    grid::{self, CellFillPipeline},
+    grid,
     grid_bind_group_layout::GridBindGroupLayout,
     highlights::{HighlightsBindGroup, HighlightsBindGroupLayout},
     shared::Shared,
