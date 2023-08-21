@@ -80,7 +80,7 @@ impl FontCache {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Cached {
     pub data: Vec<Vec<u8>>,
     pub size: Vec<Vec2<u32>>,

@@ -192,6 +192,7 @@ impl Grid {
                                             GlyphKind::Emoji => emoji_info.push(EmojiCell {
                                                 position,
                                                 glyph_index,
+                                                padding: 0,
                                             }),
                                         }
                                     }
@@ -349,6 +350,7 @@ pub struct GlyphInfo {
 pub struct EmojiCell {
     position: Vec2<i32>,
     glyph_index: u32,
+    padding: u32,
 }
 
 #[repr(C)]

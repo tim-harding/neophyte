@@ -1,24 +1,25 @@
 use super::{
     grid::GridInfo, grid_bind_group_layout::GridBindGroupLayout, highlights, shared::Shared,
 };
-use crate::{rendering::texture::Texture, text::cache::FontCache};
+use crate::{rendering::texture::Texture, text::cache::Cached};
 use bytemuck::cast_slice;
 use std::num::NonZeroU32;
-use wgpu::{include_wgsl, util::DeviceExt};
+use wgpu::util::DeviceExt;
 
+// TODO: Highlights binding not needed for emoji
 // TODO: Resizable glyph info buffer
 
 pub struct GlyphPipeline {
     textures: Vec<Texture>,
     next_glyph_to_upload: usize,
     pub sampler: wgpu::Sampler,
-    pub glyph_shader: wgpu::ShaderModule,
+    pub shader: wgpu::ShaderModule,
     pub bind_group: Option<wgpu::BindGroup>,
     pub pipeline: Option<wgpu::RenderPipeline>,
 }
 
 impl GlyphPipeline {
-    pub fn new(device: &wgpu::Device) -> Self {
+    pub fn new(device: &wgpu::Device, shader: wgpu::ShaderModule) -> Self {
         GlyphPipeline {
             textures: vec![],
             next_glyph_to_upload: 0,
@@ -32,7 +33,7 @@ impl GlyphPipeline {
                 mipmap_filter: wgpu::FilterMode::Nearest,
                 ..Default::default()
             }),
-            glyph_shader: device.create_shader_module(include_wgsl!("glyph.wgsl")),
+            shader,
             bind_group: None,
             pipeline: None,
         }
@@ -41,19 +42,19 @@ impl GlyphPipeline {
     pub fn update(
         &mut self,
         shared: &Shared,
-        font_cache: &FontCache,
+        font_cache: &Cached,
         highlights_constant: &highlights::HighlightsBindGroupLayout,
         grid_bind_group_layout: &GridBindGroupLayout,
+        texture_format: wgpu::TextureFormat,
     ) {
-        if self.next_glyph_to_upload == font_cache.monochrome.data.len() {
+        if self.next_glyph_to_upload == font_cache.data.len() {
             return;
         }
 
         for (data, size) in font_cache
-            .monochrome
             .data
             .iter()
-            .zip(font_cache.monochrome.size.iter())
+            .zip(font_cache.size.iter())
             .skip(self.next_glyph_to_upload)
         {
             self.textures.push(Texture::new(
@@ -61,7 +62,7 @@ impl GlyphPipeline {
                 &shared.queue,
                 data.as_slice(),
                 *size,
-                wgpu::TextureFormat::R8Unorm,
+                texture_format,
             ));
         }
 
@@ -110,7 +111,7 @@ impl GlyphPipeline {
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Font info buffer"),
-                    contents: cast_slice(font_cache.monochrome.size.as_slice()),
+                    contents: cast_slice(font_cache.size.as_slice()),
                     usage: wgpu::BufferUsages::STORAGE,
                 });
 
@@ -135,12 +136,12 @@ impl GlyphPipeline {
                 label: Some("Render pipeline"),
                 layout: Some(&glyph_pipeline_layout),
                 vertex: wgpu::VertexState {
-                    module: &self.glyph_shader,
+                    module: &self.shader,
                     entry_point: "vs_main",
                     buffers: &[],
                 },
                 fragment: Some(wgpu::FragmentState {
-                    module: &self.glyph_shader,
+                    module: &self.shader,
                     entry_point: "fs_main",
                     targets: &[Some(wgpu::ColorTargetState {
                         format: shared.surface_config.format,

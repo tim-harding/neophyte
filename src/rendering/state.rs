@@ -12,6 +12,7 @@ use crate::{
 };
 use std::sync::Arc;
 use swash::shape::ShapeContext;
+use wgpu::include_wgsl;
 use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct State {
@@ -20,6 +21,7 @@ pub struct State {
     pub shared: Shared,
     pub grids: Vec<grid::Grid>,
     pub glyph_pipeline: GlyphPipeline,
+    pub emoji_pipeline: GlyphPipeline,
     pub cell_fill_pipeline: CellFillPipeline,
     pub highlights_bind_group_layout: HighlightsBindGroupLayout,
     pub highlights: HighlightsBindGroup,
@@ -34,7 +36,18 @@ impl State {
         Self {
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
-            glyph_pipeline: GlyphPipeline::new(&shared.device),
+            glyph_pipeline: GlyphPipeline::new(
+                &shared.device,
+                shared
+                    .device
+                    .create_shader_module(include_wgsl!("glyph.wgsl")),
+            ),
+            emoji_pipeline: GlyphPipeline::new(
+                &shared.device,
+                shared
+                    .device
+                    .create_shader_module(include_wgsl!("emoji.wgsl")),
+            ),
             cell_fill_pipeline: CellFillPipeline::new(
                 &shared.device,
                 &highlights_bind_group_layout.bind_group_layout,
@@ -54,9 +67,17 @@ impl State {
             .update(&ui, &self.highlights_bind_group_layout, &self.shared);
         self.glyph_pipeline.update(
             &self.shared,
-            &mut self.font_cache,
+            &self.font_cache.monochrome,
             &self.highlights_bind_group_layout,
             &self.grid_bind_group_layout,
+            wgpu::TextureFormat::R8Unorm,
+        );
+        self.emoji_pipeline.update(
+            &self.shared,
+            &self.font_cache.emoji,
+            &self.highlights_bind_group_layout,
+            &self.grid_bind_group_layout,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
         );
         // TODO: Caching
         self.grids.clear();
@@ -132,6 +153,16 @@ impl State {
                         &mut render_pass,
                         highlights_bind_group,
                         glyph_bind_group,
+                        grid.glyph_count,
+                        grid.grid_info,
+                    );
+                }
+
+                if let Some(emoji_bind_group) = &grid.emoji_bind_group {
+                    self.emoji_pipeline.render(
+                        &mut render_pass,
+                        highlights_bind_group,
+                        emoji_bind_group,
                         grid.glyph_count,
                         grid.grid_info,
                     );

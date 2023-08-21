@@ -22,16 +22,17 @@ struct HighlightInfo {
     bg: vec3<f32>,
 }
 
-var<push_constant> grid_info: GridInfo;
-
 @group(0) @binding(0)
-var glyph_textures: binding_array<texture_2d<vec4<f32>>>;
-@group(0) @binding(1)
-var glyph_sampler: sampler;
-@group(0) @binding(2)
-var<storage, read> glyphs: array<GlyphInfo>;
+var<storage, read> highlights: array<HighlightInfo>;
 @group(1) @binding(0)
 var<storage, read> emoji_cells: array<EmojiCell>;
+var<push_constant> grid_info: GridInfo;
+@group(2) @binding(0)
+var glyph_textures: binding_array<texture_2d<f32>>;
+@group(2) @binding(1)
+var glyph_sampler: sampler;
+@group(2) @binding(2)
+var<storage, read> glyphs: array<GlyphInfo>;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
@@ -50,7 +51,6 @@ fn vs_main(
         f32(((in_vertex_index + 5u) % 6u) / 3u),
     );
     let glyph_info = glyphs[emoji_cell.glyph_index];
-    let hl_info = highlights[emoji_cell.highlight_index];
 
     var out: VertexOutput;
     out.tex_index = emoji_cell.glyph_index;
@@ -70,10 +70,12 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return textureSampleLevel(
+    let sample = textureSampleLevel(
         glyph_textures[in.tex_index],
         glyph_sampler,
         in.tex_coord,
         0.0
     );
+    return sample;
 }
+
