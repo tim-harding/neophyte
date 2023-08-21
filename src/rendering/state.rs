@@ -1,7 +1,7 @@
 use super::{
     cell_fill_pipeline::CellFillPipeline,
     glyph_pipeline::GlyphPipeline,
-    grid,
+    grid::{self, Grid},
     grid_bind_group_layout::GridBindGroupLayout,
     highlights::{HighlightsBindGroup, HighlightsBindGroupLayout},
     shared::Shared,
@@ -80,37 +80,37 @@ impl RenderState {
             wgpu::TextureFormat::Rgba8UnormSrgb,
         );
 
-        for ui_grid in ui.grids.iter() {
-            if ui_grid.dirty {
-                let grid = grid::Grid::new(
-                    &self.shared,
-                    &ui_grid,
-                    &ui.highlights,
-                    fonts,
-                    &mut self.font_cache,
-                    &mut self.shape_context,
-                    &self.grid_bind_group_layout,
-                );
-                match self
-                    .grids
-                    .binary_search_by(|probe| probe.0.cmp(&ui_grid.id))
-                {
-                    Ok(index) => {
-                        self.grids[index] = (ui_grid.id, grid);
-                    }
-                    Err(index) => {
-                        self.grids.insert(index, (ui_grid.id, grid));
-                    }
-                }
-            }
-        }
-
         let mut i = 0;
         while let Some((id, _)) = self.grids.get(i) {
             if ui.grid_index(*id).is_ok() {
                 i += 1;
             } else {
                 self.grids.remove(i);
+            }
+        }
+
+        for ui_grid in ui.grids.iter() {
+            if ui_grid.dirty {
+                let index = match self
+                    .grids
+                    .binary_search_by(|probe| probe.0.cmp(&ui_grid.id))
+                {
+                    Ok(index) => index,
+                    Err(index) => {
+                        self.grids.insert(index, (ui_grid.id, Grid::new()));
+                        index
+                    }
+                };
+
+                self.grids[index].1.update(
+                    &self.shared,
+                    &ui_grid,
+                    &ui.highlights,
+                    fonts,
+                    &mut self.font_cache,
+                    &mut self.shape_context,
+                    &self.grid_bind_group_layout.bind_group_layout,
+                );
             }
         }
 

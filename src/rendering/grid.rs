@@ -1,4 +1,6 @@
-use super::{grid_bind_group_layout::GridBindGroupLayout, shared::Shared};
+use std::num::NonZeroU64;
+
+use super::shared::Shared;
 use crate::{
     event::hl_attr_define::Attributes,
     text::{
@@ -16,13 +18,18 @@ use swash::{
         Script,
     },
 };
-use wgpu::util::DeviceExt;
 
 // TODO: Reuse buffers and Vecs
 
+#[derive(Default)]
 pub struct Grid {
-    pub glyph_bind_group: Option<wgpu::BindGroup>,
+    glyphs: Vec<GlyphInfo>,
+    emoji: Vec<EmojiCell>,
+    bg: Vec<u32>,
+    buffer_capacity: u64,
+    pub buffer: Option<wgpu::Buffer>,
     pub bg_bind_group: Option<wgpu::BindGroup>,
+    pub glyph_bind_group: Option<wgpu::BindGroup>,
     pub emoji_bind_group: Option<wgpu::BindGroup>,
     pub grid_info: GridInfo,
     pub glyph_count: u32,
@@ -31,22 +38,26 @@ pub struct Grid {
 }
 
 impl Grid {
-    pub fn new(
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn update(
+        &mut self,
         shared: &Shared,
         grid: &ui::grid::Grid,
         highlights: &Highlights,
         fonts: &mut Fonts,
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
-        grid_bind_group_layout: &GridBindGroupLayout,
-    ) -> Self {
-        let mut glyph_info = vec![];
-        let mut emoji_info = vec![];
-        let bg_info: Vec<_> = grid
-            .buffer
-            .iter()
-            .map(|cell| cell.highlight as u32)
-            .collect();
+        grid_bind_group_layout: &wgpu::BindGroupLayout,
+    ) {
+        self.glyphs.clear();
+        self.emoji.clear();
+        self.bg.clear();
+        for cell in grid.buffer.iter() {
+            self.bg.push(cell.highlight as u32);
+        }
 
         let metrics = fonts
             .with_style(FontStyle::Regular)
@@ -181,12 +192,12 @@ impl Grid {
                                                     as i32,
                                             );
                                         match kind {
-                                            GlyphKind::Monochrome => glyph_info.push(GlyphInfo {
+                                            GlyphKind::Monochrome => self.glyphs.push(GlyphInfo {
                                                 glyph_index,
                                                 highlight_index: glyph.data,
                                                 position,
                                             }),
-                                            GlyphKind::Emoji => emoji_info.push(EmojiCell {
+                                            GlyphKind::Emoji => self.emoji.push(EmojiCell {
                                                 position,
                                                 glyph_index,
                                                 padding: 0,
@@ -249,32 +260,88 @@ impl Grid {
             }
         }
 
-        // TODO: Share a buffer between glyphs and BG cells. Probably don't need
-        // optionals then.
+        self.glyph_count = self.glyphs.len() as u32;
+        self.emoji_count = self.emoji.len() as u32;
+        self.bg_count = self.bg.len() as u32;
 
-        let glyph_bind_group = bind_group_from_buffer(
-            cast_slice(glyph_info.as_slice()),
-            &shared.device,
-            &grid_bind_group_layout.bind_group_layout,
-            "glyph buffer/bind group",
-        );
+        let glyphs = cast_slice(self.glyphs.as_slice());
+        let emoji = cast_slice(self.emoji.as_slice());
+        let bg = cast_slice(self.bg.as_slice());
 
-        let bg_bind_group = bind_group_from_buffer(
-            cast_slice(bg_info.as_slice()),
-            &shared.device,
-            &grid_bind_group_layout.bind_group_layout,
-            "bg buffer/bind group",
-        );
+        let alignment = shared.device.limits().min_storage_buffer_offset_alignment as u64;
+        let glyphs_len = glyphs.len() as u64;
+        let emoji_len = emoji.len() as u64;
+        let bg_len = bg.len() as u64;
+        let glyphs_padding = alignment - glyphs_len % alignment;
+        let emoji_padding = alignment - emoji_len % alignment;
+        let total_length = glyphs_len + glyphs_padding + emoji_len + emoji_padding + bg_len;
 
-        let emoji_bind_group = bind_group_from_buffer(
-            cast_slice(emoji_info.as_slice()),
-            &shared.device,
-            &grid_bind_group_layout.bind_group_layout,
-            "emoji buffer/bind group",
-        );
+        if total_length > self.buffer_capacity {
+            // 50% extra space to reduce reallocation
+            self.buffer_capacity = total_length * 3 / 2;
+            self.buffer = Some(shared.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("Grid buffer"),
+                size: self.buffer_capacity,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            }));
+        }
+
+        let buffer = self.buffer.as_ref().unwrap();
+
+        let mut offset = 0;
+        shared.queue.write_buffer(buffer, 0, glyphs);
+        self.glyph_bind_group = NonZeroU64::new(glyphs_len).map(|size| {
+            shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Glyph bind group"),
+                layout: grid_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &buffer,
+                        offset,
+                        size: Some(size),
+                    }),
+                }],
+            })
+        });
+        offset += glyphs_len + glyphs_padding;
+
+        shared.queue.write_buffer(buffer, offset, emoji);
+        self.emoji_bind_group = NonZeroU64::new(emoji_len).map(|size| {
+            shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Glyph bind group"),
+                layout: grid_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &buffer,
+                        offset,
+                        size: Some(size),
+                    }),
+                }],
+            })
+        });
+        offset += emoji_len + emoji_padding;
+
+        shared.queue.write_buffer(buffer, offset, bg);
+        self.bg_bind_group = NonZeroU64::new(bg_len).map(|size| {
+            shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Glyph bind group"),
+                layout: grid_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &buffer,
+                        offset,
+                        size: Some(size),
+                    }),
+                }],
+            })
+        });
 
         let cell_size = Vec2::new(fonts.size(), cell_height_px);
-        let grid_info = GridInfo {
+        self.grid_info = GridInfo {
             surface_size: shared.surface_size(),
             cell_size,
             // TODO: Relative to anchor grid
@@ -282,46 +349,6 @@ impl Grid {
             grid_width: grid.size.x as u32,
             baseline: em_px,
         };
-
-        Self {
-            glyph_bind_group,
-            bg_bind_group,
-            emoji_bind_group,
-            grid_info,
-            glyph_count: glyph_info.len() as u32,
-            bg_count: bg_info.len() as u32,
-            emoji_count: emoji_info.len() as u32,
-        }
-    }
-}
-
-fn bind_group_from_buffer(
-    data: &[u8],
-    device: &wgpu::Device,
-    grid_bind_group_layout: &wgpu::BindGroupLayout,
-    label: &str,
-) -> Option<wgpu::BindGroup> {
-    if data.is_empty() {
-        None
-    } else {
-        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some(label),
-            usage: wgpu::BufferUsages::STORAGE,
-            contents: data,
-        });
-
-        Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some(label),
-            layout: grid_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &buffer,
-                    offset: 0,
-                    size: None,
-                }),
-            }],
-        }))
     }
 }
 
