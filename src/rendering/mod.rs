@@ -56,27 +56,20 @@ impl RenderLoop {
                 }
 
                 RenderEvent::Resized(size) => {
-                    // TODO: Factor this stuff out. Duplicate logic from grid
-                    // rendering.
                     self.render_state.resize(size);
                     let metrics = self
                         .fonts
                         .with_style(FontStyle::Regular)
                         .unwrap()
-                        .as_ref()
-                        .metrics(&[]);
-                    let scale_factor = self.fonts.size() as f32 / metrics.average_width;
-                    let em_px = (metrics.units_per_em as f32 * scale_factor).ceil() as u32;
-                    let descent_px = (metrics.descent as f32 * scale_factor).ceil() as u32;
-                    let cell_height_px = em_px + descent_px;
+                        .metrics(self.fonts.size());
                     self.neovim.ui_try_resize_grid(
                         1,
                         (size.width / self.fonts.size()) as u64,
-                        (size.height / cell_height_px) as u64,
+                        (size.height / metrics.cell_size_px.y) as u64,
                     )
                 }
 
-                RenderEvent::Redraw => match self.render_state.render() {
+                RenderEvent::Redraw => match self.render_state.render(&self.ui.draw_order) {
                     Ok(_) => {}
                     Err(wgpu::SurfaceError::Lost) => self.render_state.rebuild_swap_chain(),
                     Err(wgpu::SurfaceError::OutOfMemory) => panic!("Out of memory"),

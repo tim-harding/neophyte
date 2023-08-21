@@ -42,7 +42,7 @@ impl Grid {
         Self::default()
     }
 
-    pub fn update(
+    pub fn update_content(
         &mut self,
         shared: &Shared,
         grid: &ui::grid::Grid,
@@ -62,15 +62,7 @@ impl Grid {
         let metrics = fonts
             .with_style(FontStyle::Regular)
             .unwrap()
-            .as_ref()
-            .metrics(&[]);
-
-        let scale_factor = fonts.size() as f32 / metrics.average_width;
-        let em = metrics.units_per_em as f32 * scale_factor;
-        let em_px = em.ceil() as u32;
-        let descent = metrics.descent * scale_factor;
-        let descent_px = descent.ceil() as u32;
-        let cell_height_px = em_px + descent_px;
+            .metrics(fonts.size());
 
         for (cell_line_i, cell_line) in grid.rows().enumerate() {
             let mut cluster = CharCluster::new();
@@ -166,7 +158,7 @@ impl Grid {
                                     for glyph in glyph_cluster.glyphs {
                                         let CacheValue { index, kind } = match font_cache.get(
                                             font.as_ref(),
-                                            em,
+                                            metrics.em,
                                             glyph.id,
                                             current_font_unwrapped.1,
                                         ) {
@@ -185,9 +177,11 @@ impl Grid {
                                         };
                                         let position = offset * Vec2::new(1, -1)
                                             + Vec2::new(
-                                                (glyph.x * scale_factor).round() as i32 + x as i32,
-                                                (glyph.y * scale_factor
-                                                    + (cell_line_i as u32 * cell_height_px) as f32)
+                                                (glyph.x * metrics.scale_factor).round() as i32
+                                                    + x as i32,
+                                                (glyph.y * metrics.scale_factor
+                                                    + (cell_line_i as u32 * metrics.cell_size_px.y)
+                                                        as f32)
                                                     .round()
                                                     as i32,
                                             );
@@ -339,15 +333,27 @@ impl Grid {
                 }],
             })
         });
+    }
 
-        let cell_size = Vec2::new(fonts.size(), cell_height_px);
+    pub fn update_grid_info(
+        &mut self,
+        fonts: &Fonts,
+        shared: &Shared,
+        grid: &ui::grid::Grid,
+        z: f32,
+    ) {
+        let metrics = fonts
+            .with_style(FontStyle::Regular)
+            .unwrap()
+            .metrics(fonts.size());
         self.grid_info = GridInfo {
             surface_size: shared.surface_size(),
-            cell_size,
+            cell_size: metrics.cell_size_px,
             // TODO: Relative to anchor grid
-            offset: (grid.window.offset(grid.size) * cell_size.into()).into(),
+            offset: (grid.window.offset(grid.size) * metrics.cell_size_px.into()).into(),
             grid_width: grid.size.x as u32,
-            baseline: em_px,
+            baseline: metrics.em_px,
+            z,
         };
     }
 }
@@ -376,6 +382,7 @@ pub struct GridInfo {
     pub offset: Vec2<f32>,
     pub grid_width: u32,
     pub baseline: u32,
+    pub z: f32,
 }
 
 impl GridInfo {

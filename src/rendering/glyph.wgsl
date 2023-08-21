@@ -16,6 +16,7 @@ struct GridInfo {
     offset: vec2<f32>,
     grid_width: u32,
     baseline: u32,
+    z: f32,
 }
 
 struct HighlightInfo {
@@ -66,7 +67,7 @@ fn vs_main(
             tex_coord * vec2<f32>(glyph_info.size) +
             vec2<f32>(0.0, f32(grid_info.baseline))
         ) / vec2<f32>(grid_info.surface_size) * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
-        0.0, 
+        grid_info.z, 
         1.0
     );
     return out;

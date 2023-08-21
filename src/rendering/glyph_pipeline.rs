@@ -1,5 +1,6 @@
 use super::{
-    grid::GridInfo, grid_bind_group_layout::GridBindGroupLayout, highlights, shared::Shared,
+    depth_texture::DepthTexture, grid::GridInfo, grid_bind_group_layout::GridBindGroupLayout,
+    highlights, shared::Shared,
 };
 use crate::{rendering::texture::Texture, text::cache::Cached};
 use bytemuck::cast_slice;
@@ -160,7 +161,7 @@ impl GlyphPipeline {
                     conservative: false,
                 },
                 depth_stencil: Some(wgpu::DepthStencilState {
-                    format: wgpu::TextureFormat::Depth16Unorm,
+                    format: DepthTexture::FORMAT,
                     depth_write_enabled: false,
                     depth_compare: wgpu::CompareFunction::LessEqual,
                     stencil: wgpu::StencilState::default(),

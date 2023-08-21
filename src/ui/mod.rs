@@ -67,7 +67,7 @@ impl Ui {
     pub fn new() -> Self {
         Self {
             grids: Default::default(),
-            draw_order: vec![],
+            draw_order: vec![1],
             float_windows_start: 0,
             cursor: Default::default(),
             mouse: Default::default(),

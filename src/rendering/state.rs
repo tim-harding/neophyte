@@ -90,19 +90,20 @@ impl RenderState {
         }
 
         for ui_grid in ui.grids.iter() {
-            if ui_grid.dirty {
-                let index = match self
-                    .grids
-                    .binary_search_by(|probe| probe.0.cmp(&ui_grid.id))
-                {
-                    Ok(index) => index,
-                    Err(index) => {
-                        self.grids.insert(index, (ui_grid.id, Grid::new()));
-                        index
-                    }
-                };
+            let index = match self
+                .grids
+                .binary_search_by(|probe| probe.0.cmp(&ui_grid.id))
+            {
+                Ok(index) => index,
+                Err(index) => {
+                    self.grids.insert(index, (ui_grid.id, Grid::new()));
+                    index
+                }
+            };
+            let grid = &mut self.grids[index].1;
 
-                self.grids[index].1.update(
+            if ui_grid.dirty {
+                grid.update_content(
                     &self.shared,
                     &ui_grid,
                     &ui.highlights,
@@ -112,16 +113,24 @@ impl RenderState {
                     &self.grid_bind_group_layout.bind_group_layout,
                 );
             }
-        }
 
-        // TODO: Assign z-index to windows
+            let z = 1.0
+                - ui.draw_order
+                    .iter()
+                    .position(|&id| id == ui_grid.id)
+                    .map(|i| i + 1)
+                    .unwrap_or(0) as f32
+                    / ui.draw_order.len() as f32;
+
+            grid.update_grid_info(fonts, &self.shared, &ui_grid, z);
+        }
     }
 
     pub fn resize(&mut self, size: PhysicalSize<u32>) {
         self.shared.resize(size);
     }
 
-    pub fn render(&self) -> Result<(), wgpu::SurfaceError> {
+    pub fn render(&self, draw_order: &[u64]) -> Result<(), wgpu::SurfaceError> {
         let output = self.shared.surface.get_current_texture()?;
         let view = output
             .texture
@@ -158,7 +167,13 @@ impl RenderState {
                 }),
             });
 
-            for (_, grid) in self.grids.iter() {
+            for &id in draw_order.iter().rev() {
+                let i = self
+                    .grids
+                    .binary_search_by(|(probe, _)| probe.cmp(&(id as u64)))
+                    .unwrap();
+                let (_, grid) = &self.grids[i];
+
                 if let Some(bg_bind_group) = &grid.bg_bind_group {
                     self.cell_fill_pipeline.render(
                         &mut render_pass,

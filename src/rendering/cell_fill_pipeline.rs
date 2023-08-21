@@ -1,7 +1,7 @@
 use bytemuck::cast_slice;
 use wgpu::include_wgsl;
 
-use super::grid::GridInfo;
+use super::{depth_texture::DepthTexture, grid::GridInfo};
 
 pub struct CellFillPipeline {
     pub pipeline: wgpu::RenderPipeline,
@@ -19,6 +19,7 @@ impl CellFillPipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Cell fill pipeline layout"),
             bind_group_layouts: &[&highlights_bind_group_layout, &grid_bind_group_layout],
+            // TODO: Push constants for grid-specific and shared info
             push_constant_ranges: &[wgpu::PushConstantRange {
                 stages: wgpu::ShaderStages::VERTEX,
                 range: 0..GridInfo::SIZE as u32,
@@ -53,7 +54,7 @@ impl CellFillPipeline {
                 conservative: false,
             },
             depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth16Unorm,
+                format: DepthTexture::FORMAT,
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::LessEqual,
                 stencil: wgpu::StencilState::default(),
