@@ -2,12 +2,16 @@ use crate::util::vec2::Vec2;
 use std::sync::Arc;
 use winit::{dpi::PhysicalSize, window::Window};
 
+use super::depth_texture::DepthTexture;
+
 pub struct Shared {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub surface: wgpu::Surface,
     pub surface_config: wgpu::SurfaceConfiguration,
     pub surface_format: wgpu::TextureFormat,
+    pub depth_texture: DepthTexture,
+    pub depth_texture_sampler: wgpu::Sampler,
 }
 
 impl Shared {
@@ -64,12 +68,31 @@ impl Shared {
         };
         surface.configure(&device, &surface_config);
 
+        let depth_texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("Depth texture sampler"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            lod_min_clamp: 0.0,
+            lod_max_clamp: 100.0,
+            compare: Some(wgpu::CompareFunction::LessEqual),
+            ..Default::default()
+        });
+
         Self {
+            depth_texture: DepthTexture::new(
+                &device,
+                Vec2::new(surface_config.width, surface_config.height),
+            ),
             device,
             queue,
             surface,
             surface_config,
             surface_format,
+            depth_texture_sampler,
         }
     }
 
@@ -78,6 +101,7 @@ impl Shared {
             self.surface_config.width = new_size.width;
             self.surface_config.height = new_size.height;
             self.surface.configure(&self.device, &self.surface_config);
+            self.depth_texture = DepthTexture::new(&self.device, self.surface_size());
         }
     }
 

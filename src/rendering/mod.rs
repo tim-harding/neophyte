@@ -1,4 +1,5 @@
 mod cell_fill_pipeline;
+mod depth_texture;
 mod glyph_pipeline;
 mod grid;
 mod grid_bind_group_layout;
