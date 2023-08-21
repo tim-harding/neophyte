@@ -18,6 +18,8 @@ use swash::{
 };
 use wgpu::util::DeviceExt;
 
+// TODO: Reuse buffers and Vecs
+
 pub struct Grid {
     pub glyph_bind_group: Option<wgpu::BindGroup>,
     pub bg_bind_group: Option<wgpu::BindGroup>,

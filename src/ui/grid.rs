@@ -22,6 +22,7 @@ pub struct Grid {
     pub buffer: Vec<Cell>,
     pub show: bool,
     pub window: Window,
+    pub dirty: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -86,6 +87,7 @@ impl Grid {
     }
 
     pub fn resize(&mut self, size: Vec2<u64>) {
+        self.dirty = true;
         let mut old = std::mem::take(&mut self.buffer).into_iter();
         self.buffer = vec![Cell::default(); size.area() as usize];
         for y in 0..self.size.y.min(size.y) {
@@ -125,6 +127,7 @@ impl Grid {
     }
 
     pub fn scroll(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64) {
+        self.dirty = true;
         // TODO: Skip iterations for lines that won't be copied
         let height = self.size.y;
         let mut cut_and_paste = move |src_y, dst_y| {
@@ -242,6 +245,7 @@ impl Grid {
     }
 
     pub fn grid_line(&mut self, row: u64, col_start: u64, cells: Vec<grid_line::Cell>) {
+        self.dirty = true;
         // TODO: Apply changes to glyph quads
         let mut row = self.row_mut(row).into_iter().skip(col_start as usize);
         let mut highlight = 0;

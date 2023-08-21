@@ -19,7 +19,7 @@ pub struct RenderState {
     pub shape_context: ShapeContext,
     pub font_cache: FontCache,
     pub shared: Shared,
-    pub grids: Vec<grid::Grid>,
+    pub grids: Vec<(u64, grid::Grid)>,
     pub glyph_pipeline: GlyphPipeline,
     pub emoji_pipeline: GlyphPipeline,
     pub cell_fill_pipeline: CellFillPipeline,
@@ -79,27 +79,42 @@ impl RenderState {
             &self.grid_bind_group_layout,
             wgpu::TextureFormat::Rgba8UnormSrgb,
         );
-        // TODO: Caching
-        self.grids.clear();
-        self.grids = std::iter::once(&1)
-            .chain(ui.draw_order.iter())
-            .map(|id| {
-                let grid_index = ui
-                    .grids
-                    .binary_search_by(|probe| probe.id.cmp(&id))
-                    .unwrap();
-                let ui_grid = ui.grids.get(grid_index).unwrap();
-                grid::Grid::new(
+
+        for ui_grid in ui.grids.iter() {
+            if ui_grid.dirty {
+                let grid = grid::Grid::new(
                     &self.shared,
-                    ui_grid,
+                    &ui_grid,
                     &ui.highlights,
                     fonts,
                     &mut self.font_cache,
                     &mut self.shape_context,
                     &self.grid_bind_group_layout,
-                )
-            })
-            .collect();
+                );
+                match self
+                    .grids
+                    .binary_search_by(|probe| probe.0.cmp(&ui_grid.id))
+                {
+                    Ok(index) => {
+                        self.grids[index] = (ui_grid.id, grid);
+                    }
+                    Err(index) => {
+                        self.grids.insert(index, (ui_grid.id, grid));
+                    }
+                }
+            }
+        }
+
+        let mut i = 0;
+        while let Some((id, _)) = self.grids.get(i) {
+            if ui.grid_index(*id).is_ok() {
+                i += 1;
+            } else {
+                self.grids.remove(i);
+            }
+        }
+
+        // TODO: Assign z-index to windows
     }
 
     pub fn resize(&mut self, size: PhysicalSize<u32>) {
@@ -136,7 +151,7 @@ impl RenderState {
                 depth_stencil_attachment: None,
             });
 
-            for grid in self.grids.iter() {
+            for (_, grid) in self.grids.iter() {
                 if let Some(bg_bind_group) = &grid.bg_bind_group {
                     self.cell_fill_pipeline.render(
                         &mut render_pass,

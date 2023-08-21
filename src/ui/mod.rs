@@ -14,15 +14,16 @@ use crate::{
     util::vec2::Vec2,
 };
 use grid::Grid;
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    fmt::{self, Debug, Formatter},
+};
 
 pub type Highlights = HashMap<u64, HlAttrDefine>;
 pub type HighlightGroups = HashMap<String, u64>;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Ui {
-    pub title: String,
-    pub icon: String,
     pub grids: Vec<Grid>,
     pub draw_order: Vec<u64>,
     pub float_windows_start: usize,
@@ -65,8 +66,6 @@ impl Default for CursorInfo {
 impl Ui {
     pub fn new() -> Self {
         Self {
-            title: Default::default(),
-            icon: Default::default(),
             grids: Default::default(),
             draw_order: vec![],
             float_windows_start: 0,
@@ -88,24 +87,22 @@ impl Ui {
         }
     }
 
-    fn grid_mut(&mut self, id: u64) -> &mut Grid {
-        let i = self
-            .grids
-            .binary_search_by(|probe| probe.id.cmp(&id))
-            .unwrap();
+    pub fn grid_index(&self, id: u64) -> Result<usize, usize> {
+        self.grids.binary_search_by(|probe| probe.id.cmp(&id))
+    }
+
+    pub fn grid_mut(&mut self, id: u64) -> &mut Grid {
+        let i = self.grid_index(id).unwrap();
         self.grids.get_mut(i).unwrap()
     }
 
     pub fn grid(&self, id: u64) -> &Grid {
-        let i = self
-            .grids
-            .binary_search_by(|probe| probe.id.cmp(&id))
-            .unwrap();
+        let i = self.grid_index(id).unwrap();
         self.grids.get(i).unwrap()
     }
 
     fn get_or_create_grid(&mut self, id: u64) -> &mut Grid {
-        match self.grids.binary_search_by(|probe| probe.id.cmp(&id)) {
+        match self.grid_index(id) {
             Ok(i) => self.grids.get_mut(i).unwrap(),
             Err(i) => {
                 self.grids.insert(i, Grid::new(id));
@@ -117,8 +114,6 @@ impl Ui {
     pub fn process(&mut self, event: Event) {
         log::info!("{event:?}");
         match event {
-            Event::SetTitle(event) => self.title = event.title,
-            Event::SetIcon(event) => self.icon = event.icon,
             Event::OptionSet(event) => self.options.event(event),
             Event::DefaultColorsSet(event) => self.default_colors = event,
             Event::HlAttrDefine(event) => {
@@ -287,9 +282,16 @@ impl Ui {
             Event::GlobalEvent(GlobalEvent::MouseOff) => self.cursor.enabled = false,
             Event::GlobalEvent(GlobalEvent::BusyStart) => self.cursor.enabled = false,
             Event::GlobalEvent(GlobalEvent::BusyStop) => self.cursor.enabled = true,
-            Event::GlobalEvent(GlobalEvent::Flush) => self.new_highlights.clear(),
+            Event::GlobalEvent(GlobalEvent::Flush) => {
+                self.new_highlights.clear();
+                for grid in self.grids.iter_mut() {
+                    grid.dirty = false;
+                }
+            }
 
             Event::GlobalEvent(GlobalEvent::Suspend)
+            | Event::SetTitle(_)
+            | Event::SetIcon(_)
             | Event::GlobalEvent(GlobalEvent::UpdateMenu)
             | Event::GlobalEvent(GlobalEvent::Bell)
             | Event::GlobalEvent(GlobalEvent::VisualBell) => {}
@@ -331,5 +333,12 @@ impl Ui {
         } else {
             None
         }
+    }
+}
+
+impl Debug for Ui {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let grid = self.composite();
+        write!(f, "{:?}", grid)
     }
 }
