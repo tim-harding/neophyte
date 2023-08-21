@@ -39,8 +39,12 @@ impl Grid {
         grid_bind_group_layout: &GridBindGroupLayout,
     ) -> Self {
         let mut glyph_info = vec![];
-        let mut bg_info = vec![];
         let mut emoji_info = vec![];
+        let bg_info: Vec<_> = grid
+            .buffer
+            .iter()
+            .map(|cell| cell.highlight as u32)
+            .collect();
 
         let metrics = fonts
             .with_style(FontStyle::Regular)
@@ -146,15 +150,6 @@ impl Grid {
 
                                 shaper.shape_with(|glyph_cluster| {
                                     let x = glyph_cluster.source.start * fonts.size();
-                                    if glyph_cluster.data > 0 {
-                                        bg_info.push(BgInfo {
-                                            x: x as i32,
-                                            y: cell_line_i as i32 * cell_height_px as i32,
-                                            highlight_index: glyph_cluster.data,
-                                            width: fonts.size(),
-                                        });
-                                    }
-
                                     for glyph in glyph_cluster.glyphs {
                                         let CacheValue { index, kind } = match font_cache.get(
                                             font.as_ref(),
@@ -326,15 +321,6 @@ fn bind_group_from_buffer(
             }],
         }))
     }
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
-pub struct BgInfo {
-    pub x: i32,
-    pub y: i32,
-    pub highlight_index: u32,
-    pub width: u32,
 }
 
 #[repr(C)]
