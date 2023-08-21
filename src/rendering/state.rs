@@ -163,7 +163,7 @@ impl State {
                         &mut render_pass,
                         highlights_bind_group,
                         emoji_bind_group,
-                        grid.glyph_count,
+                        grid.emoji_count,
                         grid.grid_info,
                     );
                 }
