@@ -15,7 +15,7 @@ use swash::shape::ShapeContext;
 use wgpu::include_wgsl;
 use winit::{dpi::PhysicalSize, window::Window};
 
-pub struct State {
+pub struct RenderState {
     pub shape_context: ShapeContext,
     pub font_cache: FontCache,
     pub shared: Shared,
@@ -28,7 +28,7 @@ pub struct State {
     pub grid_bind_group_layout: GridBindGroupLayout,
 }
 
-impl State {
+impl RenderState {
     pub async fn new(window: Arc<Window>) -> Self {
         let shared = Shared::new(window).await;
         let highlights_bind_group_layout = HighlightsBindGroupLayout::new(&shared.device);
@@ -62,7 +62,7 @@ impl State {
         }
     }
 
-    pub fn update(&mut self, mut ui: Ui, fonts: &mut Fonts) {
+    pub fn update(&mut self, ui: &Ui, fonts: &mut Fonts) {
         self.highlights
             .update(&ui, &self.highlights_bind_group_layout, &self.shared);
         self.glyph_pipeline.update(
@@ -81,19 +81,18 @@ impl State {
         );
         // TODO: Caching
         self.grids.clear();
-        let highlights = ui.highlights;
-        let ui_grids = std::mem::take(&mut ui.grids);
-        self.grids = std::iter::once(1)
-            .chain(ui.draw_order.into_iter())
+        self.grids = std::iter::once(&1)
+            .chain(ui.draw_order.iter())
             .map(|id| {
-                let grid_index = ui_grids
+                let grid_index = ui
+                    .grids
                     .binary_search_by(|probe| probe.id.cmp(&id))
                     .unwrap();
-                let ui_grid = ui_grids.get(grid_index).unwrap();
+                let ui_grid = ui.grids.get(grid_index).unwrap();
                 grid::Grid::new(
                     &self.shared,
                     ui_grid,
-                    &highlights,
+                    &ui.highlights,
                     fonts,
                     &mut self.font_cache,
                     &mut self.shape_context,

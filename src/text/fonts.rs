@@ -14,16 +14,16 @@ impl Fonts {
         }
     }
 
-    pub fn reload(&mut self, font_names: Vec<String>, size: u32) {
+    pub fn reload(&mut self, font_names: &[String], size: u32) {
         self.size = size;
         let mut old = std::mem::take(&mut self.fonts);
         self.fonts = font_names
             .into_iter()
             .map(|name| {
-                if let Some(i) = old.iter().position(|old| old.name == name) {
+                if let Some(i) = old.iter().position(|old| &old.name == name) {
                     old.swap_remove(i)
                 } else {
-                    FontInfo::with_name(name)
+                    FontInfo::with_name(name.clone())
                 }
             })
             .collect();

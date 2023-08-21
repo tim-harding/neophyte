@@ -8,14 +8,13 @@ use self::{cmdline::Cmdline, grid::CursorRenderInfo, messages::Messages, options
 use crate::{
     event::{
         mode_info_set::ModeInfo, Anchor, DefaultColorsSet, Event, GlobalEvent, GridLine,
-        GridScroll, HlAttrDefine, OptionSet, PopupmenuShow, TablineUpdate, WinFloatPos, WinPos,
+        GridScroll, HlAttrDefine, PopupmenuShow, TablineUpdate, WinFloatPos, WinPos,
     },
-    rendering::RenderEvent,
     ui::grid::{FloatingWindow, Window},
     util::vec2::Vec2,
 };
 use grid::Grid;
-use std::{collections::HashMap, sync::mpsc::Sender};
+use std::collections::HashMap;
 
 pub type Highlights = HashMap<u64, HlAttrDefine>;
 pub type HighlightGroups = HashMap<String, u64>;
@@ -42,7 +41,6 @@ pub struct Ui {
     pub options: Options,
     pub default_colors: DefaultColorsSet,
     pub tabline: Option<TablineUpdate>,
-    pub tx: Sender<RenderEvent>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -65,7 +63,7 @@ impl Default for CursorInfo {
 }
 
 impl Ui {
-    pub fn new(tx: Sender<RenderEvent>) -> Self {
+    pub fn new() -> Self {
         Self {
             title: Default::default(),
             icon: Default::default(),
@@ -87,7 +85,6 @@ impl Ui {
             options: Default::default(),
             default_colors: Default::default(),
             tabline: Default::default(),
-            tx,
         }
     }
 
@@ -122,16 +119,7 @@ impl Ui {
         match event {
             Event::SetTitle(event) => self.title = event.title,
             Event::SetIcon(event) => self.icon = event.icon,
-            Event::OptionSet(event) => {
-                let is_gui_font = matches!(event, OptionSet::Guifont(_));
-                self.options.event(event);
-                if is_gui_font {
-                    let _ = self.tx.send(RenderEvent::FontsChanged(
-                        self.options.guifont.0.clone(),
-                        self.options.guifont.1,
-                    ));
-                }
-            }
+            Event::OptionSet(event) => self.options.event(event),
             Event::DefaultColorsSet(event) => self.default_colors = event,
             Event::HlAttrDefine(event) => {
                 self.new_highlights.push(event.id);
@@ -299,10 +287,7 @@ impl Ui {
             Event::GlobalEvent(GlobalEvent::MouseOff) => self.cursor.enabled = false,
             Event::GlobalEvent(GlobalEvent::BusyStart) => self.cursor.enabled = false,
             Event::GlobalEvent(GlobalEvent::BusyStop) => self.cursor.enabled = true,
-            Event::GlobalEvent(GlobalEvent::Flush) => {
-                self.tx.send(RenderEvent::Flush(self.clone())).unwrap();
-                self.new_highlights.clear();
-            }
+            Event::GlobalEvent(GlobalEvent::Flush) => self.new_highlights.clear(),
 
             Event::GlobalEvent(GlobalEvent::Suspend)
             | Event::GlobalEvent(GlobalEvent::UpdateMenu)

@@ -6,14 +6,12 @@ pub mod text;
 mod ui;
 mod util;
 
-use event::Event;
-use rendering::{render_loop, RenderEvent};
+use rendering::{RenderEvent, RenderLoop};
 use session::Neovim;
 use std::{
     sync::{mpsc, Arc},
     thread,
 };
-use ui::Ui;
 use winit::{
     event::{ElementState, KeyboardInput, ModifiersState, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -28,32 +26,15 @@ fn main() {
     {
         let render_tx = render_tx.clone();
         thread::spawn(move || {
-            let mut ui = Ui::new(render_tx);
-            handler.start(|method, params| match method.as_str() {
-                "redraw" => {
-                    for param in params {
-                        match Event::try_parse(param.clone()) {
-                            Ok(events) => {
-                                for event in events {
-                                    ui.process(event);
-                                }
-                            }
-                            Err(e) => match e {
-                                event::Error::UnknownEvent(name) => {
-                                    log::error!("Unknown event: {name}\n{param:#?}");
-                                }
-                                _ => log::error!("{e}"),
-                            },
-                        }
-                    }
-                }
-                _ => log::error!("Unrecognized notification: {method}"),
+            handler.start(|method, params| {
+                render_tx
+                    .send(RenderEvent::Notification(method, params))
+                    .unwrap();
             })
         });
     }
 
     neovim.ui_attach();
-
     let event_loop = EventLoop::new();
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
 
@@ -61,7 +42,8 @@ fn main() {
         let window = window.clone();
         let neovim = neovim.clone();
         thread::spawn(move || {
-            render_loop(window.clone(), neovim.clone(), render_rx);
+            let render_loop = RenderLoop::new(window, neovim);
+            render_loop.run(render_rx);
         });
     }
 
