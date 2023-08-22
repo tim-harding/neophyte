@@ -340,6 +340,7 @@ impl Grid {
         fonts: &Fonts,
         shared: &Shared,
         grid: &ui::grid::Grid,
+        position: Vec2<f64>,
         z: f32,
     ) {
         let metrics = fonts
@@ -350,7 +351,7 @@ impl Grid {
             surface_size: shared.surface_size(),
             cell_size: metrics.cell_size_px,
             // TODO: Relative to anchor grid
-            offset: (grid.window.offset(grid.size) * metrics.cell_size_px.into()).into(),
+            offset: (position * metrics.cell_size_px.into()).into(),
             grid_width: grid.size.x as u32,
             baseline: metrics.em_px,
             z,

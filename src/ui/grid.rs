@@ -35,11 +35,11 @@ pub enum Window {
 }
 
 impl Window {
-    pub fn offset(&self, grid_size: Vec2<u64>) -> Vec2<f64> {
+    pub fn offset(&self, grid_size: Vec2<u64>) -> (Vec2<f64>, Option<u64>) {
         match &self {
-            Window::None => Vec2::default(),
-            Window::External => Vec2::default(),
-            Window::Normal(window) => window.start.into(),
+            Window::None => Default::default(),
+            Window::External => Default::default(),
+            Window::Normal(window) => (window.start.into(), None),
             Window::Floating(window) => {
                 let anchor_pos = {
                     let (x, y) = window.anchor_pos.into();
@@ -52,7 +52,7 @@ impl Window {
                         Anchor::Sw => Vec2::new(1, 0),
                         Anchor::Se => Vec2::new(1, 1),
                     };
-                anchor_pos - offset.into()
+                (anchor_pos - offset.into(), Some(window.anchor_grid))
             }
         }
     }
@@ -180,13 +180,12 @@ impl Grid {
             .map(|chunk| chunk.iter_mut())
     }
 
-    pub fn offset(&self) -> Vec2<f64> {
+    pub fn offset(&self) -> (Vec2<f64>, Option<u64>) {
         self.window.offset(self.size)
     }
 
-    pub fn combine(&mut self, other: Grid, cursor: Option<CursorRenderInfo>) {
+    pub fn combine(&mut self, other: Grid, cursor: Option<CursorRenderInfo>, start: Vec2<i64>) {
         // TODO: Should be relative to the anchor grid
-        let start = other.offset();
         let mut iter = other.buffer.into_iter();
         let size_x = self.size.x;
         for dst in self

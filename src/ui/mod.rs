@@ -37,8 +37,6 @@ pub struct Ui {
     pub popupmenu: Option<PopupmenuShow>,
     pub current_mode: u64,
     pub modes: Vec<ModeInfo>,
-    pub mode_for_hl_id: HashMap<u64, usize>,
-    pub mode_for_langmap: HashMap<u64, usize>,
     pub options: Options,
     pub default_colors: DefaultColorsSet,
     pub tabline: Option<TablineUpdate>,
@@ -46,10 +44,10 @@ pub struct Ui {
 
 #[derive(Debug, Copy, Clone)]
 pub struct CursorInfo {
-    pos: Vec2<u64>,
-    grid: u64,
-    enabled: bool,
-    style_enabled: bool,
+    pub pos: Vec2<u64>,
+    pub grid: u64,
+    pub enabled: bool,
+    pub style_enabled: bool,
 }
 
 impl Default for CursorInfo {
@@ -79,8 +77,6 @@ impl Ui {
             popupmenu: Default::default(),
             current_mode: Default::default(),
             modes: Default::default(),
-            mode_for_hl_id: Default::default(),
-            mode_for_langmap: Default::default(),
             options: Default::default(),
             default_colors: Default::default(),
             tabline: Default::default(),
@@ -123,17 +119,6 @@ impl Ui {
             Event::ModeChange(event) => self.current_mode = event.mode_idx,
             Event::ModeInfoSet(event) => {
                 self.cursor.style_enabled = event.cursor_style_enabled;
-                // TODO: Factor out the mode management and provide a getter for
-                // the highlight attribute. Some rules require having options
-                // from Neovim.
-                for (i, info) in event.mode_info.iter().enumerate() {
-                    if let Some(attr_id) = info.attr_id {
-                        self.mode_for_hl_id.insert(attr_id, i);
-                    }
-                    if let Some(attr_id_lm) = info.attr_id_lm {
-                        self.mode_for_langmap.insert(attr_id_lm, i);
-                    }
-                }
                 self.modes = event.mode_info;
             }
             Event::HlGroupSet(event) => {
@@ -315,11 +300,26 @@ impl Ui {
 
     pub fn composite(&self) -> Grid {
         let mut outer_grid = self.grids.get(0).unwrap_or(&Grid::default()).clone();
-        for grid in self.draw_order.iter() {
-            let grid = self.grid(*grid);
-            outer_grid.combine(grid.clone(), self.cursor_render_info(grid.id));
+        for &grid in self.draw_order.iter() {
+            let position = self.position(grid).into();
+            let grid = self.grid(grid);
+            outer_grid.combine(grid.clone(), self.cursor_render_info(grid.id), position);
         }
         outer_grid
+    }
+
+    pub fn position(&self, grid: u64) -> Vec2<f64> {
+        if let Ok(index) = self.grid_index(grid) {
+            let grid = &self.grids[index];
+            let (offset, anchor_grid) = grid.offset();
+            if let Some(anchor_grid) = anchor_grid {
+                self.position(anchor_grid) + offset
+            } else {
+                offset
+            }
+        } else {
+            Vec2::default()
+        }
     }
 
     fn cursor_render_info(&self, grid: u64) -> Option<CursorRenderInfo> {

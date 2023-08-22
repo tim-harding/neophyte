@@ -1,5 +1,6 @@
 use super::{
     cell_fill_pipeline::CellFillPipeline,
+    cursor::Cursor,
     glyph_pipeline::GlyphPipeline,
     grid::{self, Grid},
     grid_bind_group_layout::GridBindGroupLayout,
@@ -7,7 +8,10 @@ use super::{
     shared::Shared,
 };
 use crate::{
-    text::{cache::FontCache, fonts::Fonts},
+    text::{
+        cache::FontCache,
+        fonts::{FontStyle, Fonts},
+    },
     ui::Ui,
 };
 use std::sync::Arc;
@@ -16,6 +20,7 @@ use wgpu::include_wgsl;
 use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct RenderState {
+    pub cursor: Cursor,
     pub shape_context: ShapeContext,
     pub font_cache: FontCache,
     pub shared: Shared,
@@ -34,6 +39,7 @@ impl RenderState {
         let highlights_bind_group_layout = HighlightsBindGroupLayout::new(&shared.device);
         let grid_bind_group_layout = GridBindGroupLayout::new(&shared.device);
         Self {
+            cursor: Cursor::new(&shared.device, shared.surface_config.format),
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
             glyph_pipeline: GlyphPipeline::new(
@@ -79,6 +85,13 @@ impl RenderState {
             &self.grid_bind_group_layout,
             wgpu::TextureFormat::Rgba8UnormSrgb,
         );
+        let cell_size = fonts
+            .with_style(FontStyle::Regular)
+            .unwrap()
+            .metrics(fonts.size().into())
+            .cell_size_px;
+        self.cursor
+            .update(ui, self.shared.surface_size(), cell_size.into());
 
         let mut i = 0;
         while let Some((id, _)) = self.grids.get(i) {
@@ -122,7 +135,7 @@ impl RenderState {
                     .unwrap_or(0) as f32
                     / ui.draw_order.len() as f32;
 
-            grid.update_grid_info(fonts, &self.shared, &ui_grid, z);
+            grid.update_grid_info(fonts, &self.shared, &ui_grid, ui.position(ui_grid.id), z);
         }
     }
 
@@ -204,6 +217,8 @@ impl RenderState {
                     );
                 }
             }
+
+            self.cursor.render(&mut render_pass);
         }
 
         self.shared.queue.submit(std::iter::once(encoder.finish()));
