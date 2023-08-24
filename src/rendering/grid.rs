@@ -1,5 +1,3 @@
-use std::num::NonZeroU64;
-
 use super::shared::Shared;
 use crate::{
     event::hl_attr_define::Attributes,
@@ -11,6 +9,7 @@ use crate::{
     util::vec2::Vec2,
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
+use std::num::NonZeroU64;
 use swash::{
     shape::ShapeContext,
     text::{
@@ -42,6 +41,7 @@ impl Grid {
         Self::default()
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn update_content(
         &mut self,
         shared: &Shared,
