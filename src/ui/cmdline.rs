@@ -14,7 +14,7 @@ impl Cmdline {
                 if i > levels.len() {
                     levels.push(level);
                 } else {
-                    levels[i as usize - 1] = level;
+                    levels[i - 1] = level;
                 }
             }
             Some(Mode::Block {

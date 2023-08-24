@@ -18,7 +18,7 @@ impl Fonts {
         self.size = size;
         let mut old = std::mem::take(&mut self.fonts);
         self.fonts = font_names
-            .into_iter()
+            .iter()
             .map(|name| {
                 if let Some(i) = old.iter().position(|old| &old.name == name) {
                     old.swap_remove(i)
@@ -63,7 +63,7 @@ impl FontInfo {
     }
 
     pub fn style_or_regular(&self, style: FontStyle) -> Option<&Font> {
-        self.style(style).or_else(|| self.regular.as_ref())
+        self.style(style).or(self.regular.as_ref())
     }
 
     pub fn style(&self, style: FontStyle) -> Option<&Font> {

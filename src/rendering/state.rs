@@ -72,7 +72,7 @@ impl RenderState {
         let cell_size = fonts
             .with_style(FontStyle::Regular)
             .unwrap()
-            .metrics(fonts.size().into())
+            .metrics(fonts.size())
             .cell_size_px;
         self.cursor
             .update(ui, self.shared.surface_size(), cell_size.into());
@@ -102,7 +102,7 @@ impl RenderState {
             if ui_grid.dirty {
                 grid.update_content(
                     &self.shared,
-                    &ui_grid,
+                    ui_grid,
                     &ui.highlights,
                     fonts,
                     &mut self.font_cache,
@@ -119,11 +119,11 @@ impl RenderState {
                     .unwrap_or(0) as f32
                     / ui.draw_order.len() as f32;
 
-            grid.update_grid_info(fonts, &self.shared, &ui_grid, ui.position(ui_grid.id), z);
+            grid.update_grid_info(fonts, &self.shared, ui_grid, ui.position(ui_grid.id), z);
         }
 
         self.highlights
-            .update(&ui, &self.highlights_bind_group_layout, &self.shared);
+            .update(ui, &self.highlights_bind_group_layout, &self.shared);
         self.glyph_pipeline.update(
             &self.shared,
             &self.font_cache.monochrome,
@@ -184,15 +184,15 @@ impl RenderState {
             for &id in draw_order.iter().rev() {
                 let i = self
                     .grids
-                    .binary_search_by(|(probe, _)| probe.cmp(&(id as u64)))
+                    .binary_search_by(|(probe, _)| probe.cmp(&{ id }))
                     .unwrap();
                 let (_, grid) = &self.grids[i];
 
                 if let Some(bg_bind_group) = &grid.bg_bind_group {
                     self.cell_fill_pipeline.render(
                         &mut render_pass,
-                        &highlights_bind_group,
-                        &bg_bind_group,
+                        highlights_bind_group,
+                        bg_bind_group,
                         grid.grid_info,
                         grid.bg_count,
                     );

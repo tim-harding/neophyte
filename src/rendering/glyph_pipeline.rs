@@ -216,10 +216,10 @@ impl GlyphPipeline {
             Some(bind_group) => bind_group,
             None => return,
         };
-        render_pass.set_pipeline(&pipeline);
-        render_pass.set_bind_group(0, &highlights_bind_group, &[]);
-        render_pass.set_bind_group(1, &glyph_bind_group, &[]);
-        render_pass.set_bind_group(2, &bind_group, &[]);
+        render_pass.set_pipeline(pipeline);
+        render_pass.set_bind_group(0, highlights_bind_group, &[]);
+        render_pass.set_bind_group(1, glyph_bind_group, &[]);
+        render_pass.set_bind_group(2, bind_group, &[]);
         render_pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, cast_slice(&[grid_info]));
         render_pass.draw(0..glyph_count * 6, 0..1);
     }

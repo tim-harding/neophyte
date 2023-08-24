@@ -18,7 +18,7 @@ impl CellFillPipeline {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Cell fill pipeline layout"),
-            bind_group_layouts: &[&highlights_bind_group_layout, &grid_bind_group_layout],
+            bind_group_layouts: &[highlights_bind_group_layout, grid_bind_group_layout],
             // TODO: Push constants for grid-specific and shared info
             push_constant_ranges: &[wgpu::PushConstantRange {
                 stages: wgpu::ShaderStages::VERTEX,

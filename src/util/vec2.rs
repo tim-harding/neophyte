@@ -26,9 +26,9 @@ where
     }
 }
 
-impl<T> Into<(T, T)> for Vec2<T> {
-    fn into(self) -> (T, T) {
-        (self.x, self.y)
+impl<T> From<Vec2<T>> for (T, T) {
+    fn from(val: Vec2<T>) -> Self {
+        (val.x, val.y)
     }
 }
 

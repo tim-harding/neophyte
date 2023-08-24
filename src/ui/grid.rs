@@ -170,7 +170,7 @@ impl Grid {
     ) -> impl Iterator<Item = impl Iterator<Item = &Cell> + '_ + Clone> + '_ + Clone {
         self.buffer
             .chunks(self.size.x as usize)
-            .map(|chunk| chunk.into_iter())
+            .map(|chunk| chunk.iter())
     }
 
     pub fn rows_mut(&mut self) -> impl Iterator<Item = impl Iterator<Item = &mut Cell> + '_> + '_ {
@@ -204,7 +204,7 @@ impl Grid {
         // TODO: Take mode_info_set into consideration
         if let Some(cursor) = cursor {
             let cursor_pos: Vec2<i64> = cursor.pos.try_into().unwrap();
-            let pos: Vec2<i64> = cursor_pos + start.into();
+            let pos: Vec2<i64> = cursor_pos + start;
             if let Ok(pos) = pos.try_into() {
                 let i = self.index_for(pos);
                 self.buffer[i].highlight = cursor.hl;
@@ -236,7 +236,7 @@ impl Grid {
                 write!(f, "{}", c);
             }
             f.reset();
-            write!(f, "┃\n");
+            writeln!(f, "┃");
         }
         f.reset();
         writeln!(f, "┗{:━<1$}┛", "", self.size.x as usize);
@@ -245,7 +245,7 @@ impl Grid {
     pub fn grid_line(&mut self, row: u64, col_start: u64, cells: Vec<grid_line::Cell>) {
         self.dirty = true;
         // TODO: Apply changes to glyph quads
-        let mut row = self.row_mut(row).into_iter().skip(col_start as usize);
+        let mut row = self.row_mut(row).skip(col_start as usize);
         let mut highlight = 0;
         for cell in cells {
             if let Some(hl_id) = cell.hl_id {
@@ -268,7 +268,7 @@ impl Grid {
 
 impl Debug for Grid {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "┏{:━<1$}┓\n", "", self.size.x as usize);
+        writeln!(f, "┏{:━<1$}┓", "", self.size.x as usize);
         for row in self.rows() {
             write!(f, "┃");
             for cell in row {
@@ -279,7 +279,7 @@ impl Debug for Grid {
                 };
                 write!(f, "{}", cell.text)?;
             }
-            write!(f, "┃\n")?;
+            writeln!(f, "┃")?;
         }
         write!(f, "┗{:━<1$}┛", "", self.size.x as usize);
         Ok(())

@@ -84,7 +84,7 @@ fn write_png(
     pixels: &[u8],
 ) -> Result<(), WritePngError> {
     let file = File::create(path)?;
-    let ref mut w = BufWriter::new(file);
+    let w = &mut BufWriter::new(file);
     let mut encoder = Encoder::new(w, width, height);
     encoder.set_color(color);
     encoder.set_depth(png::BitDepth::Eight);

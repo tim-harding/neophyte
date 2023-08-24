@@ -96,7 +96,7 @@ impl Neovim {
     }
 
     pub fn input(&self, input: String) {
-        let args = vec![input.into()].into();
+        let args = vec![input.into()];
         self.call("nvim_input", args);
     }
 
