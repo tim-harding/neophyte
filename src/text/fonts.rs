@@ -4,6 +4,7 @@ use font_loader::system_fonts::{self, FontPropertyBuilder};
 pub struct Fonts {
     size: u32,
     fonts: Vec<FontInfo>,
+    fallback: Font,
 }
 
 impl Default for Fonts {
@@ -17,6 +18,7 @@ impl Fonts {
         Self {
             size: 16,
             fonts: vec![],
+            fallback: get(FontPropertyBuilder::new().monospace()).unwrap(),
         }
     }
 
@@ -35,8 +37,10 @@ impl Fonts {
             .collect();
     }
 
-    pub fn with_style(&self, style: FontStyle) -> Option<&Font> {
-        self.iter().find_map(|font_info| font_info.style(style))
+    pub fn with_style(&self, style: FontStyle) -> &Font {
+        self.iter()
+            .find_map(|font_info| font_info.style(style))
+            .unwrap_or(&self.fallback)
     }
 
     pub fn size(&self) -> u32 {

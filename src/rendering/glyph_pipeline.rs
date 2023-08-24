@@ -40,6 +40,13 @@ impl GlyphPipeline {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.textures.clear();
+        self.next_glyph_to_upload = 0;
+        self.bind_group = None;
+        self.pipeline = None;
+    }
+
     pub fn update(
         &mut self,
         shared: &Shared,

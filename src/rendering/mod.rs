@@ -58,16 +58,7 @@ impl RenderLoop {
 
                 RenderEvent::Resized(size) => {
                     self.render_state.resize(size);
-                    let metrics = self
-                        .fonts
-                        .with_style(FontStyle::Regular)
-                        .unwrap()
-                        .metrics(self.fonts.size());
-                    self.neovim.ui_try_resize_grid(
-                        1,
-                        (size.width / self.fonts.size()) as u64,
-                        (size.height / metrics.cell_size_px.y) as u64,
-                    )
+                    self.resize_grid();
                 }
 
                 RenderEvent::Redraw => match self.render_state.render(&self.ui.draw_order) {
@@ -118,11 +109,25 @@ impl RenderLoop {
                 if is_gui_font {
                     let guifont = &self.ui.options.guifont;
                     self.fonts.reload(guifont.0.as_slice(), guifont.1);
-                    // TODO: Clear font cache
-                    // TODO: Clear textures on the GPU
+                    self.render_state.font_cache.clear();
+                    self.render_state.glyph_pipeline.clear();
+                    self.resize_grid();
                 }
             }
             event => self.ui.process(event),
         }
+    }
+
+    fn resize_grid(&mut self) {
+        let size = self.render_state.shared.surface_size();
+        let metrics = self
+            .fonts
+            .with_style(FontStyle::Regular)
+            .metrics(self.fonts.size());
+        self.neovim.ui_try_resize_grid(
+            1,
+            (size.x / self.fonts.size()) as u64,
+            (size.y / metrics.cell_size_px.y) as u64,
+        )
     }
 }

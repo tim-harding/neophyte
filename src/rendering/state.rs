@@ -71,7 +71,6 @@ impl RenderState {
     pub fn update(&mut self, ui: &Ui, fonts: &mut Fonts) {
         let cell_size = fonts
             .with_style(FontStyle::Regular)
-            .unwrap()
             .metrics(fonts.size())
             .cell_size_px;
         self.cursor

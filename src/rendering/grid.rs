@@ -18,8 +18,6 @@ use swash::{
     },
 };
 
-// TODO: Reuse buffers and Vecs
-
 #[derive(Default)]
 pub struct Grid {
     glyphs: Vec<GlyphInfo>,
@@ -59,10 +57,7 @@ impl Grid {
             self.bg.push(cell.highlight as u32);
         }
 
-        let metrics = fonts
-            .with_style(FontStyle::Regular)
-            .unwrap()
-            .metrics(fonts.size());
+        let metrics = fonts.with_style(FontStyle::Regular).metrics(fonts.size());
 
         for (cell_line_i, cell_line) in grid.rows().enumerate() {
             let mut cluster = CharCluster::new();
@@ -343,10 +338,7 @@ impl Grid {
         position: Vec2<f64>,
         z: f32,
     ) {
-        let metrics = fonts
-            .with_style(FontStyle::Regular)
-            .unwrap()
-            .metrics(fonts.size());
+        let metrics = fonts.with_style(FontStyle::Regular).metrics(fonts.size());
         self.grid_info = GridInfo {
             surface_size: shared.surface_size(),
             cell_size: metrics.cell_size_px,
