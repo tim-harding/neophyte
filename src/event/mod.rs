@@ -4,7 +4,6 @@ mod cmdline_pos;
 mod cmdline_show;
 mod cmdline_special_char;
 mod default_colors_set;
-mod global_event;
 mod grid_clear;
 mod grid_cursor_goto;
 mod grid_destroy;
@@ -44,7 +43,6 @@ pub use self::{
     cmdline_show::CmdlineShow,
     cmdline_special_char::CmdlineSpecialChar,
     default_colors_set::DefaultColorsSet,
-    global_event::GlobalEvent,
     grid_clear::GridClear,
     grid_cursor_goto::GridCursorGoto,
     grid_destroy::GridDestroy,
@@ -123,7 +121,40 @@ pub enum Event {
     ModeInfoSet(ModeInfoSet),
     HlGroupSet(HlGroupSet),
     TablineUpdate(TablineUpdate),
-    GlobalEvent(GlobalEvent),
+
+    /// The mouse was enabled in the current editor mode
+    MouseOn,
+    /// The mouse was disabled in the current editor mode
+    MouseOff,
+    /// The UI must stop rendering the cursor
+    BusyStart,
+    /// The UI must resume rendering the cursor
+    BusyStop,
+    /// :suspend command or CTRL-Z mapping is used. A terminal client could
+    /// suspend itself. Other clients can safely ignore it.
+    Suspend,
+    /// The menu mappings changed
+    UpdateMenu,
+    /// Notify the user with an audible bell
+    Bell,
+    /// Notify the user with a visual bell
+    VisualBell,
+    /// Nvim is done redrawing the screen. For an implementation that renders to
+    /// an internal buffer, this is the time to display the redrawn parts to the
+    /// user.
+    Flush,
+    /// Hide the cmdline
+    CmdlineHide,
+    /// Show a block of text to the current command line. Similar to to
+    /// cmdline_show but allows for multiple lines
+    CmdlineBlockHide,
+    /// Hide the popupmenu
+    PopupmenuHide,
+    /// Clear all messages currently displayed by "msg_show". Messages sent by
+    /// other "msg_" events below will not be affected.
+    MsgClear,
+    /// Clear the messages history
+    MsgHistoryClear,
 }
 
 macro_rules! event_from {
@@ -171,12 +202,6 @@ event_from!(WinClose);
 event_from!(PopupmenuSelect);
 event_from!(CmdlineBlockShow);
 event_from!(CmdlineBlockAppend);
-
-impl From<GlobalEvent> for Event {
-    fn from(value: GlobalEvent) -> Self {
-        Self::GlobalEvent(value)
-    }
-}
 
 fn parse<T: Parse>(iter: Values, error: Error) -> Result<Vec<Event>, Error>
 where
@@ -229,9 +254,21 @@ impl Event {
             "popupmenu_select" => parse::<PopupmenuSelect>(iter, Error::PopupmenuSelect),
             "cmdline_block_show" => parse::<CmdlineBlockShow>(iter, Error::CmdlineBlockShow),
             "cmdline_block_append" => parse::<CmdlineBlockAppend>(iter, Error::CmdlineBlockAppend),
-            _ => Ok(vec![GlobalEvent::try_from(event_name.as_str())
-                .map(Into::into)
-                .map_err(|_| Error::UnknownEvent(event_name))?]),
+            "mouse_on" => Ok(vec![Self::MouseOn]),
+            "mouse_off" => Ok(vec![Self::MouseOff]),
+            "busy_start" => Ok(vec![Self::BusyStart]),
+            "busy_stop" => Ok(vec![Self::BusyStop]),
+            "suspend" => Ok(vec![Self::Suspend]),
+            "update_menu" => Ok(vec![Self::UpdateMenu]),
+            "bell" => Ok(vec![Self::Bell]),
+            "visual_bell" => Ok(vec![Self::VisualBell]),
+            "flush" => Ok(vec![Self::Flush]),
+            "cmdline_hide" => Ok(vec![Self::CmdlineHide]),
+            "cmdline_block_hide" => Ok(vec![Self::CmdlineBlockHide]),
+            "popupmenu_hide" => Ok(vec![Self::PopupmenuHide]),
+            "msg_clear" => Ok(vec![Self::MsgClear]),
+            "msg_history_clear" => Ok(vec![Self::MsgHistoryClear]),
+            _ => Err(Error::UnknownEvent(event_name)),
         }
     }
 }

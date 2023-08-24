@@ -7,8 +7,8 @@ mod print;
 use self::{cmdline::Cmdline, grid::CursorRenderInfo, messages::Messages, options::Options};
 use crate::{
     event::{
-        mode_info_set::ModeInfo, Anchor, DefaultColorsSet, Event, GlobalEvent, GridLine,
-        GridScroll, HlAttrDefine, PopupmenuShow, TablineUpdate, WinFloatPos, WinPos,
+        mode_info_set::ModeInfo, Anchor, DefaultColorsSet, Event, GridLine, GridScroll,
+        HlAttrDefine, PopupmenuShow, TablineUpdate, WinFloatPos, WinPos,
     },
     ui::grid::{FloatingWindow, Window},
     util::vec2::Vec2,
@@ -213,15 +213,15 @@ impl Ui {
                     menu.selected = event.selected
                 }
             }
-            Event::GlobalEvent(GlobalEvent::PopupmenuHide) => self.popupmenu = None,
+            Event::PopupmenuHide => self.popupmenu = None,
 
             Event::CmdlineShow(event) => self.cmdline.show(event),
             Event::CmdlinePos(event) => self.cmdline.set_cursor_pos(event.pos),
             Event::CmdlineBlockShow(event) => self.cmdline.show_block(event.lines),
             Event::CmdlineBlockAppend(event) => self.cmdline.append_block(event.line),
             Event::CmdlineSpecialChar(event) => self.cmdline.special(event),
-            Event::GlobalEvent(GlobalEvent::CmdlineHide) => self.cmdline.hide(),
-            Event::GlobalEvent(GlobalEvent::CmdlineBlockHide) => self.cmdline.hide_block(),
+            Event::CmdlineHide => self.cmdline.hide(),
+            Event::CmdlineBlockHide => self.cmdline.hide_block(),
 
             Event::MsgHistoryShow(event) => self.messages.history = event.entries,
             Event::MsgRuler(event) => self.messages.ruler = event.content,
@@ -238,28 +238,28 @@ impl Ui {
             Event::MsgShow(event) => self.messages.show(event),
             Event::MsgShowmode(event) => self.messages.showmode = event.content,
             Event::MsgShowcmd(event) => self.messages.showcmd = event.content,
-            Event::GlobalEvent(GlobalEvent::MsgClear) => self.messages.show.clear(),
-            Event::GlobalEvent(GlobalEvent::MsgHistoryClear) => self.messages.history.clear(),
+            Event::MsgClear => self.messages.show.clear(),
+            Event::MsgHistoryClear => self.messages.history.clear(),
 
             Event::TablineUpdate(event) => self.tabline = Some(event),
 
-            Event::GlobalEvent(GlobalEvent::MouseOn) => self.cursor.enabled = true,
-            Event::GlobalEvent(GlobalEvent::MouseOff) => self.cursor.enabled = false,
-            Event::GlobalEvent(GlobalEvent::BusyStart) => self.cursor.enabled = false,
-            Event::GlobalEvent(GlobalEvent::BusyStop) => self.cursor.enabled = true,
-            Event::GlobalEvent(GlobalEvent::Flush) => {
+            Event::MouseOn => self.cursor.enabled = true,
+            Event::MouseOff => self.cursor.enabled = false,
+            Event::BusyStart => self.cursor.enabled = false,
+            Event::BusyStop => self.cursor.enabled = true,
+            Event::Flush => {
                 self.new_highlights.clear();
                 for grid in self.grids.iter_mut() {
                     grid.dirty = false;
                 }
             }
 
-            Event::GlobalEvent(GlobalEvent::Suspend)
+            Event::Suspend
             | Event::SetTitle(_)
             | Event::SetIcon(_)
-            | Event::GlobalEvent(GlobalEvent::UpdateMenu)
-            | Event::GlobalEvent(GlobalEvent::Bell)
-            | Event::GlobalEvent(GlobalEvent::VisualBell) => {}
+            | Event::UpdateMenu
+            | Event::Bell
+            | Event::VisualBell => {}
         }
     }
 

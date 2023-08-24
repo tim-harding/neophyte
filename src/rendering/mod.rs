@@ -11,7 +11,7 @@ mod texture;
 
 use self::state::RenderState;
 use crate::{
-    event::{self, Event, GlobalEvent, OptionSet, SetTitle},
+    event::{self, Event, OptionSet, SetTitle},
     session::Neovim,
     text::fonts::{FontStyle, Fonts},
     ui::Ui,
@@ -106,9 +106,9 @@ impl RenderLoop {
     fn handle_event(&mut self, event: Event) {
         log::info!("{event:?}");
         match event {
-            Event::GlobalEvent(GlobalEvent::Flush) => {
+            Event::Flush => {
                 self.render_state.update(&self.ui, &mut self.fonts);
-                self.ui.process(Event::GlobalEvent(GlobalEvent::Flush));
+                self.ui.process(Event::Flush);
                 self.window.request_redraw();
             }
             Event::SetTitle(SetTitle { title }) => self.window.set_title(&title),
