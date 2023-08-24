@@ -69,22 +69,6 @@ impl RenderState {
     }
 
     pub fn update(&mut self, ui: &Ui, fonts: &mut Fonts) {
-        self.highlights
-            .update(&ui, &self.highlights_bind_group_layout, &self.shared);
-        self.glyph_pipeline.update(
-            &self.shared,
-            &self.font_cache.monochrome,
-            &self.highlights_bind_group_layout,
-            &self.grid_bind_group_layout,
-            wgpu::TextureFormat::R8Unorm,
-        );
-        self.emoji_pipeline.update(
-            &self.shared,
-            &self.font_cache.emoji,
-            &self.highlights_bind_group_layout,
-            &self.grid_bind_group_layout,
-            wgpu::TextureFormat::Rgba8UnormSrgb,
-        );
         let cell_size = fonts
             .with_style(FontStyle::Regular)
             .unwrap()
@@ -137,6 +121,23 @@ impl RenderState {
 
             grid.update_grid_info(fonts, &self.shared, &ui_grid, ui.position(ui_grid.id), z);
         }
+
+        self.highlights
+            .update(&ui, &self.highlights_bind_group_layout, &self.shared);
+        self.glyph_pipeline.update(
+            &self.shared,
+            &self.font_cache.monochrome,
+            &self.highlights_bind_group_layout,
+            &self.grid_bind_group_layout,
+            wgpu::TextureFormat::R8Unorm,
+        );
+        self.emoji_pipeline.update(
+            &self.shared,
+            &self.font_cache.emoji,
+            &self.highlights_bind_group_layout,
+            &self.grid_bind_group_layout,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+        );
     }
 
     pub fn resize(&mut self, size: PhysicalSize<u32>) {
