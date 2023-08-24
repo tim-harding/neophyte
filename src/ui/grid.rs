@@ -20,7 +20,6 @@ pub struct Grid {
     pub id: u64,
     pub size: Vec2<u64>,
     pub buffer: Vec<Cell>,
-    pub show: bool,
     pub window: Window,
     pub dirty: bool,
 }

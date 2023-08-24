@@ -135,39 +135,36 @@ impl Ui {
                 self.cursor.pos = Vec2::new(event.column, event.row);
                 self.cursor.grid = event.grid;
             }
-            Event::GridScroll(event) => {
-                let GridScroll {
-                    grid,
-                    top,
-                    bot,
-                    left,
-                    right,
-                    rows,
-                    cols: _,
-                } = event;
+            Event::GridScroll(GridScroll {
+                grid,
+                top,
+                bot,
+                left,
+                right,
+                rows,
+                cols: _,
+            }) => {
                 let grid = self.grid_mut(grid);
                 grid.scroll(top, bot, left, right, rows);
             }
-            Event::GridLine(event) => {
-                let GridLine {
-                    grid,
-                    row,
-                    col_start,
-                    cells,
-                } = event;
+            Event::GridLine(GridLine {
+                grid,
+                row,
+                col_start,
+                cells,
+            }) => {
                 let grid = self.grid_mut(grid);
                 grid.grid_line(row, col_start, cells);
             }
 
-            Event::WinPos(event) => {
-                let WinPos {
-                    grid,
-                    win: _,
-                    start_row,
-                    start_col,
-                    width,
-                    height,
-                } = event;
+            Event::WinPos(WinPos {
+                grid,
+                win: _,
+                start_row,
+                start_col,
+                width,
+                height,
+            }) => {
                 match self.draw_order.iter().position(|&r| r == grid) {
                     Some(i) => {
                         self.draw_order.remove(i);
@@ -182,23 +179,16 @@ impl Ui {
                     size: Vec2::new(width, height),
                 });
             }
-            Event::WinFloatPos(event) => {
-                let WinFloatPos {
-                    grid,
-                    win: _,
-                    anchor,
-                    anchor_grid,
-                    anchor_row,
-                    anchor_col,
-                    focusable,
-                } = event;
-                match self.draw_order.iter().position(|&r| r == grid) {
-                    Some(i) => {
-                        self.draw_order.remove(i);
-                    }
-                    None => {}
-                }
-                self.draw_order.push(grid);
+            Event::WinFloatPos(WinFloatPos {
+                grid,
+                win: _,
+                anchor,
+                anchor_grid,
+                anchor_row,
+                anchor_col,
+                focusable,
+            }) => {
+                self.show(grid);
                 let grid = self.grid_mut(grid);
                 grid.window = Window::Floating(FloatingWindow {
                     anchor,
@@ -211,17 +201,9 @@ impl Ui {
                 let grid = self.grid_mut(event.grid);
                 grid.window = Window::External;
             }
-            Event::WinHide(event) => {
-                if let Some(i) = self.draw_order.iter().position(|&r| r == event.grid) {
-                    self.draw_order.remove(i);
-                }
-                let grid = self.grid_mut(event.grid);
-                grid.show = false;
-            }
+            Event::WinHide(event) => self.hide(event.grid),
             Event::WinClose(event) => {
-                if let Some(i) = self.draw_order.iter().position(|&r| r == event.grid) {
-                    self.draw_order.remove(i);
-                }
+                self.hide(event.grid);
                 let grid = self.grid_mut(event.grid);
                 grid.window = Window::None;
             }
@@ -247,6 +229,7 @@ impl Ui {
             Event::MsgHistoryShow(event) => self.messages.history = event.entries,
             Event::MsgRuler(event) => self.messages.ruler = event.content,
             Event::MsgSetPos(event) => {
+                self.show(event.grid);
                 let grid = self.get_or_create_grid(event.grid);
                 grid.window = Window::Floating(FloatingWindow {
                     anchor: Anchor::Nw,
@@ -280,6 +263,22 @@ impl Ui {
             | Event::GlobalEvent(GlobalEvent::UpdateMenu)
             | Event::GlobalEvent(GlobalEvent::Bell)
             | Event::GlobalEvent(GlobalEvent::VisualBell) => {}
+        }
+    }
+
+    fn show(&mut self, grid: u64) {
+        match self.draw_order.iter().position(|&r| r == grid) {
+            Some(i) => {
+                self.draw_order.remove(i);
+            }
+            None => {}
+        }
+        self.draw_order.push(grid);
+    }
+
+    fn hide(&mut self, grid: u64) {
+        if let Some(i) = self.draw_order.iter().position(|&r| r == grid) {
+            self.draw_order.remove(i);
         }
     }
 
