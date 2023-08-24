@@ -27,11 +27,11 @@ impl Parse for MsgShow {
 /// Whether to replace the previous message
 #[derive(Debug, Clone)]
 pub enum ReplaceLast {
-    ///	Replace the message in the most-recent msg_show call, but any other
-    ///	visible message should still remain.
+    /// Replace the message in the most-recent msg_show call, but any other
+    /// visible message should still remain.
     Replace,
-    ///	Display the message together with all previous messages that are still
-    ///	visible.
+    /// Display the message together with all previous messages that are still
+    /// visible.
     Keep,
 }
 

@@ -20,10 +20,6 @@ pub struct CursorPushConstants {
     fragment: CursorPushConstantsFragment,
 }
 
-impl CursorPushConstants {
-    pub const SIZE: usize = std::mem::size_of::<Self>();
-}
-
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct CursorPushConstantsVertex {

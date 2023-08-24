@@ -53,11 +53,11 @@ pub fn decode(reader: &mut ChildStdout) -> Result<RpcMessage, DecodeError> {
 
 macro_rules! value_vec {
     ($($e:expr), *) => {{
-        let mut vec = Vec::new();
+        Value::from(vec![
         $(
-            vec.push(Value::from($e));
+            Value::from($e),
         )*
-        Value::from(vec)
+        ])
     }}
 }
 

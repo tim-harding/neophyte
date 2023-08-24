@@ -6,6 +6,12 @@ pub struct Fonts {
     fonts: Vec<FontInfo>,
 }
 
+impl Default for Fonts {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Fonts {
     pub fn new() -> Self {
         Self {

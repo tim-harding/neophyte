@@ -165,11 +165,8 @@ impl Ui {
                 width,
                 height,
             }) => {
-                match self.draw_order.iter().position(|&r| r == grid) {
-                    Some(i) => {
-                        self.draw_order.remove(i);
-                    }
-                    None => {}
+                if let Some(i) = self.draw_order.iter().position(|&r| r == grid) {
+                    self.draw_order.remove(i);
                 }
                 self.draw_order.push(grid);
                 self.float_windows_start += 1;
@@ -267,11 +264,8 @@ impl Ui {
     }
 
     fn show(&mut self, grid: u64) {
-        match self.draw_order.iter().position(|&r| r == grid) {
-            Some(i) => {
-                self.draw_order.remove(i);
-            }
-            None => {}
+        if let Some(i) = self.draw_order.iter().position(|&r| r == grid) {
+            self.draw_order.remove(i);
         }
         self.draw_order.push(grid);
     }
@@ -283,17 +277,11 @@ impl Ui {
     }
 
     fn delete_grid(&mut self, grid: u64) {
-        match self.grids.binary_search_by(|probe| probe.id.cmp(&grid)) {
-            Ok(i) => {
-                self.grids.remove(i);
-            }
-            Err(_) => {}
+        if let Ok(i) = self.grids.binary_search_by(|probe| probe.id.cmp(&grid)) {
+            self.grids.remove(i);
         }
-        match self.draw_order.iter().position(|&r| r == grid) {
-            Some(i) => {
-                self.draw_order.remove(i);
-            }
-            None => {}
+        if let Some(i) = self.draw_order.iter().position(|&r| r == grid) {
+            self.draw_order.remove(i);
         }
     }
 
