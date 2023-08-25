@@ -1,5 +1,4 @@
 use super::{depth_texture::DepthTexture, grid::GridInfo};
-use bytemuck::cast_slice;
 use wgpu::include_wgsl;
 
 pub struct CellFillPipeline {
@@ -68,20 +67,5 @@ impl CellFillPipeline {
         });
 
         Self { pipeline }
-    }
-
-    pub fn render<'b, 'c, 'a: 'b + 'c>(
-        &'a self,
-        render_pass: &'b mut wgpu::RenderPass<'c>,
-        highlights_bind_group: &'a wgpu::BindGroup,
-        bg_bind_group: &'a wgpu::BindGroup,
-        grid_info: GridInfo,
-        bg_count: u32,
-    ) {
-        render_pass.set_pipeline(&self.pipeline);
-        render_pass.set_bind_group(0, highlights_bind_group, &[]);
-        render_pass.set_bind_group(1, bg_bind_group, &[]);
-        render_pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, cast_slice(&[grid_info]));
-        render_pass.draw(0..bg_count * 6, 0..1);
     }
 }

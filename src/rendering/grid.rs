@@ -27,7 +27,7 @@ pub struct Grid {
     buffer_capacity: u64,
     pub buffer: Option<wgpu::Buffer>,
     pub bg_bind_group: Option<wgpu::BindGroup>,
-    pub glyph_bind_group: Option<wgpu::BindGroup>,
+    pub monochrome_bind_group: Option<wgpu::BindGroup>,
     pub emoji_bind_group: Option<wgpu::BindGroup>,
     pub grid_info: GridInfo,
     pub glyph_count: u32,
@@ -284,7 +284,7 @@ impl Grid {
 
         let mut offset = 0;
         shared.queue.write_buffer(buffer, 0, glyphs);
-        self.glyph_bind_group = NonZeroU64::new(glyphs_len).map(|size| {
+        self.monochrome_bind_group = NonZeroU64::new(glyphs_len).map(|size| {
             shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Glyph bind group"),
                 layout: grid_bind_group_layout,

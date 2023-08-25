@@ -110,7 +110,7 @@ impl RenderLoop {
                     let guifont = &self.ui.options.guifont;
                     self.fonts.reload(guifont.0.as_slice(), guifont.1);
                     self.render_state.font_cache.clear();
-                    self.render_state.glyph_pipeline.clear();
+                    self.render_state.monochrome_pipeline.clear();
                     self.resize_grid();
                 }
             }

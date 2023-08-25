@@ -14,6 +14,7 @@ use crate::{
     },
     ui::Ui,
 };
+use bytemuck::cast_slice;
 use std::sync::Arc;
 use swash::shape::ShapeContext;
 use wgpu::include_wgsl;
@@ -25,11 +26,12 @@ pub struct RenderState {
     pub font_cache: FontCache,
     pub shared: Shared,
     pub grids: Vec<grid::Grid>,
-    pub glyph_pipeline: GlyphPipeline,
+    pub monochrome_pipeline: GlyphPipeline,
     pub emoji_pipeline: GlyphPipeline,
     pub cell_fill_pipeline: CellFillPipeline,
     pub highlights: HighlightsBindGroup,
     pub grid_bind_group_layout: GridBindGroupLayout,
+    pub draw_order_index_cache: Vec<usize>,
 }
 
 // TODO: Use each pipeline to completion
@@ -43,7 +45,7 @@ impl RenderState {
             cursor: Cursor::new(&shared.device, shared.surface_config.format),
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
-            glyph_pipeline: GlyphPipeline::new(
+            monochrome_pipeline: GlyphPipeline::new(
                 &shared.device,
                 shared
                     .device
@@ -65,6 +67,7 @@ impl RenderState {
             grid_bind_group_layout,
             grids: vec![],
             highlights,
+            draw_order_index_cache: vec![],
         }
     }
 
@@ -122,7 +125,7 @@ impl RenderState {
         }
 
         self.highlights.update(ui, &self.shared);
-        self.glyph_pipeline.update(
+        self.monochrome_pipeline.update(
             &self.shared,
             &self.font_cache.monochrome,
             &self.highlights.bind_group_layout,
@@ -142,7 +145,7 @@ impl RenderState {
         self.shared.resize(size);
     }
 
-    pub fn render(&self, draw_order: &[u64]) -> Result<(), wgpu::SurfaceError> {
+    pub fn render(&mut self, draw_order: &[u64]) -> Result<(), wgpu::SurfaceError> {
         let output = self.shared.surface.get_current_texture()?;
         let view = output
             .texture
@@ -180,41 +183,61 @@ impl RenderState {
                 }),
             });
 
+            render_pass.set_pipeline(&self.cell_fill_pipeline.pipeline);
+            render_pass.set_bind_group(0, highlights_bind_group, &[]);
+            self.draw_order_index_cache.clear();
             for &id in draw_order.iter().rev() {
                 let i = self
                     .grids
                     .binary_search_by(|probe| probe.id.cmp(&{ id }))
                     .unwrap();
+                self.draw_order_index_cache.push(i);
                 let grid = &self.grids[i];
 
                 if let Some(bg_bind_group) = &grid.bg_bind_group {
-                    self.cell_fill_pipeline.render(
-                        &mut render_pass,
-                        highlights_bind_group,
-                        bg_bind_group,
-                        grid.grid_info,
-                        grid.bg_count,
+                    render_pass.set_bind_group(1, &bg_bind_group, &[]);
+                    render_pass.set_push_constants(
+                        wgpu::ShaderStages::VERTEX,
+                        0,
+                        cast_slice(&[grid.grid_info]),
                     );
+                    render_pass.draw(0..grid.bg_count * 6, 0..1);
                 }
+            }
 
-                if let Some(glyph_bind_group) = &grid.glyph_bind_group {
-                    self.glyph_pipeline.render(
-                        &mut render_pass,
-                        highlights_bind_group,
-                        glyph_bind_group,
-                        grid.glyph_count,
-                        grid.grid_info,
-                    );
+            if let Some(contingent) = &self.monochrome_pipeline.contingent {
+                render_pass.set_pipeline(&contingent.pipeline);
+                render_pass.set_bind_group(0, highlights_bind_group, &[]);
+                render_pass.set_bind_group(1, &contingent.bind_group, &[]);
+                for i in self.draw_order_index_cache.iter() {
+                    let grid = &self.grids[*i];
+                    if let Some(monochrome_bind_group) = &grid.monochrome_bind_group {
+                        render_pass.set_bind_group(2, &monochrome_bind_group, &[]);
+                        render_pass.set_push_constants(
+                            wgpu::ShaderStages::VERTEX,
+                            0,
+                            cast_slice(&[grid.grid_info]),
+                        );
+                        render_pass.draw(0..grid.glyph_count * 6, 0..1);
+                    }
                 }
+            }
 
-                if let Some(emoji_bind_group) = &grid.emoji_bind_group {
-                    self.emoji_pipeline.render(
-                        &mut render_pass,
-                        highlights_bind_group,
-                        emoji_bind_group,
-                        grid.emoji_count,
-                        grid.grid_info,
-                    );
+            if let Some(contingent) = &self.emoji_pipeline.contingent {
+                render_pass.set_pipeline(&contingent.pipeline);
+                render_pass.set_bind_group(0, highlights_bind_group, &[]);
+                render_pass.set_bind_group(1, &contingent.bind_group, &[]);
+                for i in self.draw_order_index_cache.iter() {
+                    let grid = &self.grids[*i];
+                    if let Some(emoji_bind_group) = &grid.emoji_bind_group {
+                        render_pass.set_bind_group(2, &emoji_bind_group, &[]);
+                        render_pass.set_push_constants(
+                            wgpu::ShaderStages::VERTEX,
+                            0,
+                            cast_slice(&[grid.grid_info]),
+                        );
+                        render_pass.draw(0..grid.glyph_count * 6, 0..1);
+                    }
                 }
             }
 

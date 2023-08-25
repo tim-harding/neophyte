@@ -24,17 +24,18 @@ struct HighlightInfo {
     bg: vec3<f32>,
 }
 
+var<push_constant> grid_info: GridInfo;
+
 @group(0) @binding(0)
 var<storage, read> highlights: array<HighlightInfo>;
 @group(1) @binding(0)
-var<storage, read> grid_cells: array<GridCell>;
-var<push_constant> grid_info: GridInfo;
-@group(2) @binding(0)
 var glyph_textures: binding_array<texture_2d<f32>>;
-@group(2) @binding(1)
+@group(1) @binding(1)
 var glyph_sampler: sampler;
-@group(2) @binding(2)
+@group(1) @binding(2)
 var<storage, read> glyphs: array<GlyphInfo>;
+@group(2) @binding(0)
+var<storage, read> grid_cells: array<GridCell>;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,

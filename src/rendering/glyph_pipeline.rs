@@ -16,8 +16,12 @@ pub struct GlyphPipeline {
     next_glyph_to_upload: usize,
     pub sampler: wgpu::Sampler,
     pub shader: wgpu::ShaderModule,
-    pub bind_group: Option<wgpu::BindGroup>,
-    pub pipeline: Option<wgpu::RenderPipeline>,
+    pub contingent: Option<Contingent>,
+}
+
+pub struct Contingent {
+    pub bind_group: wgpu::BindGroup,
+    pub pipeline: wgpu::RenderPipeline,
 }
 
 impl GlyphPipeline {
@@ -36,16 +40,14 @@ impl GlyphPipeline {
                 ..Default::default()
             }),
             shader,
-            bind_group: None,
-            pipeline: None,
+            contingent: None,
         }
     }
 
     pub fn clear(&mut self) {
         self.textures.clear();
         self.next_glyph_to_upload = 0;
-        self.bind_group = None;
-        self.pipeline = None;
+        self.contingent = None;
     }
 
     pub fn update(
@@ -131,8 +133,8 @@ impl GlyphPipeline {
                     label: Some("Render Pipeline Layout"),
                     bind_group_layouts: &[
                         &highlights_bind_group_layout,
-                        &grid_bind_group_layout.bind_group_layout,
                         &font_bind_group_layout,
+                        &grid_bind_group_layout.bind_group_layout,
                     ],
                     push_constant_ranges: &[wgpu::PushConstantRange {
                         stages: wgpu::ShaderStages::VERTEX,
@@ -140,8 +142,9 @@ impl GlyphPipeline {
                     }],
                 });
 
-        self.pipeline = Some(shared.device.create_render_pipeline(
-            &wgpu::RenderPipelineDescriptor {
+        let pipeline = shared
+            .device
+            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("Render pipeline"),
                 layout: Some(&glyph_pipeline_layout),
                 vertex: wgpu::VertexState {
@@ -181,10 +184,9 @@ impl GlyphPipeline {
                     alpha_to_coverage_enabled: false,
                 },
                 multiview: None,
-            },
-        ));
+            });
 
-        self.bind_group = Some(shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let bind_group = shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Font bind group"),
             layout: &font_bind_group_layout,
             entries: &[
@@ -205,30 +207,11 @@ impl GlyphPipeline {
                     }),
                 },
             ],
-        }));
-    }
+        });
 
-    pub fn render<'b, 'c, 'a: 'b + 'c>(
-        &'a self,
-        render_pass: &'b mut wgpu::RenderPass<'c>,
-        highlights_bind_group: &'a wgpu::BindGroup,
-        glyph_bind_group: &'a wgpu::BindGroup,
-        glyph_count: u32,
-        grid_info: GridInfo,
-    ) {
-        let pipeline = match &self.pipeline {
-            Some(pipeline) => pipeline,
-            None => return,
-        };
-        let bind_group = match &self.bind_group {
-            Some(bind_group) => bind_group,
-            None => return,
-        };
-        render_pass.set_pipeline(pipeline);
-        render_pass.set_bind_group(0, highlights_bind_group, &[]);
-        render_pass.set_bind_group(1, glyph_bind_group, &[]);
-        render_pass.set_bind_group(2, bind_group, &[]);
-        render_pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, cast_slice(&[grid_info]));
-        render_pass.draw(0..glyph_count * 6, 0..1);
+        self.contingent = Some(Contingent {
+            bind_group,
+            pipeline,
+        })
     }
 }
