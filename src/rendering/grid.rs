@@ -20,6 +20,7 @@ use swash::{
 
 #[derive(Default)]
 pub struct Grid {
+    pub id: u64,
     glyphs: Vec<GlyphInfo>,
     emoji: Vec<EmojiCell>,
     bg: Vec<u32>,
@@ -35,8 +36,11 @@ pub struct Grid {
 }
 
 impl Grid {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(id: u64) -> Self {
+        Self {
+            id,
+            ..Default::default()
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -342,7 +346,6 @@ impl Grid {
         self.grid_info = GridInfo {
             surface_size: shared.surface_size(),
             cell_size: metrics.cell_size_px,
-            // TODO: Relative to anchor grid
             offset: (position * metrics.cell_size_px.into()).into(),
             grid_width: grid.size.x as u32,
             baseline: metrics.em_px,

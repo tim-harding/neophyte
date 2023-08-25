@@ -9,6 +9,7 @@ use wgpu::util::DeviceExt;
 
 // TODO: Highlights binding not needed for emoji
 // TODO: Resizable glyph info buffer
+// TODO: General refactor of this file
 
 pub struct GlyphPipeline {
     textures: Vec<Texture>,

@@ -24,13 +24,15 @@ pub struct RenderState {
     pub shape_context: ShapeContext,
     pub font_cache: FontCache,
     pub shared: Shared,
-    pub grids: Vec<(u64, grid::Grid)>,
+    pub grids: Vec<grid::Grid>,
     pub glyph_pipeline: GlyphPipeline,
     pub emoji_pipeline: GlyphPipeline,
     pub cell_fill_pipeline: CellFillPipeline,
     pub highlights: HighlightsBindGroup,
     pub grid_bind_group_layout: GridBindGroupLayout,
 }
+
+// TODO: Use each pipeline to completion
 
 impl RenderState {
     pub async fn new(window: Arc<Window>) -> Self {
@@ -75,8 +77,8 @@ impl RenderState {
             .update(ui, self.shared.surface_size(), cell_size.into());
 
         let mut i = 0;
-        while let Some((id, _)) = self.grids.get(i) {
-            if ui.grid_index(*id).is_ok() {
+        while let Some(grid) = self.grids.get(i) {
+            if ui.grid_index(grid.id).is_ok() {
                 i += 1;
             } else {
                 self.grids.remove(i);
@@ -86,15 +88,15 @@ impl RenderState {
         for ui_grid in ui.grids.iter() {
             let index = match self
                 .grids
-                .binary_search_by(|probe| probe.0.cmp(&ui_grid.id))
+                .binary_search_by(|probe| probe.id.cmp(&ui_grid.id))
             {
                 Ok(index) => index,
                 Err(index) => {
-                    self.grids.insert(index, (ui_grid.id, Grid::new()));
+                    self.grids.insert(index, Grid::new(ui_grid.id));
                     index
                 }
             };
-            let grid = &mut self.grids[index].1;
+            let grid = &mut self.grids[index];
 
             if ui_grid.dirty {
                 grid.update_content(
@@ -156,6 +158,7 @@ impl RenderState {
             Some(highlights_bind_group) => highlights_bind_group,
             None => return Ok(()),
         };
+
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render pass"),
@@ -180,9 +183,9 @@ impl RenderState {
             for &id in draw_order.iter().rev() {
                 let i = self
                     .grids
-                    .binary_search_by(|(probe, _)| probe.cmp(&{ id }))
+                    .binary_search_by(|probe| probe.id.cmp(&{ id }))
                     .unwrap();
-                let (_, grid) = &self.grids[i];
+                let grid = &self.grids[i];
 
                 if let Some(bg_bind_group) = &grid.bg_bind_group {
                     self.cell_fill_pipeline.render(
