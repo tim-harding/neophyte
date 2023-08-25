@@ -1,6 +1,6 @@
 use super::{
     depth_texture::DepthTexture, grid::GridInfo, grid_bind_group_layout::GridBindGroupLayout,
-    highlights, shared::Shared,
+    shared::Shared,
 };
 use crate::{rendering::texture::Texture, text::cache::Cached};
 use bytemuck::cast_slice;
@@ -51,7 +51,7 @@ impl GlyphPipeline {
         &mut self,
         shared: &Shared,
         font_cache: &Cached,
-        highlights_constant: &highlights::HighlightsBindGroupLayout,
+        highlights_bind_group_layout: &wgpu::BindGroupLayout,
         grid_bind_group_layout: &GridBindGroupLayout,
         texture_format: wgpu::TextureFormat,
     ) {
@@ -129,7 +129,7 @@ impl GlyphPipeline {
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Render Pipeline Layout"),
                     bind_group_layouts: &[
-                        &highlights_constant.bind_group_layout,
+                        &highlights_bind_group_layout,
                         &grid_bind_group_layout.bind_group_layout,
                         &font_bind_group_layout,
                     ],

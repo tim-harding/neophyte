@@ -4,7 +4,7 @@ use super::{
     glyph_pipeline::GlyphPipeline,
     grid::{self, Grid},
     grid_bind_group_layout::GridBindGroupLayout,
-    highlights::{HighlightsBindGroup, HighlightsBindGroupLayout},
+    highlights::HighlightsBindGroup,
     shared::Shared,
 };
 use crate::{
@@ -28,7 +28,6 @@ pub struct RenderState {
     pub glyph_pipeline: GlyphPipeline,
     pub emoji_pipeline: GlyphPipeline,
     pub cell_fill_pipeline: CellFillPipeline,
-    pub highlights_bind_group_layout: HighlightsBindGroupLayout,
     pub highlights: HighlightsBindGroup,
     pub grid_bind_group_layout: GridBindGroupLayout,
 }
@@ -36,7 +35,7 @@ pub struct RenderState {
 impl RenderState {
     pub async fn new(window: Arc<Window>) -> Self {
         let shared = Shared::new(window).await;
-        let highlights_bind_group_layout = HighlightsBindGroupLayout::new(&shared.device);
+        let highlights = HighlightsBindGroup::new(&shared.device);
         let grid_bind_group_layout = GridBindGroupLayout::new(&shared.device);
         Self {
             cursor: Cursor::new(&shared.device, shared.surface_config.format),
@@ -56,15 +55,14 @@ impl RenderState {
             ),
             cell_fill_pipeline: CellFillPipeline::new(
                 &shared.device,
-                &highlights_bind_group_layout.bind_group_layout,
+                &highlights.bind_group_layout,
                 &grid_bind_group_layout.bind_group_layout,
                 shared.surface_format,
             ),
             shared,
             grid_bind_group_layout,
-            highlights_bind_group_layout,
             grids: vec![],
-            highlights: HighlightsBindGroup::default(),
+            highlights,
         }
     }
 
@@ -121,19 +119,18 @@ impl RenderState {
             grid.update_grid_info(fonts, &self.shared, ui_grid, ui.position(ui_grid.id), z);
         }
 
-        self.highlights
-            .update(ui, &self.highlights_bind_group_layout, &self.shared);
+        self.highlights.update(ui, &self.shared);
         self.glyph_pipeline.update(
             &self.shared,
             &self.font_cache.monochrome,
-            &self.highlights_bind_group_layout,
+            &self.highlights.bind_group_layout,
             &self.grid_bind_group_layout,
             wgpu::TextureFormat::R8Unorm,
         );
         self.emoji_pipeline.update(
             &self.shared,
             &self.font_cache.emoji,
-            &self.highlights_bind_group_layout,
+            &self.highlights.bind_group_layout,
             &self.grid_bind_group_layout,
             wgpu::TextureFormat::Rgba8UnormSrgb,
         );

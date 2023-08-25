@@ -3,20 +3,36 @@ use crate::{event::hl_attr_define::Rgb, ui::Ui, util::srgb};
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::util::DeviceExt;
 
-#[derive(Default)]
 pub struct HighlightsBindGroup {
     pub highlights: Vec<HighlightInfo>,
     pub clear_color: wgpu::Color,
+    pub bind_group_layout: wgpu::BindGroupLayout,
     pub bind_group: Option<wgpu::BindGroup>,
 }
 
 impl HighlightsBindGroup {
-    pub fn update(
-        &mut self,
-        ui: &Ui,
-        highlights_bind_group_layout: &HighlightsBindGroupLayout,
-        shared: &Shared,
-    ) {
+    pub fn new(device: &wgpu::Device) -> Self {
+        Self {
+            highlights: vec![],
+            clear_color: wgpu::Color::BLACK,
+            bind_group: None,
+            bind_group_layout: device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Highlights bind group layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            }),
+        }
+    }
+
+    pub fn update(&mut self, ui: &Ui, shared: &Shared) {
         let fg_default = ui.default_colors.rgb_fg.unwrap_or(Rgb::new(255, 255, 255));
         let bg_default = ui.default_colors.rgb_bg.unwrap_or(Rgb::new(0, 0, 0));
 
@@ -71,7 +87,7 @@ impl HighlightsBindGroup {
 
             self.bind_group = Some(shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Highlights bind group"),
-                layout: &highlights_bind_group_layout.bind_group_layout,
+                layout: &self.bind_group_layout,
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
                     resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
@@ -91,28 +107,4 @@ impl HighlightsBindGroup {
 pub struct HighlightInfo {
     pub fg: [f32; 4],
     pub bg: [f32; 4],
-}
-
-pub struct HighlightsBindGroupLayout {
-    pub bind_group_layout: wgpu::BindGroupLayout,
-}
-
-impl HighlightsBindGroupLayout {
-    pub fn new(device: &wgpu::Device) -> Self {
-        Self {
-            bind_group_layout: device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Highlights bind group layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            }),
-        }
-    }
 }
