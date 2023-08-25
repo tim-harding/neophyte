@@ -10,16 +10,16 @@ pub struct WinViewport {
     pub grid: u64,
     /// The window to update
     pub win: Window,
-    // TODO: What are topline and botline?
+    /// The first line of the grid to display
     pub topline: u64,
-    /// One past the last line of buffer text. If there are filler lines past
-    /// the end, this is One more than the line count of the buffer.
+    /// One past the last line of the grid to display. If there are filler lines
+    /// past the end, this is One more than the line count of the buffer.
     pub botline: u64,
     /// The line the cursor is on
     pub curline: u64,
     /// The column the cursor is on
     pub curcol: u64,
-    /// TODO: What is line_count?
+    /// The line count of the buffer
     pub line_count: u64,
     /// how much the top line of a window moved since win_viewport was last
     /// emitted. It is intended to be used to implement smooth scrolling. For
