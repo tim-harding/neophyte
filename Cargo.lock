@@ -94,7 +94,6 @@ dependencies = [
  "env_logger",
  "font-loader",
  "log",
- "png",
  "pollster",
  "rmpv",
  "swash",

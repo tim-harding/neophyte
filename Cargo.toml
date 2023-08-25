@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 swash = "0.1.8"
-png = "0.17.9"
 thiserror = "1.0.44"
 env_logger = "0.10.0"
 log = "0.4.19"
