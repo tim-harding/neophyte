@@ -1,6 +1,6 @@
 use super::{
-    depth_texture::DepthTexture, grid::GridInfo, grid_bind_group_layout::GridBindGroupLayout,
-    shared::Shared,
+    depth_texture::DepthTexture, grid, grid_bind_group_layout::GridBindGroupLayout, shared::Shared,
+    state::SharedPushConstants,
 };
 use crate::{rendering::texture::Texture, text::cache::Cached};
 use bytemuck::cast_slice;
@@ -138,7 +138,7 @@ impl GlyphPipeline {
                     ],
                     push_constant_ranges: &[wgpu::PushConstantRange {
                         stages: wgpu::ShaderStages::VERTEX,
-                        range: 0..GridInfo::SIZE as u32,
+                        range: 0..(SharedPushConstants::SIZE + grid::PushConstants::SIZE) as u32,
                     }],
                 });
 

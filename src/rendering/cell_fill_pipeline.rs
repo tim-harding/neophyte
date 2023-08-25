@@ -1,4 +1,4 @@
-use super::{depth_texture::DepthTexture, grid::GridInfo};
+use super::{depth_texture::DepthTexture, grid, state::SharedPushConstants};
 use wgpu::include_wgsl;
 
 pub struct CellFillPipeline {
@@ -17,10 +17,9 @@ impl CellFillPipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Cell fill pipeline layout"),
             bind_group_layouts: &[highlights_bind_group_layout, grid_bind_group_layout],
-            // TODO: Push constants for grid-specific and shared info
             push_constant_ranges: &[wgpu::PushConstantRange {
                 stages: wgpu::ShaderStages::VERTEX,
-                range: 0..GridInfo::SIZE as u32,
+                range: 0..(SharedPushConstants::SIZE + grid::PushConstants::SIZE) as u32,
             }],
         });
 

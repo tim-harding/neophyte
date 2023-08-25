@@ -29,7 +29,7 @@ pub struct Grid {
     pub bg_bind_group: Option<wgpu::BindGroup>,
     pub monochrome_bind_group: Option<wgpu::BindGroup>,
     pub emoji_bind_group: Option<wgpu::BindGroup>,
-    pub grid_info: GridInfo,
+    pub grid_info: PushConstants,
     pub glyph_count: u32,
     pub bg_count: u32,
     pub emoji_count: u32,
@@ -179,7 +179,8 @@ impl Grid {
                                                 (glyph.x * metrics.scale_factor).round() as i32
                                                     + x as i32,
                                                 (glyph.y * metrics.scale_factor
-                                                    + (cell_line_i as u32 * metrics.cell_size_px.y)
+                                                    + (cell_line_i as u32 * metrics.cell_size_px.y
+                                                        + metrics.em_px)
                                                         as f32)
                                                     .round()
                                                     as i32,
@@ -337,18 +338,14 @@ impl Grid {
     pub fn update_grid_info(
         &mut self,
         fonts: &Fonts,
-        shared: &Shared,
         grid: &ui::grid::Grid,
         position: Vec2<f64>,
         z: f32,
     ) {
         let metrics = fonts.with_style(FontStyle::Regular).metrics(fonts.size());
-        self.grid_info = GridInfo {
-            surface_size: shared.surface_size(),
-            cell_size: metrics.cell_size_px,
+        self.grid_info = PushConstants {
             offset: (position * metrics.cell_size_px.into()).into(),
             grid_width: grid.size.x as u32,
-            baseline: metrics.em_px,
             z,
         };
     }
@@ -372,15 +369,12 @@ pub struct EmojiCell {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
-pub struct GridInfo {
-    pub surface_size: Vec2<u32>,
-    pub cell_size: Vec2<u32>,
+pub struct PushConstants {
     pub offset: Vec2<f32>,
     pub grid_width: u32,
-    pub baseline: u32,
     pub z: f32,
 }
 
-impl GridInfo {
+impl PushConstants {
     pub const SIZE: usize = std::mem::size_of::<Self>();
 }
