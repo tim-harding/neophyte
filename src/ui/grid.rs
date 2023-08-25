@@ -127,7 +127,6 @@ impl Grid {
 
     pub fn scroll(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64) {
         self.dirty = true;
-        // TODO: Skip iterations for lines that won't be copied
         let height = self.size.y;
         let mut cut_and_paste = move |src_y, dst_y| {
             for x in left..right {
@@ -135,18 +134,18 @@ impl Grid {
                 self.set(Vec2::new(x, dst_y), t);
             }
         };
+        let dst_top = top as i64 - rows;
+        let dst_bot = bot as i64 - rows;
         if rows > 0 {
-            for y in top..bot {
-                if let Ok(dst_y) = ((y as i64) - rows).try_into() {
-                    cut_and_paste(y, dst_y);
-                }
+            for dst_y in dst_top.max(0)..dst_bot.max(0) {
+                let y = dst_y + rows;
+                cut_and_paste(y as u64, dst_y as u64);
             }
         } else {
-            for y in (top..bot).rev() {
-                let dst_y = ((y as i64) - rows) as u64;
-                if dst_y < height {
-                    cut_and_paste(y, dst_y);
-                }
+            let dst_top = dst_top.min(height as i64);
+            let dst_bot = dst_bot.min(height as i64);
+            for dst_y in (dst_top..dst_bot).rev() {
+                cut_and_paste((dst_y + rows) as u64, dst_y as u64);
             }
         }
     }
@@ -184,7 +183,6 @@ impl Grid {
     }
 
     pub fn combine(&mut self, other: Grid, cursor: Option<CursorRenderInfo>, start: Vec2<i64>) {
-        // TODO: Should be relative to the anchor grid
         let mut iter = other.buffer.into_iter();
         let size_x = self.size.x;
         for dst in self
@@ -201,7 +199,6 @@ impl Grid {
             }
         }
 
-        // TODO: Take mode_info_set into consideration
         if let Some(cursor) = cursor {
             let cursor_pos: Vec2<i64> = cursor.pos.try_into().unwrap();
             let pos: Vec2<i64> = cursor_pos + start;
@@ -244,14 +241,12 @@ impl Grid {
 
     pub fn grid_line(&mut self, row: u64, col_start: u64, cells: Vec<grid_line::Cell>) {
         self.dirty = true;
-        // TODO: Apply changes to glyph quads
         let mut row = self.row_mut(row).skip(col_start as usize);
         let mut highlight = 0;
         for cell in cells {
             if let Some(hl_id) = cell.hl_id {
                 highlight = hl_id;
             }
-            // TODO: Skip iterations for lines that won't be copied
             if let Some(repeat) = cell.repeat {
                 for _ in 0..repeat - 1 {
                     let dst = row.next().unwrap();

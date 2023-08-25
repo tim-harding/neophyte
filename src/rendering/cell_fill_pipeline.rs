@@ -1,7 +1,6 @@
+use super::{depth_texture::DepthTexture, grid::GridInfo};
 use bytemuck::cast_slice;
 use wgpu::include_wgsl;
-
-use super::{depth_texture::DepthTexture, grid::GridInfo};
 
 pub struct CellFillPipeline {
     pub pipeline: wgpu::RenderPipeline,
