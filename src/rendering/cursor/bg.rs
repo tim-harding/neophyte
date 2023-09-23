@@ -1,51 +1,50 @@
 use crate::{
     event::mode_info_set::CursorShape,
+    rendering::depth_texture::DepthTexture,
     ui::Ui,
     util::{srgb, vec2::Vec2},
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
 
-use super::depth_texture::DepthTexture;
-
-pub struct Cursor {
+pub struct CursorBg {
     pipeline: wgpu::RenderPipeline,
-    push_constants: CursorPushConstants,
+    push_constants: PushConstants,
 }
 
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
-pub struct CursorPushConstants {
-    vertex: CursorPushConstantsVertex,
-    fragment: CursorPushConstantsFragment,
+pub struct PushConstants {
+    vertex: PushConstantsVertex,
+    fragment: PushConstantsFragment,
 }
 
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
-pub struct CursorPushConstantsVertex {
+pub struct PushConstantsVertex {
     position: Vec2<f32>,
     surface_size: Vec2<u32>,
     fill: Vec2<f32>,
     cell_size: Vec2<f32>,
 }
 
-impl CursorPushConstantsFragment {
+impl PushConstantsFragment {
     pub const SIZE: usize = std::mem::size_of::<Self>();
 }
 
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
-pub struct CursorPushConstantsFragment {
+pub struct PushConstantsFragment {
     color: [f32; 4],
 }
 
-impl CursorPushConstantsVertex {
+impl PushConstantsVertex {
     pub const SIZE: usize = std::mem::size_of::<Self>();
 }
 
-impl Cursor {
+impl CursorBg {
     pub fn new(device: &wgpu::Device, texture_format: wgpu::TextureFormat) -> Self {
-        let shader = device.create_shader_module(include_wgsl!("cursor.wgsl"));
+        let shader = device.create_shader_module(include_wgsl!("bg.wgsl"));
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Cursor pipeline layout"),
@@ -53,13 +52,12 @@ impl Cursor {
             push_constant_ranges: &[
                 wgpu::PushConstantRange {
                     stages: wgpu::ShaderStages::VERTEX,
-                    range: 0..CursorPushConstantsVertex::SIZE as u32,
+                    range: 0..PushConstantsVertex::SIZE as u32,
                 },
                 wgpu::PushConstantRange {
                     stages: wgpu::ShaderStages::FRAGMENT,
-                    range: (CursorPushConstantsVertex::SIZE as u32)
-                        ..(CursorPushConstantsVertex::SIZE as u32
-                            + CursorPushConstantsFragment::SIZE as u32),
+                    range: (PushConstantsVertex::SIZE as u32)
+                        ..(PushConstantsVertex::SIZE as u32 + PushConstantsFragment::SIZE as u32),
                 },
             ],
         });
@@ -118,9 +116,9 @@ impl Cursor {
             .highlight_groups
             .get("Cursor")
             .and_then(|hl| ui.highlights.get(hl).unwrap().rgb_attr.background)
-            .unwrap_or(ui.default_colors.rgb_bg.unwrap_or_default());
-        self.push_constants = CursorPushConstants {
-            vertex: CursorPushConstantsVertex {
+            .unwrap_or(ui.default_colors.rgb_fg.unwrap_or_default());
+        self.push_constants = PushConstants {
+            vertex: PushConstantsVertex {
                 position: (ui.position(ui.cursor.grid) + ui.cursor.pos.into()).into(),
                 surface_size,
                 fill: match mode.cursor_shape.unwrap_or(CursorShape::Block) {
@@ -130,7 +128,7 @@ impl Cursor {
                 },
                 cell_size,
             },
-            fragment: CursorPushConstantsFragment {
+            fragment: PushConstantsFragment {
                 color: [srgb(color.r()), srgb(color.g()), srgb(color.b()), 1.0],
             },
         };
@@ -145,7 +143,7 @@ impl Cursor {
         );
         render_pass.set_push_constants(
             wgpu::ShaderStages::FRAGMENT,
-            CursorPushConstantsVertex::SIZE as u32,
+            PushConstantsVertex::SIZE as u32,
             cast_slice(&[self.push_constants.fragment]),
         );
         render_pass.draw(0..100, 0..1);

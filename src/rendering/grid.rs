@@ -100,18 +100,18 @@ impl Grid {
                                     }
 
                                     let mut best_font = None;
-                                    for (i, font_info) in fonts.iter().enumerate() {
-                                        let style = highlights
-                                            .get(&(cluster.user_data() as u64))
-                                            .map(|highlight| {
-                                                let Attributes { bold, italic, .. } =
-                                                    highlight.rgb_attr;
-                                                let bold = bold.unwrap_or_default();
-                                                let italic = italic.unwrap_or_default();
-                                                FontStyle::new(bold, italic)
-                                            })
-                                            .unwrap_or_default();
+                                    let style = highlights
+                                        .get(&(cluster.user_data() as u64))
+                                        .map(|highlight| {
+                                            let Attributes { bold, italic, .. } =
+                                                highlight.rgb_attr;
+                                            let bold = bold.unwrap_or_default();
+                                            let italic = italic.unwrap_or_default();
+                                            FontStyle::new(bold, italic)
+                                        })
+                                        .unwrap_or_default();
 
+                                    for (i, font_info) in fonts.iter().enumerate() {
                                         if let Some(font) = &font_info.style(style) {
                                             match cluster.map(|c| font.charmap().map(c)) {
                                                 Status::Discard => {}
@@ -125,9 +125,11 @@ impl Grid {
                                             if let Some(font) = &font_info.regular {
                                                 match cluster.map(|c| font.charmap().map(c)) {
                                                     Status::Discard => {}
-                                                    Status::Keep => best_font = Some((i, style)),
+                                                    Status::Keep => {
+                                                        best_font = Some((i, FontStyle::Regular))
+                                                    }
                                                     Status::Complete => {
-                                                        best_font = Some((i, style));
+                                                        best_font = Some((i, FontStyle::Regular));
                                                         break;
                                                     }
                                                 }

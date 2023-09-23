@@ -1,6 +1,6 @@
 use super::{
     cell_fill_pipeline::CellFillPipeline,
-    cursor::Cursor,
+    cursor::{bg::CursorBg, fg::CursorFg},
     glyph_pipeline::GlyphPipeline,
     grid::{self, Grid},
     grid_bind_group_layout::GridBindGroupLayout,
@@ -22,7 +22,8 @@ use wgpu::include_wgsl;
 use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct RenderState {
-    pub cursor: Cursor,
+    pub cursor_bg: CursorBg,
+    // pub cursor_fg: CursorFg,
     pub shape_context: ShapeContext,
     pub font_cache: FontCache,
     pub shared: Shared,
@@ -44,7 +45,8 @@ impl RenderState {
         let highlights = HighlightsBindGroup::new(&shared.device);
         let grid_bind_group_layout = GridBindGroupLayout::new(&shared.device);
         Self {
-            cursor: Cursor::new(&shared.device, shared.surface_config.format),
+            cursor_bg: CursorBg::new(&shared.device, shared.surface_config.format),
+            // cursor_fg: CursorFg::new(&shared.device, shared.surface_config.format),
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
             monochrome_pipeline: GlyphPipeline::new(
@@ -79,8 +81,15 @@ impl RenderState {
             .with_style(FontStyle::Regular)
             .metrics(fonts.size())
             .cell_size_px;
-        self.cursor
+        self.cursor_bg
             .update(ui, self.shared.surface_size(), cell_size.into());
+        // self.cursor_fg.update(
+        //     ui,
+        //     self.shared.surface_size(),
+        //     fonts,
+        //     &mut self.font_cache,
+        //     &mut self.shape_context,
+        // );
 
         let mut i = 0;
         while let Some(grid) = self.grids.get(i) {
@@ -240,6 +249,9 @@ impl RenderState {
                 }
             }
 
+            self.cursor_bg.render(&mut render_pass);
+            // self.cursor_fg.render(&mut render_pass);
+
             if let Some(contingent) = &self.emoji_pipeline.contingent {
                 render_pass.set_pipeline(&contingent.pipeline);
                 render_pass.set_bind_group(0, highlights_bind_group, &[]);
@@ -262,8 +274,6 @@ impl RenderState {
                     }
                 }
             }
-
-            self.cursor.render(&mut render_pass);
         }
 
         self.shared.queue.submit(std::iter::once(encoder.finish()));
