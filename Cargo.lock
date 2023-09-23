@@ -87,23 +87,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anvimator"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "env_logger",
- "font-loader",
- "log",
- "pollster",
- "rmpv",
- "swash",
- "termcolor",
- "thiserror",
- "wgpu",
- "winit",
-]
-
-[[package]]
 name = "arrayref"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -890,6 +873,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3cf2aae958bd232cac5069850591667ad422d263686d75b52a065f9badeee5a3"
 dependencies = [
  "jni-sys",
+]
+
+[[package]]
+name = "neophyte"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "env_logger",
+ "font-loader",
+ "log",
+ "pollster",
+ "rmpv",
+ "swash",
+ "termcolor",
+ "thiserror",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]
