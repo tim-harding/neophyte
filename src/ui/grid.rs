@@ -248,6 +248,9 @@ impl Grid {
                 highlight = hl_id;
             }
             if let Some(repeat) = cell.repeat {
+                if repeat == 0 {
+                    continue;
+                }
                 for _ in 0..repeat - 1 {
                     let dst = row.next().unwrap();
                     dst.text = cell.text.clone();
