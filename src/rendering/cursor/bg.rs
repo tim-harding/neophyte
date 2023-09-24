@@ -90,7 +90,7 @@ impl CursorBg {
             },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: DepthTexture::FORMAT,
-                depth_write_enabled: false,
+                depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::Always,
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
@@ -146,6 +146,6 @@ impl CursorBg {
             PushConstantsVertex::SIZE as u32,
             cast_slice(&[self.push_constants.fragment]),
         );
-        render_pass.draw(0..100, 0..1);
+        render_pass.draw(0..6, 0..1);
     }
 }

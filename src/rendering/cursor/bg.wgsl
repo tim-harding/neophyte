@@ -36,7 +36,7 @@ fn vs_main(
         / vec2<f32>(info.vertex.surface_size) 
         * vec2<f32>(2.0, -2.0) 
         + vec2<f32>(-1.0, 1.0),
-        1.0,
+        0.0,
         1.0
     );
     return out;

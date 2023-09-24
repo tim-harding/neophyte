@@ -21,7 +21,7 @@ use swash::{
 #[derive(Default)]
 pub struct Grid {
     pub id: u64,
-    glyphs: Vec<GlyphInfo>,
+    glyphs: Vec<MonochromeCell>,
     emoji: Vec<EmojiCell>,
     bg: Vec<u32>,
     buffer_capacity: u64,
@@ -188,11 +188,13 @@ impl Grid {
                                                     as i32,
                                             );
                                         match kind {
-                                            GlyphKind::Monochrome => self.glyphs.push(GlyphInfo {
-                                                glyph_index,
-                                                highlight_index: glyph.data,
-                                                position,
-                                            }),
+                                            GlyphKind::Monochrome => {
+                                                self.glyphs.push(MonochromeCell {
+                                                    glyph_index,
+                                                    highlight_index: glyph.data,
+                                                    position,
+                                                })
+                                            }
                                             GlyphKind::Emoji => self.emoji.push(EmojiCell {
                                                 position,
                                                 glyph_index,
@@ -273,8 +275,7 @@ impl Grid {
         let total_length = glyphs_len + glyphs_padding + emoji_len + emoji_padding + bg_len;
 
         if total_length > self.buffer_capacity {
-            // 50% extra space to reduce reallocation
-            self.buffer_capacity = total_length * 3 / 2;
+            self.buffer_capacity = total_length * 2;
             self.buffer = Some(shared.device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("Grid buffer"),
                 size: self.buffer_capacity,
@@ -355,7 +356,7 @@ impl Grid {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
-pub struct GlyphInfo {
+pub struct MonochromeCell {
     pub glyph_index: u32,
     pub highlight_index: u32,
     pub position: Vec2<i32>,

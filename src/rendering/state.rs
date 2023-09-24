@@ -23,7 +23,7 @@ use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct RenderState {
     pub cursor_bg: CursorBg,
-    // pub cursor_fg: CursorFg,
+    pub cursor_fg: CursorFg,
     pub shape_context: ShapeContext,
     pub font_cache: FontCache,
     pub shared: Shared,
@@ -46,7 +46,7 @@ impl RenderState {
         let grid_bind_group_layout = GridBindGroupLayout::new(&shared.device);
         Self {
             cursor_bg: CursorBg::new(&shared.device, shared.surface_config.format),
-            // cursor_fg: CursorFg::new(&shared.device, shared.surface_config.format),
+            cursor_fg: CursorFg::new(&shared.device, &grid_bind_group_layout.bind_group_layout),
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
             monochrome_pipeline: GlyphPipeline::new(
@@ -83,13 +83,13 @@ impl RenderState {
             .cell_size_px;
         self.cursor_bg
             .update(ui, self.shared.surface_size(), cell_size.into());
-        // self.cursor_fg.update(
-        //     ui,
-        //     self.shared.surface_size(),
-        //     fonts,
-        //     &mut self.font_cache,
-        //     &mut self.shape_context,
-        // );
+        self.cursor_fg.update(
+            ui,
+            fonts,
+            &mut self.font_cache,
+            &mut self.shape_context,
+            &self.shared.queue,
+        );
 
         let mut i = 0;
         while let Some(grid) = self.grids.get(i) {
@@ -129,7 +129,6 @@ impl RenderState {
                 - ui.draw_order
                     .iter()
                     .position(|&id| id == ui_grid.id)
-                    .map(|i| i + 1)
                     .unwrap_or(0) as f32
                     / ui.draw_order.len() as f32;
 
@@ -199,6 +198,8 @@ impl RenderState {
                 }),
             });
 
+            self.cursor_bg.render(&mut render_pass);
+
             render_pass.set_pipeline(&self.cell_fill_pipeline.pipeline);
             render_pass.set_bind_group(0, highlights_bind_group, &[]);
             render_pass.set_push_constants(
@@ -247,10 +248,15 @@ impl RenderState {
                         render_pass.draw(0..grid.glyph_count * 6, 0..1);
                     }
                 }
-            }
 
-            self.cursor_bg.render(&mut render_pass);
-            // self.cursor_fg.render(&mut render_pass);
+                render_pass.set_bind_group(2, &self.cursor_fg.bind_group, &[]);
+                render_pass.set_push_constants(
+                    wgpu::ShaderStages::VERTEX,
+                    SharedPushConstants::SIZE as u32,
+                    cast_slice(&[self.cursor_fg.grid_info]),
+                );
+                render_pass.draw(0..self.cursor_fg.glyph_count as u32 * 6, 0..1);
+            }
 
             if let Some(contingent) = &self.emoji_pipeline.contingent {
                 render_pass.set_pipeline(&contingent.pipeline);

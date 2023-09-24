@@ -92,9 +92,8 @@ impl Ui {
         self.grids.get_mut(i).unwrap()
     }
 
-    pub fn grid(&self, id: u64) -> &Grid {
-        let i = self.grid_index(id).unwrap();
-        self.grids.get(i).unwrap()
+    pub fn grid(&self, id: u64) -> Option<&Grid> {
+        self.grid_index(id).map(|i| self.grids.get(i).unwrap()).ok()
     }
 
     fn get_or_create_grid(&mut self, id: u64) -> &mut Grid {
@@ -289,7 +288,7 @@ impl Ui {
         let mut outer_grid = self.grids.get(0).unwrap_or(&Grid::default()).clone();
         for &grid in self.draw_order.iter() {
             let position = self.position(grid).into();
-            let grid = self.grid(grid);
+            let grid = self.grid(grid).unwrap();
             outer_grid.combine(grid.clone(), self.cursor_render_info(grid.id), position);
         }
         outer_grid

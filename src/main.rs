@@ -212,6 +212,5 @@ fn send_keys(c: &str, modifiers: &mut ModifiersState, neovim: &mut Neovim, ignor
             _ => format!("<{c}>"),
         }
     };
-    println!("{c}");
     neovim.input(c);
 }
