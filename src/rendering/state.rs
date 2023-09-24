@@ -139,6 +139,14 @@ impl RenderState {
             grid.update_grid_info(fonts, ui_grid, ui.position(ui_grid.id), z);
         }
 
+        self.cursor_fg.update(
+            ui,
+            fonts,
+            &mut self.font_cache,
+            &mut self.shape_context,
+            &self.shared.queue,
+        );
+
         self.highlights.update(ui, &self.shared);
         self.monochrome_pipeline.update(
             &self.shared,

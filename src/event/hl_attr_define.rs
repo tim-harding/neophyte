@@ -1,4 +1,4 @@
-use crate::util::{maybe_field, maybe_other_field, parse_map, Parse, Values};
+use crate::util::{maybe_field, maybe_other_field, parse_map, srgb, Parse, Values};
 use rmpv::Value;
 use std::fmt::{self, Debug, Formatter};
 
@@ -201,6 +201,10 @@ impl Rgb {
 
     pub const fn into_array(self) -> [u8; 3] {
         self.0
+    }
+
+    pub fn into_srgb_rgba(self) -> [f32; 4] {
+        [srgb(self.r()), srgb(self.g()), srgb(self.b()), 1.0]
     }
 }
 

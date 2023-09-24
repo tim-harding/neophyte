@@ -35,6 +35,24 @@ impl HighlightsBindGroup {
     pub fn update(&mut self, ui: &Ui, shared: &Shared) {
         let fg_default = ui.default_colors.rgb_fg.unwrap_or(Rgb::new(255, 255, 255));
         let bg_default = ui.default_colors.rgb_bg.unwrap_or(Rgb::new(0, 0, 0));
+        let cursor = ui
+            .highlight_groups
+            .get("Cursor")
+            .map(|hl_id| {
+                ui.highlights.get(hl_id).map(|hl_attr_define| {
+                    let fg = hl_attr_define.rgb_attr.foreground.unwrap_or(fg_default);
+                    let bg = hl_attr_define.rgb_attr.background.unwrap_or(bg_default);
+                    HighlightInfo {
+                        fg: fg.into_srgb_rgba(),
+                        bg: bg.into_srgb_rgba(),
+                    }
+                })
+            })
+            .flatten()
+            .unwrap_or(HighlightInfo {
+                fg: bg_default.into_srgb_rgba(),
+                bg: fg_default.into_srgb_rgba(),
+            });
 
         self.clear_color = wgpu::Color {
             r: srgb(bg_default.r()) as f64,
@@ -47,23 +65,12 @@ impl HighlightsBindGroup {
             self.highlights.resize(
                 1,
                 HighlightInfo {
-                    fg: [
-                        srgb(fg_default.r()),
-                        srgb(fg_default.g()),
-                        srgb(fg_default.b()),
-                        1.0,
-                    ],
-                    bg: [
-                        srgb(bg_default.r()),
-                        srgb(bg_default.g()),
-                        srgb(bg_default.b()),
-                        1.0,
-                    ],
+                    fg: fg_default.into_srgb_rgba(),
+                    bg: bg_default.into_srgb_rgba(),
                 },
             )
         }
 
-        let srgb = |c: Rgb| [srgb(c.r()), srgb(c.g()), srgb(c.b()), 1.0];
         for id in ui.new_highlights.iter() {
             let highlight = ui.highlights.get(id).unwrap();
             let i = *id as usize;
@@ -71,9 +78,23 @@ impl HighlightsBindGroup {
                 self.highlights.resize(i + 1, HighlightInfo::default());
             }
             self.highlights[i] = HighlightInfo {
-                fg: srgb(highlight.rgb_attr.foreground.unwrap_or(fg_default)),
-                bg: srgb(highlight.rgb_attr.background.unwrap_or(bg_default)),
+                fg: highlight
+                    .rgb_attr
+                    .foreground
+                    .unwrap_or(fg_default)
+                    .into_srgb_rgba(),
+                bg: highlight
+                    .rgb_attr
+                    .background
+                    .unwrap_or(bg_default)
+                    .into_srgb_rgba(),
             };
+        }
+
+        if self.highlights.is_empty() {
+            self.highlights.push(cursor);
+        } else {
+            self.highlights[0] = cursor;
         }
 
         if !ui.new_highlights.is_empty() {

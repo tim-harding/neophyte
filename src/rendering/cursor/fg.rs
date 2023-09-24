@@ -115,60 +115,62 @@ impl CursorFg {
         let mut cell_count = 0;
         let mut cells = [MonochromeCell::default(); 4];
 
-        if let Some(font) = best_font {
-            let mut shaper = shape_context
-                .builder(font.as_ref())
-                .size(fonts.size() as f32)
-                .script(Script::Arabic)
-                .build();
-            shaper.add_cluster(&cluster);
-            let metrics = font.metrics(fonts.size());
-            shaper.shape_with(|glyph_cluster| {
-                for glyph in glyph_cluster.glyphs {
-                    let CacheValue { index, kind } =
-                        match font_cache.get(font.as_ref(), metrics.em, glyph.id, style) {
-                            Some(glyph) => glyph,
-                            None => {
-                                continue;
-                            }
-                        };
-                    let glyph_index = index as u32;
+        let Some(font) = best_font else {
+            self.glyph_count = 0;
+            return;
+        };
 
-                    match kind {
-                        GlyphKind::Monochrome => {
-                            let offset = font_cache.monochrome.offset[index];
-                            let position = offset * Vec2::new(1, -1)
-                                + Vec2::new(
-                                    (glyph.x * metrics.scale_factor).round() as i32
-                                        + ui.cursor.pos.x as i32,
-                                    (glyph.y * metrics.scale_factor
-                                        + (ui.cursor.pos.y as u32 * metrics.cell_size_px.y
-                                            + metrics.em_px)
-                                            as f32)
-                                        .round() as i32,
-                                );
-                            cells[cell_count] = MonochromeCell {
-                                glyph_index,
-                                highlight_index,
-                                position,
-                            };
-                            cell_count += 1;
-                            if cell_count == 4 {
-                                break;
-                            }
+        let mut shaper = shape_context
+            .builder(font.as_ref())
+            .size(fonts.size() as f32)
+            .script(Script::Arabic)
+            .build();
+        shaper.add_cluster(&cluster);
+        let metrics = font.metrics(fonts.size());
+        shaper.shape_with(|glyph_cluster| {
+            for glyph in glyph_cluster.glyphs {
+                let CacheValue { index, kind } =
+                    match font_cache.get(font.as_ref(), metrics.em, glyph.id, style) {
+                        Some(glyph) => glyph,
+                        None => {
+                            continue;
                         }
-                        GlyphKind::Emoji => continue,
                     };
-                }
-            });
-        }
+                let glyph_index = index as u32;
+
+                match kind {
+                    GlyphKind::Monochrome => {
+                        let offset = font_cache.monochrome.offset[index];
+                        let position = offset * Vec2::new(1, -1)
+                            + Vec2::new(
+                                (glyph.x * metrics.scale_factor).round() as i32,
+                                (glyph.y * metrics.scale_factor + metrics.em_px as f32).round()
+                                    as i32,
+                            );
+                        cells[cell_count] = MonochromeCell {
+                            glyph_index,
+                            highlight_index: 0,
+                            position,
+                        };
+                        cell_count += 1;
+                        if cell_count == 4 {
+                            break;
+                        }
+                    }
+                    GlyphKind::Emoji => continue,
+                };
+            }
+        });
 
         self.glyph_count = cell_count as u8;
         queue.write_buffer(&self.buffer, 0, cast_slice(&cells));
+        let grid_offset: Vec2<f32> = grid.offset().0.into();
+        let cursor_pos: Vec2<f32> = ui.cursor.pos.into();
+        let cell_size_px: Vec2<f32> = metrics.cell_size_px.into();
         self.grid_info = grid::PushConstants {
-            offset: grid.offset().0.into(),
+            offset: (grid_offset + cursor_pos) * cell_size_px,
             grid_width: 1,
-            z: 1.0,
+            z: 0.0,
         };
     }
 }
