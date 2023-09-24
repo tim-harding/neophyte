@@ -43,10 +43,14 @@ struct VertexOutput {
     @location(2) color: vec3<f32>,
 }
 
-@vertex
-fn vs_main(
-    @builtin(vertex_index) in_vertex_index: u32,
-) -> VertexOutput {
+struct MainReturn {
+    out: VertexOutput,
+    hl_info: HighlightInfo,
+}
+
+fn main(
+    in_vertex_index: u32,
+) -> MainReturn {
     let grid_index = in_vertex_index / 6u;
     let grid_cell = grid_cells[grid_index];
     let tex_coord = vec2<f32>(
@@ -57,7 +61,6 @@ fn vs_main(
     let hl_info = highlights[grid_cell.highlight_index];
 
     var out: VertexOutput;
-    out.color = hl_info.fg;
     out.tex_index = grid_cell.glyph_index;
     out.tex_coord = tex_coord;
     out.clip_position = vec4<f32>(
@@ -69,6 +72,24 @@ fn vs_main(
         grid_info.z, 
         1.0
     );
+    return out;
+}
+
+@vertex
+fn vs_main(
+    @builtin(vertex_index) in_vertex_index: u32,
+) -> VertexOutput {
+    let main_return = main(in_vertex_index);
+    main_return.out.color = main_return.hl_info.fg;
+    return out;
+}
+
+@vertex
+fn cursor_fg_main(
+    @builtin(vertex_index) in_vertex_index: u32,
+) -> VertexOutput {
+    let main_return = main(in_vertex_index);
+    main_return.out.color = main_return.hl_info.bg;
     return out;
 }
 

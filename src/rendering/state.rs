@@ -54,12 +54,16 @@ impl RenderState {
                 shared
                     .device
                     .create_shader_module(include_wgsl!("glyph.wgsl")),
+                "vs_main",
+                "fs_main",
             ),
             emoji_pipeline: GlyphPipeline::new(
                 &shared.device,
                 shared
                     .device
                     .create_shader_module(include_wgsl!("emoji.wgsl")),
+                "vs_main",
+                "fs_main",
             ),
             cell_fill_pipeline: CellFillPipeline::new(
                 &shared.device,

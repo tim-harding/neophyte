@@ -14,6 +14,8 @@ use wgpu::util::DeviceExt;
 pub struct GlyphPipeline {
     textures: Vec<Texture>,
     next_glyph_to_upload: usize,
+    vertex_entry: &'static str,
+    fragment_entry: &'static str,
     pub sampler: wgpu::Sampler,
     pub shader: wgpu::ShaderModule,
     pub contingent: Option<Contingent>,
@@ -30,7 +32,12 @@ pub struct GlyphBindGroup {
 }
 
 impl GlyphPipeline {
-    pub fn new(device: &wgpu::Device, shader: wgpu::ShaderModule) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        shader: wgpu::ShaderModule,
+        vertex_entry: &'static str,
+        fragment_entry: &'static str,
+    ) -> Self {
         GlyphPipeline {
             textures: vec![],
             next_glyph_to_upload: 0,
@@ -46,6 +53,8 @@ impl GlyphPipeline {
             }),
             shader,
             contingent: None,
+            vertex_entry,
+            fragment_entry,
         }
     }
 
@@ -154,12 +163,12 @@ impl GlyphPipeline {
                 layout: Some(&glyph_pipeline_layout),
                 vertex: wgpu::VertexState {
                     module: &self.shader,
-                    entry_point: "vs_main",
+                    entry_point: self.vertex_entry,
                     buffers: &[],
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &self.shader,
-                    entry_point: "fs_main",
+                    entry_point: self.fragment_entry,
                     targets: &[Some(wgpu::ColorTargetState {
                         format: shared.surface_config.format,
                         blend: Some(wgpu::BlendState::ALPHA_BLENDING),
