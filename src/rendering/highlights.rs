@@ -35,25 +35,6 @@ impl HighlightsBindGroup {
     pub fn update(&mut self, ui: &Ui, shared: &Shared) {
         let fg_default = ui.default_colors.rgb_fg.unwrap_or(Rgb::new(255, 255, 255));
         let bg_default = ui.default_colors.rgb_bg.unwrap_or(Rgb::new(0, 0, 0));
-        let cursor = ui
-            .highlight_groups
-            .get("Cursor")
-            .map(|hl_id| {
-                ui.highlights.get(hl_id).map(|hl_attr_define| {
-                    let fg = hl_attr_define.rgb_attr.foreground.unwrap_or(fg_default);
-                    let bg = hl_attr_define.rgb_attr.background.unwrap_or(bg_default);
-                    HighlightInfo {
-                        fg: fg.into_srgb_rgba(),
-                        bg: bg.into_srgb_rgba(),
-                    }
-                })
-            })
-            .flatten()
-            .unwrap_or(HighlightInfo {
-                fg: bg_default.into_srgb_rgba(),
-                bg: fg_default.into_srgb_rgba(),
-            });
-
         self.clear_color = wgpu::Color {
             r: srgb(bg_default.r()) as f64,
             g: srgb(bg_default.g()) as f64,
@@ -89,12 +70,6 @@ impl HighlightsBindGroup {
                     .unwrap_or(bg_default)
                     .into_srgb_rgba(),
             };
-        }
-
-        if self.highlights.is_empty() {
-            self.highlights.push(cursor);
-        } else {
-            self.highlights[0] = cursor;
         }
 
         if !ui.new_highlights.is_empty() {

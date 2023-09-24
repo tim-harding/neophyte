@@ -149,7 +149,7 @@ impl CursorFg {
                             );
                         cells[cell_count] = MonochromeCell {
                             glyph_index,
-                            highlight_index: 0,
+                            highlight_index,
                             position,
                         };
                         cell_count += 1;
