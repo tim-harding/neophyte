@@ -16,6 +16,7 @@ use crate::{
     session::Neovim,
     text::fonts::Fonts,
     ui::Ui,
+    util::vec2::Vec2,
 };
 use rmpv::Value;
 use std::sync::{mpsc::Receiver, Arc};
@@ -119,12 +120,7 @@ impl RenderLoop {
     }
 
     fn resize_grid(&mut self) {
-        let size = self.render_state.shared.surface_size();
-        let cell_size = self.fonts.metrics().into_pixels().cell_size();
-        self.neovim.ui_try_resize_grid(
-            1,
-            (size.x / cell_size.x) as u64,
-            (size.y / cell_size.y) as u64,
-        )
+        let size: Vec2<u64> = self.render_state.grid_dimensions(&self.fonts).into();
+        self.neovim.ui_try_resize_grid(1, size.x, size.y)
     }
 }

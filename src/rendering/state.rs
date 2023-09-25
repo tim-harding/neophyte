@@ -86,6 +86,12 @@ impl RenderState {
         }
     }
 
+    pub fn grid_dimensions(&self, fonts: &Fonts) -> Vec2<u32> {
+        let size = self.shared.surface_size();
+        let cell_size = fonts.metrics().into_pixels().cell_size();
+        Vec2::new(size.x / cell_size.x, size.y / cell_size.y)
+    }
+
     pub fn update(&mut self, ui: &Ui, fonts: &mut Fonts) {
         let cell_size = fonts.metrics().into_pixels().cell_size();
         self.cursor_bg
