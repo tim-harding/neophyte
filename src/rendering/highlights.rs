@@ -46,8 +46,8 @@ impl HighlightsBindGroup {
             self.highlights.resize(
                 1,
                 HighlightInfo {
-                    fg: fg_default.into_srgb_rgba(),
-                    bg: bg_default.into_srgb_rgba(),
+                    fg: fg_default.into_linear(),
+                    bg: bg_default.into_linear(),
                 },
             )
         }
@@ -63,12 +63,12 @@ impl HighlightsBindGroup {
                     .rgb_attr
                     .foreground
                     .unwrap_or(fg_default)
-                    .into_srgb_rgba(),
+                    .into_linear(),
                 bg: highlight
                     .rgb_attr
                     .background
                     .unwrap_or(bg_default)
-                    .into_srgb_rgba(),
+                    .into_linear(),
             };
         }
 

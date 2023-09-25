@@ -186,6 +186,8 @@ impl RenderState {
             &self.shared.device,
             self.shared.surface_format,
             &self.target_texture.view,
+            texture_size,
+            surface_size,
         );
         self.depth_texture = DepthTexture::new(&self.shared.device, texture_size);
     }
@@ -319,7 +321,7 @@ impl RenderState {
                     view: &output_view,
                     resolve_target: None, // No multisampling
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        load: wgpu::LoadOp::Clear(self.highlights.clear_color),
                         store: true,
                     },
                 })],
@@ -328,6 +330,11 @@ impl RenderState {
 
             render_pass.set_pipeline(&self.blit_render_pipeline.pipeline);
             render_pass.set_bind_group(0, &self.blit_render_pipeline.bind_group, &[]);
+            render_pass.set_push_constants(
+                wgpu::ShaderStages::VERTEX,
+                0,
+                cast_slice(&[self.blit_render_pipeline.push_constants]),
+            );
             render_pass.draw(0..6, 0..1);
         }
 

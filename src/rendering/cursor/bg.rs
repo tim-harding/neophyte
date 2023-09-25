@@ -1,8 +1,6 @@
 use crate::{
-    event::mode_info_set::CursorShape,
-    rendering::depth_texture::DepthTexture,
-    ui::Ui,
-    util::{srgb, vec2::Vec2},
+    event::mode_info_set::CursorShape, rendering::depth_texture::DepthTexture, ui::Ui,
+    util::vec2::Vec2,
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
@@ -129,7 +127,7 @@ impl CursorBg {
                 cell_size,
             },
             fragment: PushConstantsFragment {
-                color: [srgb(color.r()), srgb(color.g()), srgb(color.b()), 1.0],
+                color: color.into_linear(),
             },
         };
     }

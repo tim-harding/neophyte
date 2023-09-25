@@ -1,12 +1,27 @@
+use bytemuck::{Pod, Zeroable};
 use wgpu::include_wgsl;
+
+use crate::util::vec2::Vec2;
 
 pub struct BlitRenderPipeline {
     bind_group_layout: wgpu::BindGroupLayout,
     pipeline_layout: wgpu::PipelineLayout,
     shader: wgpu::ShaderModule,
     sampler: wgpu::Sampler,
+    pub push_constants: PushConstants,
     pub bind_group: wgpu::BindGroup,
     pub pipeline: wgpu::RenderPipeline,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
+pub struct PushConstants {
+    src_size: Vec2<u32>,
+    dst_size: Vec2<u32>,
+}
+
+impl PushConstants {
+    pub const SIZE: u32 = std::mem::size_of::<Self>() as u32;
 }
 
 impl BlitRenderPipeline {
@@ -51,7 +66,10 @@ impl BlitRenderPipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
+            push_constant_ranges: &[wgpu::PushConstantRange {
+                stages: wgpu::ShaderStages::VERTEX,
+                range: 0..PushConstants::SIZE,
+            }],
         });
 
         let shader = device.create_shader_module(include_wgsl!("gamma_blit.wgsl"));
@@ -71,6 +89,7 @@ impl BlitRenderPipeline {
             pipeline_layout,
             shader,
             sampler,
+            push_constants: PushConstants::default(),
             pipeline,
             bind_group,
         }
@@ -81,6 +100,8 @@ impl BlitRenderPipeline {
         device: &wgpu::Device,
         dst_format: wgpu::TextureFormat,
         src_tex: &wgpu::TextureView,
+        src_size: Vec2<u32>,
+        dst_size: Vec2<u32>,
     ) {
         let (bind_group, pipeline) = create_pipeline(
             device,
@@ -93,6 +114,7 @@ impl BlitRenderPipeline {
         );
         self.bind_group = bind_group;
         self.pipeline = pipeline;
+        self.push_constants = PushConstants { src_size, dst_size };
     }
 }
 

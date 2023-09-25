@@ -79,10 +79,9 @@ impl Values {
 
 pub fn srgb(c: u8) -> f32 {
     let c = c as f32 / 255.0;
-    let corrected = if c < 0.04045 {
+    if c < 0.04045 {
         c / 12.92
     } else {
         ((c + 0.055) / 1.055).powf(2.4)
-    };
-    corrected.powf(2.2f32.recip())
+    }
 }

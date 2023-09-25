@@ -203,9 +203,13 @@ impl Rgb {
         self.0
     }
 
-    pub fn into_srgb_rgba(self) -> [f32; 4] {
-        [srgb(self.r()), srgb(self.g()), srgb(self.b()), 1.0]
+    pub fn into_linear(self) -> [f32; 4] {
+        [linear(self.r()), linear(self.g()), linear(self.b()), 1.0]
     }
+}
+
+fn linear(c: u8) -> f32 {
+    srgb(c).powf(2.2f32.recip())
 }
 
 impl From<u64> for Rgb {
