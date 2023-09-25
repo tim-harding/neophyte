@@ -1,7 +1,6 @@
 use super::{depth_texture::DepthTexture, state::TARGET_FORMAT, texture::Texture};
 use crate::util::vec2::Vec2;
 use std::sync::Arc;
-use wgpu::TextureFormat;
 use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct Shared {

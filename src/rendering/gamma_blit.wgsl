@@ -33,5 +33,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         in.uv,
         0.0
     );
-    return sample;
+    let exp = vec4<f32>(2.2, 2.2, 2.2, 2.2);
+    return pow(sample, exp);
 }
