@@ -1,4 +1,4 @@
-use crate::rpc::{decode, encode, RpcMessage};
+use crate::rpc::{decode, encode, DecodeError, RpcMessage};
 use rmpv::Value;
 use std::{
     io::{self, Error, ErrorKind},
@@ -115,15 +115,33 @@ pub struct Handler {
 }
 
 impl Handler {
-    pub fn start<F>(mut self, mut notification_handler: F)
+    pub fn start<F, S>(mut self, mut notification_handler: F, shutdown_handler: S)
     where
         F: FnMut(String, Vec<Value>),
+        S: Fn(),
     {
         loop {
             let msg = match decode(&mut self.stdout) {
                 Ok(msg) => msg,
                 Err(e) => {
-                    log::error!("{e}");
+                    match e {
+                        DecodeError::Rmpv(e) => {
+                            let io_error = match &e {
+                                rmpv::decode::Error::InvalidMarkerRead(e) => Some(e.kind()),
+                                rmpv::decode::Error::InvalidDataRead(e) => Some(e.kind()),
+                                rmpv::decode::Error::DepthLimitExceeded => None,
+                            };
+                            let Some(io_error) = io_error else {
+                                log::error!("{e}");
+                                continue;
+                            };
+                            match io_error {
+                                ErrorKind::UnexpectedEof => shutdown_handler(),
+                                _ => log::error!("{e}"),
+                            }
+                        }
+                        DecodeError::Parse => log::error!("Failed to parse an RPC message"),
+                    }
                     return;
                 }
             };

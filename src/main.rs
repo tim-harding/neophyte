@@ -9,7 +9,7 @@ mod util;
 use rendering::{RenderEvent, RenderLoop};
 use session::Neovim;
 use std::{
-    sync::{mpsc, Arc},
+    sync::{mpsc, Arc, Mutex},
     thread,
 };
 use winit::{
@@ -23,14 +23,21 @@ fn main() {
     let (render_tx, render_rx) = mpsc::channel();
     let (mut neovim, handler) = Neovim::new().unwrap();
 
+    let wants_shutdown = Arc::new(Mutex::new(false));
     {
         let render_tx = render_tx.clone();
+        let wants_shutdown = wants_shutdown.clone();
         thread::spawn(move || {
-            handler.start(|method, params| {
-                render_tx
-                    .send(RenderEvent::Notification(method, params))
-                    .unwrap();
-            })
+            handler.start(
+                |method, params| {
+                    render_tx
+                        .send(RenderEvent::Notification(method, params))
+                        .unwrap();
+                },
+                || {
+                    *wants_shutdown.lock().unwrap() = true;
+                },
+            );
         });
     }
 
@@ -49,7 +56,11 @@ fn main() {
 
     let mut modifiers = ModifiersState::default();
     event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Wait;
+        *control_flow = if *wants_shutdown.lock().unwrap() {
+            ControlFlow::Exit
+        } else {
+            ControlFlow::Wait
+        };
         match event {
             winit::event::Event::WindowEvent {
                 window_id,
