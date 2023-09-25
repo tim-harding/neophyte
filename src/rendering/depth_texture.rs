@@ -24,7 +24,9 @@ impl DepthTexture {
             view_formats: &[],
         });
 
-        let view = texture.create_view(&Default::default());
-        Self { texture, view }
+        Self {
+            view: texture.create_view(&Default::default()),
+            texture,
+        }
     }
 }

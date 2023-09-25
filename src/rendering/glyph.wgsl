@@ -83,8 +83,5 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         in.tex_coord,
         0.0
     );
-    let gamma = vec3<f32>(2.2, 2.2, 2.2);
-    let inv = vec3<f32>(1.0/2.2, 1.0/2.2, 1.0/2.2);
-    let c = pow(mix(pow(in.bg, inv), pow(in.fg, inv), sample.r), gamma);
-    return vec4<f32>(c, ceil(sample.r));
+    return vec4<f32>(in.fg, sample.r);
 }

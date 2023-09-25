@@ -1,3 +1,4 @@
+mod blit_render_pipeline;
 mod cell_fill_pipeline;
 mod cursor;
 mod depth_texture;

@@ -1,4 +1,5 @@
 use super::{
+    blit_render_pipeline::BlitRenderPipeline,
     cell_fill_pipeline::CellFillPipeline,
     cursor::{bg::CursorBg, fg::CursorFg},
     glyph_pipeline::GlyphPipeline,
@@ -21,6 +22,8 @@ use swash::shape::ShapeContext;
 use wgpu::include_wgsl;
 use winit::{dpi::PhysicalSize, window::Window};
 
+pub const TARGET_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
+
 pub struct RenderState {
     pub cursor_bg: CursorBg,
     pub cursor_fg: CursorFg,
@@ -35,6 +38,7 @@ pub struct RenderState {
     pub grid_bind_group_layout: GridBindGroupLayout,
     pub draw_order_index_cache: Vec<usize>,
     pub shared_push_constants: SharedPushConstants,
+    pub blit_render_pipeline: BlitRenderPipeline,
 }
 
 // TODO: Use each pipeline to completion
@@ -45,7 +49,12 @@ impl RenderState {
         let highlights = HighlightsBindGroup::new(&shared.device);
         let grid_bind_group_layout = GridBindGroupLayout::new(&shared.device);
         Self {
-            cursor_bg: CursorBg::new(&shared.device, shared.surface_config.format),
+            blit_render_pipeline: BlitRenderPipeline::new(
+                &shared.device,
+                shared.surface_config.format,
+                &shared.target_texture.view,
+            ),
+            cursor_bg: CursorBg::new(&shared.device, TARGET_FORMAT),
             cursor_fg: CursorFg::new(&shared.device, &grid_bind_group_layout.bind_group_layout),
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
@@ -69,7 +78,7 @@ impl RenderState {
                 &shared.device,
                 &highlights.bind_group_layout,
                 &grid_bind_group_layout.bind_group_layout,
-                shared.surface_format,
+                TARGET_FORMAT,
             ),
             shared,
             grid_bind_group_layout,
@@ -170,11 +179,16 @@ impl RenderState {
 
     pub fn resize(&mut self, size: PhysicalSize<u32>) {
         self.shared.resize(size);
+        self.blit_render_pipeline.update(
+            &self.shared.device,
+            self.shared.surface_format,
+            &self.shared.target_texture.view,
+        );
     }
 
     pub fn render(&mut self, draw_order: &[u64]) -> Result<(), wgpu::SurfaceError> {
         let output = self.shared.surface.get_current_texture()?;
-        let view = output
+        let output_view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
         let mut encoder =
@@ -193,7 +207,7 @@ impl RenderState {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
+                    view: &self.shared.target_texture.view,
                     resolve_target: None, // No multisampling
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(self.highlights.clear_color),
@@ -292,6 +306,25 @@ impl RenderState {
                     }
                 }
             }
+        }
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Blit to screen"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &output_view,
+                    resolve_target: None, // No multisampling
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: true,
+                    },
+                })],
+                depth_stencil_attachment: None,
+            });
+
+            render_pass.set_pipeline(&self.blit_render_pipeline.pipeline);
+            render_pass.set_bind_group(0, &self.blit_render_pipeline.bind_group, &[]);
+            render_pass.draw(0..6, 0..1);
         }
 
         self.shared.queue.submit(std::iter::once(encoder.finish()));

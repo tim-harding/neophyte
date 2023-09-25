@@ -1,6 +1,9 @@
 use super::{
-    depth_texture::DepthTexture, grid, grid_bind_group_layout::GridBindGroupLayout, shared::Shared,
-    state::SharedPushConstants,
+    depth_texture::DepthTexture,
+    grid,
+    grid_bind_group_layout::GridBindGroupLayout,
+    shared::Shared,
+    state::{SharedPushConstants, TARGET_FORMAT},
 };
 use crate::{rendering::texture::Texture, text::cache::Cached};
 use bytemuck::cast_slice;
@@ -77,7 +80,7 @@ impl GlyphPipeline {
             .zip(font_cache.size.iter())
             .skip(self.next_glyph_to_upload)
         {
-            self.textures.push(Texture::new(
+            self.textures.push(Texture::with_data(
                 &shared.device,
                 &shared.queue,
                 data.as_slice(),
@@ -101,7 +104,7 @@ impl GlyphPipeline {
                             binding: 0,
                             visibility: wgpu::ShaderStages::FRAGMENT,
                             ty: wgpu::BindingType::Texture {
-                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                                sample_type: wgpu::TextureSampleType::Float { filterable: false },
                                 view_dimension: wgpu::TextureViewDimension::D2,
                                 multisampled: false,
                             },
@@ -110,7 +113,7 @@ impl GlyphPipeline {
                         wgpu::BindGroupLayoutEntry {
                             binding: 1,
                             visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
                             count: None,
                         },
                         wgpu::BindGroupLayoutEntry {
@@ -154,7 +157,7 @@ impl GlyphPipeline {
         let pipeline = shared
             .device
             .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("Render pipeline"),
+                label: Some("Glyph pipeline"),
                 layout: Some(&glyph_pipeline_layout),
                 vertex: wgpu::VertexState {
                     module: &self.shader,
@@ -165,7 +168,7 @@ impl GlyphPipeline {
                     module: &self.shader,
                     entry_point: self.fragment_entry,
                     targets: &[Some(wgpu::ColorTargetState {
-                        format: shared.surface_config.format,
+                        format: TARGET_FORMAT,
                         blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
@@ -175,7 +178,7 @@ impl GlyphPipeline {
                     topology: wgpu::PrimitiveTopology::TriangleList,
                     strip_index_format: None,
                     front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: Some(wgpu::Face::Back),
+                    cull_mode: None,
                     polygon_mode: wgpu::PolygonMode::Fill,
                     unclipped_depth: false,
                     conservative: false,
