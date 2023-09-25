@@ -243,7 +243,7 @@ impl RenderState {
                 let grid = &self.grids[i];
 
                 if let Some(bg_bind_group) = &grid.bg_bind_group {
-                    render_pass.set_bind_group(1, &bg_bind_group, &[]);
+                    render_pass.set_bind_group(1, bg_bind_group, &[]);
                     render_pass.set_push_constants(
                         wgpu::ShaderStages::VERTEX,
                         SharedPushConstants::SIZE as u32,
@@ -265,7 +265,7 @@ impl RenderState {
                 for i in self.draw_order_index_cache.iter() {
                     let grid = &self.grids[*i];
                     if let Some(monochrome_bind_group) = &grid.monochrome_bind_group {
-                        render_pass.set_bind_group(2, &monochrome_bind_group, &[]);
+                        render_pass.set_bind_group(2, monochrome_bind_group, &[]);
                         render_pass.set_push_constants(
                             wgpu::ShaderStages::VERTEX,
                             SharedPushConstants::SIZE as u32,
@@ -296,7 +296,7 @@ impl RenderState {
                 for i in self.draw_order_index_cache.iter() {
                     let grid = &self.grids[*i];
                     if let Some(emoji_bind_group) = &grid.emoji_bind_group {
-                        render_pass.set_bind_group(2, &emoji_bind_group, &[]);
+                        render_pass.set_bind_group(2, emoji_bind_group, &[]);
                         render_pass.set_push_constants(
                             wgpu::ShaderStages::VERTEX,
                             SharedPushConstants::SIZE as u32,

@@ -144,7 +144,7 @@ impl GlyphPipeline {
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Render Pipeline Layout"),
                     bind_group_layouts: &[
-                        &highlights_bind_group_layout,
+                        highlights_bind_group_layout,
                         &font_bind_group_layout,
                         &grid_bind_group_layout.bind_group_layout,
                     ],
