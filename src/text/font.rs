@@ -1,4 +1,4 @@
-use crate::util::vec2::Vec2;
+use crate::{ui::FontSize, util::vec2::Vec2};
 use std::{fs, io, path::Path, sync::Arc};
 use swash::{proxy::CharmapProxy, CacheKey, Charmap, FontRef};
 
@@ -8,20 +8,24 @@ pub struct Font {
     charmap: CharmapProxy,
     offset: u32,
     key: CacheKey,
-    metrics: swash::Metrics,
+    metrics: Metrics,
 }
 
 impl Font {
-    pub fn from_file(path: impl AsRef<Path>, index: usize) -> Result<Self, FontFromFileError> {
+    pub fn from_file(
+        path: impl AsRef<Path>,
+        index: usize,
+        size: FontSize,
+    ) -> Result<Self, FontFromFileError> {
         let data = fs::read(path)?;
-        Self::from_bytes(data, index).ok_or(FontFromFileError::Font)
+        Self::from_bytes(data, index, size).ok_or(FontFromFileError::Font)
     }
 
-    pub fn from_bytes(data: Vec<u8>, index: usize) -> Option<Self> {
+    pub fn from_bytes(data: Vec<u8>, index: usize, size: FontSize) -> Option<Self> {
         let font = FontRef::from_index(&data, index)?;
         Some(Self {
             offset: font.offset,
-            metrics: font.metrics(&[]),
+            metrics: Metrics::new(font, size),
             charmap: font.charmap().proxy(),
             key: font.key,
             data: Arc::new(data),
@@ -42,32 +46,77 @@ impl Font {
         }
     }
 
-    pub fn metrics(&self, width: u32) -> Metrics {
-        let metrics = self.metrics;
-        let scale_factor = width as f32 / metrics.average_width;
-        let em = metrics.units_per_em as f32 * scale_factor;
-        let em_px = em.ceil() as u32;
-        let descent = metrics.descent * scale_factor;
-        let descent_px = descent.ceil() as u32;
-        let cell_size_px = Vec2::new(width, em_px + descent_px);
-        Metrics {
-            scale_factor,
-            em,
-            em_px,
-            descent,
-            descent_px,
-            cell_size_px,
+    pub fn resize(&mut self, size: FontSize) {
+        self.metrics = Metrics::new(self.as_ref(), size);
+    }
+
+    pub fn metrics(&self) -> Metrics {
+        self.metrics
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Metrics {
+    pub scale_factor: f32,
+    pub width: f32,
+    pub em: f32,
+    pub descent: f32,
+}
+
+impl Metrics {
+    pub fn into_pixels(self) -> MetricsPixels {
+        self.into()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MetricsPixels {
+    pub width: u32,
+    pub em: u32,
+    pub descent: u32,
+}
+
+impl MetricsPixels {
+    pub fn cell_size(&self) -> Vec2<u32> {
+        Vec2::new(self.width, self.em + self.descent)
+    }
+}
+
+impl From<Metrics> for MetricsPixels {
+    fn from(metrics: Metrics) -> Self {
+        Self {
+            width: metrics.width.ceil() as u32,
+            em: metrics.em.ceil() as u32,
+            descent: metrics.descent.ceil() as u32,
         }
     }
 }
 
-pub struct Metrics {
-    pub scale_factor: f32,
-    pub em: f32,
-    pub em_px: u32,
-    pub descent: f32,
-    pub descent_px: u32,
-    pub cell_size_px: Vec2<u32>,
+impl Metrics {
+    fn new(font: FontRef, size: FontSize) -> Self {
+        let metrics = font.metrics(&[]);
+        match size {
+            FontSize::Width(width) => {
+                let scale_factor = width as f32 / metrics.max_width;
+                Self {
+                    scale_factor,
+                    width: width as f32,
+                    em: metrics.units_per_em as f32 * scale_factor,
+                    descent: metrics.descent * scale_factor,
+                }
+            }
+
+            FontSize::Height(height) => {
+                let metrics = metrics.scale(height as f32);
+                Self {
+                    scale_factor: height as f32 / metrics.units_per_em as f32,
+                    width: metrics.max_width,
+                    em: height as f32,
+                    descent: metrics.descent,
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

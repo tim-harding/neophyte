@@ -1,9 +1,9 @@
-use super::font::Font;
+use super::font::{Font, Metrics};
+use crate::ui::{FontSize, FontsSetting};
 use font_loader::system_fonts::{self, FontPropertyBuilder};
 
 pub struct Fonts {
-    size: u32,
-    fonts: Vec<FontInfo>,
+    fonts: Vec<FontVariants>,
     fallback: Font,
 }
 
@@ -16,22 +16,23 @@ impl Default for Fonts {
 impl Fonts {
     pub fn new() -> Self {
         Self {
-            size: 16,
             fonts: vec![],
-            fallback: get(FontPropertyBuilder::new().monospace()).unwrap(),
+            fallback: get(FontPropertyBuilder::new().monospace(), FontSize::default()).unwrap(),
         }
     }
 
-    pub fn reload(&mut self, font_names: &[String], size: u32) {
-        self.size = size;
+    pub fn reload(&mut self, setting: &FontsSetting) {
         let mut old = std::mem::take(&mut self.fonts);
-        self.fonts = font_names
+        self.fonts = setting
+            .fonts
             .iter()
             .map(|name| {
                 if let Some(i) = old.iter().position(|old| &old.name == name) {
-                    old.swap_remove(i)
+                    let mut existing = old.swap_remove(i);
+                    existing.resize(setting.size);
+                    existing
                 } else {
-                    FontInfo::with_name(name.clone())
+                    FontVariants::with_name(name.clone(), setting.size)
                 }
             })
             .collect();
@@ -43,16 +44,19 @@ impl Fonts {
             .unwrap_or(&self.fallback)
     }
 
-    pub fn size(&self) -> u32 {
-        self.size
+    pub fn iter(&self) -> impl Iterator<Item = &FontVariants> {
+        self.fonts.iter()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &FontInfo> {
-        self.fonts.iter()
+    pub fn metrics(&self) -> Metrics {
+        self.fonts
+            .iter()
+            .find_map(|variants| variants.metrics())
+            .unwrap_or(self.fallback.metrics())
     }
 }
 
-pub struct FontInfo {
+pub struct FontVariants {
     pub name: String,
     pub regular: Option<Font>,
     pub bold: Option<Font>,
@@ -60,14 +64,14 @@ pub struct FontInfo {
     pub bold_italic: Option<Font>,
 }
 
-impl FontInfo {
-    pub fn with_name(name: String) -> Self {
+impl FontVariants {
+    pub fn with_name(name: String, size: FontSize) -> Self {
         let builder = || FontPropertyBuilder::new().family(&name);
         Self {
-            regular: get(builder()),
-            bold: get(builder().bold()),
-            italic: get(builder().italic()),
-            bold_italic: get(builder().bold().italic()),
+            regular: get(builder(), size),
+            bold: get(builder().bold(), size),
+            italic: get(builder().italic(), size),
+            bold_italic: get(builder().bold().italic(), size),
             name,
         }
     }
@@ -84,11 +88,38 @@ impl FontInfo {
             FontStyle::BoldItalic => self.bold_italic.as_ref(),
         }
     }
+
+    pub fn resize(&mut self, size: FontSize) {
+        for font in self.iter_mut() {
+            font.resize(size);
+        }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Font> {
+        [&self.regular, &self.bold, &self.italic, &self.bold_italic]
+            .into_iter()
+            .filter_map(|font| font.as_ref())
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Font> {
+        [
+            &mut self.regular,
+            &mut self.bold,
+            &mut self.italic,
+            &mut self.bold_italic,
+        ]
+        .into_iter()
+        .filter_map(|font| font.as_mut())
+    }
+
+    pub fn metrics(&self) -> Option<Metrics> {
+        self.iter().map(|font| font.metrics()).next()
+    }
 }
 
-fn get(builder: FontPropertyBuilder) -> Option<Font> {
+fn get(builder: FontPropertyBuilder, size: FontSize) -> Option<Font> {
     system_fonts::get(&builder.build())
-        .and_then(|(data, index)| Font::from_bytes(data, index as usize))
+        .and_then(|(data, index)| Font::from_bytes(data, index as usize, size))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]

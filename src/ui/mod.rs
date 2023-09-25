@@ -19,6 +19,8 @@ use std::{
     fmt::{self, Debug, Formatter},
 };
 
+pub use options::{FontSize, FontsSetting};
+
 pub type Highlights = HashMap<u64, HlAttrDefine>;
 pub type HighlightGroups = HashMap<String, u64>;
 

@@ -61,7 +61,9 @@ impl Grid {
             self.bg.push(cell.highlight as u32);
         }
 
-        let metrics = fonts.with_style(FontStyle::Regular).metrics(fonts.size());
+        let metrics = fonts.metrics();
+        let metrics_px = metrics.into_pixels();
+        let cell_size = metrics_px.cell_size();
 
         for (cell_line_i, cell_line) in grid.rows().enumerate() {
             let mut cluster = CharCluster::new();
@@ -116,7 +118,7 @@ impl Grid {
                         }
 
                         shaper.shape_with(|glyph_cluster| {
-                            let x = glyph_cluster.source.start * fonts.size();
+                            let x = glyph_cluster.source.start * cell_size.x;
                             for glyph in glyph_cluster.glyphs {
                                 let CacheValue { index, kind } = match font_cache.get(
                                     font.as_ref(),
@@ -140,8 +142,7 @@ impl Grid {
                                     + Vec2::new(
                                         (glyph.x * metrics.scale_factor).round() as i32 + x as i32,
                                         (glyph.y * metrics.scale_factor
-                                            + (cell_line_i as u32 * metrics.cell_size_px.y
-                                                + metrics.em_px)
+                                            + (cell_line_i as u32 * cell_size.y + metrics_px.em)
                                                 as f32)
                                             .round() as i32,
                                     );
@@ -262,9 +263,9 @@ impl Grid {
         position: Vec2<f64>,
         z: f32,
     ) {
-        let metrics = fonts.with_style(FontStyle::Regular).metrics(fonts.size());
+        let cell_size = fonts.metrics().into_pixels().cell_size();
         self.grid_info = PushConstants {
-            offset: (position * metrics.cell_size_px.into()).into(),
+            offset: (position * cell_size.into()).into(),
             grid_width: grid.size.x as u32,
             z,
         };

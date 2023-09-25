@@ -14,7 +14,7 @@ use self::state::RenderState;
 use crate::{
     event::{self, Event, OptionSet, SetTitle},
     session::Neovim,
-    text::fonts::{FontStyle, Fonts},
+    text::fonts::Fonts,
     ui::Ui,
 };
 use rmpv::Value;
@@ -108,8 +108,7 @@ impl RenderLoop {
                 let is_gui_font = matches!(event, OptionSet::Guifont(_));
                 self.ui.process(Event::OptionSet(event));
                 if is_gui_font {
-                    let guifont = &self.ui.options.guifont;
-                    self.fonts.reload(guifont.0.as_slice(), guifont.1);
+                    self.fonts.reload(&self.ui.options.guifont);
                     self.render_state.font_cache.clear();
                     self.render_state.monochrome_pipeline.clear();
                     self.resize_grid();
@@ -121,14 +120,11 @@ impl RenderLoop {
 
     fn resize_grid(&mut self) {
         let size = self.render_state.shared.surface_size();
-        let metrics = self
-            .fonts
-            .with_style(FontStyle::Regular)
-            .metrics(self.fonts.size());
+        let cell_size = self.fonts.metrics().into_pixels().cell_size();
         self.neovim.ui_try_resize_grid(
             1,
-            (size.x / self.fonts.size()) as u64,
-            (size.y / metrics.cell_size_px.y) as u64,
+            (size.x / cell_size.x) as u64,
+            (size.y / cell_size.y) as u64,
         )
     }
 }

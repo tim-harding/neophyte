@@ -120,13 +120,14 @@ impl CursorFg {
             return;
         };
 
+        let metrics = font.metrics();
+        let metrics_pixels = metrics.into_pixels();
         let mut shaper = shape_context
             .builder(font.as_ref())
-            .size(fonts.size() as f32)
+            .size(metrics.em)
             .script(Script::Arabic)
             .build();
         shaper.add_cluster(&cluster);
-        let metrics = font.metrics(fonts.size());
         shaper.shape_with(|glyph_cluster| {
             for glyph in glyph_cluster.glyphs {
                 let CacheValue { index, kind } =
@@ -144,7 +145,7 @@ impl CursorFg {
                         let position = offset * Vec2::new(1, -1)
                             + Vec2::new(
                                 (glyph.x * metrics.scale_factor).round() as i32,
-                                (glyph.y * metrics.scale_factor + metrics.em_px as f32).round()
+                                (glyph.y * metrics.scale_factor + metrics_pixels.em as f32).round()
                                     as i32,
                             );
                         cells[cell_count] = MonochromeCell {
@@ -166,7 +167,7 @@ impl CursorFg {
         queue.write_buffer(&self.buffer, 0, cast_slice(&cells));
         let grid_offset: Vec2<f32> = grid.offset().0.into();
         let cursor_pos: Vec2<f32> = ui.cursor.pos.into();
-        let cell_size_px: Vec2<f32> = metrics.cell_size_px.into();
+        let cell_size_px: Vec2<f32> = metrics_pixels.cell_size().into();
         self.grid_info = grid::PushConstants {
             offset: (grid_offset + cursor_pos) * cell_size_px,
             grid_width: 1,

@@ -12,9 +12,9 @@ pub struct Options {
     /// Emoji characters are considered to be full width
     pub emoji: bool,
     /// Fonts to use with fallbacks
-    pub guifont: (Vec<String>, u32),
+    pub guifont: FontsSetting,
     /// Fonts to use for double-width characters with fallbacks
-    pub guifontwide: (Vec<String>, u32),
+    pub guifontwide: FontsSetting,
     /// Number of pixel lines inserted between characters
     pub linespace: u64,
     /// Window focus follows mouse pointer
@@ -47,10 +47,9 @@ impl Options {
     }
 }
 
-fn fonts_from_option(option: String) -> (Vec<String>, u32) {
-    let mut height = 12u32;
+fn fonts_from_option(option: String) -> FontsSetting {
+    let mut out = FontsSetting::default();
     let mut state = ParseState::Normal;
-    let mut out = vec![];
     let mut current = String::new();
     for c in option.chars() {
         match state {
@@ -62,7 +61,7 @@ fn fonts_from_option(option: String) -> (Vec<String>, u32) {
                 match c {
                     '\\' => state = ParseState::Escape,
                     ',' => {
-                        out.push(current);
+                        out.fonts.push(current);
                         current = String::default();
                         state = ParseState::Normal;
                     }
@@ -75,28 +74,37 @@ fn fonts_from_option(option: String) -> (Vec<String>, u32) {
             ParseState::Escape => current.push(c),
 
             ParseState::OptionStart => {
-                if c == 'h' {
-                    state = ParseState::OptionHeight;
-                    height = 0;
-                } else {
-                    state = ParseState::OptionUnknown;
-                }
+                state = match c {
+                    'w' | 'W' => ParseState::OptionSize(0, SizeKind::Width),
+                    'h' | 'H' => ParseState::OptionSize(0, SizeKind::Height),
+                    _ => ParseState::OptionUnknown,
+                };
             }
 
-            ParseState::OptionHeight => match c {
-                '0'..='9' => height = height * 10 + c as u32 - '0' as u32,
+            ParseState::OptionSize(size, kind) => match c {
+                '0'..='9' => {
+                    let size = size * 10 + c as u32 - '0' as u32;
+                    state = ParseState::OptionSize(size, kind);
+                }
                 ',' => {
-                    out.push(current);
+                    out.fonts.push(current);
+                    out.size = FontSize::new(size, kind);
                     current = String::default();
                     state = ParseState::Normal;
                 }
-                ':' => state = ParseState::OptionStart,
-                _ => log::warn!("Bad font height option"),
+                ':' => {
+                    out.size = FontSize::new(size, kind);
+                    state = ParseState::OptionStart;
+                }
+                _ => {
+                    log::warn!("Bad font height option");
+                    break;
+                }
             },
 
             ParseState::OptionUnknown => match c {
                 ',' => {
-                    out.push(current);
+                    out.fonts.push(current);
                     current = String::default();
                     state = ParseState::Normal;
                 }
@@ -107,12 +115,40 @@ fn fonts_from_option(option: String) -> (Vec<String>, u32) {
     }
 
     if !current.is_empty() {
-        out.push(current);
+        out.fonts.push(current);
     }
 
-    (out, height)
+    out
 }
 
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct FontsSetting {
+    pub fonts: Vec<String>,
+    pub size: FontSize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FontSize {
+    Width(u32),
+    Height(u32),
+}
+
+impl FontSize {
+    fn new(size: u32, kind: SizeKind) -> Self {
+        match kind {
+            SizeKind::Width => Self::Width(size),
+            SizeKind::Height => Self::Height(size),
+        }
+    }
+}
+
+impl Default for FontSize {
+    fn default() -> Self {
+        Self::Height(18)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ParseState {
     /// Appending chars as normal
     Normal,
@@ -120,8 +156,14 @@ enum ParseState {
     Escape,
     /// Found a :
     OptionStart,
-    /// Found a :h
-    OptionHeight,
+    /// Found a :h or :w
+    OptionSize(u32, SizeKind),
     /// An unknown option is being specified
     OptionUnknown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SizeKind {
+    Width,
+    Height,
 }

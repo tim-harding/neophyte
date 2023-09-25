@@ -9,10 +9,7 @@ use super::{
     shared::Shared,
 };
 use crate::{
-    text::{
-        cache::FontCache,
-        fonts::{FontStyle, Fonts},
-    },
+    text::{cache::FontCache, fonts::Fonts},
     ui::Ui,
     util::vec2::Vec2,
 };
@@ -90,10 +87,7 @@ impl RenderState {
     }
 
     pub fn update(&mut self, ui: &Ui, fonts: &mut Fonts) {
-        let cell_size = fonts
-            .with_style(FontStyle::Regular)
-            .metrics(fonts.size())
-            .cell_size_px;
+        let cell_size = fonts.metrics().into_pixels().cell_size();
         self.cursor_bg
             .update(ui, self.shared.surface_size(), cell_size.into());
         self.cursor_fg.update(
