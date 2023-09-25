@@ -84,91 +84,81 @@ impl Grid {
                 match next_font {
                     Some(current_font_unwrapped) => {
                         let font_info = fonts.iter().nth(current_font_unwrapped.0).unwrap();
-                        match &font_info.style(current_font_unwrapped.1) {
-                            Some(font) => {
-                                let mut shaper = shape_context
-                                    .builder(font.as_ref())
-                                    .script(Script::Arabic)
-                                    .build();
+                        let font = font_info.style(current_font_unwrapped.1).unwrap();
+                        let mut shaper = shape_context
+                            .builder(font.as_ref())
+                            .script(Script::Arabic)
+                            .build();
 
-                                shaper.add_cluster(&cluster);
+                        shaper.add_cluster(&cluster);
 
-                                loop {
-                                    if !parser.next(&mut cluster) {
-                                        is_parser_empty = true;
+                        loop {
+                            if !parser.next(&mut cluster) {
+                                is_parser_empty = true;
+                                break;
+                            }
+
+                            let best_font = best_font(&mut cluster, fonts, highlights);
+                            match best_font {
+                                Some(best_font) => {
+                                    if current_font_unwrapped == best_font {
+                                        shaper.add_cluster(&cluster);
+                                    } else {
+                                        next_font = Some(best_font);
                                         break;
-                                    }
-
-                                    let best_font = best_font(&mut cluster, fonts, highlights);
-                                    match best_font {
-                                        Some(best_font) => {
-                                            if current_font_unwrapped == best_font {
-                                                shaper.add_cluster(&cluster);
-                                            } else {
-                                                next_font = Some(best_font);
-                                                break;
-                                            }
-                                        }
-
-                                        None => {
-                                            next_font = None;
-                                            break;
-                                        }
                                     }
                                 }
 
-                                shaper.shape_with(|glyph_cluster| {
-                                    let x = glyph_cluster.source.start * fonts.size();
-                                    for glyph in glyph_cluster.glyphs {
-                                        let CacheValue { index, kind } = match font_cache.get(
-                                            font.as_ref(),
-                                            metrics.em,
-                                            glyph.id,
-                                            current_font_unwrapped.1,
-                                        ) {
-                                            Some(glyph) => glyph,
-                                            None => {
-                                                continue;
-                                            }
-                                        };
-                                        let glyph_index = index as u32;
-
-                                        let offset = match kind {
-                                            GlyphKind::Monochrome => {
-                                                font_cache.monochrome.offset[index]
-                                            }
-                                            GlyphKind::Emoji => font_cache.emoji.offset[index],
-                                        };
-                                        let position = offset * Vec2::new(1, -1)
-                                            + Vec2::new(
-                                                (glyph.x * metrics.scale_factor).round() as i32
-                                                    + x as i32,
-                                                (glyph.y * metrics.scale_factor
-                                                    + (cell_line_i as u32 * metrics.cell_size_px.y
-                                                        + metrics.em_px)
-                                                        as f32)
-                                                    .round()
-                                                    as i32,
-                                            );
-                                        match kind {
-                                            GlyphKind::Monochrome => {
-                                                self.glyphs.push(MonochromeCell {
-                                                    glyph_index,
-                                                    highlight_index: glyph.data,
-                                                    position,
-                                                })
-                                            }
-                                            GlyphKind::Emoji => self.emoji.push(EmojiCell {
-                                                position,
-                                                glyph_index,
-                                                padding: 0,
-                                            }),
-                                        }
-                                    }
-                                });
+                                None => {
+                                    next_font = None;
+                                    break;
+                                }
                             }
-                            None => todo!(),
                         }
+
+                        shaper.shape_with(|glyph_cluster| {
+                            let x = glyph_cluster.source.start * fonts.size();
+                            for glyph in glyph_cluster.glyphs {
+                                let CacheValue { index, kind } = match font_cache.get(
+                                    font.as_ref(),
+                                    metrics.em,
+                                    glyph.id,
+                                    current_font_unwrapped.1,
+                                ) {
+                                    Some(glyph) => glyph,
+                                    None => {
+                                        continue;
+                                    }
+                                };
+                                let glyph_index = index as u32;
+
+                                let offset = match kind {
+                                    GlyphKind::Monochrome => font_cache.monochrome.offset[index],
+                                    GlyphKind::Emoji => font_cache.emoji.offset[index],
+                                };
+                                let position = offset * Vec2::new(1, -1)
+                                    + Vec2::new(
+                                        (glyph.x * metrics.scale_factor).round() as i32 + x as i32,
+                                        (glyph.y * metrics.scale_factor
+                                            + (cell_line_i as u32 * metrics.cell_size_px.y
+                                                + metrics.em_px)
+                                                as f32)
+                                            .round() as i32,
+                                    );
+                                match kind {
+                                    GlyphKind::Monochrome => self.glyphs.push(MonochromeCell {
+                                        glyph_index,
+                                        highlight_index: glyph.data,
+                                        position,
+                                    }),
+                                    GlyphKind::Emoji => self.emoji.push(EmojiCell {
+                                        position,
+                                        glyph_index,
+                                        padding: 0,
+                                    }),
+                                }
+                            }
+                        });
                     }
 
                     None => loop {
