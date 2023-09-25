@@ -78,10 +78,10 @@ impl Grid {
                 }),
             );
 
-            let mut current_font: Option<(usize, FontStyle)> = None;
+            let mut next_font: Option<(usize, FontStyle)> = None;
             let mut is_parser_empty = false;
             while !is_parser_empty {
-                match current_font {
+                match next_font {
                     Some(current_font_unwrapped) => {
                         let font_info = fonts.iter().nth(current_font_unwrapped.0).unwrap();
                         match &font_info.style(current_font_unwrapped.1) {
@@ -99,56 +99,19 @@ impl Grid {
                                         break;
                                     }
 
-                                    let mut best_font = None;
-                                    let style = highlights
-                                        .get(&(cluster.user_data() as u64))
-                                        .map(|highlight| {
-                                            let Attributes { bold, italic, .. } =
-                                                highlight.rgb_attr;
-                                            let bold = bold.unwrap_or_default();
-                                            let italic = italic.unwrap_or_default();
-                                            FontStyle::new(bold, italic)
-                                        })
-                                        .unwrap_or_default();
-
-                                    for (i, font_info) in fonts.iter().enumerate() {
-                                        if let Some(font) = &font_info.style(style) {
-                                            match cluster.map(|c| font.charmap().map(c)) {
-                                                Status::Discard => {}
-                                                Status::Keep => best_font = Some((i, style)),
-                                                Status::Complete => {
-                                                    best_font = Some((i, style));
-                                                    break;
-                                                }
-                                            }
-                                        } else if style != FontStyle::Regular {
-                                            if let Some(font) = &font_info.regular {
-                                                match cluster.map(|c| font.charmap().map(c)) {
-                                                    Status::Discard => {}
-                                                    Status::Keep => {
-                                                        best_font = Some((i, FontStyle::Regular))
-                                                    }
-                                                    Status::Complete => {
-                                                        best_font = Some((i, FontStyle::Regular));
-                                                        break;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-
+                                    let best_font = best_font(&mut cluster, fonts, highlights);
                                     match best_font {
                                         Some(best_font) => {
                                             if current_font_unwrapped == best_font {
                                                 shaper.add_cluster(&cluster);
                                             } else {
-                                                current_font = Some(best_font);
+                                                next_font = Some(best_font);
                                                 break;
                                             }
                                         }
 
                                         None => {
-                                            current_font = best_font;
+                                            next_font = None;
                                             break;
                                         }
                                     }
@@ -213,44 +176,9 @@ impl Grid {
                             is_parser_empty = true;
                             break;
                         }
-
-                        let mut best_font = None;
-                        for (i, font_info) in fonts.iter().enumerate() {
-                            let style = highlights
-                                .get(&(cluster.user_data() as u64))
-                                .map(|highlight| {
-                                    let Attributes { bold, italic, .. } = highlight.rgb_attr;
-                                    let bold = bold.unwrap_or_default();
-                                    let italic = italic.unwrap_or_default();
-                                    FontStyle::new(bold, italic)
-                                })
-                                .unwrap_or_default();
-
-                            if let Some(font) = &font_info.style(style) {
-                                match cluster.map(|c| font.charmap().map(c)) {
-                                    Status::Discard => {}
-                                    Status::Keep => best_font = Some((i, style)),
-                                    Status::Complete => {
-                                        best_font = Some((i, style));
-                                        break;
-                                    }
-                                }
-                            } else if style != FontStyle::Regular {
-                                if let Some(font) = &font_info.regular {
-                                    match cluster.map(|c| font.charmap().map(c)) {
-                                        Status::Discard => {}
-                                        Status::Keep => best_font = Some((i, style)),
-                                        Status::Complete => {
-                                            best_font = Some((i, style));
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        if current_font != best_font {
-                            current_font = best_font;
+                        let best_font = best_font(&mut cluster, fonts, highlights);
+                        if next_font != best_font {
+                            next_font = best_font;
                             break;
                         }
                     },
@@ -352,6 +280,47 @@ impl Grid {
             z,
         };
     }
+}
+
+fn best_font(
+    cluster: &mut CharCluster,
+    fonts: &Fonts,
+    highlights: &Highlights,
+) -> Option<(usize, FontStyle)> {
+    let style = highlights
+        .get(&(cluster.user_data() as u64))
+        .map(|highlight| {
+            let Attributes { bold, italic, .. } = highlight.rgb_attr;
+            let bold = bold.unwrap_or_default();
+            let italic = italic.unwrap_or_default();
+            FontStyle::new(bold, italic)
+        })
+        .unwrap_or_default();
+    let mut best_font = None;
+    for (i, font_info) in fonts.iter().enumerate() {
+        if let Some(font) = &font_info.style(style) {
+            match cluster.map(|c| font.charmap().map(c)) {
+                Status::Discard => {}
+                Status::Keep => best_font = Some((i, style)),
+                Status::Complete => {
+                    best_font = Some((i, style));
+                    break;
+                }
+            }
+        } else if style != FontStyle::Regular {
+            if let Some(font) = &font_info.regular {
+                match cluster.map(|c| font.charmap().map(c)) {
+                    Status::Discard => {}
+                    Status::Keep => best_font = Some((i, FontStyle::Regular)),
+                    Status::Complete => {
+                        best_font = Some((i, FontStyle::Regular));
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    best_font
 }
 
 #[repr(C)]
