@@ -99,13 +99,13 @@ impl CursorFg {
         }
 
         let mut best_font = None;
-        for font_info in fonts.iter() {
+        for (i, font_info) in fonts.iter().enumerate() {
             if let Some(font) = font_info.style_or_regular(style) {
                 match cluster.map(|c| font.charmap().map(c)) {
                     Status::Discard => {}
-                    Status::Keep => best_font = Some(font),
+                    Status::Keep => best_font = Some((i, font)),
                     Status::Complete => {
-                        best_font = Some(font);
+                        best_font = Some((i, font));
                         break;
                     }
                 }
@@ -115,7 +115,7 @@ impl CursorFg {
         let mut cell_count = 0;
         let mut cells = [MonochromeCell::default(); 4];
 
-        let Some(font) = best_font else {
+        let Some((font_index, font)) = best_font else {
             self.glyph_count = 0;
             return;
         };
@@ -130,7 +130,7 @@ impl CursorFg {
         shaper.shape_with(|glyph_cluster| {
             for glyph in glyph_cluster.glyphs {
                 let CacheValue { index, kind } =
-                    match font_cache.get(font.as_ref(), metrics.em, glyph.id, style) {
+                    match font_cache.get(font.as_ref(), metrics.em, glyph.id, style, font_index) {
                         Some(glyph) => glyph,
                         None => {
                             continue;

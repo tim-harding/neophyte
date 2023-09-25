@@ -31,8 +31,13 @@ impl FontCache {
         size: f32,
         glyph_id: GlyphId,
         style: FontStyle,
+        font_index: usize,
     ) -> Option<CacheValue> {
-        let key = CacheKey { glyph_id, style };
+        let key = CacheKey {
+            glyph_id,
+            style,
+            font_index,
+        };
         match self.lut.entry(key) {
             Entry::Occupied(entry) => *entry.get(),
             Entry::Vacant(entry) => {
@@ -99,6 +104,7 @@ impl Cached {
 struct CacheKey {
     glyph_id: GlyphId,
     style: FontStyle,
+    font_index: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

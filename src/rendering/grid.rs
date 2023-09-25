@@ -78,18 +78,17 @@ impl Grid {
                 }),
             );
 
-            let mut next_font: Option<(usize, FontStyle)> = None;
+            let mut next_font: Option<BestFont> = None;
             let mut is_parser_empty = false;
             while !is_parser_empty {
                 match next_font {
                     Some(current_font_unwrapped) => {
-                        let font_info = fonts.iter().nth(current_font_unwrapped.0).unwrap();
-                        let font = font_info.style(current_font_unwrapped.1).unwrap();
+                        let font_info = fonts.iter().nth(current_font_unwrapped.index).unwrap();
+                        let font = font_info.style(current_font_unwrapped.style).unwrap();
                         let mut shaper = shape_context
                             .builder(font.as_ref())
                             .script(Script::Arabic)
                             .build();
-
                         shaper.add_cluster(&cluster);
 
                         loop {
@@ -123,7 +122,8 @@ impl Grid {
                                     font.as_ref(),
                                     metrics.em,
                                     glyph.id,
-                                    current_font_unwrapped.1,
+                                    current_font_unwrapped.style,
+                                    current_font_unwrapped.index,
                                 ) {
                                     Some(glyph) => glyph,
                                     None => {
@@ -166,9 +166,8 @@ impl Grid {
                             is_parser_empty = true;
                             break;
                         }
-                        let best_font = best_font(&mut cluster, fonts, highlights);
-                        if next_font != best_font {
-                            next_font = best_font;
+                        if let Some(best_font) = best_font(&mut cluster, fonts, highlights) {
+                            next_font = Some(best_font);
                             break;
                         }
                     },
@@ -276,7 +275,7 @@ fn best_font(
     cluster: &mut CharCluster,
     fonts: &Fonts,
     highlights: &Highlights,
-) -> Option<(usize, FontStyle)> {
+) -> Option<BestFont> {
     let style = highlights
         .get(&(cluster.user_data() as u64))
         .map(|highlight| {
@@ -291,19 +290,24 @@ fn best_font(
         if let Some(font) = &font_info.style(style) {
             match cluster.map(|c| font.charmap().map(c)) {
                 Status::Discard => {}
-                Status::Keep => best_font = Some((i, style)),
+                Status::Keep => {
+                    best_font = Some(BestFont::new(i, style));
+                    continue;
+                }
                 Status::Complete => {
-                    best_font = Some((i, style));
+                    best_font = Some(BestFont::new(i, style));
                     break;
                 }
             }
-        } else if style != FontStyle::Regular {
+        }
+
+        if style != FontStyle::Regular {
             if let Some(font) = &font_info.regular {
                 match cluster.map(|c| font.charmap().map(c)) {
                     Status::Discard => {}
-                    Status::Keep => best_font = Some((i, FontStyle::Regular)),
+                    Status::Keep => best_font = Some(BestFont::new(i, FontStyle::Regular)),
                     Status::Complete => {
-                        best_font = Some((i, FontStyle::Regular));
+                        best_font = Some(BestFont::new(i, FontStyle::Regular));
                         break;
                     }
                 }
@@ -311,6 +315,18 @@ fn best_font(
         }
     }
     best_font
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct BestFont {
+    index: usize,
+    style: FontStyle,
+}
+
+impl BestFont {
+    pub fn new(index: usize, style: FontStyle) -> Self {
+        Self { index, style }
+    }
 }
 
 #[repr(C)]
