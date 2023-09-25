@@ -26,11 +26,6 @@ pub struct Contingent {
     pub pipeline: wgpu::RenderPipeline,
 }
 
-pub struct GlyphBindGroup {
-    pub layout: wgpu::BindGroupLayout,
-    pub group: wgpu::BindGroup,
-}
-
 impl GlyphPipeline {
     pub fn new(
         device: &wgpu::Device,

@@ -41,7 +41,8 @@ struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) tex_index: u32,
     @location(1) tex_coord: vec2<f32>,
-    @location(2) color: vec3<f32>,
+    @location(2) fg: vec3<f32>,
+    @location(3) bg: vec3<f32>,
 }
 
 @vertex
@@ -58,7 +59,8 @@ fn vs_main(
     let hl_info = highlights[grid_cell.highlight_index];
 
     var out: VertexOutput;
-    out.color = hl_info.fg;
+    out.fg = hl_info.fg;
+    out.bg = hl_info.bg;
     out.tex_index = grid_cell.glyph_index;
     out.tex_coord = tex_coord;
     out.clip_position = vec4<f32>(
@@ -81,5 +83,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         in.tex_coord,
         0.0
     );
-    return vec4<f32>(in.color, sample.r);
+    let gamma = vec3<f32>(2.2, 2.2, 2.2);
+    let inv = vec3<f32>(1.0/2.2, 1.0/2.2, 1.0/2.2);
+    let c = pow(mix(pow(in.bg, inv), pow(in.fg, inv), sample.r), gamma);
+    return vec4<f32>(c, ceil(sample.r));
 }
