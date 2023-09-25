@@ -1,7 +1,6 @@
-use super::{depth_texture::DepthTexture, state::TARGET_FORMAT, texture::Texture};
 use crate::util::vec2::Vec2;
 use std::sync::Arc;
-use winit::{dpi::PhysicalSize, window::Window};
+use winit::window::Window;
 
 pub struct Shared {
     pub device: wgpu::Device,
@@ -9,8 +8,6 @@ pub struct Shared {
     pub surface: wgpu::Surface,
     pub surface_config: wgpu::SurfaceConfiguration,
     pub surface_format: wgpu::TextureFormat,
-    pub depth_texture: DepthTexture,
-    pub target_texture: Texture,
 }
 
 impl Shared {
@@ -66,15 +63,8 @@ impl Shared {
             view_formats: vec![],
         };
         surface.configure(&device, &surface_config);
-        let surface_size = Vec2::new(surface_config.width, surface_config.height);
-        let target_texture = Texture::target(&device, surface_size, TARGET_FORMAT);
 
         Self {
-            depth_texture: DepthTexture::new(
-                &device,
-                Vec2::new(surface_config.width, surface_config.height),
-            ),
-            target_texture,
             device,
             queue,
             surface,
@@ -83,13 +73,11 @@ impl Shared {
         }
     }
 
-    pub fn resize(&mut self, new_size: PhysicalSize<u32>) {
-        if new_size.width > 0 && new_size.height > 0 {
-            self.surface_config.width = new_size.width;
-            self.surface_config.height = new_size.height;
+    pub fn resize(&mut self, new_size: Vec2<u32>) {
+        if new_size.x > 0 && new_size.y > 0 {
+            self.surface_config.width = new_size.x;
+            self.surface_config.height = new_size.y;
             self.surface.configure(&self.device, &self.surface_config);
-            self.depth_texture = DepthTexture::new(&self.device, self.surface_size());
-            self.target_texture = Texture::target(&self.device, self.surface_size(), TARGET_FORMAT);
         }
     }
 

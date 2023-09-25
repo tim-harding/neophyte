@@ -2,11 +2,13 @@ use super::{
     blit_render_pipeline::BlitRenderPipeline,
     cell_fill_pipeline::CellFillPipeline,
     cursor::{bg::CursorBg, fg::CursorFg},
+    depth_texture::DepthTexture,
     glyph_pipeline::GlyphPipeline,
     grid::{self, Grid},
     grid_bind_group_layout::GridBindGroupLayout,
     highlights::HighlightsBindGroup,
     shared::Shared,
+    texture::Texture,
 };
 use crate::{
     text::{cache::FontCache, fonts::Fonts},
@@ -17,7 +19,7 @@ use bytemuck::{cast_slice, Pod, Zeroable};
 use std::sync::Arc;
 use swash::shape::ShapeContext;
 use wgpu::include_wgsl;
-use winit::{dpi::PhysicalSize, window::Window};
+use winit::window::Window;
 
 pub const TARGET_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
@@ -36,21 +38,25 @@ pub struct RenderState {
     pub draw_order_index_cache: Vec<usize>,
     pub shared_push_constants: SharedPushConstants,
     pub blit_render_pipeline: BlitRenderPipeline,
+    pub target_texture: Texture,
+    pub depth_texture: DepthTexture,
 }
 
-// TODO: Use each pipeline to completion
-
 impl RenderState {
-    pub async fn new(window: Arc<Window>) -> Self {
+    pub async fn new(window: Arc<Window>, cell_size: Vec2<u32>) -> Self {
         let shared = Shared::new(window).await;
         let highlights = HighlightsBindGroup::new(&shared.device);
         let grid_bind_group_layout = GridBindGroupLayout::new(&shared.device);
+        let grid_dimensions = (shared.surface_size() / cell_size) * cell_size;
+        let target_texture = Texture::target(&shared.device, grid_dimensions, TARGET_FORMAT);
         Self {
             blit_render_pipeline: BlitRenderPipeline::new(
                 &shared.device,
                 shared.surface_config.format,
-                &shared.target_texture.view,
+                &target_texture.view,
             ),
+            depth_texture: DepthTexture::new(&shared.device, grid_dimensions),
+            target_texture,
             cursor_bg: CursorBg::new(&shared.device, TARGET_FORMAT),
             cursor_fg: CursorFg::new(&shared.device, &grid_bind_group_layout.bind_group_layout),
             shape_context: ShapeContext::new(),
@@ -86,16 +92,11 @@ impl RenderState {
         }
     }
 
-    pub fn grid_dimensions(&self, fonts: &Fonts) -> Vec2<u32> {
-        let size = self.shared.surface_size();
-        let cell_size = fonts.metrics().into_pixels().cell_size();
-        Vec2::new(size.x / cell_size.x, size.y / cell_size.y)
-    }
-
     pub fn update(&mut self, ui: &Ui, fonts: &mut Fonts) {
         let cell_size = fonts.metrics().into_pixels().cell_size();
-        self.cursor_bg
-            .update(ui, self.shared.surface_size(), cell_size.into());
+        let surface_size = self.shared.surface_size();
+        let target_size = (surface_size / cell_size) * cell_size;
+        self.cursor_bg.update(ui, target_size, cell_size.into());
         self.cursor_fg.update(
             ui,
             fonts,
@@ -172,18 +173,21 @@ impl RenderState {
             wgpu::TextureFormat::Rgba8UnormSrgb,
         );
         self.shared_push_constants = SharedPushConstants {
-            surface_size: self.shared.surface_size(),
+            surface_size: target_size,
             cell_size,
         };
     }
 
-    pub fn resize(&mut self, size: PhysicalSize<u32>) {
-        self.shared.resize(size);
+    pub fn resize(&mut self, surface_size: Vec2<u32>, cell_size: Vec2<u32>) {
+        self.shared.resize(surface_size);
+        let texture_size = (surface_size / cell_size) * cell_size;
+        self.target_texture = Texture::target(&self.shared.device, texture_size, TARGET_FORMAT);
         self.blit_render_pipeline.update(
             &self.shared.device,
             self.shared.surface_format,
-            &self.shared.target_texture.view,
+            &self.target_texture.view,
         );
+        self.depth_texture = DepthTexture::new(&self.shared.device, texture_size);
     }
 
     pub fn render(&mut self, draw_order: &[u64]) -> Result<(), wgpu::SurfaceError> {
@@ -207,7 +211,7 @@ impl RenderState {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &self.shared.target_texture.view,
+                    view: &self.target_texture.view,
                     resolve_target: None, // No multisampling
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(self.highlights.clear_color),
@@ -215,7 +219,7 @@ impl RenderState {
                     },
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.shared.depth_texture.view,
+                    view: &self.depth_texture.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
                         store: true,
@@ -333,9 +337,7 @@ impl RenderState {
     }
 
     pub fn rebuild_swap_chain(&mut self) {
-        let size = self.shared.surface_size();
-        let size = PhysicalSize::new(size.x, size.y);
-        self.shared.resize(size)
+        self.shared.resize(self.shared.surface_size().into());
     }
 }
 

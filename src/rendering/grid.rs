@@ -263,9 +263,9 @@ impl Grid {
         position: Vec2<f64>,
         z: f32,
     ) {
-        let cell_size = fonts.metrics().into_pixels().cell_size();
+        let cell_size: Vec2<f64> = fonts.metrics().into_pixels().cell_size().into();
         self.grid_info = PushConstants {
-            offset: (position * cell_size.into()).into(),
+            offset: (position * cell_size).into(),
             grid_width: grid.size.x as u32,
             z,
         };

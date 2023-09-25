@@ -181,7 +181,7 @@ fn main() {
 
                 WindowEvent::Resized(physical_size) => {
                     render_tx
-                        .send(RenderEvent::Resized(*physical_size))
+                        .send(RenderEvent::Resized((*physical_size).into()))
                         .unwrap();
                 }
 
@@ -191,7 +191,7 @@ fn main() {
                     scale_factor: _,
                 } => {
                     render_tx
-                        .send(RenderEvent::Resized(**new_inner_size))
+                        .send(RenderEvent::Resized((**new_inner_size).into()))
                         .unwrap();
                 }
 

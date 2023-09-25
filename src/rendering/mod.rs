@@ -20,11 +20,11 @@ use crate::{
 };
 use rmpv::Value;
 use std::sync::{mpsc::Receiver, Arc};
-use winit::{dpi::PhysicalSize, window::Window};
+use winit::window::Window;
 
 pub enum RenderEvent {
     Notification(String, Vec<Value>),
-    Resized(PhysicalSize<u32>),
+    Resized(Vec2<u32>),
     Redraw,
 }
 
@@ -38,13 +38,16 @@ pub struct RenderLoop {
 
 impl RenderLoop {
     pub fn new(window: Arc<Window>, neovim: Neovim) -> Self {
+        let fonts = Fonts::new();
         let render_state = {
             let window = window.clone();
-            pollster::block_on(async { RenderState::new(window.clone()).await })
+            pollster::block_on(async {
+                RenderState::new(window.clone(), fonts.metrics().into_pixels().cell_size()).await
+            })
         };
         Self {
             window,
-            fonts: Fonts::new(),
+            fonts,
             ui: Ui::new(),
             render_state,
             neovim,
@@ -59,8 +62,9 @@ impl RenderLoop {
                 }
 
                 RenderEvent::Resized(size) => {
-                    self.render_state.resize(size);
-                    self.resize_grid();
+                    let cell_size = self.fonts.metrics().into_pixels().cell_size();
+                    self.render_state.resize(size.into(), cell_size);
+                    self.resize_neovim_grid();
                 }
 
                 RenderEvent::Redraw => match self.render_state.render(&self.ui.draw_order) {
@@ -112,15 +116,18 @@ impl RenderLoop {
                     self.fonts.reload(&self.ui.options.guifont);
                     self.render_state.font_cache.clear();
                     self.render_state.monochrome_pipeline.clear();
-                    self.resize_grid();
+                    self.resize_neovim_grid();
                 }
             }
             event => self.ui.process(event),
         }
     }
 
-    fn resize_grid(&mut self) {
-        let size: Vec2<u64> = self.render_state.grid_dimensions(&self.fonts).into();
-        self.neovim.ui_try_resize_grid(1, size.x, size.y)
+    fn resize_neovim_grid(&mut self) {
+        let surface_size = self.render_state.shared.surface_size();
+        let cell_size = self.fonts.metrics().into_pixels().cell_size();
+        let size = surface_size / cell_size;
+        let size: Vec2<u64> = size.into();
+        self.neovim.ui_try_resize_grid(1, size.x, size.y);
     }
 }

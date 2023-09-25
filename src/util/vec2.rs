@@ -1,5 +1,6 @@
 use bytemuck::{Pod, Zeroable};
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+use winit::dpi::PhysicalSize;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
@@ -26,9 +27,41 @@ where
     }
 }
 
+impl<T> From<PhysicalSize<T>> for Vec2<T> {
+    fn from(value: PhysicalSize<T>) -> Self {
+        Self::new(value.width, value.height)
+    }
+}
+
+impl<T> From<Vec2<T>> for PhysicalSize<T> {
+    fn from(value: Vec2<T>) -> Self {
+        Self::new(value.x, value.y)
+    }
+}
+
 impl<T> From<Vec2<T>> for (T, T) {
     fn from(val: Vec2<T>) -> Self {
         (val.x, val.y)
+    }
+}
+
+impl<T> From<(T, T)> for Vec2<T> {
+    fn from(value: (T, T)) -> Self {
+        let (x, y) = value;
+        Self::new(x, y)
+    }
+}
+
+impl<T> From<Vec2<T>> for [T; 2] {
+    fn from(value: Vec2<T>) -> Self {
+        [value.x, value.y]
+    }
+}
+
+impl<T> From<[T; 2]> for Vec2<T> {
+    fn from(value: [T; 2]) -> Self {
+        let [x, y] = value;
+        Self::new(x, y)
     }
 }
 
@@ -46,6 +79,16 @@ where
     }
 }
 
+impl<T> AddAssign for Vec2<T>
+where
+    T: AddAssign,
+{
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+
 impl<T> Sub for Vec2<T>
 where
     T: Sub<Output = T>,
@@ -60,6 +103,16 @@ where
     }
 }
 
+impl<T> SubAssign for Vec2<T>
+where
+    T: SubAssign,
+{
+    fn sub_assign(&mut self, rhs: Self) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+    }
+}
+
 impl<T> Mul for Vec2<T>
 where
     T: Mul<Output = T>,
@@ -68,6 +121,79 @@ where
 
     fn mul(self, rhs: Self) -> Self::Output {
         Self::new(self.x * rhs.x, self.y * rhs.y)
+    }
+}
+
+impl<T> Mul<T> for Vec2<T>
+where
+    T: Mul<Output = T> + Copy,
+{
+    type Output = Vec2<T>;
+
+    fn mul(self, rhs: T) -> Self::Output {
+        Self::new(self.x * rhs, self.y * rhs)
+    }
+}
+
+impl<T> MulAssign for Vec2<T>
+where
+    T: MulAssign,
+{
+    fn mul_assign(&mut self, rhs: Self) {
+        self.x *= rhs.x;
+        self.y *= rhs.y;
+    }
+}
+
+impl<T> MulAssign<T> for Vec2<T>
+where
+    T: MulAssign<T> + Copy,
+{
+    fn mul_assign(&mut self, rhs: T) {
+        self.x *= rhs;
+        self.y *= rhs;
+    }
+}
+
+impl<T> Div for Vec2<T>
+where
+    T: Div<Output = T>,
+{
+    type Output = Vec2<T>;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        Self::new(self.x / rhs.x, self.y / rhs.y)
+    }
+}
+
+impl<T> Div<T> for Vec2<T>
+where
+    T: Div<Output = T> + Copy,
+{
+    type Output = Vec2<T>;
+
+    fn div(self, rhs: T) -> Self::Output {
+        Self::new(self.x / rhs, self.y / rhs)
+    }
+}
+
+impl<T> DivAssign for Vec2<T>
+where
+    T: DivAssign,
+{
+    fn div_assign(&mut self, rhs: Self) {
+        self.x /= rhs.x;
+        self.y /= rhs.y;
+    }
+}
+
+impl<T> DivAssign<T> for Vec2<T>
+where
+    T: DivAssign<T> + Copy,
+{
+    fn div_assign(&mut self, rhs: T) {
+        self.x /= rhs;
+        self.y /= rhs;
     }
 }
 
@@ -106,11 +232,11 @@ vec_try_from!(u8, i8);
 vec_try_from!(i8, u8);
 vec_try_from!(u64, usize);
 vec_try_from!(usize, u64);
-
+vec_try_from!(i64, isize);
+vec_try_from!(isize, i64);
 vec_try_from!(u64, u32);
 vec_try_from!(u64, u16);
 vec_try_from!(u64, u8);
-
 vec_try_from!(i64, i32);
 vec_try_from!(i64, i16);
 vec_try_from!(i64, i8);
