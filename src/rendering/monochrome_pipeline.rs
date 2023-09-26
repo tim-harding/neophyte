@@ -1,14 +1,16 @@
+use wgpu::include_wgsl;
+
 use super::{depth_texture::DepthTexture, grid, state::TARGET_FORMAT};
 
-pub struct GlyphPipeline {
+pub struct MonochromePipeline {
     shader: wgpu::ShaderModule,
     pipeline: Option<wgpu::RenderPipeline>,
 }
 
-impl GlyphPipeline {
-    pub fn new(shader: wgpu::ShaderModule) -> Self {
-        GlyphPipeline {
-            shader,
+impl MonochromePipeline {
+    pub fn new(device: &wgpu::Device) -> Self {
+        MonochromePipeline {
+            shader: device.create_shader_module(include_wgsl!("glyph.wgsl")),
             pipeline: None,
         }
     }
@@ -26,7 +28,7 @@ impl GlyphPipeline {
     ) {
         let glyph_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Glyph pipeline layout"),
+                label: Some("Monochrome pipeline layout"),
                 bind_group_layouts: &[
                     highlights_bind_group_layout,
                     glyph_bind_group_layout,
@@ -39,7 +41,7 @@ impl GlyphPipeline {
             });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Glyph pipeline"),
+            label: Some("Monochrome pipeline"),
             layout: Some(&glyph_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &self.shader,

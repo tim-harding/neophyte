@@ -3,11 +3,12 @@ use super::{
     cell_fill_pipeline::CellFillPipeline,
     cursor_bg::CursorBg,
     depth_texture::DepthTexture,
+    emoji_pipeline::EmojiPipeline,
     glyph_bind_group::GlyphBindGroup,
-    glyph_pipeline::GlyphPipeline,
     grid::{self, Grid},
     grid_bind_group_layout::GridBindGroupLayout,
     highlights::HighlightsBindGroup,
+    monochrome_pipeline::MonochromePipeline,
     texture::Texture,
 };
 use crate::{
@@ -18,7 +19,6 @@ use crate::{
 use bytemuck::cast_slice;
 use std::sync::Arc;
 use swash::shape::ShapeContext;
-use wgpu::include_wgsl;
 use winit::window::Window;
 
 pub const TARGET_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
@@ -33,8 +33,8 @@ pub struct RenderState {
     shape_context: ShapeContext,
     font_cache: FontCache,
     grids: Vec<grid::Grid>,
-    monochrome_pipeline: GlyphPipeline,
-    emoji_pipeline: GlyphPipeline,
+    monochrome_pipeline: MonochromePipeline,
+    emoji_pipeline: EmojiPipeline,
     monochrome_bind_group: GlyphBindGroup,
     emoji_bind_group: GlyphBindGroup,
     cell_fill_pipeline: CellFillPipeline,
@@ -115,12 +115,8 @@ impl RenderState {
             cursor_bg: CursorBg::new(&device, TARGET_FORMAT),
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
-            monochrome_pipeline: GlyphPipeline::new(
-                device.create_shader_module(include_wgsl!("glyph.wgsl")),
-            ),
-            emoji_pipeline: GlyphPipeline::new(
-                device.create_shader_module(include_wgsl!("emoji.wgsl")),
-            ),
+            monochrome_pipeline: MonochromePipeline::new(&device),
+            emoji_pipeline: EmojiPipeline::new(&device),
             monochrome_bind_group: GlyphBindGroup::new(&device),
             emoji_bind_group: GlyphBindGroup::new(&device),
             cell_fill_pipeline: CellFillPipeline::new(
@@ -218,7 +214,6 @@ impl RenderState {
         if let Some(emoji_bind_group_layout) = self.emoji_bind_group.layout() {
             self.emoji_pipeline.update(
                 &self.device,
-                &self.highlights.layout(),
                 emoji_bind_group_layout,
                 &self.grid_bind_group_layout.bind_group_layout,
             );
@@ -331,11 +326,10 @@ impl RenderState {
                 self.emoji_bind_group.bind_group(),
             ) {
                 render_pass.set_pipeline(&pipeline);
-                render_pass.set_bind_group(0, highlights_bind_group, &[]);
-                render_pass.set_bind_group(1, &glyph_bind_group, &[]);
+                render_pass.set_bind_group(0, &glyph_bind_group, &[]);
                 for grid in grids() {
                     if let Some(emoji_bind_group) = &grid.emoji_bind_group {
-                        render_pass.set_bind_group(2, emoji_bind_group, &[]);
+                        render_pass.set_bind_group(1, emoji_bind_group, &[]);
                         render_pass.set_push_constants(
                             wgpu::ShaderStages::VERTEX,
                             0,

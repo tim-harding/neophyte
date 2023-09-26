@@ -2,11 +2,12 @@ mod blit_render_pipeline;
 mod cell_fill_pipeline;
 mod cursor_bg;
 mod depth_texture;
+mod emoji_pipeline;
 mod glyph_bind_group;
-mod glyph_pipeline;
 mod grid;
 mod grid_bind_group_layout;
 mod highlights;
+mod monochrome_pipeline;
 mod state;
 mod texture;
 
