@@ -7,7 +7,6 @@ mod glyph_pipeline;
 mod grid;
 mod grid_bind_group_layout;
 mod highlights;
-mod shared;
 mod state;
 mod texture;
 
@@ -63,14 +62,15 @@ impl RenderLoop {
                 }
 
                 RenderEvent::Resized(size) => {
-                    let cell_size = self.fonts.metrics().into_pixels().cell_size();
-                    self.render_state.resize(size.into(), cell_size);
+                    self.render_state.resize(size.into(), self.cell_size());
                     self.resize_neovim_grid();
                 }
 
                 RenderEvent::Redraw => match self.render_state.render(&self.ui.draw_order) {
                     Ok(_) => {}
-                    Err(wgpu::SurfaceError::Lost) => self.render_state.rebuild_swap_chain(),
+                    Err(wgpu::SurfaceError::Lost) => {
+                        self.render_state.rebuild_swap_chain(self.cell_size())
+                    }
                     Err(wgpu::SurfaceError::OutOfMemory) => panic!("Out of memory"),
                     Err(e) => eprintln!("{e:?}"),
                 },
@@ -124,10 +124,13 @@ impl RenderLoop {
     }
 
     fn resize_neovim_grid(&mut self) {
-        let surface_size = self.render_state.shared.surface_size();
-        let cell_size = self.fonts.metrics().into_pixels().cell_size();
-        let size = surface_size / cell_size;
+        let surface_size = self.render_state.surface_size();
+        let size = surface_size / self.cell_size();
         let size: Vec2<u64> = size.into();
         self.neovim.ui_try_resize_grid(1, size.x, size.y);
+    }
+
+    fn cell_size(&self) -> Vec2<u32> {
+        self.fonts.metrics().into_pixels().cell_size()
     }
 }

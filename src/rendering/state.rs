@@ -8,7 +8,6 @@ use super::{
     grid::{self, Grid},
     grid_bind_group_layout::GridBindGroupLayout,
     highlights::HighlightsBindGroup,
-    shared::Shared,
     texture::Texture,
 };
 use crate::{
@@ -25,11 +24,15 @@ use winit::window::Window;
 pub const TARGET_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
 pub struct RenderState {
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
+    pub surface: wgpu::Surface,
+    pub surface_config: wgpu::SurfaceConfiguration,
+    pub surface_format: wgpu::TextureFormat,
     pub cursor_bg: CursorBg,
     pub cursor_fg: CursorFg,
     pub shape_context: ShapeContext,
     pub font_cache: FontCache,
-    pub shared: Shared,
     pub grids: Vec<grid::Grid>,
     pub monochrome_pipeline: GlyphPipeline,
     pub emoji_pipeline: GlyphPipeline,
@@ -47,53 +50,104 @@ pub struct RenderState {
 
 impl RenderState {
     pub async fn new(window: Arc<Window>, cell_size: Vec2<u32>) -> Self {
-        let shared = Shared::new(window).await;
-        let highlights = HighlightsBindGroup::new(&shared.device);
-        let grid_bind_group_layout = GridBindGroupLayout::new(&shared.device);
-        let grid_dimensions = (shared.surface_size() / cell_size) * cell_size;
-        let target_texture = Texture::target(&shared.device, grid_dimensions, TARGET_FORMAT);
+        let surface_size: Vec2<u32> = window.inner_size().into();
+
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::all(),
+            dx12_shader_compiler: Default::default(),
+        });
+
+        let surface = unsafe { instance.create_surface(window.as_ref()) }.unwrap();
+
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
+            })
+            .await
+            .unwrap();
+
+        let (device, queue) = adapter
+        .request_device(
+            &wgpu::DeviceDescriptor {
+                label: None,
+                features: wgpu::Features::TEXTURE_BINDING_ARRAY
+                    | wgpu::Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING
+                    | wgpu::Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING
+                    | wgpu::Features::PUSH_CONSTANTS,
+                limits: adapter.limits(),
+            },
+            None,
+        )
+        .await
+        .unwrap();
+
+        let surface_caps = surface.get_capabilities(&adapter);
+        let surface_format = surface_caps
+            .formats
+            .iter()
+            .copied()
+            .find(|f| f.is_srgb())
+            .unwrap_or(surface_caps.formats[0]);
+
+        let surface_config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format: surface_format,
+            width: surface_size.x,
+            height: surface_size.y,
+            present_mode: surface_caps.present_modes[0], // Vsync
+            alpha_mode: surface_caps.alpha_modes[0],
+            view_formats: vec![],
+        };
+        surface.configure(&device, &surface_config);
+
+        let highlights = HighlightsBindGroup::new(&device);
+        let grid_bind_group_layout = GridBindGroupLayout::new(&device);
+        let grid_dimensions = (surface_size / cell_size) * cell_size;
+        let target_texture = Texture::target(&device, grid_dimensions, TARGET_FORMAT);
         Self {
             blit_render_pipeline: BlitRenderPipeline::new(
-                &shared.device,
-                shared.surface_config.format,
+                &device,
+                surface_config.format,
                 &target_texture.view,
             ),
-            depth_texture: DepthTexture::new(&shared.device, grid_dimensions),
+            depth_texture: DepthTexture::new(&device, grid_dimensions),
             target_texture,
-            cursor_bg: CursorBg::new(&shared.device, TARGET_FORMAT),
-            cursor_fg: CursorFg::new(&shared.device, &grid_bind_group_layout.bind_group_layout),
+            cursor_bg: CursorBg::new(&device, TARGET_FORMAT),
+            cursor_fg: CursorFg::new(&device, &grid_bind_group_layout.bind_group_layout),
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
             monochrome_pipeline: GlyphPipeline::new(
-                shared
-                    .device
-                    .create_shader_module(include_wgsl!("glyph.wgsl")),
+                device.create_shader_module(include_wgsl!("glyph.wgsl")),
             ),
             emoji_pipeline: GlyphPipeline::new(
-                shared
-                    .device
-                    .create_shader_module(include_wgsl!("emoji.wgsl")),
+                device.create_shader_module(include_wgsl!("emoji.wgsl")),
             ),
-            monochrome_bind_group: GlyphBindGroup::new(&shared.device),
-            emoji_bind_group: GlyphBindGroup::new(&shared.device),
+            monochrome_bind_group: GlyphBindGroup::new(&device),
+            emoji_bind_group: GlyphBindGroup::new(&device),
             cell_fill_pipeline: CellFillPipeline::new(
-                &shared.device,
+                &device,
                 &highlights.layout(),
                 &grid_bind_group_layout.bind_group_layout,
                 TARGET_FORMAT,
             ),
-            shared,
             grid_bind_group_layout,
             grids: vec![],
             highlights,
             draw_order_index_cache: vec![],
             shared_push_constants: SharedPushConstants::default(),
+            device,
+            queue,
+            surface,
+            surface_config,
+            surface_format,
         }
     }
 
     pub fn update(&mut self, ui: &Ui, fonts: &mut Fonts) {
         let cell_size = fonts.metrics().into_pixels().cell_size();
-        let surface_size = self.shared.surface_size();
+        let surface_size = self.surface_size();
         let target_size = (surface_size / cell_size) * cell_size;
         self.cursor_bg.update(ui, target_size, cell_size.into());
         self.cursor_fg.update(
@@ -101,7 +155,7 @@ impl RenderState {
             fonts,
             &mut self.font_cache,
             &mut self.shape_context,
-            &self.shared.queue,
+            &self.queue,
         );
 
         let mut i = 0;
@@ -128,8 +182,8 @@ impl RenderState {
 
             if ui_grid.dirty {
                 grid.update_content(
-                    &self.shared.device,
-                    &self.shared.queue,
+                    &self.device,
+                    &self.queue,
                     ui_grid,
                     &ui.highlights,
                     fonts,
@@ -154,20 +208,20 @@ impl RenderState {
             fonts,
             &mut self.font_cache,
             &mut self.shape_context,
-            &self.shared.queue,
+            &self.queue,
         );
 
-        self.highlights.update(ui, &self.shared.device);
+        self.highlights.update(ui, &self.device);
 
         self.monochrome_bind_group.update(
-            &self.shared.device,
-            &self.shared.queue,
+            &self.device,
+            &self.queue,
             wgpu::TextureFormat::R8Unorm,
             &self.font_cache.monochrome,
         );
         if let Some(monochrome_bind_group_layout) = self.monochrome_bind_group.layout() {
             self.monochrome_pipeline.update(
-                &self.shared.device,
+                &self.device,
                 &self.highlights.layout(),
                 monochrome_bind_group_layout,
                 &self.grid_bind_group_layout.bind_group_layout,
@@ -175,14 +229,14 @@ impl RenderState {
         }
 
         self.emoji_bind_group.update(
-            &self.shared.device,
-            &self.shared.queue,
+            &self.device,
+            &self.queue,
             wgpu::TextureFormat::Rgba8UnormSrgb,
             &self.font_cache.emoji,
         );
         if let Some(emoji_bind_group_layout) = self.emoji_bind_group.layout() {
             self.emoji_pipeline.update(
-                &self.shared.device,
+                &self.device,
                 &self.highlights.layout(),
                 emoji_bind_group_layout,
                 &self.grid_bind_group_layout.bind_group_layout,
@@ -195,31 +249,34 @@ impl RenderState {
         };
     }
 
-    pub fn resize(&mut self, surface_size: Vec2<u32>, cell_size: Vec2<u32>) {
-        self.shared.resize(surface_size);
-        let texture_size = (surface_size / cell_size) * cell_size;
-        self.target_texture = Texture::target(&self.shared.device, texture_size, TARGET_FORMAT);
+    pub fn resize(&mut self, new_size: Vec2<u32>, cell_size: Vec2<u32>) {
+        if new_size.x > 0 && new_size.y > 0 {
+            self.surface_config.width = new_size.x;
+            self.surface_config.height = new_size.y;
+            self.surface.configure(&self.device, &self.surface_config);
+        }
+        let texture_size = (new_size / cell_size) * cell_size;
+        self.target_texture = Texture::target(&self.device, texture_size, TARGET_FORMAT);
         self.blit_render_pipeline.update(
-            &self.shared.device,
-            self.shared.surface_format,
+            &self.device,
+            self.surface_format,
             &self.target_texture.view,
             texture_size,
-            surface_size,
+            new_size,
         );
-        self.depth_texture = DepthTexture::new(&self.shared.device, texture_size);
+        self.depth_texture = DepthTexture::new(&self.device, texture_size);
     }
 
     pub fn render(&mut self, draw_order: &[u64]) -> Result<(), wgpu::SurfaceError> {
-        let output = self.shared.surface.get_current_texture()?;
+        let output = self.surface.get_current_texture()?;
         let output_view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder =
-            self.shared
-                .device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Render encoder"),
-                });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Render encoder"),
+            });
 
         let Some(highlights_bind_group) = self.highlights.bind_group() else {
             return Ok(());
@@ -360,13 +417,13 @@ impl RenderState {
             render_pass.draw(0..6, 0..1);
         }
 
-        self.shared.queue.submit(std::iter::once(encoder.finish()));
+        self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
         Ok(())
     }
 
-    pub fn rebuild_swap_chain(&mut self) {
-        self.shared.resize(self.shared.surface_size().into());
+    pub fn rebuild_swap_chain(&mut self, cell_size: Vec2<u32>) {
+        self.resize(self.surface_size().into(), cell_size);
     }
 
     pub fn clear(&mut self) {
@@ -374,6 +431,10 @@ impl RenderState {
         self.emoji_pipeline.clear();
         self.monochrome_bind_group.clear();
         self.monochrome_pipeline.clear();
+    }
+
+    pub fn surface_size(&self) -> Vec2<u32> {
+        Vec2::new(self.surface_config.width, self.surface_config.height)
     }
 }
 
