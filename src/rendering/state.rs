@@ -128,7 +128,8 @@ impl RenderState {
 
             if ui_grid.dirty {
                 grid.update_content(
-                    &self.shared,
+                    &self.shared.device,
+                    &self.shared.queue,
                     ui_grid,
                     &ui.highlights,
                     fonts,

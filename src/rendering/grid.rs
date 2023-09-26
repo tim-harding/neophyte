@@ -1,4 +1,3 @@
-use super::shared::Shared;
 use crate::{
     event::hl_attr_define::Attributes,
     text::{
@@ -46,7 +45,8 @@ impl Grid {
     #[allow(clippy::too_many_arguments)]
     pub fn update_content(
         &mut self,
-        shared: &Shared,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
         grid: &ui::grid::Grid,
         highlights: &Highlights,
         fonts: &mut Fonts,
@@ -184,7 +184,7 @@ impl Grid {
         let emoji = cast_slice(self.emoji.as_slice());
         let bg = cast_slice(self.bg.as_slice());
 
-        let alignment = shared.device.limits().min_storage_buffer_offset_alignment as u64;
+        let alignment = device.limits().min_storage_buffer_offset_alignment as u64;
         let glyphs_len = glyphs.len() as u64;
         let emoji_len = emoji.len() as u64;
         let bg_len = bg.len() as u64;
@@ -194,7 +194,7 @@ impl Grid {
 
         if total_length > self.buffer_capacity {
             self.buffer_capacity = total_length * 2;
-            self.buffer = Some(shared.device.create_buffer(&wgpu::BufferDescriptor {
+            self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("Grid buffer"),
                 size: self.buffer_capacity,
                 usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
@@ -205,9 +205,9 @@ impl Grid {
         let buffer = self.buffer.as_ref().unwrap();
 
         let mut offset = 0;
-        shared.queue.write_buffer(buffer, 0, glyphs);
+        queue.write_buffer(buffer, 0, glyphs);
         self.monochrome_bind_group = NonZeroU64::new(glyphs_len).map(|size| {
-            shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Glyph bind group"),
                 layout: grid_bind_group_layout,
                 entries: &[wgpu::BindGroupEntry {
@@ -222,9 +222,9 @@ impl Grid {
         });
         offset += glyphs_len + glyphs_padding;
 
-        shared.queue.write_buffer(buffer, offset, emoji);
+        queue.write_buffer(buffer, offset, emoji);
         self.emoji_bind_group = NonZeroU64::new(emoji_len).map(|size| {
-            shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Glyph bind group"),
                 layout: grid_bind_group_layout,
                 entries: &[wgpu::BindGroupEntry {
@@ -239,9 +239,9 @@ impl Grid {
         });
         offset += emoji_len + emoji_padding;
 
-        shared.queue.write_buffer(buffer, offset, bg);
+        queue.write_buffer(buffer, offset, bg);
         self.bg_bind_group = NonZeroU64::new(bg_len).map(|size| {
-            shared.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Glyph bind group"),
                 layout: grid_bind_group_layout,
                 entries: &[wgpu::BindGroupEntry {
