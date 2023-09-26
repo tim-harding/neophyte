@@ -71,13 +71,26 @@ fn main() {
                 }
 
                 WindowEvent::ReceivedCharacter(c) => {
-                    if !c.is_control()
-                        && !c.is_whitespace()
-                        && !c.is_ascii_digit()
-                        && !c.is_ascii_alphabetic()
-                    {
-                        send_keys(&format!("{c}"), &mut modifiers, &mut neovim, true);
-                    }
+                    let mut f = || {
+                        let s = match c {
+                            '<' => "lt".to_string(),
+                            '\\' => "Bslash".to_string(),
+                            '|' => "Bar".to_string(),
+                            _ => {
+                                if !c.is_control()
+                                    && !c.is_whitespace()
+                                    && !c.is_ascii_digit()
+                                    && !c.is_ascii_alphabetic()
+                                {
+                                    format!("{c}")
+                                } else {
+                                    return;
+                                }
+                            }
+                        };
+                        send_keys(&s, &mut modifiers, &mut neovim, true);
+                    };
+                    f()
                 }
 
                 WindowEvent::KeyboardInput {
