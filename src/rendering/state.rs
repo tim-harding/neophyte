@@ -282,6 +282,17 @@ impl RenderState {
             return Ok(());
         };
 
+        self.draw_order_index_cache.clear();
+        for &id in draw_order.iter().rev() {
+            let i = self
+                .grids
+                .binary_search_by(|probe| probe.id.cmp(&{ id }))
+                .unwrap();
+            self.draw_order_index_cache.push(i);
+        }
+
+        let grids = || self.draw_order_index_cache.iter().map(|&i| &self.grids[i]);
+
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render pass"),
@@ -312,15 +323,7 @@ impl RenderState {
                 0,
                 cast_slice(&[self.shared_push_constants]),
             );
-            self.draw_order_index_cache.clear();
-            for &id in draw_order.iter().rev() {
-                let i = self
-                    .grids
-                    .binary_search_by(|probe| probe.id.cmp(&{ id }))
-                    .unwrap();
-                self.draw_order_index_cache.push(i);
-                let grid = &self.grids[i];
-
+            for grid in grids() {
                 if let Some(bg_bind_group) = &grid.bg_bind_group {
                     render_pass.set_bind_group(1, bg_bind_group, &[]);
                     render_pass.set_push_constants(
@@ -344,8 +347,7 @@ impl RenderState {
                     0,
                     cast_slice(&[self.shared_push_constants]),
                 );
-                for i in self.draw_order_index_cache.iter() {
-                    let grid = &self.grids[*i];
+                for grid in grids() {
                     if let Some(monochrome_bind_group) = &grid.monochrome_bind_group {
                         render_pass.set_bind_group(2, monochrome_bind_group, &[]);
                         render_pass.set_push_constants(
@@ -378,8 +380,7 @@ impl RenderState {
                     0,
                     cast_slice(&[self.shared_push_constants]),
                 );
-                for i in self.draw_order_index_cache.iter() {
-                    let grid = &self.grids[*i];
+                for grid in grids() {
                     if let Some(emoji_bind_group) = &grid.emoji_bind_group {
                         render_pass.set_bind_group(2, emoji_bind_group, &[]);
                         render_pass.set_push_constants(
