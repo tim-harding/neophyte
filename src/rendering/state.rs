@@ -43,8 +43,9 @@ pub struct RenderState {
     grid_bind_group_layout: GridBindGroupLayout,
     draw_order_index_cache: Vec<usize>,
     blit_render_pipeline: BlitRenderPipeline,
-    target_texture: Texture,
-    depth_texture: DepthTexture,
+    monochrome_target: Texture,
+    color_target: Texture,
+    depth_target: DepthTexture,
 }
 
 impl RenderState {
@@ -104,15 +105,16 @@ impl RenderState {
         let highlights = HighlightsBindGroup::new(&device);
         let grid_bind_group_layout = GridBindGroupLayout::new(&device);
         let grid_dimensions = (surface_size / cell_size) * cell_size;
-        let target_texture = Texture::target(&device, grid_dimensions, TARGET_FORMAT);
+        let color_target = Texture::target(&device, grid_dimensions, TARGET_FORMAT);
         Self {
             blit_render_pipeline: BlitRenderPipeline::new(
                 &device,
                 surface_config.format,
-                &target_texture.view,
+                &color_target.view,
             ),
-            depth_texture: DepthTexture::new(&device, grid_dimensions),
-            target_texture,
+            depth_target: DepthTexture::new(&device, grid_dimensions),
+            color_target,
+            monochrome_target: Texture::target(&device, grid_dimensions, TARGET_FORMAT),
             cursor_bg: CursorBg::new(&device, TARGET_FORMAT),
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
@@ -221,15 +223,16 @@ impl RenderState {
             self.surface.configure(&self.device, &self.surface_config);
         }
         let texture_size = (new_size / cell_size) * cell_size;
-        self.target_texture = Texture::target(&self.device, texture_size, TARGET_FORMAT);
+        self.monochrome_target = Texture::target(&self.device, texture_size, TARGET_FORMAT);
+        self.color_target = Texture::target(&self.device, texture_size, TARGET_FORMAT);
         self.blit_render_pipeline.update(
             &self.device,
             self.surface_format,
-            &self.target_texture.view,
+            &self.color_target.view,
             texture_size,
             new_size,
         );
-        self.depth_texture = DepthTexture::new(&self.device, texture_size);
+        self.depth_target = DepthTexture::new(&self.device, texture_size);
     }
 
     pub fn render(
@@ -248,7 +251,7 @@ impl RenderState {
             });
 
         let target_size = {
-            let size = self.target_texture.texture.size();
+            let size = self.color_target.texture.size();
             Vec2::new(size.width, size.height)
         };
 
@@ -275,9 +278,9 @@ impl RenderState {
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render pass"),
+                label: Some("Cell fill render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &self.target_texture.view,
+                    view: &self.color_target.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(self.highlights.clear_color()),
@@ -285,7 +288,7 @@ impl RenderState {
                     },
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_texture.view,
+                    view: &self.depth_target.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
                         store: true,
@@ -294,12 +297,10 @@ impl RenderState {
                 }),
             });
 
-            self.cursor_bg.render(&mut render_pass);
-
             render_pass.set_pipeline(&self.cell_fill_pipeline.pipeline);
             render_pass.set_bind_group(0, highlights_bind_group, &[]);
             for (z, grid) in grids() {
-                let Some(bg_bind_group) = &grid.bg_bind_group() else {
+                let Some(bg_bind_group) = &grid.cell_fill_bind_group() else {
                     continue;
                 };
                 render_pass.set_bind_group(1, bg_bind_group, &[]);
@@ -311,8 +312,30 @@ impl RenderState {
                     z,
                 }
                 .set(&mut render_pass);
-                render_pass.draw(0..grid.bg_count() * 6, 0..1);
+                render_pass.draw(0..grid.cell_fill_count() * 6, 0..1);
             }
+        }
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Monochrome render pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &self.monochrome_target.view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: true,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_target.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: false,
+                    }),
+                    stencil_ops: None,
+                }),
+            });
 
             if let (Some(pipeline), Some(glyph_bind_group)) = (
                 self.monochrome_pipeline.pipeline(),
@@ -335,6 +358,28 @@ impl RenderState {
                     render_pass.draw(0..grid.monochrome_count() * 6, 0..1);
                 }
             }
+        }
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Emoji render pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &self.color_target.view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: true,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_target.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: false,
+                    }),
+                    stencil_ops: None,
+                }),
+            });
 
             if let (Some(pipeline), Some(glyph_bind_group)) = (
                 self.emoji_pipeline.pipeline(),
@@ -360,7 +405,7 @@ impl RenderState {
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Blit to screen"),
+                label: Some("Blit render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &output_view,
                     resolve_target: None,
