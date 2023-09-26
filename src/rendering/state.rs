@@ -78,7 +78,7 @@ impl RenderState {
             emoji_bind_group: GlyphBindGroup::new(&shared.device),
             cell_fill_pipeline: CellFillPipeline::new(
                 &shared.device,
-                &highlights.bind_group_layout,
+                &highlights.layout(),
                 &grid_bind_group_layout.bind_group_layout,
                 TARGET_FORMAT,
             ),
@@ -156,7 +156,7 @@ impl RenderState {
             &self.shared.queue,
         );
 
-        self.highlights.update(ui, &self.shared);
+        self.highlights.update(ui, &self.shared.device);
 
         self.monochrome_bind_group.update(
             &self.shared.device,
@@ -167,7 +167,7 @@ impl RenderState {
         if let Some(monochrome_bind_group_layout) = self.monochrome_bind_group.layout() {
             self.monochrome_pipeline.update(
                 &self.shared.device,
-                &self.highlights.bind_group_layout,
+                &self.highlights.layout(),
                 monochrome_bind_group_layout,
                 &self.grid_bind_group_layout.bind_group_layout,
             );
@@ -182,7 +182,7 @@ impl RenderState {
         if let Some(emoji_bind_group_layout) = self.emoji_bind_group.layout() {
             self.emoji_pipeline.update(
                 &self.shared.device,
-                &self.highlights.bind_group_layout,
+                &self.highlights.layout(),
                 emoji_bind_group_layout,
                 &self.grid_bind_group_layout.bind_group_layout,
             );
@@ -220,9 +220,8 @@ impl RenderState {
                     label: Some("Render encoder"),
                 });
 
-        let highlights_bind_group = match &self.highlights.bind_group {
-            Some(highlights_bind_group) => highlights_bind_group,
-            None => return Ok(()),
+        let Some(highlights_bind_group) = self.highlights.bind_group() else {
+            return Ok(());
         };
 
         {
@@ -230,9 +229,9 @@ impl RenderState {
                 label: Some("Render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &self.target_texture.view,
-                    resolve_target: None, // No multisampling
+                    resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(self.highlights.clear_color),
+                        load: wgpu::LoadOp::Clear(self.highlights.clear_color()),
                         store: true,
                     },
                 })],
@@ -341,9 +340,9 @@ impl RenderState {
                 label: Some("Blit to screen"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &output_view,
-                    resolve_target: None, // No multisampling
+                    resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(self.highlights.clear_color),
+                        load: wgpu::LoadOp::Clear(self.highlights.clear_color()),
                         store: true,
                     },
                 })],
