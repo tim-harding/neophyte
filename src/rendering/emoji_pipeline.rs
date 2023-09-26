@@ -1,4 +1,7 @@
-use super::{depth_texture::DepthTexture, grid, state::TARGET_FORMAT};
+use super::{depth_texture::DepthTexture, state::TARGET_FORMAT};
+use crate::util::vec2::Vec2;
+use bytemuck::{cast_slice, Pod, Zeroable};
+use std::mem::size_of;
 use wgpu::include_wgsl;
 
 pub struct EmojiPipeline {
@@ -30,7 +33,7 @@ impl EmojiPipeline {
                 bind_group_layouts: &[glyph_bind_group_layout, grid_bind_group_layout],
                 push_constant_ranges: &[wgpu::PushConstantRange {
                     stages: wgpu::ShaderStages::VERTEX,
-                    range: 0..grid::PushConstants::SIZE,
+                    range: 0..PushConstants::SIZE,
                 }],
             });
 
@@ -81,4 +84,33 @@ impl EmojiPipeline {
     pub fn pipeline(&self) -> Option<&wgpu::RenderPipeline> {
         self.pipeline.as_ref()
     }
+}
+
+pub fn set_push_constants(
+    render_pass: &mut wgpu::RenderPass,
+    target_size: Vec2<u32>,
+    offset: Vec2<i32>,
+    z: f32,
+) {
+    render_pass.set_push_constants(
+        wgpu::ShaderStages::VERTEX,
+        0,
+        cast_slice(&[PushConstants {
+            target_size,
+            offset,
+            z,
+        }]),
+    );
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Pod, Zeroable)]
+struct PushConstants {
+    pub target_size: Vec2<u32>,
+    pub offset: Vec2<i32>,
+    pub z: f32,
+}
+
+impl PushConstants {
+    pub const SIZE: u32 = size_of::<Self>() as u32;
 }

@@ -3,7 +3,7 @@ use super::{
     cell_fill_pipeline::CellFillPipeline,
     cursor_bg::CursorBg,
     depth_texture::DepthTexture,
-    emoji_pipeline::EmojiPipeline,
+    emoji_pipeline::{self, EmojiPipeline},
     glyph_bind_group::GlyphBindGroup,
     grid::{self, Grid},
     grid_bind_group_layout::GridBindGroupLayout,
@@ -249,6 +249,11 @@ impl RenderState {
                 label: Some("Render encoder"),
             });
 
+        let target_size = {
+            let size = self.target_texture.texture.size();
+            Vec2::new(size.width, size.height)
+        };
+
         let Some(highlights_bind_group) = self.highlights.bind_group() else {
             return Ok(());
         };
@@ -262,7 +267,13 @@ impl RenderState {
             self.draw_order_index_cache.push(i);
         }
 
-        let grids = || self.draw_order_index_cache.iter().map(|&i| &self.grids[i]);
+        let grids = || {
+            self.draw_order_index_cache.iter().map(|&i| {
+                let z = 1.0 - i as f32 / draw_order.len() as f32;
+                let grid = &self.grids[i];
+                (z, grid)
+            })
+        };
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -289,7 +300,7 @@ impl RenderState {
 
             render_pass.set_pipeline(&self.cell_fill_pipeline.pipeline);
             render_pass.set_bind_group(0, highlights_bind_group, &[]);
-            for grid in grids() {
+            for (_z, grid) in grids() {
                 if let Some(bg_bind_group) = &grid.bg_bind_group {
                     render_pass.set_bind_group(1, bg_bind_group, &[]);
                     render_pass.set_push_constants(
@@ -308,7 +319,7 @@ impl RenderState {
                 render_pass.set_pipeline(&pipeline);
                 render_pass.set_bind_group(0, highlights_bind_group, &[]);
                 render_pass.set_bind_group(1, glyph_bind_group, &[]);
-                for grid in grids() {
+                for (_z, grid) in grids() {
                     if let Some(monochrome_bind_group) = &grid.monochrome_bind_group {
                         render_pass.set_bind_group(2, monochrome_bind_group, &[]);
                         render_pass.set_push_constants(
@@ -327,9 +338,15 @@ impl RenderState {
             ) {
                 render_pass.set_pipeline(&pipeline);
                 render_pass.set_bind_group(0, &glyph_bind_group, &[]);
-                for grid in grids() {
+                for (z, grid) in grids() {
                     if let Some(emoji_bind_group) = &grid.emoji_bind_group {
                         render_pass.set_bind_group(1, emoji_bind_group, &[]);
+                        emoji_pipeline::set_push_constants(
+                            &mut render_pass,
+                            target_size,
+                            grid.grid_info.offset,
+                            z,
+                        );
                         render_pass.set_push_constants(
                             wgpu::ShaderStages::VERTEX,
                             0,

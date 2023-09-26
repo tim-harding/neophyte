@@ -5,15 +5,13 @@ struct Cell {
 }
 
 struct GlyphInfo {
-    // The dimensions of the glyph texture
     size: vec2<u32>,
 }
 
-// TODO: Maybe store these as f32 to avoid casting in the shader
 struct GridInfo {
     target_size: vec2<u32>,
     cell_size: vec2<u32>,
-    offset: vec2<f32>,
+    offset: vec2<i32>,
     grid_width: u32,
     z: f32,
 }
@@ -62,8 +60,7 @@ fn vs_main(
     out.tex_coord = tex_coord;
     out.clip_position = vec4<f32>(
         (
-            vec2<f32>(grid_cell.position) + 
-            grid_info.offset +
+            vec2<f32>(grid_cell.position + grid_info.offset) + 
             tex_coord * vec2<f32>(glyph_info.size)
         ) / vec2<f32>(grid_info.target_size) * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
         grid_info.z, 

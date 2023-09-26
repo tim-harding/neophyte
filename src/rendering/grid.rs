@@ -264,10 +264,12 @@ impl Grid {
         target_size: Vec2<u32>,
         cell_size: Vec2<u32>,
     ) {
+        let offset = position * Vec2::<f64>::from(cell_size);
+        let offset = Vec2::new(offset.x as i32, offset.y as i32);
         self.grid_info = PushConstants {
             target_size,
             cell_size,
-            offset: (position * Vec2::<f64>::from(cell_size)).into(),
+            offset,
             grid_width: grid.size.x as u32,
             z,
         };
@@ -340,12 +342,13 @@ pub struct Cell {
     pub highlight_index: u32,
 }
 
+// TODO: Maybe store these as f32 to avoid casting in the shader
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
 pub struct PushConstants {
     pub target_size: Vec2<u32>,
     pub cell_size: Vec2<u32>,
-    pub offset: Vec2<f32>,
+    pub offset: Vec2<i32>,
     pub grid_width: u32,
     pub z: f32,
 }

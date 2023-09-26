@@ -1,6 +1,5 @@
-use wgpu::include_wgsl;
-
 use super::{depth_texture::DepthTexture, grid, state::TARGET_FORMAT};
+use wgpu::include_wgsl;
 
 pub struct MonochromePipeline {
     shader: wgpu::ShaderModule,
