@@ -1,10 +1,9 @@
+use super::state::TARGET_FORMAT;
 use crate::{event::mode_info_set::CursorShape, ui::Ui, util::vec2::Vec2};
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
 
-use super::state::TARGET_FORMAT;
-
-pub struct CursorBg {
+pub struct Cursor {
     pipeline: wgpu::RenderPipeline,
     push_constants: PushConstants,
 }
@@ -39,9 +38,9 @@ impl PushConstantsVertex {
     pub const SIZE: usize = std::mem::size_of::<Self>();
 }
 
-impl CursorBg {
+impl Cursor {
     pub fn new(device: &wgpu::Device) -> Self {
-        let shader = device.create_shader_module(include_wgsl!("cursor_bg.wgsl"));
+        let shader = device.create_shader_module(include_wgsl!("cursor.wgsl"));
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Cursor pipeline layout"),

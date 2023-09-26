@@ -1,7 +1,7 @@
 mod blend_pipeline;
 mod blit_render_pipeline;
 mod cell_fill_pipeline;
-mod cursor_bg;
+mod cursor;
 mod depth_texture;
 mod emoji_pipeline;
 mod glyph_bind_group;
