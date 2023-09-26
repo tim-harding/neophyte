@@ -1,9 +1,8 @@
-use crate::{
-    event::mode_info_set::CursorShape, rendering::depth_texture::DepthTexture, ui::Ui,
-    util::vec2::Vec2,
-};
+use crate::{event::mode_info_set::CursorShape, ui::Ui, util::vec2::Vec2};
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
+
+use super::state::TARGET_FORMAT;
 
 pub struct CursorBg {
     pipeline: wgpu::RenderPipeline,
@@ -41,7 +40,7 @@ impl PushConstantsVertex {
 }
 
 impl CursorBg {
-    pub fn new(device: &wgpu::Device, texture_format: wgpu::TextureFormat) -> Self {
+    pub fn new(device: &wgpu::Device) -> Self {
         let shader = device.create_shader_module(include_wgsl!("cursor_bg.wgsl"));
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -72,7 +71,7 @@ impl CursorBg {
                 module: &shader,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: texture_format,
+                    format: TARGET_FORMAT,
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -86,13 +85,7 @@ impl CursorBg {
                 unclipped_depth: false,
                 conservative: false,
             },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: DepthTexture::FORMAT,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Always,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
+            depth_stencil: None,
             multisample: wgpu::MultisampleState {
                 count: 1,
                 mask: !0,

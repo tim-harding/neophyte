@@ -118,7 +118,7 @@ impl RenderState {
             depth_target: DepthTexture::new(&device, grid_dimensions),
             color_target,
             monochrome_target: Texture::target(&device, grid_dimensions, TARGET_FORMAT),
-            cursor_bg: CursorBg::new(&device, TARGET_FORMAT),
+            cursor_bg: CursorBg::new(&device),
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
             monochrome_pipeline: MonochromePipeline::new(&device),
@@ -383,6 +383,23 @@ impl RenderState {
             render_pass.set_pipeline(self.blend_pipeline.pipeline());
             render_pass.set_bind_group(0, self.blend_pipeline.bind_group(), &[]);
             render_pass.draw(0..6, 0..1);
+        }
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Cursor render pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &self.color_target.view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: true,
+                    },
+                })],
+                depth_stencil_attachment: None,
+            });
+
+            self.cursor_bg.render(&mut render_pass);
         }
 
         {
