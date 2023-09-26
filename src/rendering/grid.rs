@@ -28,10 +28,15 @@ pub struct Grid {
     pub bg_bind_group: Option<wgpu::BindGroup>,
     pub monochrome_bind_group: Option<wgpu::BindGroup>,
     pub emoji_bind_group: Option<wgpu::BindGroup>,
-    pub grid_info: PushConstants,
     pub glyph_count: u32,
     pub bg_count: u32,
     pub emoji_count: u32,
+
+    pub target_size: Vec2<u32>,
+    pub cell_size: Vec2<u32>,
+    pub offset: Vec2<i32>,
+    pub grid_width: u32,
+    pub z: f32,
 }
 
 impl Grid {
@@ -265,14 +270,11 @@ impl Grid {
         cell_size: Vec2<u32>,
     ) {
         let offset = position * Vec2::<f64>::from(cell_size);
-        let offset = Vec2::new(offset.x as i32, offset.y as i32);
-        self.grid_info = PushConstants {
-            target_size,
-            cell_size,
-            offset,
-            grid_width: grid.size.x as u32,
-            z,
-        };
+        self.offset = Vec2::new(offset.x as i32, offset.y as i32);
+        self.target_size = target_size;
+        self.cell_size = cell_size;
+        self.grid_width = grid.size.x as u32;
+        self.z = z;
     }
 }
 
@@ -340,19 +342,4 @@ pub struct Cell {
     pub position: Vec2<i32>,
     pub glyph_index: u32,
     pub highlight_index: u32,
-}
-
-// TODO: Maybe store these as f32 to avoid casting in the shader
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
-pub struct PushConstants {
-    pub target_size: Vec2<u32>,
-    pub cell_size: Vec2<u32>,
-    pub offset: Vec2<i32>,
-    pub grid_width: u32,
-    pub z: f32,
-}
-
-impl PushConstants {
-    pub const SIZE: u32 = std::mem::size_of::<Self>() as u32;
 }

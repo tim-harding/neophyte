@@ -1,4 +1,6 @@
-use super::{depth_texture::DepthTexture, grid};
+use super::depth_texture::DepthTexture;
+use crate::util::vec2::Vec2;
+use bytemuck::{checked::cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
 
 pub struct CellFillPipeline {
@@ -19,7 +21,7 @@ impl CellFillPipeline {
             bind_group_layouts: &[highlights_bind_group_layout, grid_bind_group_layout],
             push_constant_ranges: &[wgpu::PushConstantRange {
                 stages: wgpu::ShaderStages::VERTEX,
-                range: 0..grid::PushConstants::SIZE,
+                range: 0..PushConstants::SIZE,
             }],
         });
 
@@ -40,7 +42,6 @@ impl CellFillPipeline {
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
             }),
-            // How to interpret vertices when converting to triangles
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
@@ -66,5 +67,23 @@ impl CellFillPipeline {
         });
 
         Self { pipeline }
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
+pub struct PushConstants {
+    pub target_size: Vec2<u32>,
+    pub cell_size: Vec2<u32>,
+    pub offset: Vec2<i32>,
+    pub grid_width: u32,
+    pub z: f32,
+}
+
+impl PushConstants {
+    pub const SIZE: u32 = std::mem::size_of::<Self>() as u32;
+
+    pub fn set(self, render_pass: &mut wgpu::RenderPass) {
+        render_pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, cast_slice(&[self]));
     }
 }

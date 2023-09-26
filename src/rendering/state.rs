@@ -1,6 +1,6 @@
 use super::{
     blit_render_pipeline::BlitRenderPipeline,
-    cell_fill_pipeline::CellFillPipeline,
+    cell_fill_pipeline::{self, CellFillPipeline},
     cursor_bg::CursorBg,
     depth_texture::DepthTexture,
     emoji_pipeline::EmojiPipeline,
@@ -239,7 +239,11 @@ impl RenderState {
         self.depth_texture = DepthTexture::new(&self.device, texture_size);
     }
 
-    pub fn render(&mut self, draw_order: &[u64]) -> Result<(), wgpu::SurfaceError> {
+    pub fn render(
+        &mut self,
+        draw_order: &[u64],
+        cell_size: Vec2<u32>,
+    ) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let output_view = output
             .texture
@@ -301,14 +305,17 @@ impl RenderState {
 
             render_pass.set_pipeline(&self.cell_fill_pipeline.pipeline);
             render_pass.set_bind_group(0, highlights_bind_group, &[]);
-            for (_z, grid) in grids() {
+            for (z, grid) in grids() {
                 if let Some(bg_bind_group) = &grid.bg_bind_group {
                     render_pass.set_bind_group(1, bg_bind_group, &[]);
-                    render_pass.set_push_constants(
-                        wgpu::ShaderStages::VERTEX,
-                        0,
-                        cast_slice(&[grid.grid_info]),
-                    );
+                    cell_fill_pipeline::PushConstants {
+                        target_size,
+                        cell_size,
+                        offset: grid.offset,
+                        grid_width: grid.grid_width,
+                        z,
+                    }
+                    .set(&mut render_pass);
                     render_pass.draw(0..grid.bg_count * 6, 0..1);
                 }
             }
@@ -325,7 +332,7 @@ impl RenderState {
                         render_pass.set_bind_group(2, monochrome_bind_group, &[]);
                         GlyphPushConstants {
                             target_size,
-                            offset: grid.grid_info.offset,
+                            offset: grid.offset,
                             z,
                         }
                         .set(&mut render_pass);
@@ -345,15 +352,10 @@ impl RenderState {
                         render_pass.set_bind_group(1, emoji_bind_group, &[]);
                         GlyphPushConstants {
                             target_size,
-                            offset: grid.grid_info.offset,
+                            offset: grid.offset,
                             z,
                         }
                         .set(&mut render_pass);
-                        render_pass.set_push_constants(
-                            wgpu::ShaderStages::VERTEX,
-                            0,
-                            cast_slice(&[grid.grid_info]),
-                        );
                         render_pass.draw(0..grid.glyph_count * 6, 0..1);
                     }
                 }

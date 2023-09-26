@@ -1,4 +1,6 @@
-use super::{depth_texture::DepthTexture, grid, state::TARGET_FORMAT};
+use super::{
+    depth_texture::DepthTexture, glyph_push_constants::GlyphPushConstants, state::TARGET_FORMAT,
+};
 use wgpu::include_wgsl;
 
 pub struct MonochromePipeline {
@@ -35,7 +37,7 @@ impl MonochromePipeline {
                 ],
                 push_constant_ranges: &[wgpu::PushConstantRange {
                     stages: wgpu::ShaderStages::VERTEX,
-                    range: 0..grid::PushConstants::SIZE,
+                    range: 0..GlyphPushConstants::SIZE,
                 }],
             });
 
