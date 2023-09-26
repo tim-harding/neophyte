@@ -1,4 +1,5 @@
 use super::{
+    blend_pipeline::BlendPipeline,
     blit_render_pipeline::BlitRenderPipeline,
     cell_fill_pipeline::{self, CellFillPipeline},
     cursor_bg::CursorBg,
@@ -46,6 +47,7 @@ pub struct RenderState {
     monochrome_target: Texture,
     color_target: Texture,
     depth_target: DepthTexture,
+    blend_pipeline: BlendPipeline,
 }
 
 impl RenderState {
@@ -107,6 +109,7 @@ impl RenderState {
         let grid_dimensions = (surface_size / cell_size) * cell_size;
         let color_target = Texture::target(&device, grid_dimensions, TARGET_FORMAT);
         Self {
+            blend_pipeline: BlendPipeline::new(&device, &color_target.view),
             blit_render_pipeline: BlitRenderPipeline::new(
                 &device,
                 surface_config.format,
@@ -214,6 +217,9 @@ impl RenderState {
                 &self.grid_bind_group_layout.bind_group_layout,
             );
         }
+
+        self.blend_pipeline
+            .update(&self.device, &self.monochrome_target.view);
     }
 
     pub fn resize(&mut self, new_size: Vec2<u32>, cell_size: Vec2<u32>) {
@@ -323,7 +329,7 @@ impl RenderState {
                     view: &self.monochrome_target.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
                         store: true,
                     },
                 })],
@@ -401,6 +407,25 @@ impl RenderState {
                     render_pass.draw(0..grid.emoji_count() * 6, 0..1);
                 }
             }
+        }
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Blend render pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &self.color_target.view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: true,
+                    },
+                })],
+                depth_stencil_attachment: None,
+            });
+
+            render_pass.set_pipeline(self.blend_pipeline.pipeline());
+            render_pass.set_bind_group(0, self.blend_pipeline.bind_group(), &[]);
+            render_pass.draw(0..6, 0..1);
         }
 
         {
