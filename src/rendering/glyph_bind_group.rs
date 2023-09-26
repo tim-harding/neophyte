@@ -58,8 +58,8 @@ impl GlyphBindGroup {
             .skip(self.next_glyph_to_upload)
         {
             self.textures.push(Texture::with_data(
-                &device,
-                &queue,
+                device,
+                queue,
                 data.as_slice(),
                 *size,
                 texture_format,

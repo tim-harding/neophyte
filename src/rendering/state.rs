@@ -122,7 +122,7 @@ impl RenderState {
             emoji_bind_group: GlyphBindGroup::new(&device),
             cell_fill_pipeline: CellFillPipeline::new(
                 &device,
-                &highlights.layout(),
+                highlights.layout(),
                 &grid_bind_group_layout.bind_group_layout,
                 TARGET_FORMAT,
             ),
@@ -193,7 +193,7 @@ impl RenderState {
         if let Some(monochrome_bind_group_layout) = self.monochrome_bind_group.layout() {
             self.monochrome_pipeline.update(
                 &self.device,
-                &self.highlights.layout(),
+                self.highlights.layout(),
                 monochrome_bind_group_layout,
                 &self.grid_bind_group_layout.bind_group_layout,
             );
@@ -318,7 +318,7 @@ impl RenderState {
                 self.monochrome_pipeline.pipeline(),
                 self.monochrome_bind_group.bind_group(),
             ) {
-                render_pass.set_pipeline(&pipeline);
+                render_pass.set_pipeline(pipeline);
                 render_pass.set_bind_group(0, highlights_bind_group, &[]);
                 render_pass.set_bind_group(1, glyph_bind_group, &[]);
                 for (z, grid) in grids() {
@@ -340,8 +340,8 @@ impl RenderState {
                 self.emoji_pipeline.pipeline(),
                 self.emoji_bind_group.bind_group(),
             ) {
-                render_pass.set_pipeline(&pipeline);
-                render_pass.set_bind_group(0, &glyph_bind_group, &[]);
+                render_pass.set_pipeline(pipeline);
+                render_pass.set_bind_group(0, glyph_bind_group, &[]);
                 for (z, grid) in grids() {
                     let Some(emoji_bind_group) = &grid.emoji_bind_group() else {
                         continue;
@@ -388,7 +388,7 @@ impl RenderState {
     }
 
     pub fn rebuild_swap_chain(&mut self, cell_size: Vec2<u32>) {
-        self.resize(self.surface_size().into(), cell_size);
+        self.resize(self.surface_size(), cell_size);
     }
 
     pub fn clear(&mut self) {

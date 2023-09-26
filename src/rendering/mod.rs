@@ -64,7 +64,7 @@ impl RenderLoop {
                 }
 
                 RenderEvent::Resized(size) => {
-                    self.render_state.resize(size.into(), self.cell_size());
+                    self.render_state.resize(size, self.cell_size());
                     self.resize_neovim_grid();
                 }
 
