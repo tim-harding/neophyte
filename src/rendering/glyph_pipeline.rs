@@ -1,8 +1,4 @@
-use super::{
-    depth_texture::DepthTexture,
-    grid,
-    state::{SharedPushConstants, TARGET_FORMAT},
-};
+use super::{depth_texture::DepthTexture, grid, state::TARGET_FORMAT};
 
 pub struct GlyphPipeline {
     shader: wgpu::ShaderModule,
@@ -38,7 +34,7 @@ impl GlyphPipeline {
                 ],
                 push_constant_ranges: &[wgpu::PushConstantRange {
                     stages: wgpu::ShaderStages::VERTEX,
-                    range: 0..(SharedPushConstants::SIZE + grid::PushConstants::SIZE) as u32,
+                    range: 0..grid::PushConstants::SIZE,
                 }],
             });
 

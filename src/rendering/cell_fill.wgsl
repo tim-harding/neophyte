@@ -1,5 +1,5 @@
 struct GridInfo {
-    surface_size: vec2<u32>,
+    target_size: vec2<u32>,
     cell_size: vec2<u32>,
     offset: vec2<f32>,
     grid_width: u32,
@@ -42,7 +42,7 @@ fn vs_main(
     out.color = hl_info.bg;
     out.clip_position = vec4<f32>(
         (vec2<f32>((pos + tex_coord) * grid_info.cell_size ) + grid_info.offset) / 
-        vec2<f32>(grid_info.surface_size) * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
+        vec2<f32>(grid_info.target_size) * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
         grid_info.z, 
         1.0
     );

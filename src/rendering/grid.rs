@@ -258,14 +258,16 @@ impl Grid {
 
     pub fn update_grid_info(
         &mut self,
-        fonts: &Fonts,
         grid: &ui::grid::Grid,
         position: Vec2<f64>,
         z: f32,
+        target_size: Vec2<u32>,
+        cell_size: Vec2<u32>,
     ) {
-        let cell_size: Vec2<f64> = fonts.metrics().into_pixels().cell_size().into();
         self.grid_info = PushConstants {
-            offset: (position * cell_size).into(),
+            target_size,
+            cell_size,
+            offset: (position * Vec2::<f64>::from(cell_size)).into(),
             grid_width: grid.size.x as u32,
             z,
         };
@@ -341,11 +343,13 @@ pub struct Cell {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
 pub struct PushConstants {
+    pub target_size: Vec2<u32>,
+    pub cell_size: Vec2<u32>,
     pub offset: Vec2<f32>,
     pub grid_width: u32,
     pub z: f32,
 }
 
 impl PushConstants {
-    pub const SIZE: usize = std::mem::size_of::<Self>();
+    pub const SIZE: u32 = std::mem::size_of::<Self>() as u32;
 }

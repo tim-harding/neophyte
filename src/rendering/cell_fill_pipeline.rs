@@ -1,4 +1,4 @@
-use super::{depth_texture::DepthTexture, grid, state::SharedPushConstants};
+use super::{depth_texture::DepthTexture, grid};
 use wgpu::include_wgsl;
 
 pub struct CellFillPipeline {
@@ -19,7 +19,7 @@ impl CellFillPipeline {
             bind_group_layouts: &[highlights_bind_group_layout, grid_bind_group_layout],
             push_constant_ranges: &[wgpu::PushConstantRange {
                 stages: wgpu::ShaderStages::VERTEX,
-                range: 0..(SharedPushConstants::SIZE + grid::PushConstants::SIZE) as u32,
+                range: 0..grid::PushConstants::SIZE,
             }],
         });
 

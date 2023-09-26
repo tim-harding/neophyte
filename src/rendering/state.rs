@@ -15,7 +15,7 @@ use crate::{
     ui::Ui,
     util::vec2::Vec2,
 };
-use bytemuck::{cast_slice, Pod, Zeroable};
+use bytemuck::cast_slice;
 use std::sync::Arc;
 use swash::shape::ShapeContext;
 use wgpu::include_wgsl;
@@ -41,7 +41,6 @@ pub struct RenderState {
     highlights: HighlightsBindGroup,
     grid_bind_group_layout: GridBindGroupLayout,
     draw_order_index_cache: Vec<usize>,
-    shared_push_constants: SharedPushConstants,
     blit_render_pipeline: BlitRenderPipeline,
     target_texture: Texture,
     depth_texture: DepthTexture,
@@ -134,7 +133,6 @@ impl RenderState {
             grids: vec![],
             highlights,
             draw_order_index_cache: vec![],
-            shared_push_constants: SharedPushConstants::default(),
             device,
             queue,
             surface,
@@ -191,7 +189,7 @@ impl RenderState {
                     .unwrap_or(0) as f32
                     / ui.draw_order.len() as f32;
 
-            grid.update_grid_info(fonts, ui_grid, ui.position(ui_grid.id), z);
+            grid.update_grid_info(ui_grid, ui.position(ui_grid.id), z, target_size, cell_size);
         }
 
         self.highlights.update(ui, &self.device);
@@ -225,11 +223,6 @@ impl RenderState {
                 &self.grid_bind_group_layout.bind_group_layout,
             );
         }
-
-        self.shared_push_constants = SharedPushConstants {
-            surface_size: target_size,
-            cell_size,
-        };
     }
 
     pub fn resize(&mut self, new_size: Vec2<u32>, cell_size: Vec2<u32>) {
@@ -301,17 +294,12 @@ impl RenderState {
 
             render_pass.set_pipeline(&self.cell_fill_pipeline.pipeline);
             render_pass.set_bind_group(0, highlights_bind_group, &[]);
-            render_pass.set_push_constants(
-                wgpu::ShaderStages::VERTEX,
-                0,
-                cast_slice(&[self.shared_push_constants]),
-            );
             for grid in grids() {
                 if let Some(bg_bind_group) = &grid.bg_bind_group {
                     render_pass.set_bind_group(1, bg_bind_group, &[]);
                     render_pass.set_push_constants(
                         wgpu::ShaderStages::VERTEX,
-                        SharedPushConstants::SIZE as u32,
+                        0,
                         cast_slice(&[grid.grid_info]),
                     );
                     render_pass.draw(0..grid.bg_count * 6, 0..1);
@@ -325,17 +313,12 @@ impl RenderState {
                 render_pass.set_pipeline(&pipeline);
                 render_pass.set_bind_group(0, highlights_bind_group, &[]);
                 render_pass.set_bind_group(1, glyph_bind_group, &[]);
-                render_pass.set_push_constants(
-                    wgpu::ShaderStages::VERTEX,
-                    0,
-                    cast_slice(&[self.shared_push_constants]),
-                );
                 for grid in grids() {
                     if let Some(monochrome_bind_group) = &grid.monochrome_bind_group {
                         render_pass.set_bind_group(2, monochrome_bind_group, &[]);
                         render_pass.set_push_constants(
                             wgpu::ShaderStages::VERTEX,
-                            SharedPushConstants::SIZE as u32,
+                            0,
                             cast_slice(&[grid.grid_info]),
                         );
                         render_pass.draw(0..grid.glyph_count * 6, 0..1);
@@ -350,17 +333,12 @@ impl RenderState {
                 render_pass.set_pipeline(&pipeline);
                 render_pass.set_bind_group(0, highlights_bind_group, &[]);
                 render_pass.set_bind_group(1, &glyph_bind_group, &[]);
-                render_pass.set_push_constants(
-                    wgpu::ShaderStages::VERTEX,
-                    0,
-                    cast_slice(&[self.shared_push_constants]),
-                );
                 for grid in grids() {
                     if let Some(emoji_bind_group) = &grid.emoji_bind_group {
                         render_pass.set_bind_group(2, emoji_bind_group, &[]);
                         render_pass.set_push_constants(
                             wgpu::ShaderStages::VERTEX,
-                            SharedPushConstants::SIZE as u32,
+                            0,
                             cast_slice(&[grid.grid_info]),
                         );
                         render_pass.draw(0..grid.glyph_count * 6, 0..1);
@@ -412,15 +390,4 @@ impl RenderState {
     pub fn surface_size(&self) -> Vec2<u32> {
         Vec2::new(self.surface_config.width, self.surface_config.height)
     }
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
-pub struct SharedPushConstants {
-    pub surface_size: Vec2<u32>,
-    pub cell_size: Vec2<u32>,
-}
-
-impl SharedPushConstants {
-    pub const SIZE: usize = std::mem::size_of::<Self>();
 }
