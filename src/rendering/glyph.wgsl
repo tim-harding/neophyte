@@ -18,7 +18,6 @@ struct GridInfo {
     z: f32,
 }
 
-// TODO: Split into buffers for FG and BG
 struct HighlightInfo {
     fg: vec3<f32>,
     bg: vec3<f32>,
@@ -42,7 +41,6 @@ struct VertexOutput {
     @location(0) tex_index: u32,
     @location(1) tex_coord: vec2<f32>,
     @location(2) fg: vec3<f32>,
-    @location(3) bg: vec3<f32>,
 }
 
 @vertex
@@ -60,7 +58,6 @@ fn vs_main(
 
     var out: VertexOutput;
     out.fg = hl_info.fg;
-    out.bg = hl_info.bg;
     out.tex_index = grid_cell.glyph_index;
     out.tex_coord = tex_coord;
     out.clip_position = vec4<f32>(
