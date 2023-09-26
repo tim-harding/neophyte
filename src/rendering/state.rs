@@ -1,7 +1,7 @@
 use super::{
     blit_render_pipeline::BlitRenderPipeline,
     cell_fill_pipeline::CellFillPipeline,
-    cursor::{bg::CursorBg, fg::CursorFg},
+    cursor_bg::CursorBg,
     depth_texture::DepthTexture,
     glyph_bind_group::GlyphBindGroup,
     glyph_pipeline::GlyphPipeline,
@@ -30,7 +30,6 @@ pub struct RenderState {
     surface_config: wgpu::SurfaceConfiguration,
     surface_format: wgpu::TextureFormat,
     cursor_bg: CursorBg,
-    cursor_fg: CursorFg,
     shape_context: ShapeContext,
     font_cache: FontCache,
     grids: Vec<grid::Grid>,
@@ -115,7 +114,6 @@ impl RenderState {
             depth_texture: DepthTexture::new(&device, grid_dimensions),
             target_texture,
             cursor_bg: CursorBg::new(&device, TARGET_FORMAT),
-            cursor_fg: CursorFg::new(&device, &grid_bind_group_layout.bind_group_layout),
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
             monochrome_pipeline: GlyphPipeline::new(
@@ -150,13 +148,6 @@ impl RenderState {
         let surface_size = self.surface_size();
         let target_size = (surface_size / cell_size) * cell_size;
         self.cursor_bg.update(ui, target_size, cell_size.into());
-        self.cursor_fg.update(
-            ui,
-            fonts,
-            &mut self.font_cache,
-            &mut self.shape_context,
-            &self.queue,
-        );
 
         let mut i = 0;
         while let Some(grid) = self.grids.get(i) {
@@ -202,14 +193,6 @@ impl RenderState {
 
             grid.update_grid_info(fonts, ui_grid, ui.position(ui_grid.id), z);
         }
-
-        self.cursor_fg.update(
-            ui,
-            fonts,
-            &mut self.font_cache,
-            &mut self.shape_context,
-            &self.queue,
-        );
 
         self.highlights.update(ui, &self.device);
 
@@ -358,14 +341,6 @@ impl RenderState {
                         render_pass.draw(0..grid.glyph_count * 6, 0..1);
                     }
                 }
-
-                render_pass.set_bind_group(2, &self.cursor_fg.bind_group, &[]);
-                render_pass.set_push_constants(
-                    wgpu::ShaderStages::VERTEX,
-                    SharedPushConstants::SIZE as u32,
-                    cast_slice(&[self.cursor_fg.grid_info]),
-                );
-                render_pass.draw(0..self.cursor_fg.glyph_count as u32 * 6, 0..1);
             }
 
             if let (Some(pipeline), Some(glyph_bind_group)) = (

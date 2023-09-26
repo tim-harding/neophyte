@@ -42,7 +42,7 @@ impl PushConstantsVertex {
 
 impl CursorBg {
     pub fn new(device: &wgpu::Device, texture_format: wgpu::TextureFormat) -> Self {
-        let shader = device.create_shader_module(include_wgsl!("bg.wgsl"));
+        let shader = device.create_shader_module(include_wgsl!("cursor_bg.wgsl"));
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Cursor pipeline layout"),

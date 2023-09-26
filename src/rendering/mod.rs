@@ -1,6 +1,6 @@
 mod blit_render_pipeline;
 mod cell_fill_pipeline;
-mod cursor;
+mod cursor_bg;
 mod depth_texture;
 mod glyph_bind_group;
 mod glyph_pipeline;
