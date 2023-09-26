@@ -146,7 +146,7 @@ impl RenderState {
 
         let mut i = 0;
         while let Some(grid) = self.grids.get(i) {
-            if ui.grid_index(grid.id).is_ok() {
+            if ui.grid_index(grid.id()).is_ok() {
                 i += 1;
             } else {
                 self.grids.remove(i);
@@ -156,7 +156,7 @@ impl RenderState {
         for ui_grid in ui.grids.iter() {
             let index = match self
                 .grids
-                .binary_search_by(|probe| probe.id.cmp(&ui_grid.id))
+                .binary_search_by(|probe| probe.id().cmp(&ui_grid.id))
             {
                 Ok(index) => index,
                 Err(index) => {
@@ -167,26 +167,19 @@ impl RenderState {
             let grid = &mut self.grids[index];
 
             if ui_grid.dirty {
-                grid.update_content(
+                grid.update(
                     &self.device,
                     &self.queue,
-                    ui_grid,
+                    &self.grid_bind_group_layout.bind_group_layout,
                     &ui.highlights,
                     fonts,
                     &mut self.font_cache,
                     &mut self.shape_context,
-                    &self.grid_bind_group_layout.bind_group_layout,
+                    ui_grid,
+                    ui.position(ui_grid.id),
+                    cell_size,
                 );
             }
-
-            let z = 1.0
-                - ui.draw_order
-                    .iter()
-                    .position(|&id| id == ui_grid.id)
-                    .unwrap_or(0) as f32
-                    / ui.draw_order.len() as f32;
-
-            grid.update_grid_info(ui_grid, ui.position(ui_grid.id), z, target_size, cell_size);
         }
 
         self.highlights.update(ui, &self.device);
@@ -267,7 +260,7 @@ impl RenderState {
         for &id in draw_order.iter().rev() {
             let i = self
                 .grids
-                .binary_search_by(|probe| probe.id.cmp(&{ id }))
+                .binary_search_by(|probe| probe.id().cmp(&{ id }))
                 .unwrap();
             self.draw_order_index_cache.push(i);
         }
@@ -306,18 +299,19 @@ impl RenderState {
             render_pass.set_pipeline(&self.cell_fill_pipeline.pipeline);
             render_pass.set_bind_group(0, highlights_bind_group, &[]);
             for (z, grid) in grids() {
-                if let Some(bg_bind_group) = &grid.bg_bind_group {
-                    render_pass.set_bind_group(1, bg_bind_group, &[]);
-                    cell_fill_pipeline::PushConstants {
-                        target_size,
-                        cell_size,
-                        offset: grid.offset,
-                        grid_width: grid.grid_width,
-                        z,
-                    }
-                    .set(&mut render_pass);
-                    render_pass.draw(0..grid.bg_count * 6, 0..1);
+                let Some(bg_bind_group) = &grid.bg_bind_group() else {
+                    continue;
+                };
+                render_pass.set_bind_group(1, bg_bind_group, &[]);
+                cell_fill_pipeline::PushConstants {
+                    target_size,
+                    cell_size,
+                    offset: grid.offset(),
+                    grid_width: grid.size().x,
+                    z,
                 }
+                .set(&mut render_pass);
+                render_pass.draw(0..grid.bg_count() * 6, 0..1);
             }
 
             if let (Some(pipeline), Some(glyph_bind_group)) = (
@@ -328,16 +322,17 @@ impl RenderState {
                 render_pass.set_bind_group(0, highlights_bind_group, &[]);
                 render_pass.set_bind_group(1, glyph_bind_group, &[]);
                 for (z, grid) in grids() {
-                    if let Some(monochrome_bind_group) = &grid.monochrome_bind_group {
-                        render_pass.set_bind_group(2, monochrome_bind_group, &[]);
-                        GlyphPushConstants {
-                            target_size,
-                            offset: grid.offset,
-                            z,
-                        }
-                        .set(&mut render_pass);
-                        render_pass.draw(0..grid.glyph_count * 6, 0..1);
+                    let Some(monochrome_bind_group) = &grid.monochrome_bind_group() else {
+                        continue;
+                    };
+                    render_pass.set_bind_group(2, monochrome_bind_group, &[]);
+                    GlyphPushConstants {
+                        target_size,
+                        offset: grid.offset(),
+                        z,
                     }
+                    .set(&mut render_pass);
+                    render_pass.draw(0..grid.monochrome_count() * 6, 0..1);
                 }
             }
 
@@ -348,16 +343,17 @@ impl RenderState {
                 render_pass.set_pipeline(&pipeline);
                 render_pass.set_bind_group(0, &glyph_bind_group, &[]);
                 for (z, grid) in grids() {
-                    if let Some(emoji_bind_group) = &grid.emoji_bind_group {
-                        render_pass.set_bind_group(1, emoji_bind_group, &[]);
-                        GlyphPushConstants {
-                            target_size,
-                            offset: grid.offset,
-                            z,
-                        }
-                        .set(&mut render_pass);
-                        render_pass.draw(0..grid.glyph_count * 6, 0..1);
+                    let Some(emoji_bind_group) = &grid.emoji_bind_group() else {
+                        continue;
+                    };
+                    render_pass.set_bind_group(1, emoji_bind_group, &[]);
+                    GlyphPushConstants {
+                        target_size,
+                        offset: grid.offset(),
+                        z,
                     }
+                    .set(&mut render_pass);
+                    render_pass.draw(0..grid.emoji_count() * 6, 0..1);
                 }
             }
         }

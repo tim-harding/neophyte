@@ -19,24 +19,19 @@ use swash::{
 
 #[derive(Default)]
 pub struct Grid {
-    pub id: u64,
+    id: u64,
     glyphs: Vec<Cell>,
     emoji: Vec<Cell>,
     bg: Vec<u32>,
+    buffer: Option<wgpu::Buffer>,
     buffer_capacity: u64,
-    pub buffer: Option<wgpu::Buffer>,
-    pub bg_bind_group: Option<wgpu::BindGroup>,
-    pub monochrome_bind_group: Option<wgpu::BindGroup>,
-    pub emoji_bind_group: Option<wgpu::BindGroup>,
-    pub glyph_count: u32,
-    pub bg_count: u32,
-    pub emoji_count: u32,
-
-    pub target_size: Vec2<u32>,
-    pub cell_size: Vec2<u32>,
-    pub offset: Vec2<i32>,
-    pub grid_width: u32,
-    pub z: f32,
+    bg_bind_group: Option<wgpu::BindGroup>,
+    monochrome_bind_group: Option<wgpu::BindGroup>,
+    emoji_bind_group: Option<wgpu::BindGroup>,
+    monochrome_count: u32,
+    emoji_count: u32,
+    offset: Vec2<i32>,
+    size: Vec2<u32>,
 }
 
 impl Grid {
@@ -48,20 +43,27 @@ impl Grid {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn update_content(
+    pub fn update(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        grid: &ui::grid::Grid,
+        grid_bind_group_layout: &wgpu::BindGroupLayout,
         highlights: &Highlights,
         fonts: &mut Fonts,
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
-        grid_bind_group_layout: &wgpu::BindGroupLayout,
+        grid: &ui::grid::Grid,
+        position: Vec2<f64>,
+        cell_size: Vec2<u32>,
     ) {
+        let offset = position * Vec2::<f64>::from(cell_size);
+        self.offset = Vec2::new(offset.x as i32, offset.y as i32);
+        self.size = grid.size.try_into().unwrap();
+
         self.glyphs.clear();
         self.emoji.clear();
         self.bg.clear();
+
         for cell in grid.buffer.iter() {
             self.bg.push(cell.highlight as u32);
         }
@@ -181,9 +183,8 @@ impl Grid {
             }
         }
 
-        self.glyph_count = self.glyphs.len() as u32;
+        self.monochrome_count = self.glyphs.len() as u32;
         self.emoji_count = self.emoji.len() as u32;
-        self.bg_count = self.bg.len() as u32;
 
         let glyphs = cast_slice(self.glyphs.as_slice());
         let emoji = cast_slice(self.emoji.as_slice());
@@ -261,20 +262,40 @@ impl Grid {
         });
     }
 
-    pub fn update_grid_info(
-        &mut self,
-        grid: &ui::grid::Grid,
-        position: Vec2<f64>,
-        z: f32,
-        target_size: Vec2<u32>,
-        cell_size: Vec2<u32>,
-    ) {
-        let offset = position * Vec2::<f64>::from(cell_size);
-        self.offset = Vec2::new(offset.x as i32, offset.y as i32);
-        self.target_size = target_size;
-        self.cell_size = cell_size;
-        self.grid_width = grid.size.x as u32;
-        self.z = z;
+    pub fn id(&self) -> u64 {
+        self.id
+    }
+
+    pub fn bg_bind_group(&self) -> Option<&wgpu::BindGroup> {
+        self.bg_bind_group.as_ref()
+    }
+
+    pub fn monochrome_bind_group(&self) -> Option<&wgpu::BindGroup> {
+        self.monochrome_bind_group.as_ref()
+    }
+
+    pub fn emoji_bind_group(&self) -> Option<&wgpu::BindGroup> {
+        self.emoji_bind_group.as_ref()
+    }
+
+    pub fn size(&self) -> Vec2<u32> {
+        self.size
+    }
+
+    pub fn offset(&self) -> Vec2<i32> {
+        self.offset
+    }
+
+    pub fn bg_count(&self) -> u32 {
+        self.size.area()
+    }
+
+    pub fn monochrome_count(&self) -> u32 {
+        self.monochrome_count
+    }
+
+    pub fn emoji_count(&self) -> u32 {
+        self.emoji_count
     }
 }
 
