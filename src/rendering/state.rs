@@ -3,6 +3,7 @@ use super::{
     cell_fill_pipeline::CellFillPipeline,
     cursor::{bg::CursorBg, fg::CursorFg},
     depth_texture::DepthTexture,
+    glyph_bind_group::GlyphBindGroup,
     glyph_pipeline::GlyphPipeline,
     grid::{self, Grid},
     grid_bind_group_layout::GridBindGroupLayout,
@@ -32,6 +33,8 @@ pub struct RenderState {
     pub grids: Vec<grid::Grid>,
     pub monochrome_pipeline: GlyphPipeline,
     pub emoji_pipeline: GlyphPipeline,
+    pub monochrome_bind_group: GlyphBindGroup,
+    pub emoji_bind_group: GlyphBindGroup,
     pub cell_fill_pipeline: CellFillPipeline,
     pub highlights: HighlightsBindGroup,
     pub grid_bind_group_layout: GridBindGroupLayout,
@@ -62,21 +65,17 @@ impl RenderState {
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
             monochrome_pipeline: GlyphPipeline::new(
-                &shared.device,
                 shared
                     .device
                     .create_shader_module(include_wgsl!("glyph.wgsl")),
-                "vs_main",
-                "fs_main",
             ),
             emoji_pipeline: GlyphPipeline::new(
-                &shared.device,
                 shared
                     .device
                     .create_shader_module(include_wgsl!("emoji.wgsl")),
-                "vs_main",
-                "fs_main",
             ),
+            monochrome_bind_group: GlyphBindGroup::new(&shared.device),
+            emoji_bind_group: GlyphBindGroup::new(&shared.device),
             cell_fill_pipeline: CellFillPipeline::new(
                 &shared.device,
                 &highlights.bind_group_layout,
@@ -158,20 +157,37 @@ impl RenderState {
         );
 
         self.highlights.update(ui, &self.shared);
-        self.monochrome_pipeline.update(
-            &self.shared,
-            &self.font_cache.monochrome,
-            &self.highlights.bind_group_layout,
-            &self.grid_bind_group_layout,
+
+        self.monochrome_bind_group.update(
+            &self.shared.device,
+            &self.shared.queue,
             wgpu::TextureFormat::R8Unorm,
+            &self.font_cache.monochrome,
         );
-        self.emoji_pipeline.update(
-            &self.shared,
-            &self.font_cache.emoji,
-            &self.highlights.bind_group_layout,
-            &self.grid_bind_group_layout,
+        if let Some(monochrome_bind_group_layout) = self.monochrome_bind_group.layout() {
+            self.monochrome_pipeline.update(
+                &self.shared.device,
+                &self.highlights.bind_group_layout,
+                monochrome_bind_group_layout,
+                &self.grid_bind_group_layout.bind_group_layout,
+            );
+        }
+
+        self.emoji_bind_group.update(
+            &self.shared.device,
+            &self.shared.queue,
             wgpu::TextureFormat::Rgba8UnormSrgb,
+            &self.font_cache.emoji,
         );
+        if let Some(emoji_bind_group_layout) = self.emoji_bind_group.layout() {
+            self.emoji_pipeline.update(
+                &self.shared.device,
+                &self.highlights.bind_group_layout,
+                emoji_bind_group_layout,
+                &self.grid_bind_group_layout.bind_group_layout,
+            );
+        }
+
         self.shared_push_constants = SharedPushConstants {
             surface_size: target_size,
             cell_size,
@@ -259,10 +275,13 @@ impl RenderState {
                 }
             }
 
-            if let Some(contingent) = &self.monochrome_pipeline.contingent {
-                render_pass.set_pipeline(&contingent.pipeline);
+            if let (Some(pipeline), Some(glyph_bind_group)) = (
+                self.monochrome_pipeline.pipeline(),
+                self.monochrome_bind_group.bind_group(),
+            ) {
+                render_pass.set_pipeline(&pipeline);
                 render_pass.set_bind_group(0, highlights_bind_group, &[]);
-                render_pass.set_bind_group(1, &contingent.bind_group, &[]);
+                render_pass.set_bind_group(1, glyph_bind_group, &[]);
                 render_pass.set_push_constants(
                     wgpu::ShaderStages::VERTEX,
                     0,
@@ -290,10 +309,13 @@ impl RenderState {
                 render_pass.draw(0..self.cursor_fg.glyph_count as u32 * 6, 0..1);
             }
 
-            if let Some(contingent) = &self.emoji_pipeline.contingent {
-                render_pass.set_pipeline(&contingent.pipeline);
+            if let (Some(pipeline), Some(glyph_bind_group)) = (
+                self.emoji_pipeline.pipeline(),
+                self.emoji_bind_group.bind_group(),
+            ) {
+                render_pass.set_pipeline(&pipeline);
                 render_pass.set_bind_group(0, highlights_bind_group, &[]);
-                render_pass.set_bind_group(1, &contingent.bind_group, &[]);
+                render_pass.set_bind_group(1, &glyph_bind_group, &[]);
                 render_pass.set_push_constants(
                     wgpu::ShaderStages::VERTEX,
                     0,
@@ -345,6 +367,13 @@ impl RenderState {
 
     pub fn rebuild_swap_chain(&mut self) {
         self.shared.resize(self.shared.surface_size().into());
+    }
+
+    pub fn clear(&mut self) {
+        self.emoji_bind_group.clear();
+        self.emoji_pipeline.clear();
+        self.monochrome_bind_group.clear();
+        self.monochrome_pipeline.clear();
     }
 }
 

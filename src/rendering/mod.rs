@@ -2,6 +2,7 @@ mod blit_render_pipeline;
 mod cell_fill_pipeline;
 mod cursor;
 mod depth_texture;
+mod glyph_bind_group;
 mod glyph_pipeline;
 mod grid;
 mod grid_bind_group_layout;
@@ -114,8 +115,7 @@ impl RenderLoop {
                 self.ui.process(Event::OptionSet(event));
                 if is_gui_font {
                     self.fonts.reload(&self.ui.options.guifont);
-                    self.render_state.font_cache.clear();
-                    self.render_state.monochrome_pipeline.clear();
+                    self.render_state.clear();
                     self.resize_neovim_grid();
                 }
             }
