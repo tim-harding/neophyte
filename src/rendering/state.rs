@@ -337,7 +337,7 @@ impl RenderState {
                     view: &self.depth_target.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Load,
-                        store: false,
+                        store: true,
                     }),
                     stencil_ops: None,
                 }),
@@ -368,6 +368,25 @@ impl RenderState {
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Blend render pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &self.color_target.view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: true,
+                    },
+                })],
+                depth_stencil_attachment: None,
+            });
+
+            render_pass.set_pipeline(self.blend_pipeline.pipeline());
+            render_pass.set_bind_group(0, self.blend_pipeline.bind_group(), &[]);
+            render_pass.draw(0..6, 0..1);
+        }
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Emoji render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &self.color_target.view,
@@ -381,7 +400,7 @@ impl RenderState {
                     view: &self.depth_target.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Load,
-                        store: false,
+                        store: true,
                     }),
                     stencil_ops: None,
                 }),
@@ -407,25 +426,6 @@ impl RenderState {
                     render_pass.draw(0..grid.emoji_count() * 6, 0..1);
                 }
             }
-        }
-
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Blend render pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &self.color_target.view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: true,
-                    },
-                })],
-                depth_stencil_attachment: None,
-            });
-
-            render_pass.set_pipeline(self.blend_pipeline.pipeline());
-            render_pass.set_bind_group(0, self.blend_pipeline.bind_group(), &[]);
-            render_pass.draw(0..6, 0..1);
         }
 
         {

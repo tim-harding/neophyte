@@ -8,7 +8,7 @@ struct GlyphInfo {
     size: vec2<u32>,
 }
 
-struct GridInfo {
+struct PushConstants {
     target_size: vec2<u32>,
     offset: vec2<i32>,
     z: f32,
@@ -19,7 +19,7 @@ struct HighlightInfo {
     bg: vec3<f32>,
 }
 
-var<push_constant> grid_info: GridInfo;
+var<push_constant> constants: PushConstants;
 
 @group(0) @binding(0)
 var<storage, read> highlights: array<HighlightInfo>;
@@ -58,10 +58,10 @@ fn vs_main(
     out.tex_coord = tex_coord;
     out.clip_position = vec4<f32>(
         (
-            vec2<f32>(grid_cell.position + grid_info.offset) + 
+            vec2<f32>(grid_cell.position + constants.offset) + 
             tex_coord * vec2<f32>(glyph_info.size)
-        ) / vec2<f32>(grid_info.target_size) * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
-        grid_info.z, 
+        ) / vec2<f32>(constants.target_size) * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
+        constants.z, 
         1.0
     );
     return out;
