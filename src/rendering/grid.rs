@@ -20,8 +20,8 @@ use swash::{
 #[derive(Default)]
 pub struct Grid {
     pub id: u64,
-    glyphs: Vec<MonochromeCell>,
-    emoji: Vec<EmojiCell>,
+    glyphs: Vec<Cell>,
+    emoji: Vec<Cell>,
     bg: Vec<u32>,
     buffer_capacity: u64,
     pub buffer: Option<wgpu::Buffer>,
@@ -147,15 +147,15 @@ impl Grid {
                                             .round() as i32,
                                     );
                                 match kind {
-                                    GlyphKind::Monochrome => self.glyphs.push(MonochromeCell {
+                                    GlyphKind::Monochrome => self.glyphs.push(Cell {
+                                        position,
                                         glyph_index,
                                         highlight_index: glyph.data,
-                                        position,
                                     }),
-                                    GlyphKind::Emoji => self.emoji.push(EmojiCell {
+                                    GlyphKind::Emoji => self.emoji.push(Cell {
                                         position,
                                         glyph_index,
-                                        padding: 0,
+                                        highlight_index: 0,
                                     }),
                                 }
                             }
@@ -332,18 +332,10 @@ impl BestFont {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
-pub struct MonochromeCell {
+pub struct Cell {
+    pub position: Vec2<i32>,
     pub glyph_index: u32,
     pub highlight_index: u32,
-    pub position: Vec2<i32>,
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
-pub struct EmojiCell {
-    position: Vec2<i32>,
-    glyph_index: u32,
-    padding: u32,
 }
 
 #[repr(C)]

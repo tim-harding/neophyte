@@ -1,5 +1,5 @@
 use crate::{
-    rendering::grid::{self, MonochromeCell},
+    rendering::grid::{self, Cell},
     text::{
         cache::{CacheValue, FontCache, GlyphKind},
         fonts::{FontStyle, Fonts},
@@ -31,7 +31,7 @@ impl CursorFg {
     pub fn new(device: &wgpu::Device, grid_bind_group_layout: &wgpu::BindGroupLayout) -> Self {
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: size_of::<MonochromeCell>() as u64 * MAX_DIACRITICS,
+            size: size_of::<Cell>() as u64 * MAX_DIACRITICS,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -113,7 +113,7 @@ impl CursorFg {
         }
 
         let mut cell_count = 0;
-        let mut cells = [MonochromeCell::default(); 4];
+        let mut cells = [Cell::default(); 4];
 
         let Some((font_index, font)) = best_font else {
             self.glyph_count = 0;
@@ -148,7 +148,7 @@ impl CursorFg {
                                 (glyph.y * metrics.scale_factor + metrics_pixels.em as f32).round()
                                     as i32,
                             );
-                        cells[cell_count] = MonochromeCell {
+                        cells[cell_count] = Cell {
                             glyph_index,
                             highlight_index,
                             position,

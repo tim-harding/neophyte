@@ -1,7 +1,7 @@
-struct GridCell {
+struct Cell {
+    position: vec2<i32>,
     glyph_index: u32,
     highlight_index: u32,
-    position: vec2<i32>,
 }
 
 struct GlyphInfo {
@@ -35,7 +35,7 @@ var glyph_sampler: sampler;
 @group(1) @binding(2)
 var<storage, read> glyphs: array<GlyphInfo>;
 @group(2) @binding(0)
-var<storage, read> grid_cells: array<GridCell>;
+var<storage, read> cells: array<Cell>;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
@@ -50,7 +50,7 @@ fn vs_main(
     @builtin(vertex_index) in_vertex_index: u32,
 ) -> VertexOutput {
     let grid_index = in_vertex_index / 6u;
-    let grid_cell = grid_cells[grid_index];
+    let grid_cell = cells[grid_index];
     let tex_coord = vec2<f32>(
         f32(in_vertex_index % 2u),
         f32(((in_vertex_index + 5u) % 6u) / 3u),
