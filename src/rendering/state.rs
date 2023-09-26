@@ -3,8 +3,9 @@ use super::{
     cell_fill_pipeline::CellFillPipeline,
     cursor_bg::CursorBg,
     depth_texture::DepthTexture,
-    emoji_pipeline::{self, EmojiPipeline},
+    emoji_pipeline::EmojiPipeline,
     glyph_bind_group::GlyphBindGroup,
+    glyph_push_constants::GlyphPushConstants,
     grid::{self, Grid},
     grid_bind_group_layout::GridBindGroupLayout,
     highlights::HighlightsBindGroup,
@@ -319,14 +320,15 @@ impl RenderState {
                 render_pass.set_pipeline(&pipeline);
                 render_pass.set_bind_group(0, highlights_bind_group, &[]);
                 render_pass.set_bind_group(1, glyph_bind_group, &[]);
-                for (_z, grid) in grids() {
+                for (z, grid) in grids() {
                     if let Some(monochrome_bind_group) = &grid.monochrome_bind_group {
                         render_pass.set_bind_group(2, monochrome_bind_group, &[]);
-                        render_pass.set_push_constants(
-                            wgpu::ShaderStages::VERTEX,
-                            0,
-                            cast_slice(&[grid.grid_info]),
-                        );
+                        GlyphPushConstants {
+                            target_size,
+                            offset: grid.grid_info.offset,
+                            z,
+                        }
+                        .set(&mut render_pass);
                         render_pass.draw(0..grid.glyph_count * 6, 0..1);
                     }
                 }
@@ -341,12 +343,12 @@ impl RenderState {
                 for (z, grid) in grids() {
                     if let Some(emoji_bind_group) = &grid.emoji_bind_group {
                         render_pass.set_bind_group(1, emoji_bind_group, &[]);
-                        emoji_pipeline::set_push_constants(
-                            &mut render_pass,
+                        GlyphPushConstants {
                             target_size,
-                            grid.grid_info.offset,
+                            offset: grid.grid_info.offset,
                             z,
-                        );
+                        }
+                        .set(&mut render_pass);
                         render_pass.set_push_constants(
                             wgpu::ShaderStages::VERTEX,
                             0,

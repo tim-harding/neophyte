@@ -9,7 +9,7 @@ pub struct MonochromePipeline {
 impl MonochromePipeline {
     pub fn new(device: &wgpu::Device) -> Self {
         MonochromePipeline {
-            shader: device.create_shader_module(include_wgsl!("glyph.wgsl")),
+            shader: device.create_shader_module(include_wgsl!("monochrome.wgsl")),
             pipeline: None,
         }
     }
