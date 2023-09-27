@@ -97,40 +97,37 @@ impl RenderState {
         surface.configure(&device, &surface_config);
 
         let highlights = Highlights::new(&device);
-        let grid_dimensions = (surface_size / cell_size) * cell_size;
-
         let grids = Grids::new(&device);
 
+        let target_size = (surface_size / cell_size) * cell_size;
         let targets = Targets {
-            monochrome: Texture::target(&device, grid_dimensions, TARGET_FORMAT),
-            color: Texture::target(&device, grid_dimensions, TARGET_FORMAT),
-            depth: DepthTexture::new(&device, grid_dimensions),
-        };
-
-        let pipelines = Pipelines {
-            cursor: cursor::Pipeline::new(&device, &targets.monochrome.view),
-            blend: blend::Pipeline::new(&device, &targets.color.view),
-            cell_fill: cell_fill::Pipeline::new(
-                &device,
-                highlights.layout(),
-                &grids.bind_group_layout(),
-                TARGET_FORMAT,
-            ),
-            emoji: emoji::Pipeline::new(&device),
-            gamma_blit: gamma_blit::Pipeline::new(
-                &device,
-                surface_config.format,
-                &targets.color.view,
-            ),
-            monochrome: monochrome::Pipeline::new(&device),
+            monochrome: Texture::target(&device, target_size, TARGET_FORMAT),
+            color: Texture::target(&device, target_size, TARGET_FORMAT),
+            depth: DepthTexture::new(&device, target_size),
         };
 
         Self {
-            pipelines,
-            targets,
+            pipelines: Pipelines {
+                cursor: cursor::Pipeline::new(&device, &targets.monochrome.view),
+                blend: blend::Pipeline::new(&device, &targets.color.view),
+                cell_fill: cell_fill::Pipeline::new(
+                    &device,
+                    highlights.layout(),
+                    &grids.bind_group_layout(),
+                    TARGET_FORMAT,
+                ),
+                emoji: emoji::Pipeline::new(&device),
+                gamma_blit: gamma_blit::Pipeline::new(
+                    &device,
+                    surface_config.format,
+                    &targets.color.view,
+                ),
+                monochrome: monochrome::Pipeline::new(&device),
+            },
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
             grids: Grids::new(&device),
+            targets,
             highlights,
             device,
             queue,
@@ -142,13 +139,6 @@ impl RenderState {
     pub fn update(&mut self, ui: &Ui, fonts: &mut Fonts) {
         let cell_size = fonts.metrics().into_pixels().cell_size();
         let target_size = (self.surface_size() / cell_size) * cell_size;
-        self.pipelines.cursor.update(
-            &self.device,
-            ui,
-            target_size,
-            cell_size.into(),
-            &self.targets.monochrome.view,
-        );
         self.grids.update(
             &self.device,
             &self.queue,
@@ -157,9 +147,14 @@ impl RenderState {
             &mut self.font_cache,
             &mut self.shape_context,
         );
-
         self.highlights.update(ui, &self.device);
-
+        self.pipelines.cursor.update(
+            &self.device,
+            ui,
+            target_size,
+            cell_size.into(),
+            &self.targets.monochrome.view,
+        );
         self.pipelines.monochrome.update(
             &self.device,
             &self.queue,
@@ -167,14 +162,12 @@ impl RenderState {
             self.highlights.layout(),
             &self.grids.bind_group_layout(),
         );
-
         self.pipelines.emoji.update(
             &self.device,
             &self.queue,
             &self.font_cache.emoji,
             &self.grids.bind_group_layout(),
         );
-
         self.pipelines
             .blend
             .update(&self.device, &self.targets.monochrome.view);
@@ -184,20 +177,23 @@ impl RenderState {
         if new_size == Vec2::default() {
             return;
         }
+
         self.surface_config.width = new_size.x;
         self.surface_config.height = new_size.y;
         self.surface.configure(&self.device, &self.surface_config);
-        let texture_size = (new_size / cell_size) * cell_size;
-        self.targets.monochrome = Texture::target(&self.device, texture_size, TARGET_FORMAT);
-        self.targets.color = Texture::target(&self.device, texture_size, TARGET_FORMAT);
+
+        let target_size = (new_size / cell_size) * cell_size;
+        self.targets.monochrome = Texture::target(&self.device, target_size, TARGET_FORMAT);
+        self.targets.color = Texture::target(&self.device, target_size, TARGET_FORMAT);
+        self.targets.depth = DepthTexture::new(&self.device, target_size);
+
         self.pipelines.gamma_blit.update(
             &self.device,
             self.surface_config.format,
             &self.targets.color.view,
-            texture_size,
+            target_size,
             new_size,
         );
-        self.targets.depth = DepthTexture::new(&self.device, texture_size);
     }
 
     pub fn render(&mut self, cell_size: Vec2<u32>) -> Result<(), wgpu::SurfaceError> {
@@ -210,12 +206,7 @@ impl RenderState {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render encoder"),
             });
-
-        let target_size = {
-            let size = self.targets.color.texture.size();
-            Vec2::new(size.width, size.height)
-        };
-
+        let target_size = self.targets.color.texture.size().into();
         let Some(highlights_bind_group) = self.highlights.bind_group() else {
             return Ok(());
         };

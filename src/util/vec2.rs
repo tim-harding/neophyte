@@ -65,6 +65,12 @@ impl<T> From<[T; 2]> for Vec2<T> {
     }
 }
 
+impl From<wgpu::Extent3d> for Vec2<u32> {
+    fn from(value: wgpu::Extent3d) -> Self {
+        Self::new(value.width, value.height)
+    }
+}
+
 impl<T> Add for Vec2<T>
 where
     T: Add<Output = T>,
