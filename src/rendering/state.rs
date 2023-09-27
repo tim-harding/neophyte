@@ -282,11 +282,14 @@ impl RenderState {
         }
 
         let grids = || {
-            self.draw_order_index_cache.iter().map(|&i| {
-                let z = 1.0 - i as f32 / draw_order.len() as f32;
-                let grid = &self.grids[i];
-                (z, grid)
-            })
+            self.draw_order_index_cache
+                .iter()
+                .enumerate()
+                .map(|(i, &grid_i)| {
+                    let z = i as f32 / draw_order.len() as f32;
+                    let grid = &self.grids[grid_i];
+                    (z, grid)
+                })
         };
 
         {
