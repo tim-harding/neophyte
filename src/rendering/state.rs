@@ -228,54 +228,19 @@ impl RenderState {
             &self.targets.color.view,
             &self.targets.depth.view,
             target_size,
+            highlights_bind_group,
             cell_size,
             self.highlights.clear_color(),
-            highlights_bind_group,
         );
 
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Monochrome render pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &self.targets.monochrome.view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
-                        store: true,
-                    },
-                })],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.targets.depth.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
-            });
-
-            if let (Some(pipeline), Some(glyph_bind_group)) = (
-                self.pipelines.monochrome.pipeline(),
-                self.pipelines.monochrome.bind_group(),
-            ) {
-                render_pass.set_pipeline(pipeline);
-                render_pass.set_bind_group(0, highlights_bind_group, &[]);
-                render_pass.set_bind_group(1, glyph_bind_group, &[]);
-                for (z, grid) in self.grids.front_to_back() {
-                    let Some(monochrome_bind_group) = &grid.monochrome_bind_group() else {
-                        continue;
-                    };
-                    render_pass.set_bind_group(2, monochrome_bind_group, &[]);
-                    GlyphPushConstants {
-                        target_size,
-                        offset: grid.offset(),
-                        z,
-                    }
-                    .set(&mut render_pass);
-                    render_pass.draw(0..grid.monochrome_count() * 6, 0..1);
-                }
-            }
-        }
+        self.pipelines.monochrome.render(
+            &mut encoder,
+            self.grids.front_to_back(),
+            &self.targets.monochrome.view,
+            &self.targets.depth.view,
+            target_size,
+            highlights_bind_group,
+        );
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

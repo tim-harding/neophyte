@@ -78,9 +78,9 @@ impl Pipeline {
         color_target: &wgpu::TextureView,
         depth_target: &wgpu::TextureView,
         target_size: Vec2<u32>,
+        highlights_bind_group: &wgpu::BindGroup,
         cell_size: Vec2<u32>,
         clear_color: wgpu::Color,
-        highlights_bind_group: &wgpu::BindGroup,
     ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Cell fill render pass"),
