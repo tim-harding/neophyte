@@ -20,11 +20,12 @@ use winit::window::Window;
 pub const TARGET_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
 pub struct RenderState {
-    pipelines: Pipelines,
     device: wgpu::Device,
     queue: wgpu::Queue,
     surface: wgpu::Surface,
     surface_config: wgpu::SurfaceConfiguration,
+    pipelines: Pipelines,
+    targets: Targets,
     shape_context: ShapeContext,
     font_cache: FontCache,
     grids: Vec<grid::Grid>,
@@ -33,9 +34,12 @@ pub struct RenderState {
     highlights: HighlightsBindGroup,
     grid_bind_group_layout: wgpu::BindGroupLayout,
     draw_order_index_cache: Vec<usize>,
-    monochrome_target: Texture,
-    color_target: Texture,
-    depth_target: DepthTexture,
+}
+
+struct Targets {
+    monochrome: Texture,
+    color: Texture,
+    depth: DepthTexture,
 }
 
 struct Pipelines {
@@ -102,12 +106,16 @@ impl RenderState {
         let highlights = HighlightsBindGroup::new(&device);
         let grid_bind_group_layout = grid::bind_group_layout(&device);
         let grid_dimensions = (surface_size / cell_size) * cell_size;
-        let color_target = Texture::target(&device, grid_dimensions, TARGET_FORMAT);
-        let monochrome_target = Texture::target(&device, grid_dimensions, TARGET_FORMAT);
+
+        let targets = Targets {
+            monochrome: Texture::target(&device, grid_dimensions, TARGET_FORMAT),
+            color: Texture::target(&device, grid_dimensions, TARGET_FORMAT),
+            depth: DepthTexture::new(&device, grid_dimensions),
+        };
 
         let pipelines = Pipelines {
-            cursor: cursor::Pipeline::new(&device, &monochrome_target.view),
-            blend: blend::Pipeline::new(&device, &color_target.view),
+            cursor: cursor::Pipeline::new(&device, &targets.monochrome.view),
+            blend: blend::Pipeline::new(&device, &targets.color.view),
             cell_fill: cell_fill::Pipeline::new(
                 &device,
                 highlights.layout(),
@@ -118,16 +126,14 @@ impl RenderState {
             gamma_blit: gamma_blit::Pipeline::new(
                 &device,
                 surface_config.format,
-                &color_target.view,
+                &targets.color.view,
             ),
             monochrome: monochrome::Pipeline::new(&device),
         };
 
         Self {
             pipelines,
-            depth_target: DepthTexture::new(&device, grid_dimensions),
-            color_target,
-            monochrome_target,
+            targets,
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
             monochrome_bind_group: GlyphBindGroup::new(&device),
@@ -152,7 +158,7 @@ impl RenderState {
             ui,
             target_size,
             cell_size.into(),
-            &self.monochrome_target.view,
+            &self.targets.monochrome.view,
         );
 
         let mut i = 0;
@@ -226,7 +232,7 @@ impl RenderState {
 
         self.pipelines
             .blend
-            .update(&self.device, &self.monochrome_target.view);
+            .update(&self.device, &self.targets.monochrome.view);
     }
 
     pub fn resize(&mut self, new_size: Vec2<u32>, cell_size: Vec2<u32>) {
@@ -236,16 +242,16 @@ impl RenderState {
             self.surface.configure(&self.device, &self.surface_config);
         }
         let texture_size = (new_size / cell_size) * cell_size;
-        self.monochrome_target = Texture::target(&self.device, texture_size, TARGET_FORMAT);
-        self.color_target = Texture::target(&self.device, texture_size, TARGET_FORMAT);
+        self.targets.monochrome = Texture::target(&self.device, texture_size, TARGET_FORMAT);
+        self.targets.color = Texture::target(&self.device, texture_size, TARGET_FORMAT);
         self.pipelines.gamma_blit.update(
             &self.device,
             self.surface_config.format,
-            &self.color_target.view,
+            &self.targets.color.view,
             texture_size,
             new_size,
         );
-        self.depth_target = DepthTexture::new(&self.device, texture_size);
+        self.targets.depth = DepthTexture::new(&self.device, texture_size);
     }
 
     pub fn render(
@@ -264,7 +270,7 @@ impl RenderState {
             });
 
         let target_size = {
-            let size = self.color_target.texture.size();
+            let size = self.targets.color.texture.size();
             Vec2::new(size.width, size.height)
         };
 
@@ -296,7 +302,7 @@ impl RenderState {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Cell fill render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &self.color_target.view,
+                    view: &self.targets.color.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(self.highlights.clear_color()),
@@ -304,7 +310,7 @@ impl RenderState {
                     },
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_target.view,
+                    view: &self.targets.depth.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
                         store: true,
@@ -336,7 +342,7 @@ impl RenderState {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Monochrome render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &self.monochrome_target.view,
+                    view: &self.targets.monochrome.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
@@ -344,7 +350,7 @@ impl RenderState {
                     },
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_target.view,
+                    view: &self.targets.depth.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Load,
                         store: true,
@@ -380,7 +386,7 @@ impl RenderState {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Blend render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &self.color_target.view,
+                    view: &self.targets.color.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,
@@ -399,7 +405,7 @@ impl RenderState {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Cursor render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &self.color_target.view,
+                    view: &self.targets.color.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,
@@ -416,7 +422,7 @@ impl RenderState {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Emoji render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &self.color_target.view,
+                    view: &self.targets.color.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,
@@ -424,7 +430,7 @@ impl RenderState {
                     },
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth_target.view,
+                    view: &self.targets.depth.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Load,
                         store: true,
