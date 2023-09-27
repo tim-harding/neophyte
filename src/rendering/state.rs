@@ -26,9 +26,9 @@ pub struct RenderState {
     pipelines: Pipelines,
     targets: Targets,
     grids: Grids,
+    highlights: Highlights,
     shape_context: ShapeContext,
     font_cache: FontCache,
-    highlights: Highlights,
 }
 
 struct Targets {
@@ -222,45 +222,16 @@ impl RenderState {
             return Ok(());
         };
 
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Cell fill render pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &self.targets.color.view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(self.highlights.clear_color()),
-                        store: true,
-                    },
-                })],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.targets.depth.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
-            });
-
-            render_pass.set_pipeline(&self.pipelines.cell_fill.pipeline());
-            render_pass.set_bind_group(0, highlights_bind_group, &[]);
-            for (z, grid) in self.grids.front_to_back() {
-                let Some(bg_bind_group) = &grid.cell_fill_bind_group() else {
-                    continue;
-                };
-                render_pass.set_bind_group(1, bg_bind_group, &[]);
-                cell_fill::PushConstants {
-                    target_size,
-                    cell_size,
-                    offset: grid.offset(),
-                    grid_width: grid.size().x,
-                    z,
-                }
-                .set(&mut render_pass);
-                render_pass.draw(0..grid.cell_fill_count() * 6, 0..1);
-            }
-        }
+        self.pipelines.cell_fill.render(
+            &mut encoder,
+            self.grids.front_to_back(),
+            &self.targets.color.view,
+            &self.targets.depth.view,
+            target_size,
+            cell_size,
+            self.highlights.clear_color(),
+            highlights_bind_group,
+        );
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

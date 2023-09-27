@@ -1,4 +1,7 @@
-use crate::{rendering::depth_texture::DepthTexture, util::vec2::Vec2};
+use crate::{
+    rendering::{depth_texture::DepthTexture, grid::Grid},
+    util::vec2::Vec2,
+};
 use bytemuck::{checked::cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
 
@@ -68,8 +71,54 @@ impl Pipeline {
         Self { pipeline }
     }
 
-    pub fn pipeline(&self) -> &wgpu::RenderPipeline {
-        &self.pipeline
+    pub fn render<'a, 'b>(
+        &'a self,
+        encoder: &'a mut wgpu::CommandEncoder,
+        grids: impl Iterator<Item = (f32, &'b Grid)>,
+        color_target: &wgpu::TextureView,
+        depth_target: &wgpu::TextureView,
+        target_size: Vec2<u32>,
+        cell_size: Vec2<u32>,
+        clear_color: wgpu::Color,
+        highlights_bind_group: &wgpu::BindGroup,
+    ) {
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Cell fill render pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: color_target,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(clear_color),
+                    store: true,
+                },
+            })],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: depth_target,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: true,
+                }),
+                stencil_ops: None,
+            }),
+        });
+
+        render_pass.set_pipeline(&self.pipeline);
+        render_pass.set_bind_group(0, highlights_bind_group, &[]);
+        for (z, grid) in grids {
+            let Some(bg_bind_group) = &grid.cell_fill_bind_group() else {
+                continue;
+            };
+            render_pass.set_bind_group(1, bg_bind_group, &[]);
+            PushConstants {
+                target_size,
+                cell_size,
+                offset: grid.offset(),
+                grid_width: grid.size().x,
+                z,
+            }
+            .set(&mut render_pass);
+            render_pass.draw(0..grid.cell_fill_count() * 6, 0..1);
+        }
     }
 }
 
