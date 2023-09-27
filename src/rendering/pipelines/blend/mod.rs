@@ -69,12 +69,23 @@ impl Pipeline {
         self.bind_group = bind_group(device, &self.bind_group_layout, texture_view, &self.sampler);
     }
 
-    pub fn pipeline(&self) -> &wgpu::RenderPipeline {
-        &self.pipeline
-    }
+    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, color_target: &wgpu::TextureView) {
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Blend render pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: color_target,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: true,
+                },
+            })],
+            depth_stencil_attachment: None,
+        });
 
-    pub fn bind_group(&self) -> &wgpu::BindGroup {
-        &self.bind_group
+        render_pass.set_pipeline(&self.pipeline);
+        render_pass.set_bind_group(0, &self.bind_group, &[]);
+        render_pass.draw(0..6, 0..1);
     }
 }
 

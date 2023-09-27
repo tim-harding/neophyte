@@ -242,24 +242,9 @@ impl RenderState {
             highlights_bind_group,
         );
 
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Blend render pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &self.targets.color.view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: true,
-                    },
-                })],
-                depth_stencil_attachment: None,
-            });
-
-            render_pass.set_pipeline(self.pipelines.blend.pipeline());
-            render_pass.set_bind_group(0, self.pipelines.blend.bind_group(), &[]);
-            render_pass.draw(0..6, 0..1);
-        }
+        self.pipelines
+            .blend
+            .render(&mut encoder, &self.targets.color.view);
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
