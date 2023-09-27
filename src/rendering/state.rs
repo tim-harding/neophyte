@@ -4,6 +4,7 @@ use super::{
     highlights::Highlights,
     pipelines::{blend, cell_fill, cursor, emoji, gamma_blit, monochrome},
     texture::Texture,
+    TARGET_FORMAT,
 };
 use crate::{
     text::{cache::FontCache, fonts::Fonts},
@@ -13,8 +14,6 @@ use crate::{
 use std::sync::Arc;
 use swash::shape::ShapeContext;
 use winit::window::Window;
-
-pub const TARGET_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
 pub struct RenderState {
     device: wgpu::Device,

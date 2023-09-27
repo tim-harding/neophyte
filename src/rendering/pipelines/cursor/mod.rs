@@ -1,5 +1,5 @@
 use crate::{
-    event::mode_info_set::CursorShape, rendering::state::TARGET_FORMAT, ui::Ui, util::vec2::Vec2,
+    event::mode_info_set::CursorShape, rendering::TARGET_FORMAT, ui::Ui, util::vec2::Vec2,
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;

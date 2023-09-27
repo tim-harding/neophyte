@@ -20,6 +20,8 @@ use rmpv::Value;
 use std::sync::{mpsc::Receiver, Arc};
 use winit::window::Window;
 
+pub const TARGET_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
+
 pub enum RenderEvent {
     Notification(String, Vec<Value>),
     Resized(Vec2<u32>),

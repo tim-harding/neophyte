@@ -1,5 +1,6 @@
-use crate::rendering::state::TARGET_FORMAT;
 use wgpu::include_wgsl;
+
+use crate::rendering::TARGET_FORMAT;
 
 pub struct Pipeline {
     pipeline_layout: wgpu::PipelineLayout,

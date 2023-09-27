@@ -1,7 +1,7 @@
 use crate::{
     rendering::{
         depth_texture::DepthTexture, glyph_bind_group::GlyphBindGroup,
-        glyph_push_constants::GlyphPushConstants, grid::Grid, state::TARGET_FORMAT,
+        glyph_push_constants::GlyphPushConstants, grid::Grid, TARGET_FORMAT,
     },
     text::cache::Cached,
     util::vec2::Vec2,
