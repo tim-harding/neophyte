@@ -1,6 +1,5 @@
 use super::{
     depth_texture::DepthTexture,
-    glyph_push_constants::GlyphPushConstants,
     grids::Grids,
     highlights::Highlights,
     pipelines::{blend, cell_fill, cursor, emoji, gamma_blit, monochrome},
@@ -250,48 +249,13 @@ impl RenderState {
             .cursor
             .render(&mut encoder, &self.targets.color.view);
 
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Emoji render pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &self.targets.color.view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: true,
-                    },
-                })],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.targets.depth.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
-            });
-
-            if let (Some(pipeline), Some(glyph_bind_group)) = (
-                self.pipelines.emoji.pipeline(),
-                self.pipelines.emoji.bind_group(),
-            ) {
-                render_pass.set_pipeline(pipeline);
-                render_pass.set_bind_group(0, glyph_bind_group, &[]);
-                for (z, grid) in self.grids.front_to_back() {
-                    let Some(emoji_bind_group) = &grid.emoji_bind_group() else {
-                        continue;
-                    };
-                    render_pass.set_bind_group(1, emoji_bind_group, &[]);
-                    GlyphPushConstants {
-                        target_size,
-                        offset: grid.offset(),
-                        z,
-                    }
-                    .set(&mut render_pass);
-                    render_pass.draw(0..grid.emoji_count() * 6, 0..1);
-                }
-            }
-        }
+        self.pipelines.emoji.render(
+            &mut encoder,
+            self.grids.front_to_back(),
+            &self.targets.color.view,
+            &self.targets.depth.view,
+            target_size,
+        );
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

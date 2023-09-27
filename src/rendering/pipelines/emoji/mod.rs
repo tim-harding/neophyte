@@ -1,9 +1,10 @@
 use crate::{
     rendering::{
         depth_texture::DepthTexture, glyph_bind_group::GlyphBindGroup,
-        glyph_push_constants::GlyphPushConstants, state::TARGET_FORMAT,
+        glyph_push_constants::GlyphPushConstants, grid::Grid, state::TARGET_FORMAT,
     },
     text::cache::Cached,
+    util::vec2::Vec2,
 };
 use wgpu::include_wgsl;
 
@@ -98,11 +99,52 @@ impl Pipeline {
         self.pipeline = Some(pipeline);
     }
 
-    pub fn pipeline(&self) -> Option<&wgpu::RenderPipeline> {
-        self.pipeline.as_ref()
-    }
+    pub fn render<'a, 'b>(
+        &'a self,
+        encoder: &'a mut wgpu::CommandEncoder,
+        grids: impl Iterator<Item = (f32, &'b Grid)>,
+        color_target: &wgpu::TextureView,
+        depth_target: &wgpu::TextureView,
+        target_size: Vec2<u32>,
+    ) {
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Emoji render pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: color_target,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: true,
+                },
+            })],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: depth_target,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: true,
+                }),
+                stencil_ops: None,
+            }),
+        });
 
-    pub fn bind_group(&self) -> Option<&wgpu::BindGroup> {
-        self.bind_group.bind_group()
+        if let (Some(pipeline), Some(glyph_bind_group)) =
+            (&self.pipeline, self.bind_group.bind_group())
+        {
+            render_pass.set_pipeline(pipeline);
+            render_pass.set_bind_group(0, glyph_bind_group, &[]);
+            for (z, grid) in grids {
+                let Some(emoji_bind_group) = &grid.emoji_bind_group() else {
+                    continue;
+                };
+                render_pass.set_bind_group(1, emoji_bind_group, &[]);
+                GlyphPushConstants {
+                    target_size,
+                    offset: grid.offset(),
+                    z,
+                }
+                .set(&mut render_pass);
+                render_pass.draw(0..grid.emoji_count() * 6, 0..1);
+            }
+        }
     }
 }
