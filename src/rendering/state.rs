@@ -26,7 +26,6 @@ pub struct RenderState {
     queue: wgpu::Queue,
     surface: wgpu::Surface,
     surface_config: wgpu::SurfaceConfiguration,
-    surface_format: wgpu::TextureFormat,
     shape_context: ShapeContext,
     font_cache: FontCache,
     grids: Vec<grid::Grid>,
@@ -85,16 +84,14 @@ impl RenderState {
         .unwrap();
 
         let surface_caps = surface.get_capabilities(&adapter);
-        let surface_format = surface_caps
-            .formats
-            .iter()
-            .copied()
-            .find(|f| f.is_srgb())
-            .unwrap_or(surface_caps.formats[0]);
-
         let surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface_format,
+            format: surface_caps
+                .formats
+                .iter()
+                .copied()
+                .find(|f| f.is_srgb())
+                .unwrap_or(surface_caps.formats[0]),
             width: surface_size.x,
             height: surface_size.y,
             present_mode: surface_caps.present_modes[0], // Vsync
@@ -119,7 +116,11 @@ impl RenderState {
                 TARGET_FORMAT,
             ),
             emoji: emoji::Pipeline::new(&device),
-            gamma_blit: gamma_blit::Pipeline::new(&device, surface_format, &color_target.view),
+            gamma_blit: gamma_blit::Pipeline::new(
+                &device,
+                surface_config.format,
+                &color_target.view,
+            ),
             monochrome: monochrome::Pipeline::new(&device),
         };
 
@@ -140,7 +141,6 @@ impl RenderState {
             queue,
             surface,
             surface_config,
-            surface_format,
         }
     }
 
@@ -241,7 +241,7 @@ impl RenderState {
         self.color_target = Texture::target(&self.device, texture_size, TARGET_FORMAT);
         self.pipelines.gamma_blit.update(
             &self.device,
-            self.surface_format,
+            self.surface_config.format,
             &self.color_target.view,
             texture_size,
             new_size,
