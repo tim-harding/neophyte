@@ -1,3 +1,4 @@
+use super::nearest_sampler;
 use crate::{rendering::texture::Texture, text::cache::Cached};
 use bytemuck::cast_slice;
 use std::num::NonZeroU32;
@@ -20,16 +21,7 @@ impl GlyphBindGroup {
         GlyphBindGroup {
             textures: vec![],
             next_glyph_to_upload: 0,
-            sampler: device.create_sampler(&wgpu::SamplerDescriptor {
-                label: Some("Glyph sampler"),
-                address_mode_u: wgpu::AddressMode::ClampToEdge,
-                address_mode_v: wgpu::AddressMode::ClampToEdge,
-                address_mode_w: wgpu::AddressMode::ClampToEdge,
-                mag_filter: wgpu::FilterMode::Nearest,
-                min_filter: wgpu::FilterMode::Nearest,
-                mipmap_filter: wgpu::FilterMode::Nearest,
-                ..Default::default()
-            }),
+            sampler: nearest_sampler(device),
             deferred: None,
         }
     }

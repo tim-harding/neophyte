@@ -1,6 +1,5 @@
+use crate::rendering::{nearest_sampler, TARGET_FORMAT};
 use wgpu::include_wgsl;
-
-use crate::rendering::TARGET_FORMAT;
 
 pub struct Pipeline {
     pipeline_layout: wgpu::PipelineLayout,
@@ -13,6 +12,9 @@ pub struct Pipeline {
 
 impl Pipeline {
     pub fn new(device: &wgpu::Device, texture_view: &wgpu::TextureView) -> Self {
+        let sampler = nearest_sampler(device);
+        let shader = device.create_shader_module(include_wgsl!("blend.wgsl"));
+
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Blend bind group layout"),
             entries: &[
@@ -35,25 +37,11 @@ impl Pipeline {
             ],
         });
 
-        // TODO: Use a global sampler
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("Glyph sampler"),
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
-
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Blend pipeline"),
             bind_group_layouts: &[&bind_group_layout],
             push_constant_ranges: &[],
         });
-
-        let shader = device.create_shader_module(include_wgsl!("blend.wgsl"));
 
         Self {
             pipeline: pipeline(device, &pipeline_layout, &shader),

@@ -1,4 +1,4 @@
-use crate::util::vec2::Vec2;
+use crate::{rendering::nearest_sampler, util::vec2::Vec2};
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
 
@@ -18,6 +18,9 @@ impl Pipeline {
         dst_format: wgpu::TextureFormat,
         src_tex: &wgpu::TextureView,
     ) -> Self {
+        let sampler = nearest_sampler(device);
+        let shader = device.create_shader_module(include_wgsl!("gamma_blit.wgsl"));
+
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
             entries: &[
@@ -40,17 +43,6 @@ impl Pipeline {
             ],
         });
 
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: None,
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
-
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts: &[&bind_group_layout],
@@ -59,8 +51,6 @@ impl Pipeline {
                 range: 0..PushConstants::SIZE,
             }],
         });
-
-        let shader = device.create_shader_module(include_wgsl!("gamma_blit.wgsl"));
 
         Self {
             push_constants: PushConstants::default(),
