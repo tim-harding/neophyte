@@ -113,7 +113,7 @@ impl RenderState {
                 cell_fill: cell_fill::Pipeline::new(
                     &device,
                     highlights.layout(),
-                    &grids.bind_group_layout(),
+                    grids.bind_group_layout(),
                     TARGET_FORMAT,
                 ),
                 emoji: emoji::Pipeline::new(&device),
@@ -160,13 +160,13 @@ impl RenderState {
             &self.queue,
             &self.font_cache.monochrome,
             self.highlights.layout(),
-            &self.grids.bind_group_layout(),
+            self.grids.bind_group_layout(),
         );
         self.pipelines.emoji.update(
             &self.device,
             &self.queue,
             &self.font_cache.emoji,
-            &self.grids.bind_group_layout(),
+            self.grids.bind_group_layout(),
         );
         self.pipelines
             .blend

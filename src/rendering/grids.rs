@@ -65,8 +65,8 @@ impl Grids {
 
             if ui_grid.dirty {
                 grid.update(
-                    &device,
-                    &queue,
+                    device,
+                    queue,
                     &self.bind_group_layout,
                     &ui.highlights,
                     fonts,

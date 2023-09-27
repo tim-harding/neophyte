@@ -71,6 +71,7 @@ impl Pipeline {
         Self { pipeline }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn render<'a, 'b>(
         &'a self,
         encoder: &'a mut wgpu::CommandEncoder,

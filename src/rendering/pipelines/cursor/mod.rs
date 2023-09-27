@@ -198,7 +198,7 @@ fn bind_group(
 ) -> wgpu::BindGroup {
     device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("Cursor bind group"),
-        layout: &bind_group_layout,
+        layout: bind_group_layout,
         entries: &[
             wgpu::BindGroupEntry {
                 binding: 0,

@@ -96,14 +96,14 @@ fn pipeline(
 ) -> wgpu::RenderPipeline {
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some("Blend pipeline"),
-        layout: Some(&layout),
+        layout: Some(layout),
         vertex: wgpu::VertexState {
-            module: &shader,
+            module: shader,
             entry_point: "vs_main",
             buffers: &[],
         },
         fragment: Some(wgpu::FragmentState {
-            module: &shader,
+            module: shader,
             entry_point: "fs_main",
             targets: &[Some(wgpu::ColorTargetState {
                 format: TARGET_FORMAT,
@@ -146,7 +146,7 @@ pub fn bind_group(
             },
             wgpu::BindGroupEntry {
                 binding: 1,
-                resource: wgpu::BindingResource::Sampler(&sampler),
+                resource: wgpu::BindingResource::Sampler(sampler),
             },
         ],
     })
