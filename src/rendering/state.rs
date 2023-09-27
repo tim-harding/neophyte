@@ -29,7 +29,6 @@ pub struct RenderState {
     grids: Grids,
     shape_context: ShapeContext,
     font_cache: FontCache,
-    monochrome_bind_group: GlyphBindGroup,
     emoji_bind_group: GlyphBindGroup,
     highlights: Highlights,
 }
@@ -135,7 +134,6 @@ impl RenderState {
             targets,
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
-            monochrome_bind_group: GlyphBindGroup::new(&device),
             emoji_bind_group: GlyphBindGroup::new(&device),
             grids: Grids::new(&device),
             highlights,
@@ -167,20 +165,13 @@ impl RenderState {
 
         self.highlights.update(ui, &self.device);
 
-        self.monochrome_bind_group.update(
+        self.pipelines.monochrome.update(
             &self.device,
             &self.queue,
-            wgpu::TextureFormat::R8Unorm,
             &self.font_cache.monochrome,
+            self.highlights.layout(),
+            &self.grids.bind_group_layout(),
         );
-        if let Some(monochrome_bind_group_layout) = self.monochrome_bind_group.layout() {
-            self.pipelines.monochrome.update(
-                &self.device,
-                self.highlights.layout(),
-                monochrome_bind_group_layout,
-                &self.grids.bind_group_layout(),
-            );
-        }
 
         self.emoji_bind_group.update(
             &self.device,
@@ -202,11 +193,12 @@ impl RenderState {
     }
 
     pub fn resize(&mut self, new_size: Vec2<u32>, cell_size: Vec2<u32>) {
-        if new_size.x > 0 && new_size.y > 0 {
-            self.surface_config.width = new_size.x;
-            self.surface_config.height = new_size.y;
-            self.surface.configure(&self.device, &self.surface_config);
+        if new_size == Vec2::default() {
+            return;
         }
+        self.surface_config.width = new_size.x;
+        self.surface_config.height = new_size.y;
+        self.surface.configure(&self.device, &self.surface_config);
         let texture_size = (new_size / cell_size) * cell_size;
         self.targets.monochrome = Texture::target(&self.device, texture_size, TARGET_FORMAT);
         self.targets.color = Texture::target(&self.device, texture_size, TARGET_FORMAT);
@@ -303,7 +295,7 @@ impl RenderState {
 
             if let (Some(pipeline), Some(glyph_bind_group)) = (
                 self.pipelines.monochrome.pipeline(),
-                self.monochrome_bind_group.bind_group(),
+                self.pipelines.monochrome.bind_group(),
             ) {
                 render_pass.set_pipeline(pipeline);
                 render_pass.set_bind_group(0, highlights_bind_group, &[]);
@@ -439,7 +431,6 @@ impl RenderState {
     pub fn clear(&mut self) {
         self.emoji_bind_group.clear();
         self.pipelines.emoji.clear();
-        self.monochrome_bind_group.clear();
         self.pipelines.monochrome.clear();
     }
 

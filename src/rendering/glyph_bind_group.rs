@@ -45,16 +45,16 @@ impl GlyphBindGroup {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         texture_format: wgpu::TextureFormat,
-        font_cache: &Cached,
+        cached_glyphs: &Cached,
     ) {
-        if self.next_glyph_to_upload == font_cache.data.len() {
+        if self.next_glyph_to_upload == cached_glyphs.data.len() {
             return;
         }
 
-        for (data, size) in font_cache
+        for (data, size) in cached_glyphs
             .data
             .iter()
-            .zip(font_cache.size.iter())
+            .zip(cached_glyphs.size.iter())
             .skip(self.next_glyph_to_upload)
         {
             self.textures.push(Texture::with_data(
@@ -72,7 +72,7 @@ impl GlyphBindGroup {
 
         let font_info_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Glyph info buffer"),
-            contents: cast_slice(font_cache.size.as_slice()),
+            contents: cast_slice(cached_glyphs.size.as_slice()),
             usage: wgpu::BufferUsages::STORAGE,
         });
 
