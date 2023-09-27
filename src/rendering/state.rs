@@ -2,8 +2,8 @@ use super::{
     depth_texture::DepthTexture,
     glyph_bind_group::GlyphBindGroup,
     glyph_push_constants::GlyphPushConstants,
-    grid::{self, Grid},
-    highlights::HighlightsBindGroup,
+    grids::Grids,
+    highlights::Highlights,
     pipelines::{blend, cell_fill, cursor, emoji, gamma_blit, monochrome},
     texture::Texture,
 };
@@ -26,14 +26,12 @@ pub struct RenderState {
     surface_config: wgpu::SurfaceConfiguration,
     pipelines: Pipelines,
     targets: Targets,
+    grids: Grids,
     shape_context: ShapeContext,
     font_cache: FontCache,
-    grids: Vec<grid::Grid>,
     monochrome_bind_group: GlyphBindGroup,
     emoji_bind_group: GlyphBindGroup,
-    highlights: HighlightsBindGroup,
-    grid_bind_group_layout: wgpu::BindGroupLayout,
-    draw_order_index_cache: Vec<usize>,
+    highlights: Highlights,
 }
 
 struct Targets {
@@ -103,9 +101,10 @@ impl RenderState {
         };
         surface.configure(&device, &surface_config);
 
-        let highlights = HighlightsBindGroup::new(&device);
-        let grid_bind_group_layout = grid::bind_group_layout(&device);
+        let highlights = Highlights::new(&device);
         let grid_dimensions = (surface_size / cell_size) * cell_size;
+
+        let grids = Grids::new(&device);
 
         let targets = Targets {
             monochrome: Texture::target(&device, grid_dimensions, TARGET_FORMAT),
@@ -119,7 +118,7 @@ impl RenderState {
             cell_fill: cell_fill::Pipeline::new(
                 &device,
                 highlights.layout(),
-                &grid_bind_group_layout,
+                &grids.bind_group_layout(),
                 TARGET_FORMAT,
             ),
             emoji: emoji::Pipeline::new(&device),
@@ -138,10 +137,8 @@ impl RenderState {
             font_cache: FontCache::new(),
             monochrome_bind_group: GlyphBindGroup::new(&device),
             emoji_bind_group: GlyphBindGroup::new(&device),
-            grid_bind_group_layout,
-            grids: vec![],
+            grids: Grids::new(&device),
             highlights,
-            draw_order_index_cache: vec![],
             device,
             queue,
             surface,
@@ -151,8 +148,7 @@ impl RenderState {
 
     pub fn update(&mut self, ui: &Ui, fonts: &mut Fonts) {
         let cell_size = fonts.metrics().into_pixels().cell_size();
-        let surface_size = self.surface_size();
-        let target_size = (surface_size / cell_size) * cell_size;
+        let target_size = (self.surface_size() / cell_size) * cell_size;
         self.pipelines.cursor.update(
             &self.device,
             ui,
@@ -160,44 +156,14 @@ impl RenderState {
             cell_size.into(),
             &self.targets.monochrome.view,
         );
-
-        let mut i = 0;
-        while let Some(grid) = self.grids.get(i) {
-            if ui.grid_index(grid.id()).is_ok() {
-                i += 1;
-            } else {
-                self.grids.remove(i);
-            }
-        }
-
-        for ui_grid in ui.grids.iter() {
-            let index = match self
-                .grids
-                .binary_search_by(|probe| probe.id().cmp(&ui_grid.id))
-            {
-                Ok(index) => index,
-                Err(index) => {
-                    self.grids.insert(index, Grid::new(ui_grid.id));
-                    index
-                }
-            };
-            let grid = &mut self.grids[index];
-
-            if ui_grid.dirty {
-                grid.update(
-                    &self.device,
-                    &self.queue,
-                    &self.grid_bind_group_layout,
-                    &ui.highlights,
-                    fonts,
-                    &mut self.font_cache,
-                    &mut self.shape_context,
-                    ui_grid,
-                    ui.position(ui_grid.id),
-                    cell_size,
-                );
-            }
-        }
+        self.grids.update(
+            &self.device,
+            &self.queue,
+            ui,
+            fonts,
+            &mut self.font_cache,
+            &mut self.shape_context,
+        );
 
         self.highlights.update(ui, &self.device);
 
@@ -212,7 +178,7 @@ impl RenderState {
                 &self.device,
                 self.highlights.layout(),
                 monochrome_bind_group_layout,
-                &self.grid_bind_group_layout,
+                &self.grids.bind_group_layout(),
             );
         }
 
@@ -226,7 +192,7 @@ impl RenderState {
             self.pipelines.emoji.update(
                 &self.device,
                 emoji_bind_group_layout,
-                &self.grid_bind_group_layout,
+                &self.grids.bind_group_layout(),
             );
         }
 
@@ -254,11 +220,7 @@ impl RenderState {
         self.targets.depth = DepthTexture::new(&self.device, texture_size);
     }
 
-    pub fn render(
-        &mut self,
-        draw_order: &[u64],
-        cell_size: Vec2<u32>,
-    ) -> Result<(), wgpu::SurfaceError> {
+    pub fn render(&mut self, cell_size: Vec2<u32>) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let output_view = output
             .texture
@@ -276,26 +238,6 @@ impl RenderState {
 
         let Some(highlights_bind_group) = self.highlights.bind_group() else {
             return Ok(());
-        };
-
-        self.draw_order_index_cache.clear();
-        for &id in draw_order.iter().rev() {
-            let i = self
-                .grids
-                .binary_search_by(|probe| probe.id().cmp(&{ id }))
-                .unwrap();
-            self.draw_order_index_cache.push(i);
-        }
-
-        let grids = || {
-            self.draw_order_index_cache
-                .iter()
-                .enumerate()
-                .map(|(i, &grid_i)| {
-                    let z = i as f32 / draw_order.len() as f32;
-                    let grid = &self.grids[grid_i];
-                    (z, grid)
-                })
         };
 
         {
@@ -321,7 +263,7 @@ impl RenderState {
 
             render_pass.set_pipeline(&self.pipelines.cell_fill.pipeline());
             render_pass.set_bind_group(0, highlights_bind_group, &[]);
-            for (z, grid) in grids() {
+            for (z, grid) in self.grids.front_to_back() {
                 let Some(bg_bind_group) = &grid.cell_fill_bind_group() else {
                     continue;
                 };
@@ -366,7 +308,7 @@ impl RenderState {
                 render_pass.set_pipeline(pipeline);
                 render_pass.set_bind_group(0, highlights_bind_group, &[]);
                 render_pass.set_bind_group(1, glyph_bind_group, &[]);
-                for (z, grid) in grids() {
+                for (z, grid) in self.grids.front_to_back() {
                     let Some(monochrome_bind_group) = &grid.monochrome_bind_group() else {
                         continue;
                     };
@@ -445,7 +387,7 @@ impl RenderState {
             ) {
                 render_pass.set_pipeline(pipeline);
                 render_pass.set_bind_group(0, glyph_bind_group, &[]);
-                for (z, grid) in grids() {
+                for (z, grid) in self.grids.front_to_back() {
                     let Some(emoji_bind_group) = &grid.emoji_bind_group() else {
                         continue;
                     };

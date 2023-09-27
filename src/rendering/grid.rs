@@ -54,9 +54,12 @@ impl Grid {
         shape_context: &mut ShapeContext,
         grid: &ui::grid::Grid,
         position: Vec2<f64>,
-        cell_size: Vec2<u32>,
     ) {
+        let metrics = fonts.metrics();
+        let metrics_px = metrics.into_pixels();
+        let cell_size = metrics_px.cell_size();
         let offset = position * Vec2::<f64>::from(cell_size);
+
         self.offset = Vec2::new(offset.x as i32, offset.y as i32);
         self.size = grid.size.try_into().unwrap();
 
@@ -67,10 +70,6 @@ impl Grid {
         for cell in grid.buffer.iter() {
             self.cell_fill.push(cell.highlight as u32);
         }
-
-        let metrics = fonts.metrics();
-        let metrics_px = metrics.into_pixels();
-        let cell_size = metrics_px.cell_size();
 
         for (cell_line_i, cell_line) in grid.rows().enumerate() {
             let mut cluster = CharCluster::new();
@@ -297,22 +296,6 @@ impl Grid {
     pub fn emoji_count(&self) -> u32 {
         self.emoji_count
     }
-}
-
-pub fn bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: Some("Grid bind group layout"),
-        entries: &[wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStages::VERTEX,
-            ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Storage { read_only: true },
-                has_dynamic_offset: false,
-                min_binding_size: None,
-            },
-            count: None,
-        }],
-    })
 }
 
 fn best_font(

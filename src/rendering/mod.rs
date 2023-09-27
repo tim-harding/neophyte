@@ -2,6 +2,7 @@ mod depth_texture;
 mod glyph_bind_group;
 mod glyph_push_constants;
 mod grid;
+mod grids;
 mod highlights;
 mod pipelines;
 mod state;
@@ -63,10 +64,7 @@ impl RenderLoop {
                     self.resize_neovim_grid();
                 }
 
-                RenderEvent::Redraw => match self
-                    .render_state
-                    .render(&self.ui.draw_order, self.cell_size())
-                {
+                RenderEvent::Redraw => match self.render_state.render(self.cell_size()) {
                     Ok(_) => {}
                     Err(wgpu::SurfaceError::Lost) => {
                         self.render_state.rebuild_swap_chain(self.cell_size())

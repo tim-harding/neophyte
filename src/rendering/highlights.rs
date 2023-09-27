@@ -2,14 +2,14 @@ use crate::{event::hl_attr_define::Rgb, ui::Ui, util::srgb};
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::util::DeviceExt;
 
-pub struct HighlightsBindGroup {
+pub struct Highlights {
     highlights: Vec<HighlightInfo>,
     clear_color: wgpu::Color,
     layout: wgpu::BindGroupLayout,
     bind_group: Option<wgpu::BindGroup>,
 }
 
-impl HighlightsBindGroup {
+impl Highlights {
     pub fn new(device: &wgpu::Device) -> Self {
         Self {
             highlights: vec![],
