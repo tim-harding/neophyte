@@ -11,7 +11,7 @@ mod texture;
 use self::state::RenderState;
 use crate::{
     event::{self, Event, OptionSet, SetTitle},
-    session::Neovim,
+    neovim::Neovim,
     text::fonts::Fonts,
     ui::Ui,
     util::vec2::Vec2,

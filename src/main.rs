@@ -1,13 +1,13 @@
 mod event;
+mod neovim;
 mod rendering;
 mod rpc;
-mod session;
 pub mod text;
 mod ui;
 mod util;
 
+use neovim::Neovim;
 use rendering::{RenderEvent, RenderLoop};
-use session::Neovim;
 use std::{
     sync::{mpsc, Arc, Mutex},
     thread,
