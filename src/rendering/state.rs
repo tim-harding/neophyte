@@ -31,7 +31,7 @@ pub struct RenderState {
     surface: wgpu::Surface,
     surface_config: wgpu::SurfaceConfiguration,
     surface_format: wgpu::TextureFormat,
-    cursor_bg: Cursor,
+    cursor: Cursor,
     shape_context: ShapeContext,
     font_cache: FontCache,
     grids: Vec<grid::Grid>,
@@ -108,6 +108,7 @@ impl RenderState {
         let grid_bind_group_layout = GridBindGroupLayout::new(&device);
         let grid_dimensions = (surface_size / cell_size) * cell_size;
         let color_target = Texture::target(&device, grid_dimensions, TARGET_FORMAT);
+        let monochrome_target = Texture::target(&device, grid_dimensions, TARGET_FORMAT);
         Self {
             blend_pipeline: BlendPipeline::new(&device, &color_target.view),
             blit_render_pipeline: BlitRenderPipeline::new(
@@ -115,10 +116,10 @@ impl RenderState {
                 surface_config.format,
                 &color_target.view,
             ),
+            cursor: Cursor::new(&device, &monochrome_target.view),
             depth_target: DepthTexture::new(&device, grid_dimensions),
             color_target,
-            monochrome_target: Texture::target(&device, grid_dimensions, TARGET_FORMAT),
-            cursor_bg: Cursor::new(&device),
+            monochrome_target,
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
             monochrome_pipeline: MonochromePipeline::new(&device),
@@ -147,7 +148,13 @@ impl RenderState {
         let cell_size = fonts.metrics().into_pixels().cell_size();
         let surface_size = self.surface_size();
         let target_size = (surface_size / cell_size) * cell_size;
-        self.cursor_bg.update(ui, target_size, cell_size.into());
+        self.cursor.update(
+            &self.device,
+            ui,
+            target_size,
+            cell_size.into(),
+            &self.monochrome_target.view,
+        );
 
         let mut i = 0;
         while let Some(grid) = self.grids.get(i) {
@@ -399,7 +406,7 @@ impl RenderState {
                 depth_stencil_attachment: None,
             });
 
-            self.cursor_bg.render(&mut render_pass);
+            self.cursor.render(&mut render_pass);
         }
 
         {

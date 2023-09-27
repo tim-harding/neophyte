@@ -6,6 +6,9 @@ use wgpu::include_wgsl;
 pub struct Cursor {
     pipeline: wgpu::RenderPipeline,
     push_constants: PushConstants,
+    bind_group: wgpu::BindGroup,
+    bind_group_layout: wgpu::BindGroupLayout,
+    sampler: wgpu::Sampler,
 }
 
 #[repr(C)]
@@ -19,7 +22,7 @@ pub struct PushConstants {
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct PushConstantsVertex {
     position: Vec2<f32>,
-    surface_size: Vec2<u32>,
+    target_size: Vec2<u32>,
     fill: Vec2<f32>,
     cell_size: Vec2<f32>,
 }
@@ -31,7 +34,8 @@ impl PushConstantsFragment {
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct PushConstantsFragment {
-    color: [f32; 4],
+    fg: [f32; 4],
+    bg: [f32; 4],
 }
 
 impl PushConstantsVertex {
@@ -39,12 +43,60 @@ impl PushConstantsVertex {
 }
 
 impl Cursor {
-    pub fn new(device: &wgpu::Device) -> Self {
+    pub fn new(device: &wgpu::Device, monochrome_target: &wgpu::TextureView) -> Self {
         let shader = device.create_shader_module(include_wgsl!("cursor.wgsl"));
+
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: None,
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Cursor bind group layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                    count: None,
+                },
+            ],
+        });
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Cursor bind group"),
+            layout: &bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(monochrome_target),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+            ],
+        });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Cursor pipeline layout"),
-            bind_group_layouts: &[],
+            bind_group_layouts: &[&bind_group_layout],
             push_constant_ranges: &[
                 wgpu::PushConstantRange {
                     stages: wgpu::ShaderStages::VERTEX,
@@ -96,21 +148,40 @@ impl Cursor {
         Self {
             pipeline,
             push_constants: Default::default(),
+            bind_group_layout,
+            bind_group,
+            sampler,
         }
     }
 
-    pub fn update(&mut self, ui: &Ui, surface_size: Vec2<u32>, cell_size: Vec2<f32>) {
+    pub fn update(
+        &mut self,
+        device: &wgpu::Device,
+        ui: &Ui,
+        surface_size: Vec2<u32>,
+        cell_size: Vec2<f32>,
+        monochrome_target: &wgpu::TextureView,
+    ) {
         let mode = &ui.modes[ui.current_mode as usize];
         let fill = mode.cell_percentage.unwrap_or(10) as f32 / 100.0;
-        let color = ui
+        let (fg, bg) = ui
             .highlight_groups
             .get("Cursor")
-            .and_then(|hl| ui.highlights.get(hl).unwrap().rgb_attr.background)
-            .unwrap_or(ui.default_colors.rgb_fg.unwrap_or_default());
+            .and_then(|hl_id| ui.highlights.get(hl_id))
+            .and_then(|hl| {
+                let fg = hl.rgb_attr.foreground?;
+                let bg = hl.rgb_attr.background?;
+                Some((fg, bg))
+            })
+            .unwrap_or((
+                ui.default_colors.rgb_fg.unwrap_or_default(),
+                ui.default_colors.rgb_bg.unwrap_or_default(),
+            ));
+
         self.push_constants = PushConstants {
             vertex: PushConstantsVertex {
                 position: (ui.position(ui.cursor.grid) + ui.cursor.pos.into()).into(),
-                surface_size,
+                target_size: surface_size,
                 fill: match mode.cursor_shape.unwrap_or(CursorShape::Block) {
                     CursorShape::Block => Vec2::new(1.0, 1.0),
                     CursorShape::Horizontal => Vec2::new(1.0, fill),
@@ -119,9 +190,25 @@ impl Cursor {
                 cell_size,
             },
             fragment: PushConstantsFragment {
-                color: color.into_linear(),
+                fg: bg.into_linear(),
+                bg: fg.into_linear(),
             },
         };
+
+        self.bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Cursor bind group"),
+            layout: &self.bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(monochrome_target),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler),
+                },
+            ],
+        });
     }
 
     pub fn render<'b, 'c, 'a: 'b + 'c>(&'a self, render_pass: &'b mut wgpu::RenderPass<'c>) {
@@ -136,6 +223,7 @@ impl Cursor {
             PushConstantsVertex::SIZE as u32,
             cast_slice(&[self.push_constants.fragment]),
         );
+        render_pass.set_bind_group(0, &self.bind_group, &[]);
         render_pass.draw(0..6, 0..1);
     }
 }
