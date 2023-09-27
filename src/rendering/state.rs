@@ -3,7 +3,6 @@ use super::{
     glyph_bind_group::GlyphBindGroup,
     glyph_push_constants::GlyphPushConstants,
     grid::{self, Grid},
-    grid_bind_group_layout::GridBindGroupLayout,
     highlights::HighlightsBindGroup,
     pipelines::{blend, cell_fill, cursor, emoji, gamma_blit, monochrome},
     texture::Texture,
@@ -32,7 +31,7 @@ pub struct RenderState {
     monochrome_bind_group: GlyphBindGroup,
     emoji_bind_group: GlyphBindGroup,
     highlights: HighlightsBindGroup,
-    grid_bind_group_layout: GridBindGroupLayout,
+    grid_bind_group_layout: wgpu::BindGroupLayout,
     draw_order_index_cache: Vec<usize>,
     monochrome_target: Texture,
     color_target: Texture,
@@ -101,7 +100,7 @@ impl RenderState {
         surface.configure(&device, &surface_config);
 
         let highlights = HighlightsBindGroup::new(&device);
-        let grid_bind_group_layout = GridBindGroupLayout::new(&device);
+        let grid_bind_group_layout = grid::bind_group_layout(&device);
         let grid_dimensions = (surface_size / cell_size) * cell_size;
         let color_target = Texture::target(&device, grid_dimensions, TARGET_FORMAT);
         let monochrome_target = Texture::target(&device, grid_dimensions, TARGET_FORMAT);
@@ -112,7 +111,7 @@ impl RenderState {
             cell_fill: cell_fill::Pipeline::new(
                 &device,
                 highlights.layout(),
-                &grid_bind_group_layout.bind_group_layout,
+                &grid_bind_group_layout,
                 TARGET_FORMAT,
             ),
             emoji: emoji::Pipeline::new(&device),
@@ -182,7 +181,7 @@ impl RenderState {
                 grid.update(
                     &self.device,
                     &self.queue,
-                    &self.grid_bind_group_layout.bind_group_layout,
+                    &self.grid_bind_group_layout,
                     &ui.highlights,
                     fonts,
                     &mut self.font_cache,
@@ -207,7 +206,7 @@ impl RenderState {
                 &self.device,
                 self.highlights.layout(),
                 monochrome_bind_group_layout,
-                &self.grid_bind_group_layout.bind_group_layout,
+                &self.grid_bind_group_layout,
             );
         }
 
@@ -221,7 +220,7 @@ impl RenderState {
             self.pipelines.emoji.update(
                 &self.device,
                 emoji_bind_group_layout,
-                &self.grid_bind_group_layout.bind_group_layout,
+                &self.grid_bind_group_layout,
             );
         }
 

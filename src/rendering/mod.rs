@@ -2,7 +2,6 @@ mod depth_texture;
 mod glyph_bind_group;
 mod glyph_push_constants;
 mod grid;
-mod grid_bind_group_layout;
 mod highlights;
 mod pipelines;
 mod state;
