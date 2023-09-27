@@ -2,7 +2,7 @@ use crate::util::vec2::Vec2;
 use bytemuck::{Pod, Zeroable};
 use wgpu::include_wgsl;
 
-pub struct BlitRenderPipeline {
+pub struct Pipeline {
     bind_group_layout: wgpu::BindGroupLayout,
     pipeline_layout: wgpu::PipelineLayout,
     shader: wgpu::ShaderModule,
@@ -12,18 +12,7 @@ pub struct BlitRenderPipeline {
     pub pipeline: wgpu::RenderPipeline,
 }
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
-pub struct PushConstants {
-    src_size: Vec2<u32>,
-    dst_size: Vec2<u32>,
-}
-
-impl PushConstants {
-    pub const SIZE: u32 = std::mem::size_of::<Self>() as u32;
-}
-
-impl BlitRenderPipeline {
+impl Pipeline {
     pub fn new(
         device: &wgpu::Device,
         dst_format: wgpu::TextureFormat,
@@ -160,4 +149,15 @@ fn bind_group(
             },
         ],
     })
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
+pub struct PushConstants {
+    src_size: Vec2<u32>,
+    dst_size: Vec2<u32>,
+}
+
+impl PushConstants {
+    pub const SIZE: u32 = std::mem::size_of::<Self>() as u32;
 }

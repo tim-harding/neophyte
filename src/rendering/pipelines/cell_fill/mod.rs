@@ -1,13 +1,12 @@
-use super::depth_texture::DepthTexture;
-use crate::util::vec2::Vec2;
+use crate::{rendering::depth_texture::DepthTexture, util::vec2::Vec2};
 use bytemuck::{checked::cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
 
-pub struct CellFillPipeline {
-    pub pipeline: wgpu::RenderPipeline,
+pub struct Pipeline {
+    pipeline: wgpu::RenderPipeline,
 }
 
-impl CellFillPipeline {
+impl Pipeline {
     pub fn new(
         device: &wgpu::Device,
         highlights_bind_group_layout: &wgpu::BindGroupLayout,
@@ -67,6 +66,10 @@ impl CellFillPipeline {
         });
 
         Self { pipeline }
+    }
+
+    pub fn pipeline(&self) -> &wgpu::RenderPipeline {
+        &self.pipeline
     }
 }
 

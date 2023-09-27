@@ -1,17 +1,17 @@
-use super::{
+use crate::rendering::{
     depth_texture::DepthTexture, glyph_push_constants::GlyphPushConstants, state::TARGET_FORMAT,
 };
 use wgpu::include_wgsl;
 
-pub struct EmojiPipeline {
+pub struct Pipeline {
     shader: wgpu::ShaderModule,
     pipeline: Option<wgpu::RenderPipeline>,
 }
 
-impl EmojiPipeline {
+impl Pipeline {
     pub fn new(device: &wgpu::Device) -> Self {
-        EmojiPipeline {
-            shader: device.create_shader_module(include_wgsl!("emoji.wgsl")),
+        Pipeline {
+            shader: device.create_shader_module(include_wgsl!("monochrome.wgsl")),
             pipeline: None,
         }
     }
@@ -23,13 +23,18 @@ impl EmojiPipeline {
     pub fn update(
         &mut self,
         device: &wgpu::Device,
+        highlights_bind_group_layout: &wgpu::BindGroupLayout,
         glyph_bind_group_layout: &wgpu::BindGroupLayout,
         grid_bind_group_layout: &wgpu::BindGroupLayout,
     ) {
         let glyph_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Emoji pipeline layout"),
-                bind_group_layouts: &[glyph_bind_group_layout, grid_bind_group_layout],
+                label: Some("Monochrome pipeline layout"),
+                bind_group_layouts: &[
+                    highlights_bind_group_layout,
+                    glyph_bind_group_layout,
+                    grid_bind_group_layout,
+                ],
                 push_constant_ranges: &[wgpu::PushConstantRange {
                     stages: wgpu::ShaderStages::VERTEX,
                     range: 0..GlyphPushConstants::SIZE,
@@ -37,7 +42,7 @@ impl EmojiPipeline {
             });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Emoji pipeline"),
+            label: Some("Monochrome pipeline"),
             layout: Some(&glyph_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &self.shader,

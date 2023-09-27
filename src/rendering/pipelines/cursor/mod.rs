@@ -1,9 +1,10 @@
-use super::state::TARGET_FORMAT;
-use crate::{event::mode_info_set::CursorShape, ui::Ui, util::vec2::Vec2};
+use crate::{
+    event::mode_info_set::CursorShape, rendering::state::TARGET_FORMAT, ui::Ui, util::vec2::Vec2,
+};
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
 
-pub struct Cursor {
+pub struct Pipeline {
     pipeline: wgpu::RenderPipeline,
     push_constants: PushConstants,
     bind_group: wgpu::BindGroup,
@@ -11,38 +12,7 @@ pub struct Cursor {
     sampler: wgpu::Sampler,
 }
 
-#[repr(C)]
-#[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
-pub struct PushConstants {
-    vertex: PushConstantsVertex,
-    fragment: PushConstantsFragment,
-}
-
-#[repr(C)]
-#[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
-pub struct PushConstantsVertex {
-    position: Vec2<f32>,
-    target_size: Vec2<u32>,
-    fill: Vec2<f32>,
-    cell_size: Vec2<f32>,
-}
-
-impl PushConstantsFragment {
-    pub const SIZE: usize = std::mem::size_of::<Self>();
-}
-
-#[repr(C)]
-#[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
-pub struct PushConstantsFragment {
-    fg: [f32; 4],
-    bg: [f32; 4],
-}
-
-impl PushConstantsVertex {
-    pub const SIZE: usize = std::mem::size_of::<Self>();
-}
-
-impl Cursor {
+impl Pipeline {
     pub fn new(device: &wgpu::Device, monochrome_target: &wgpu::TextureView) -> Self {
         let shader = device.create_shader_module(include_wgsl!("cursor.wgsl"));
 
@@ -227,4 +197,35 @@ fn bind_group(
             },
         ],
     })
+}
+
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
+struct PushConstants {
+    vertex: PushConstantsVertex,
+    fragment: PushConstantsFragment,
+}
+
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
+struct PushConstantsVertex {
+    position: Vec2<f32>,
+    target_size: Vec2<u32>,
+    fill: Vec2<f32>,
+    cell_size: Vec2<f32>,
+}
+
+impl PushConstantsFragment {
+    pub const SIZE: usize = std::mem::size_of::<Self>();
+}
+
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
+struct PushConstantsFragment {
+    fg: [f32; 4],
+    bg: [f32; 4],
+}
+
+impl PushConstantsVertex {
+    pub const SIZE: usize = std::mem::size_of::<Self>();
 }

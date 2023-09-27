@@ -1,16 +1,11 @@
 use super::{
-    blend_pipeline::BlendPipeline,
-    blit_render_pipeline::BlitRenderPipeline,
-    cell_fill_pipeline::{self, CellFillPipeline},
-    cursor::Cursor,
     depth_texture::DepthTexture,
-    emoji_pipeline::EmojiPipeline,
     glyph_bind_group::GlyphBindGroup,
     glyph_push_constants::GlyphPushConstants,
     grid::{self, Grid},
     grid_bind_group_layout::GridBindGroupLayout,
     highlights::HighlightsBindGroup,
-    monochrome_pipeline::MonochromePipeline,
+    pipelines::{blend, cell_fill, cursor, emoji, gamma_blit, monochrome},
     texture::Texture,
 };
 use crate::{
@@ -26,28 +21,32 @@ use winit::window::Window;
 pub const TARGET_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
 pub struct RenderState {
+    pipelines: Pipelines,
     device: wgpu::Device,
     queue: wgpu::Queue,
     surface: wgpu::Surface,
     surface_config: wgpu::SurfaceConfiguration,
     surface_format: wgpu::TextureFormat,
-    cursor: Cursor,
     shape_context: ShapeContext,
     font_cache: FontCache,
     grids: Vec<grid::Grid>,
-    monochrome_pipeline: MonochromePipeline,
-    emoji_pipeline: EmojiPipeline,
     monochrome_bind_group: GlyphBindGroup,
     emoji_bind_group: GlyphBindGroup,
-    cell_fill_pipeline: CellFillPipeline,
     highlights: HighlightsBindGroup,
     grid_bind_group_layout: GridBindGroupLayout,
     draw_order_index_cache: Vec<usize>,
-    blit_render_pipeline: BlitRenderPipeline,
     monochrome_target: Texture,
     color_target: Texture,
     depth_target: DepthTexture,
-    blend_pipeline: BlendPipeline,
+}
+
+struct Pipelines {
+    cursor: cursor::Pipeline,
+    blend: blend::Pipeline,
+    cell_fill: cell_fill::Pipeline,
+    emoji: emoji::Pipeline,
+    gamma_blit: gamma_blit::Pipeline,
+    monochrome: monochrome::Pipeline,
 }
 
 impl RenderState {
@@ -109,29 +108,30 @@ impl RenderState {
         let grid_dimensions = (surface_size / cell_size) * cell_size;
         let color_target = Texture::target(&device, grid_dimensions, TARGET_FORMAT);
         let monochrome_target = Texture::target(&device, grid_dimensions, TARGET_FORMAT);
-        Self {
-            blend_pipeline: BlendPipeline::new(&device, &color_target.view),
-            blit_render_pipeline: BlitRenderPipeline::new(
-                &device,
-                surface_config.format,
-                &color_target.view,
-            ),
-            cursor: Cursor::new(&device, &monochrome_target.view),
-            depth_target: DepthTexture::new(&device, grid_dimensions),
-            color_target,
-            monochrome_target,
-            shape_context: ShapeContext::new(),
-            font_cache: FontCache::new(),
-            monochrome_pipeline: MonochromePipeline::new(&device),
-            emoji_pipeline: EmojiPipeline::new(&device),
-            monochrome_bind_group: GlyphBindGroup::new(&device),
-            emoji_bind_group: GlyphBindGroup::new(&device),
-            cell_fill_pipeline: CellFillPipeline::new(
+
+        let pipelines = Pipelines {
+            cursor: cursor::Pipeline::new(&device, &monochrome_target.view),
+            blend: blend::Pipeline::new(&device, &color_target.view),
+            cell_fill: cell_fill::Pipeline::new(
                 &device,
                 highlights.layout(),
                 &grid_bind_group_layout.bind_group_layout,
                 TARGET_FORMAT,
             ),
+            emoji: emoji::Pipeline::new(&device),
+            gamma_blit: gamma_blit::Pipeline::new(&device, surface_format, &color_target.view),
+            monochrome: monochrome::Pipeline::new(&device),
+        };
+
+        Self {
+            pipelines,
+            depth_target: DepthTexture::new(&device, grid_dimensions),
+            color_target,
+            monochrome_target,
+            shape_context: ShapeContext::new(),
+            font_cache: FontCache::new(),
+            monochrome_bind_group: GlyphBindGroup::new(&device),
+            emoji_bind_group: GlyphBindGroup::new(&device),
             grid_bind_group_layout,
             grids: vec![],
             highlights,
@@ -148,7 +148,7 @@ impl RenderState {
         let cell_size = fonts.metrics().into_pixels().cell_size();
         let surface_size = self.surface_size();
         let target_size = (surface_size / cell_size) * cell_size;
-        self.cursor.update(
+        self.pipelines.cursor.update(
             &self.device,
             ui,
             target_size,
@@ -203,7 +203,7 @@ impl RenderState {
             &self.font_cache.monochrome,
         );
         if let Some(monochrome_bind_group_layout) = self.monochrome_bind_group.layout() {
-            self.monochrome_pipeline.update(
+            self.pipelines.monochrome.update(
                 &self.device,
                 self.highlights.layout(),
                 monochrome_bind_group_layout,
@@ -218,14 +218,15 @@ impl RenderState {
             &self.font_cache.emoji,
         );
         if let Some(emoji_bind_group_layout) = self.emoji_bind_group.layout() {
-            self.emoji_pipeline.update(
+            self.pipelines.emoji.update(
                 &self.device,
                 emoji_bind_group_layout,
                 &self.grid_bind_group_layout.bind_group_layout,
             );
         }
 
-        self.blend_pipeline
+        self.pipelines
+            .blend
             .update(&self.device, &self.monochrome_target.view);
     }
 
@@ -238,7 +239,7 @@ impl RenderState {
         let texture_size = (new_size / cell_size) * cell_size;
         self.monochrome_target = Texture::target(&self.device, texture_size, TARGET_FORMAT);
         self.color_target = Texture::target(&self.device, texture_size, TARGET_FORMAT);
-        self.blit_render_pipeline.update(
+        self.pipelines.gamma_blit.update(
             &self.device,
             self.surface_format,
             &self.color_target.view,
@@ -313,14 +314,14 @@ impl RenderState {
                 }),
             });
 
-            render_pass.set_pipeline(&self.cell_fill_pipeline.pipeline);
+            render_pass.set_pipeline(&self.pipelines.cell_fill.pipeline());
             render_pass.set_bind_group(0, highlights_bind_group, &[]);
             for (z, grid) in grids() {
                 let Some(bg_bind_group) = &grid.cell_fill_bind_group() else {
                     continue;
                 };
                 render_pass.set_bind_group(1, bg_bind_group, &[]);
-                cell_fill_pipeline::PushConstants {
+                cell_fill::PushConstants {
                     target_size,
                     cell_size,
                     offset: grid.offset(),
@@ -354,7 +355,7 @@ impl RenderState {
             });
 
             if let (Some(pipeline), Some(glyph_bind_group)) = (
-                self.monochrome_pipeline.pipeline(),
+                self.pipelines.monochrome.pipeline(),
                 self.monochrome_bind_group.bind_group(),
             ) {
                 render_pass.set_pipeline(pipeline);
@@ -390,8 +391,8 @@ impl RenderState {
                 depth_stencil_attachment: None,
             });
 
-            render_pass.set_pipeline(self.blend_pipeline.pipeline());
-            render_pass.set_bind_group(0, self.blend_pipeline.bind_group(), &[]);
+            render_pass.set_pipeline(self.pipelines.blend.pipeline());
+            render_pass.set_bind_group(0, self.pipelines.blend.bind_group(), &[]);
             render_pass.draw(0..6, 0..1);
         }
 
@@ -409,7 +410,7 @@ impl RenderState {
                 depth_stencil_attachment: None,
             });
 
-            self.cursor.render(&mut render_pass);
+            self.pipelines.cursor.render(&mut render_pass);
         }
 
         {
@@ -434,7 +435,7 @@ impl RenderState {
             });
 
             if let (Some(pipeline), Some(glyph_bind_group)) = (
-                self.emoji_pipeline.pipeline(),
+                self.pipelines.emoji.pipeline(),
                 self.emoji_bind_group.bind_group(),
             ) {
                 render_pass.set_pipeline(pipeline);
@@ -469,12 +470,12 @@ impl RenderState {
                 depth_stencil_attachment: None,
             });
 
-            render_pass.set_pipeline(&self.blit_render_pipeline.pipeline);
-            render_pass.set_bind_group(0, &self.blit_render_pipeline.bind_group, &[]);
+            render_pass.set_pipeline(&self.pipelines.gamma_blit.pipeline);
+            render_pass.set_bind_group(0, &self.pipelines.gamma_blit.bind_group, &[]);
             render_pass.set_push_constants(
                 wgpu::ShaderStages::VERTEX,
                 0,
-                cast_slice(&[self.blit_render_pipeline.push_constants]),
+                cast_slice(&[self.pipelines.gamma_blit.push_constants]),
             );
             render_pass.draw(0..6, 0..1);
         }
@@ -490,9 +491,9 @@ impl RenderState {
 
     pub fn clear(&mut self) {
         self.emoji_bind_group.clear();
-        self.emoji_pipeline.clear();
+        self.pipelines.emoji.clear();
         self.monochrome_bind_group.clear();
-        self.monochrome_pipeline.clear();
+        self.pipelines.monochrome.clear();
     }
 
     pub fn surface_size(&self) -> Vec2<u32> {

@@ -1,7 +1,7 @@
-use super::state::TARGET_FORMAT;
+use crate::rendering::state::TARGET_FORMAT;
 use wgpu::include_wgsl;
 
-pub struct BlendPipeline {
+pub struct Pipeline {
     pipeline_layout: wgpu::PipelineLayout,
     pipeline: wgpu::RenderPipeline,
     bind_group_layout: wgpu::BindGroupLayout,
@@ -10,7 +10,7 @@ pub struct BlendPipeline {
     shader: wgpu::ShaderModule,
 }
 
-impl BlendPipeline {
+impl Pipeline {
     pub fn new(device: &wgpu::Device, texture_view: &wgpu::TextureView) -> Self {
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Blend bind group layout"),

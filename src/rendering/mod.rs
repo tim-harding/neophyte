@@ -1,15 +1,10 @@
-mod blend_pipeline;
-mod blit_render_pipeline;
-mod cell_fill_pipeline;
-mod cursor;
 mod depth_texture;
-mod emoji_pipeline;
 mod glyph_bind_group;
 mod glyph_push_constants;
 mod grid;
 mod grid_bind_group_layout;
 mod highlights;
-mod monochrome_pipeline;
+mod pipelines;
 mod state;
 mod texture;
 
