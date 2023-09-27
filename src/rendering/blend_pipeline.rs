@@ -54,34 +54,19 @@ impl BlendPipeline {
 
         let shader = device.create_shader_module(include_wgsl!("blend.wgsl"));
 
-        let (pipeline, bind_group) = pipeline_and_bind_group(
-            device,
-            texture_view,
-            &pipeline_layout,
-            &shader,
-            &bind_group_layout,
-            &sampler,
-        );
-
         Self {
+            pipeline: pipeline(device, &pipeline_layout, &shader),
+            bind_group: bind_group(device, &bind_group_layout, texture_view, &sampler),
             pipeline_layout,
-            pipeline,
             bind_group_layout,
-            bind_group,
             sampler,
             shader,
         }
     }
 
     pub fn update(&mut self, device: &wgpu::Device, texture_view: &wgpu::TextureView) {
-        (self.pipeline, self.bind_group) = pipeline_and_bind_group(
-            device,
-            texture_view,
-            &self.pipeline_layout,
-            &self.shader,
-            &self.bind_group_layout,
-            &self.sampler,
-        )
+        self.pipeline = pipeline(device, &self.pipeline_layout, &self.shader);
+        self.bind_group = bind_group(device, &self.bind_group_layout, texture_view, &self.sampler);
     }
 
     pub fn pipeline(&self) -> &wgpu::RenderPipeline {
@@ -93,17 +78,14 @@ impl BlendPipeline {
     }
 }
 
-fn pipeline_and_bind_group(
+fn pipeline(
     device: &wgpu::Device,
-    texture_view: &wgpu::TextureView,
-    pipeline_layout: &wgpu::PipelineLayout,
+    layout: &wgpu::PipelineLayout,
     shader: &wgpu::ShaderModule,
-    bind_group_layout: &wgpu::BindGroupLayout,
-    sampler: &wgpu::Sampler,
-) -> (wgpu::RenderPipeline, wgpu::BindGroup) {
-    let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+) -> wgpu::RenderPipeline {
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some("Blend pipeline"),
-        layout: Some(&pipeline_layout),
+        layout: Some(&layout),
         vertex: wgpu::VertexState {
             module: &shader,
             entry_point: "vs_main",
@@ -134,11 +116,18 @@ fn pipeline_and_bind_group(
             alpha_to_coverage_enabled: false,
         },
         multiview: None,
-    });
+    })
+}
 
-    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+pub fn bind_group(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    texture_view: &wgpu::TextureView,
+    sampler: &wgpu::Sampler,
+) -> wgpu::BindGroup {
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("Blend bind group"),
-        layout: &bind_group_layout,
+        layout,
         entries: &[
             wgpu::BindGroupEntry {
                 binding: 0,
@@ -149,7 +138,5 @@ fn pipeline_and_bind_group(
                 resource: wgpu::BindingResource::Sampler(&sampler),
             },
         ],
-    });
-
-    (pipeline, bind_group)
+    })
 }

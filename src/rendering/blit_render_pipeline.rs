@@ -1,7 +1,6 @@
+use crate::util::vec2::Vec2;
 use bytemuck::{Pod, Zeroable};
 use wgpu::include_wgsl;
-
-use crate::util::vec2::Vec2;
 
 pub struct BlitRenderPipeline {
     bind_group_layout: wgpu::BindGroupLayout,
@@ -74,24 +73,14 @@ impl BlitRenderPipeline {
 
         let shader = device.create_shader_module(include_wgsl!("gamma_blit.wgsl"));
 
-        let (bind_group, pipeline) = create_pipeline(
-            device,
-            &bind_group_layout,
-            &pipeline_layout,
-            &shader,
-            &sampler,
-            dst_format,
-            src_tex,
-        );
-
         Self {
+            push_constants: PushConstants::default(),
+            pipeline: pipeline(device, &pipeline_layout, &shader, dst_format),
+            bind_group: bind_group(device, &bind_group_layout, &sampler, src_tex),
             bind_group_layout,
             pipeline_layout,
             shader,
             sampler,
-            push_constants: PushConstants::default(),
-            pipeline,
-            bind_group,
         }
     }
 
@@ -103,46 +92,19 @@ impl BlitRenderPipeline {
         src_size: Vec2<u32>,
         dst_size: Vec2<u32>,
     ) {
-        let (bind_group, pipeline) = create_pipeline(
-            device,
-            &self.bind_group_layout,
-            &self.pipeline_layout,
-            &self.shader,
-            &self.sampler,
-            dst_format,
-            src_tex,
-        );
-        self.bind_group = bind_group;
-        self.pipeline = pipeline;
+        self.bind_group = bind_group(device, &self.bind_group_layout, &self.sampler, src_tex);
+        self.pipeline = pipeline(device, &self.pipeline_layout, &self.shader, dst_format);
         self.push_constants = PushConstants { src_size, dst_size };
     }
 }
 
-fn create_pipeline(
+fn pipeline(
     device: &wgpu::Device,
-    bind_group_layout: &wgpu::BindGroupLayout,
     pipeline_layout: &wgpu::PipelineLayout,
     shader: &wgpu::ShaderModule,
-    sampler: &wgpu::Sampler,
     dst_format: wgpu::TextureFormat,
-    src_tex: &wgpu::TextureView,
-) -> (wgpu::BindGroup, wgpu::RenderPipeline) {
-    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: None,
-        layout: bind_group_layout,
-        entries: &[
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::TextureView(src_tex),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: wgpu::BindingResource::Sampler(sampler),
-            },
-        ],
-    });
-
-    let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+) -> wgpu::RenderPipeline {
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: None,
         layout: Some(pipeline_layout),
         vertex: wgpu::VertexState {
@@ -175,7 +137,27 @@ fn create_pipeline(
             alpha_to_coverage_enabled: false,
         },
         multiview: None,
-    });
+    })
+}
 
-    (bind_group, pipeline)
+fn bind_group(
+    device: &wgpu::Device,
+    bind_group_layout: &wgpu::BindGroupLayout,
+    sampler: &wgpu::Sampler,
+    src_tex: &wgpu::TextureView,
+) -> wgpu::BindGroup {
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: None,
+        layout: bind_group_layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(src_tex),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::Sampler(sampler),
+            },
+        ],
+    })
 }
