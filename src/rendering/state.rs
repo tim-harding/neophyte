@@ -246,22 +246,9 @@ impl RenderState {
             .blend
             .render(&mut encoder, &self.targets.color.view);
 
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Cursor render pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &self.targets.color.view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: true,
-                    },
-                })],
-                depth_stencil_attachment: None,
-            });
-
-            self.pipelines.cursor.render(&mut render_pass);
-        }
+        self.pipelines
+            .cursor
+            .render(&mut encoder, &self.targets.color.view);
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

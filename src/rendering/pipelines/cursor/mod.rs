@@ -160,7 +160,20 @@ impl Pipeline {
         );
     }
 
-    pub fn render<'b, 'c, 'a: 'b + 'c>(&'a self, render_pass: &'b mut wgpu::RenderPass<'c>) {
+    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, color_target: &wgpu::TextureView) {
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Cursor render pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: color_target,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: true,
+                },
+            })],
+            depth_stencil_attachment: None,
+        });
+
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_push_constants(
             wgpu::ShaderStages::VERTEX,
