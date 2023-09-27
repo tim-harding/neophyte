@@ -1,6 +1,5 @@
 use super::{
     depth_texture::DepthTexture,
-    glyph_bind_group::GlyphBindGroup,
     glyph_push_constants::GlyphPushConstants,
     grids::Grids,
     highlights::Highlights,
@@ -29,7 +28,6 @@ pub struct RenderState {
     grids: Grids,
     shape_context: ShapeContext,
     font_cache: FontCache,
-    emoji_bind_group: GlyphBindGroup,
     highlights: Highlights,
 }
 
@@ -134,7 +132,6 @@ impl RenderState {
             targets,
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
-            emoji_bind_group: GlyphBindGroup::new(&device),
             grids: Grids::new(&device),
             highlights,
             device,
@@ -173,19 +170,12 @@ impl RenderState {
             &self.grids.bind_group_layout(),
         );
 
-        self.emoji_bind_group.update(
+        self.pipelines.emoji.update(
             &self.device,
             &self.queue,
-            wgpu::TextureFormat::Rgba8UnormSrgb,
             &self.font_cache.emoji,
+            &self.grids.bind_group_layout(),
         );
-        if let Some(emoji_bind_group_layout) = self.emoji_bind_group.layout() {
-            self.pipelines.emoji.update(
-                &self.device,
-                emoji_bind_group_layout,
-                &self.grids.bind_group_layout(),
-            );
-        }
 
         self.pipelines
             .blend
@@ -375,7 +365,7 @@ impl RenderState {
 
             if let (Some(pipeline), Some(glyph_bind_group)) = (
                 self.pipelines.emoji.pipeline(),
-                self.emoji_bind_group.bind_group(),
+                self.pipelines.emoji.bind_group(),
             ) {
                 render_pass.set_pipeline(pipeline);
                 render_pass.set_bind_group(0, glyph_bind_group, &[]);
@@ -429,7 +419,6 @@ impl RenderState {
     }
 
     pub fn clear(&mut self) {
-        self.emoji_bind_group.clear();
         self.pipelines.emoji.clear();
         self.pipelines.monochrome.clear();
     }
