@@ -10,7 +10,6 @@ use crate::{
     ui::Ui,
     util::vec2::Vec2,
 };
-use bytemuck::cast_slice;
 use std::sync::Arc;
 use swash::shape::ShapeContext;
 use winit::window::Window;
@@ -257,29 +256,9 @@ impl RenderState {
             target_size,
         );
 
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Blit render pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &output_view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(self.highlights.clear_color()),
-                        store: true,
-                    },
-                })],
-                depth_stencil_attachment: None,
-            });
-
-            render_pass.set_pipeline(&self.pipelines.gamma_blit.pipeline);
-            render_pass.set_bind_group(0, &self.pipelines.gamma_blit.bind_group, &[]);
-            render_pass.set_push_constants(
-                wgpu::ShaderStages::VERTEX,
-                0,
-                cast_slice(&[self.pipelines.gamma_blit.push_constants]),
-            );
-            render_pass.draw(0..6, 0..1);
-        }
+        self.pipelines
+            .gamma_blit
+            .render(&mut encoder, &output_view, self.highlights.clear_color());
 
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();

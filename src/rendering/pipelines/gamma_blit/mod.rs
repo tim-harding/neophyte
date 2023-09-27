@@ -1,5 +1,5 @@
 use crate::util::vec2::Vec2;
-use bytemuck::{Pod, Zeroable};
+use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
 
 pub struct Pipeline {
@@ -84,6 +84,35 @@ impl Pipeline {
         self.bind_group = bind_group(device, &self.bind_group_layout, &self.sampler, src_tex);
         self.pipeline = pipeline(device, &self.pipeline_layout, &self.shader, dst_format);
         self.push_constants = PushConstants { src_size, dst_size };
+    }
+
+    pub fn render(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        color_target: &wgpu::TextureView,
+        clear_color: wgpu::Color,
+    ) {
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Blit render pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: color_target,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(clear_color),
+                    store: true,
+                },
+            })],
+            depth_stencil_attachment: None,
+        });
+
+        render_pass.set_pipeline(&self.pipeline);
+        render_pass.set_bind_group(0, &self.bind_group, &[]);
+        render_pass.set_push_constants(
+            wgpu::ShaderStages::VERTEX,
+            0,
+            cast_slice(&[self.push_constants]),
+        );
+        render_pass.draw(0..6, 0..1);
     }
 }
 
