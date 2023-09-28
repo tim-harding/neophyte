@@ -1,6 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
-use winit::dpi::PhysicalSize;
+use winit::dpi::{PhysicalPosition, PhysicalSize};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
@@ -34,6 +34,18 @@ impl<T> From<PhysicalSize<T>> for Vec2<T> {
 }
 
 impl<T> From<Vec2<T>> for PhysicalSize<T> {
+    fn from(value: Vec2<T>) -> Self {
+        Self::new(value.x, value.y)
+    }
+}
+
+impl<T> From<PhysicalPosition<T>> for Vec2<T> {
+    fn from(value: PhysicalPosition<T>) -> Self {
+        Self::new(value.x, value.y)
+    }
+}
+
+impl<T> From<Vec2<T>> for PhysicalPosition<T> {
     fn from(value: Vec2<T>) -> Self {
         Self::new(value.x, value.y)
     }
@@ -222,10 +234,37 @@ macro_rules! vec_from {
     ($t:ty, $u:ty) => {
         impl From<Vec2<$t>> for Vec2<$u> {
             fn from(value: Vec2<$t>) -> Self {
+                Vec2::new(value.x.into(), value.y.into())
+            }
+        }
+    };
+}
+
+macro_rules! vec_from_lossy {
+    ($t:ty, $u:ty) => {
+        impl FromLossy<Vec2<$t>> for Vec2<$u> {
+            fn from_lossy(value: Vec2<$t>) -> Self {
                 Vec2::new(value.x as $u, value.y as $u)
             }
         }
     };
+}
+
+pub trait FromLossy<T> {
+    fn from_lossy(t: T) -> Self;
+}
+
+pub trait IntoLossy<T> {
+    fn into_lossy(self) -> T;
+}
+
+impl<A, B> IntoLossy<B> for A
+where
+    B: FromLossy<A>,
+{
+    fn into_lossy(self) -> B {
+        B::from_lossy(self)
+    }
 }
 
 vec_try_from!(u64, i64);
@@ -250,26 +289,54 @@ vec_try_from!(i64, i8);
 vec_from!(u32, u64);
 vec_from!(u16, u64);
 vec_from!(u8, u64);
+vec_from!(u16, u32);
+vec_from!(u8, u32);
+vec_from!(u8, u16);
 
 vec_from!(i32, i64);
 vec_from!(i16, i64);
 vec_from!(i8, i64);
+vec_from!(u32, i64);
+vec_from!(u16, i64);
+vec_from!(u8, i64);
 
-vec_from!(u64, f64);
+vec_from!(i16, i32);
+vec_from!(i8, i32);
+vec_from!(u16, i32);
+vec_from!(u8, i32);
+
+vec_from!(i8, i16);
+vec_from!(u8, i16);
+
+vec_from_lossy!(u64, f64);
 vec_from!(u32, f64);
 vec_from!(u16, f64);
 vec_from!(u8, f64);
 
-vec_from!(u64, f32);
-vec_from!(u32, f32);
+vec_from_lossy!(u64, f32);
+vec_from_lossy!(u32, f32);
 vec_from!(u16, f32);
 vec_from!(u8, f32);
 
-vec_from!(f64, f32);
+vec_from_lossy!(i64, f64);
+vec_from!(i32, f64);
+vec_from!(i16, f64);
+vec_from!(i8, f64);
+
+vec_from_lossy!(i64, f32);
+vec_from_lossy!(i32, f32);
+vec_from!(i16, f32);
+vec_from!(i8, f32);
+
+vec_from_lossy!(f64, f32);
 vec_from!(f32, f64);
 
-vec_from!(f64, i64);
+vec_from_lossy!(f64, i64);
+vec_from_lossy!(f64, i32);
+vec_from_lossy!(f64, i16);
+vec_from_lossy!(f64, i8);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, thiserror::Error)]
-#[error("Failed to convert between vector types")]
-pub struct Vec2ConversionError;
+vec_from_lossy!(f32, i64);
+vec_from_lossy!(f32, i32);
+vec_from_lossy!(f32, i16);
+vec_from_lossy!(f32, i8);

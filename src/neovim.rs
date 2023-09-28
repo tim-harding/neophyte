@@ -1,11 +1,13 @@
 use crate::rpc::{decode, encode, DecodeError, RpcMessage};
+use bitfield_struct::bitfield;
 use rmpv::Value;
 use std::{
-    io::{self, Error, ErrorKind},
+    io::{self, ErrorKind},
     process::{ChildStdout, Command, Stdio},
     sync::{mpsc, Arc, Mutex},
     thread,
 };
+use winit::event::{ElementState, ModifiersState, MouseButton};
 
 #[derive(Debug, Clone)]
 pub struct Neovim {
@@ -15,6 +17,7 @@ pub struct Neovim {
 
 impl Neovim {
     pub fn new() -> io::Result<(Neovim, Handler)> {
+        use io::Error;
         let mut child = Command::new("nvim")
             .arg("--embed")
             .stdin(Stdio::piped())
@@ -72,6 +75,7 @@ impl Neovim {
         msgid
     }
 
+    // TODO: Proper public API
     pub fn ui_attach(&self) {
         let extensions = [
             "rgb",
@@ -100,12 +104,152 @@ impl Neovim {
         self.call("nvim_input", args);
     }
 
+    pub fn input_mouse(
+        &self,
+        button: Button,
+        action: Action,
+        modifiers: Modifiers,
+        grid: u64,
+        row: u64,
+        col: u64,
+    ) {
+        let args = vec![
+            button.into(),
+            action.into(),
+            modifiers.into(),
+            grid.into(),
+            row.into(),
+            col.into(),
+        ];
+        self.call("nvim_input_mouse", args);
+    }
+
     pub fn ui_try_resize_grid(&self, grid: u64, width: u64, height: u64) {
         let args: Vec<_> = [grid, width, height]
             .into_iter()
             .map(|n| n.into())
             .collect();
         self.call("nvim_ui_try_resize_grid", args);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Button {
+    Left,
+    Right,
+    Middle,
+    Wheel,
+    Move,
+}
+
+impl From<Button> for &str {
+    fn from(button: Button) -> Self {
+        match button {
+            Button::Left => "left",
+            Button::Right => "right",
+            Button::Middle => "middle",
+            Button::Wheel => "wheel",
+            Button::Move => "move",
+        }
+    }
+}
+
+impl From<Button> for Value {
+    fn from(button: Button) -> Self {
+        let s: &str = button.into();
+        s.to_string().into()
+    }
+}
+
+impl TryFrom<MouseButton> for Button {
+    type Error = ButtonFromWinitError;
+
+    fn try_from(button: MouseButton) -> Result<Self, Self::Error> {
+        match button {
+            MouseButton::Left => Ok(Self::Left),
+            MouseButton::Right => Ok(Self::Right),
+            MouseButton::Middle => Ok(Self::Middle),
+            MouseButton::Other(_) => Err(ButtonFromWinitError),
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("No Neovim button for the given Winit mouse button")]
+pub struct ButtonFromWinitError;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Action {
+    ButtonPress,
+    ButtonDrag,
+    ButtonRelease,
+    WheelUp,
+    WheelDown,
+    WheelLeft,
+    WheelRight,
+}
+
+impl From<Action> for &str {
+    fn from(action: Action) -> Self {
+        match action {
+            Action::ButtonPress => "press",
+            Action::ButtonDrag => "drag",
+            Action::ButtonRelease => "release",
+            Action::WheelUp => "up",
+            Action::WheelDown => "down",
+            Action::WheelLeft => "left",
+            Action::WheelRight => "right",
+        }
+    }
+}
+
+impl From<Action> for Value {
+    fn from(action: Action) -> Self {
+        let s: &str = action.into();
+        s.to_string().into()
+    }
+}
+
+impl From<ElementState> for Action {
+    fn from(state: ElementState) -> Self {
+        match state {
+            ElementState::Pressed => Self::ButtonPress,
+            ElementState::Released => Self::ButtonRelease,
+        }
+    }
+}
+
+#[bitfield(u8)]
+pub struct Modifiers {
+    ctrl: bool,
+    shift: bool,
+    alt: bool,
+    #[bits(5)]
+    __: u8,
+}
+
+impl From<Modifiers> for String {
+    fn from(mods: Modifiers) -> Self {
+        let ctrl = if mods.ctrl() { "C" } else { "" };
+        let shift = if mods.shift() { "S" } else { "" };
+        let alt = if mods.alt() { "A" } else { "" };
+        format!("{ctrl}{shift}{alt}")
+    }
+}
+
+impl From<Modifiers> for Value {
+    fn from(modifiers: Modifiers) -> Self {
+        let s: String = modifiers.into();
+        s.into()
+    }
+}
+
+impl From<ModifiersState> for Modifiers {
+    fn from(state: ModifiersState) -> Self {
+        Self::new()
+            .with_ctrl(state.ctrl())
+            .with_shift(state.shift())
+            .with_alt(state.alt())
     }
 }
 
@@ -120,6 +264,7 @@ impl Handler {
         F: FnMut(String, Vec<Value>),
         S: Fn(),
     {
+        use rmpv::decode::Error;
         loop {
             let msg = match decode(&mut self.stdout) {
                 Ok(msg) => msg,
@@ -127,9 +272,9 @@ impl Handler {
                     match e {
                         DecodeError::Rmpv(e) => {
                             let io_error = match &e {
-                                rmpv::decode::Error::InvalidMarkerRead(e) => Some(e.kind()),
-                                rmpv::decode::Error::InvalidDataRead(e) => Some(e.kind()),
-                                rmpv::decode::Error::DepthLimitExceeded => None,
+                                Error::InvalidMarkerRead(e) => Some(e.kind()),
+                                Error::InvalidDataRead(e) => Some(e.kind()),
+                                Error::DepthLimitExceeded => None,
                             };
                             let Some(io_error) = io_error else {
                                 log::error!("{e}");

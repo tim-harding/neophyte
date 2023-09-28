@@ -11,11 +11,12 @@ mod texture;
 use self::state::RenderState;
 use crate::{
     event::{self, Event, OptionSet, SetTitle},
-    neovim::Neovim,
+    neovim::{Action, Button, Modifiers, Neovim},
     text::fonts::Fonts,
     ui::Ui,
-    util::vec2::Vec2,
+    util::vec2::{IntoLossy, Vec2},
 };
+use bitfield_struct::bitfield;
 use rmpv::Value;
 use std::sync::{mpsc::Receiver, Arc};
 use winit::window::Window;
@@ -26,6 +27,57 @@ pub enum RenderEvent {
     Notification(String, Vec<Value>),
     Resized(Vec2<u32>),
     Redraw,
+    Scroll {
+        delta: Vec2<f64>,
+        kind: ScrollKind,
+        reset: bool,
+        modifiers: Modifiers,
+    },
+    MouseMove {
+        position: Vec2<f64>,
+        modifiers: Modifiers,
+    },
+    Click {
+        button: Button,
+        action: Action,
+        modifiers: Modifiers,
+    },
+}
+
+pub enum ScrollKind {
+    Lines,
+    Pixels,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+struct Mouse {
+    position: Vec2<u64>,
+    scroll: Vec2<i64>,
+    buttons: Buttons,
+}
+
+#[bitfield(u8)]
+#[derive(PartialEq, Eq)]
+struct Buttons {
+    left: bool,
+    right: bool,
+    middle: bool,
+    #[bits(5)]
+    __: u8,
+}
+
+impl Buttons {
+    pub fn first(&self) -> Option<Button> {
+        if self.left() {
+            Some(Button::Left)
+        } else if self.right() {
+            Some(Button::Right)
+        } else if self.middle() {
+            Some(Button::Middle)
+        } else {
+            None
+        }
+    }
 }
 
 pub struct RenderLoop {
@@ -34,6 +86,7 @@ pub struct RenderLoop {
     window: Arc<Window>,
     ui: Ui,
     neovim: Neovim,
+    mouse: Mouse,
 }
 
 impl RenderLoop {
@@ -51,6 +104,7 @@ impl RenderLoop {
             ui: Ui::new(),
             render_state,
             neovim,
+            mouse: Mouse::default(),
         }
     }
 
@@ -74,6 +128,131 @@ impl RenderLoop {
                     Err(wgpu::SurfaceError::OutOfMemory) => panic!("Out of memory"),
                     Err(e) => eprintln!("{e:?}"),
                 },
+
+                RenderEvent::Scroll {
+                    delta,
+                    kind,
+                    reset,
+                    modifiers,
+                } => {
+                    let delta: Vec2<i64> = delta.into_lossy();
+                    if reset {
+                        self.mouse.scroll = Vec2::default();
+                    }
+
+                    let lines = match kind {
+                        ScrollKind::Lines => delta,
+                        ScrollKind::Pixels => {
+                            self.mouse.scroll += delta;
+                            let cell_size: Vec2<i64> = self.cell_size().into();
+                            let lines = self.mouse.scroll / cell_size;
+                            self.mouse.scroll -= lines * cell_size;
+                            lines
+                        }
+                    };
+
+                    let Some(grid) = self.ui.grid_under_cursor(
+                        self.mouse.position.into(),
+                        self.fonts.metrics().into_pixels().cell_size().into(),
+                    ) else {
+                        continue;
+                    };
+
+                    let action = if lines.y < 0 {
+                        Action::WheelDown
+                    } else {
+                        Action::WheelUp
+                    };
+
+                    for _ in 0..lines.y.abs() {
+                        self.neovim.input_mouse(
+                            Button::Wheel,
+                            action,
+                            modifiers,
+                            grid.grid,
+                            grid.position.y,
+                            grid.position.x,
+                        );
+                    }
+
+                    let action = if lines.x < 0 {
+                        Action::WheelRight
+                    } else {
+                        Action::WheelLeft
+                    };
+
+                    for _ in 0..lines.x.abs() {
+                        self.neovim.input_mouse(
+                            Button::Wheel,
+                            action,
+                            modifiers,
+                            grid.grid,
+                            grid.position.y,
+                            grid.position.x,
+                        );
+                    }
+                }
+
+                RenderEvent::MouseMove {
+                    position,
+                    modifiers,
+                } => {
+                    let position: Vec2<i64> = position.into_lossy();
+                    let surface_size = self.render_state.surface_size();
+                    let cell_size = self.cell_size();
+                    let inner = (surface_size / cell_size) * cell_size;
+                    let margin = (surface_size - inner) / 2;
+                    let position = position - margin.into();
+                    let Ok(position) = <Vec2<u64>>::try_from(position) else {
+                        continue;
+                    };
+                    self.mouse.position = position;
+                    if let Some(grid) = self.ui.grid_under_cursor(
+                        position,
+                        self.fonts.metrics().into_pixels().cell_size().into(),
+                    ) {
+                        self.neovim.input_mouse(
+                            self.mouse.buttons.first().unwrap_or(Button::Move),
+                            // Irrelevant for move
+                            Action::ButtonDrag,
+                            modifiers,
+                            grid.grid,
+                            grid.position.y,
+                            grid.position.x,
+                        );
+                    }
+                }
+
+                RenderEvent::Click {
+                    button,
+                    action,
+                    modifiers,
+                } => {
+                    let depressed = match action {
+                        Action::ButtonPress => true,
+                        Action::ButtonRelease => false,
+                        _ => unreachable!(),
+                    };
+                    match button {
+                        Button::Left => self.mouse.buttons.set_left(depressed),
+                        Button::Right => self.mouse.buttons.set_right(depressed),
+                        Button::Middle => self.mouse.buttons.set_middle(depressed),
+                        _ => unreachable!(),
+                    }
+                    if let Some(grid) = self.ui.grid_under_cursor(
+                        self.mouse.position,
+                        self.fonts.metrics().into_pixels().cell_size().into(),
+                    ) {
+                        self.neovim.input_mouse(
+                            button,
+                            action,
+                            modifiers,
+                            grid.grid,
+                            grid.position.y,
+                            grid.position.x,
+                        );
+                    }
+                }
             }
         }
     }

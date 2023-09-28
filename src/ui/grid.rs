@@ -4,7 +4,7 @@ use super::Highlights;
 use crate::{
     event::{grid_line, hl_attr_define::Attributes, Anchor, GridScroll, HlAttrDefine},
     ui::print::hl_attr_to_colorspec,
-    util::vec2::Vec2,
+    util::vec2::{IntoLossy, Vec2},
 };
 use std::{
     collections::HashMap,
@@ -34,11 +34,14 @@ pub enum Window {
 }
 
 impl Window {
-    pub fn offset(&self, grid_size: Vec2<u64>) -> (Vec2<f64>, Option<u64>) {
+    pub fn offset(&self, grid_size: Vec2<u64>) -> WindowOffset {
         match &self {
             Window::None => Default::default(),
             Window::External => Default::default(),
-            Window::Normal(window) => (window.start.into(), None),
+            Window::Normal(window) => WindowOffset {
+                offset: window.start.into_lossy(),
+                anchor_grid: None,
+            },
             Window::Floating(window) => {
                 let anchor_pos = {
                     let (x, y) = window.anchor_pos.into();
@@ -51,10 +54,19 @@ impl Window {
                         Anchor::Sw => Vec2::new(1, 0),
                         Anchor::Se => Vec2::new(1, 1),
                     };
-                (anchor_pos - offset.into(), Some(window.anchor_grid))
+                WindowOffset {
+                    offset: anchor_pos - offset.into_lossy(),
+                    anchor_grid: Some(window.anchor_grid),
+                }
             }
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct WindowOffset {
+    pub offset: Vec2<f64>,
+    pub anchor_grid: Option<u64>,
 }
 
 #[derive(Debug, Clone)]
@@ -178,7 +190,7 @@ impl Grid {
             .map(|chunk| chunk.iter_mut())
     }
 
-    pub fn offset(&self) -> (Vec2<f64>, Option<u64>) {
+    pub fn offset(&self) -> WindowOffset {
         self.window.offset(self.size)
     }
 

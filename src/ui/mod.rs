@@ -4,14 +4,19 @@ mod messages;
 mod options;
 mod print;
 
-use self::{cmdline::Cmdline, grid::CursorRenderInfo, messages::Messages, options::Options};
+use self::{
+    cmdline::Cmdline,
+    grid::{CursorRenderInfo, WindowOffset},
+    messages::Messages,
+    options::Options,
+};
 use crate::{
     event::{
         mode_info_set::ModeInfo, Anchor, DefaultColorsSet, Event, GridLine, GridScroll,
         HlAttrDefine, PopupmenuShow, TablineUpdate, WinFloatPos, WinPos,
     },
     ui::grid::{FloatingWindow, Window},
-    util::vec2::Vec2,
+    util::vec2::{IntoLossy, Vec2},
 };
 use grid::Grid;
 use std::{
@@ -289,7 +294,7 @@ impl Ui {
     pub fn composite(&self) -> Grid {
         let mut outer_grid = self.grids.get(0).unwrap_or(&Grid::default()).clone();
         for &grid in self.draw_order.iter() {
-            let position = self.position(grid).into();
+            let position = self.position(grid).into_lossy();
             let grid = self.grid(grid).unwrap();
             outer_grid.combine(grid.clone(), self.cursor_render_info(grid.id), position);
         }
@@ -299,7 +304,10 @@ impl Ui {
     pub fn position(&self, grid: u64) -> Vec2<f64> {
         if let Ok(index) = self.grid_index(grid) {
             let grid = &self.grids[index];
-            let (offset, anchor_grid) = grid.offset();
+            let WindowOffset {
+                offset,
+                anchor_grid,
+            } = grid.offset();
             if let Some(anchor_grid) = anchor_grid {
                 self.position(anchor_grid) + offset
             } else {
@@ -322,6 +330,33 @@ impl Ui {
             None
         }
     }
+
+    pub fn grid_under_cursor(
+        &self,
+        cursor: Vec2<u64>,
+        cell_size: Vec2<u64>,
+    ) -> Option<GridUnderCursor> {
+        let cursor: Vec2<f64> = cursor.into_lossy();
+        let cell_size: Vec2<f64> = cell_size.into_lossy();
+        for &grid_id in self.draw_order.iter().rev() {
+            let grid = self.grid(grid_id).unwrap();
+            let size: Vec2<f64> = grid.size.into_lossy();
+            let start = self.position(grid_id) * cell_size;
+            let end = start + size * cell_size;
+            if cursor.x > start.x && cursor.y > start.y && cursor.x < end.x && cursor.y < end.y {
+                let position = (cursor - start) / cell_size;
+                let position: Vec2<i64> = position.into_lossy();
+                let Ok(position) = position.try_into() else {
+                    continue;
+                };
+                return Some(GridUnderCursor {
+                    grid: grid_id,
+                    position,
+                });
+            }
+        }
+        None
+    }
 }
 
 impl Debug for Ui {
@@ -329,4 +364,10 @@ impl Debug for Ui {
         let grid = self.composite();
         write!(f, "{:?}", grid)
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GridUnderCursor {
+    pub grid: u64,
+    pub position: Vec2<u64>,
 }

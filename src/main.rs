@@ -7,13 +7,17 @@ mod ui;
 mod util;
 
 use neovim::Neovim;
-use rendering::{RenderEvent, RenderLoop};
+use rendering::{RenderEvent, RenderLoop, ScrollKind};
 use std::{
     sync::{mpsc, Arc, Mutex},
     thread,
 };
+use util::vec2::Vec2;
 use winit::{
-    event::{ElementState, KeyboardInput, ModifiersState, VirtualKeyCode, WindowEvent},
+    event::{
+        ElementState, Event, KeyboardInput, ModifiersState, MouseScrollDelta, TouchPhase,
+        VirtualKeyCode, WindowEvent,
+    },
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
@@ -62,7 +66,7 @@ fn main() {
             ControlFlow::Wait
         };
         match event {
-            winit::event::Event::WindowEvent {
+            Event::WindowEvent {
                 window_id,
                 ref event,
             } if window_id == window.id() => match event {
@@ -192,6 +196,56 @@ fn main() {
                     }
                 }
 
+                WindowEvent::CursorMoved { position, .. } => {
+                    render_tx
+                        .send(RenderEvent::MouseMove {
+                            position: (*position).into(),
+                            modifiers: modifiers.into(),
+                        })
+                        .unwrap();
+                }
+
+                WindowEvent::MouseInput { state, button, .. } => {
+                    let Ok(button) = (*button).try_into() else {
+                        return;
+                    };
+
+                    render_tx
+                        .send(RenderEvent::Click {
+                            button,
+                            action: (*state).into(),
+                            modifiers: modifiers.into(),
+                        })
+                        .unwrap();
+                }
+
+                WindowEvent::MouseWheel { delta, phase, .. } => {
+                    let reset = matches!(
+                        phase,
+                        TouchPhase::Started | TouchPhase::Ended | TouchPhase::Cancelled
+                    );
+
+                    let (delta, kind) = match delta {
+                        MouseScrollDelta::LineDelta(horizontal, vertical) => {
+                            (Vec2::new(*horizontal, *vertical).into(), ScrollKind::Lines)
+                        }
+
+                        MouseScrollDelta::PixelDelta(delta) => {
+                            ((*delta).into(), ScrollKind::Pixels)
+                        }
+                    };
+
+                    let modifiers = modifiers.into();
+                    render_tx
+                        .send(RenderEvent::Scroll {
+                            delta,
+                            kind,
+                            reset,
+                            modifiers,
+                        })
+                        .unwrap();
+                }
+
                 WindowEvent::Resized(physical_size) => {
                     render_tx
                         .send(RenderEvent::Resized((*physical_size).into()))
@@ -213,7 +267,7 @@ fn main() {
                 _ => {}
             },
 
-            winit::event::Event::RedrawRequested(window_id) if window_id == window.id() => {
+            Event::RedrawRequested(window_id) if window_id == window.id() => {
                 render_tx.send(RenderEvent::Redraw).unwrap();
             }
 

@@ -2,7 +2,7 @@ use crate::{
     event::mode_info_set::CursorShape,
     rendering::{nearest_sampler, TARGET_FORMAT},
     ui::Ui,
-    util::vec2::Vec2,
+    util::vec2::{IntoLossy, Vec2},
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
@@ -130,7 +130,7 @@ impl Pipeline {
 
         self.push_constants = PushConstants {
             vertex: PushConstantsVertex {
-                position: (ui.position(ui.cursor.grid) + ui.cursor.pos.into()).into(),
+                position: (ui.position(ui.cursor.grid) + ui.cursor.pos.into_lossy()).into_lossy(),
                 target_size: surface_size,
                 fill: match mode.cursor_shape.unwrap_or(CursorShape::Block) {
                     CursorShape::Block => Vec2::new(1.0, 1.0),
