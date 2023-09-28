@@ -11,7 +11,7 @@ use crate::{
     ui::Ui,
     util::vec2::{IntoLossy, Vec2},
 };
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 use swash::shape::ShapeContext;
 use winit::window::Window;
 
@@ -26,6 +26,8 @@ pub struct RenderState {
     highlights: Highlights,
     shape_context: ShapeContext,
     font_cache: FontCache,
+    wants_redraw: bool,
+    previous_frame_time: Instant,
 }
 
 struct Targets {
@@ -132,6 +134,8 @@ impl RenderState {
             queue,
             surface,
             surface_config,
+            wants_redraw: false,
+            previous_frame_time: Instant::now(),
         }
     }
 
@@ -195,8 +199,34 @@ impl RenderState {
         );
     }
 
-    pub fn render(&mut self, cell_size: Vec2<u32>) -> Result<(), wgpu::SurfaceError> {
-        let output = self.surface.get_current_texture()?;
+    pub fn maybe_render(&mut self, cell_size: Vec2<u32>) {
+        if !self.wants_redraw {
+            return;
+        }
+        self.wants_redraw = false;
+        let now = Instant::now();
+        let delta_time = now.duration_since(self.previous_frame_time);
+        self.previous_frame_time = now;
+        println!("{delta_time:?}");
+
+        let output = match self.surface.get_current_texture() {
+            Ok(output) => output,
+            Err(e) => {
+                match e {
+                    wgpu::SurfaceError::Lost => {
+                        // Rebuild swap chain
+                        self.resize(self.surface_size(), cell_size);
+                    }
+                    _ => log::error!("{e}"),
+                }
+                return;
+            }
+        };
+
+        let Some(highlights_bind_group) = self.highlights.bind_group() else {
+            return;
+        };
+
         let output_view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -206,9 +236,6 @@ impl RenderState {
                 label: Some("Render encoder"),
             });
         let target_size = self.targets.color.texture.size().into();
-        let Some(highlights_bind_group) = self.highlights.bind_group() else {
-            return Ok(());
-        };
 
         self.pipelines.cell_fill.render(
             &mut encoder,
@@ -252,19 +279,18 @@ impl RenderState {
 
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
-        Ok(())
     }
 
-    pub fn rebuild_swap_chain(&mut self, cell_size: Vec2<u32>) {
-        self.resize(self.surface_size(), cell_size);
-    }
-
-    pub fn clear(&mut self) {
+    pub fn clear_glyph_cache(&mut self) {
         self.pipelines.emoji.clear();
         self.pipelines.monochrome.clear();
     }
 
     pub fn surface_size(&self) -> Vec2<u32> {
         Vec2::new(self.surface_config.width, self.surface_config.height)
+    }
+
+    pub fn request_redraw(&mut self) {
+        self.wants_redraw = true;
     }
 }

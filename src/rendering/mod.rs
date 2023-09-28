@@ -18,7 +18,10 @@ use crate::{
 };
 use bitfield_struct::bitfield;
 use rmpv::Value;
-use std::sync::{mpsc::Receiver, Arc};
+use std::sync::{
+    mpsc::{Receiver, TryRecvError},
+    Arc,
+};
 use winit::window::Window;
 
 pub const TARGET_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
@@ -109,148 +112,151 @@ impl RenderLoop {
     }
 
     pub fn run(mut self, rx: Receiver<RenderEvent>) {
-        while let Ok(event) = rx.recv() {
-            match event {
-                RenderEvent::Notification(method, params) => {
-                    self.handle_notification(method, params)
-                }
+        loop {
+            self.render_state.maybe_render(self.cell_size());
 
-                RenderEvent::Resized(size) => {
-                    self.render_state.resize(size, self.cell_size());
-                    self.resize_neovim_grid();
-                }
+            loop {
+                let event = match rx.try_recv() {
+                    Ok(event) => event,
+                    Err(TryRecvError::Empty) => break,
+                    Err(TryRecvError::Disconnected) => return,
+                };
 
-                RenderEvent::Redraw => match self.render_state.render(self.cell_size()) {
-                    Ok(_) => {}
-                    Err(wgpu::SurfaceError::Lost) => {
-                        self.render_state.rebuild_swap_chain(self.cell_size())
-                    }
-                    Err(wgpu::SurfaceError::OutOfMemory) => panic!("Out of memory"),
-                    Err(e) => eprintln!("{e:?}"),
-                },
-
-                RenderEvent::Scroll {
-                    delta,
-                    kind,
-                    reset,
-                    modifiers,
-                } => {
-                    let delta: Vec2<i64> = delta.into_lossy();
-                    if reset {
-                        self.mouse.scroll = Vec2::default();
+                match event {
+                    RenderEvent::Notification(method, params) => {
+                        self.handle_notification(method, params)
                     }
 
-                    let lines = match kind {
-                        ScrollKind::Lines => delta,
-                        ScrollKind::Pixels => {
-                            self.mouse.scroll += delta;
-                            let cell_size: Vec2<i64> = self.cell_size().into();
-                            let lines = self.mouse.scroll / cell_size;
-                            self.mouse.scroll -= lines * cell_size;
-                            lines
+                    RenderEvent::Resized(size) => {
+                        self.render_state.resize(size, self.cell_size());
+                        self.resize_neovim_grid();
+                    }
+
+                    RenderEvent::Redraw => self.render_state.request_redraw(),
+
+                    RenderEvent::Scroll {
+                        delta,
+                        kind,
+                        reset,
+                        modifiers,
+                    } => {
+                        let delta: Vec2<i64> = delta.into_lossy();
+                        if reset {
+                            self.mouse.scroll = Vec2::default();
                         }
-                    };
 
-                    let Some(grid) = self.ui.grid_under_cursor(
-                        self.mouse.position.into(),
-                        self.fonts.metrics().into_pixels().cell_size().into(),
-                    ) else {
-                        continue;
-                    };
+                        let lines = match kind {
+                            ScrollKind::Lines => delta,
+                            ScrollKind::Pixels => {
+                                self.mouse.scroll += delta;
+                                let cell_size: Vec2<i64> = self.cell_size().into();
+                                let lines = self.mouse.scroll / cell_size;
+                                self.mouse.scroll -= lines * cell_size;
+                                lines
+                            }
+                        };
 
-                    let action = if lines.y < 0 {
-                        Action::WheelDown
-                    } else {
-                        Action::WheelUp
-                    };
+                        let Some(grid) = self.ui.grid_under_cursor(
+                            self.mouse.position.into(),
+                            self.fonts.metrics().into_pixels().cell_size().into(),
+                        ) else {
+                            continue;
+                        };
 
-                    for _ in 0..lines.y.abs() {
-                        self.neovim.input_mouse(
-                            Button::Wheel,
-                            action,
-                            modifiers,
-                            grid.grid,
-                            grid.position.y,
-                            grid.position.x,
-                        );
+                        let action = if lines.y < 0 {
+                            Action::WheelDown
+                        } else {
+                            Action::WheelUp
+                        };
+
+                        for _ in 0..lines.y.abs() {
+                            self.neovim.input_mouse(
+                                Button::Wheel,
+                                action,
+                                modifiers,
+                                grid.grid,
+                                grid.position.y,
+                                grid.position.x,
+                            );
+                        }
+
+                        let action = if lines.x < 0 {
+                            Action::WheelRight
+                        } else {
+                            Action::WheelLeft
+                        };
+
+                        for _ in 0..lines.x.abs() {
+                            self.neovim.input_mouse(
+                                Button::Wheel,
+                                action,
+                                modifiers,
+                                grid.grid,
+                                grid.position.y,
+                                grid.position.x,
+                            );
+                        }
                     }
 
-                    let action = if lines.x < 0 {
-                        Action::WheelRight
-                    } else {
-                        Action::WheelLeft
-                    };
-
-                    for _ in 0..lines.x.abs() {
-                        self.neovim.input_mouse(
-                            Button::Wheel,
-                            action,
-                            modifiers,
-                            grid.grid,
-                            grid.position.y,
-                            grid.position.x,
-                        );
-                    }
-                }
-
-                RenderEvent::MouseMove {
-                    position,
-                    modifiers,
-                } => {
-                    let position: Vec2<i64> = position.into_lossy();
-                    let surface_size = self.render_state.surface_size();
-                    let cell_size = self.cell_size();
-                    let inner = (surface_size / cell_size) * cell_size;
-                    let margin = (surface_size - inner) / 2;
-                    let position = position - margin.into();
-                    let Ok(position) = <Vec2<u64>>::try_from(position) else {
-                        continue;
-                    };
-                    self.mouse.position = position;
-                    if let Some(grid) = self.ui.grid_under_cursor(
+                    RenderEvent::MouseMove {
                         position,
-                        self.fonts.metrics().into_pixels().cell_size().into(),
-                    ) {
-                        self.neovim.input_mouse(
-                            self.mouse.buttons.first().unwrap_or(Button::Move),
-                            // Irrelevant for move
-                            Action::ButtonDrag,
-                            modifiers,
-                            grid.grid,
-                            grid.position.y,
-                            grid.position.x,
-                        );
+                        modifiers,
+                    } => {
+                        let position: Vec2<i64> = position.into_lossy();
+                        let surface_size = self.render_state.surface_size();
+                        let cell_size = self.cell_size();
+                        let inner = (surface_size / cell_size) * cell_size;
+                        let margin = (surface_size - inner) / 2;
+                        let position = position - margin.into();
+                        let Ok(position) = <Vec2<u64>>::try_from(position) else {
+                            continue;
+                        };
+                        self.mouse.position = position;
+                        if let Some(grid) = self.ui.grid_under_cursor(
+                            position,
+                            self.fonts.metrics().into_pixels().cell_size().into(),
+                        ) {
+                            self.neovim.input_mouse(
+                                self.mouse.buttons.first().unwrap_or(Button::Move),
+                                // Irrelevant for move
+                                Action::ButtonDrag,
+                                modifiers,
+                                grid.grid,
+                                grid.position.y,
+                                grid.position.x,
+                            );
+                        }
                     }
-                }
 
-                RenderEvent::Click {
-                    button,
-                    action,
-                    modifiers,
-                } => {
-                    let depressed = match action {
-                        Action::ButtonPress => true,
-                        Action::ButtonRelease => false,
-                        _ => unreachable!(),
-                    };
-                    match button {
-                        Button::Left => self.mouse.buttons.set_left(depressed),
-                        Button::Right => self.mouse.buttons.set_right(depressed),
-                        Button::Middle => self.mouse.buttons.set_middle(depressed),
-                        _ => unreachable!(),
-                    }
-                    if let Some(grid) = self.ui.grid_under_cursor(
-                        self.mouse.position,
-                        self.fonts.metrics().into_pixels().cell_size().into(),
-                    ) {
-                        self.neovim.input_mouse(
-                            button,
-                            action,
-                            modifiers,
-                            grid.grid,
-                            grid.position.y,
-                            grid.position.x,
-                        );
+                    RenderEvent::Click {
+                        button,
+                        action,
+                        modifiers,
+                    } => {
+                        let depressed = match action {
+                            Action::ButtonPress => true,
+                            Action::ButtonRelease => false,
+                            _ => unreachable!(),
+                        };
+                        match button {
+                            Button::Left => self.mouse.buttons.set_left(depressed),
+                            Button::Right => self.mouse.buttons.set_right(depressed),
+                            Button::Middle => self.mouse.buttons.set_middle(depressed),
+                            _ => unreachable!(),
+                        }
+                        if let Some(grid) = self.ui.grid_under_cursor(
+                            self.mouse.position,
+                            self.fonts.metrics().into_pixels().cell_size().into(),
+                        ) {
+                            self.neovim.input_mouse(
+                                button,
+                                action,
+                                modifiers,
+                                grid.grid,
+                                grid.position.y,
+                                grid.position.x,
+                            );
+                        }
                     }
                 }
             }
@@ -286,7 +292,7 @@ impl RenderLoop {
             Event::Flush => {
                 self.render_state.update(&self.ui, &mut self.fonts);
                 self.ui.process(Event::Flush);
-                self.window.request_redraw();
+                self.render_state.request_redraw();
             }
             Event::SetTitle(SetTitle { title }) => self.window.set_title(&title),
             Event::OptionSet(event) => {
@@ -294,7 +300,7 @@ impl RenderLoop {
                 self.ui.process(Event::OptionSet(event));
                 if is_gui_font {
                     self.fonts.reload(&self.ui.options.guifont);
-                    self.render_state.clear();
+                    self.render_state.clear_glyph_cache();
                     self.resize_neovim_grid();
                 }
             }
