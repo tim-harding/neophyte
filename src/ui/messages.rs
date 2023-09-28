@@ -1,4 +1,3 @@
-use super::{print::print_content, Highlights};
 use crate::event::{msg_history_show::MsgHistoryEntry, msg_show::ReplaceLast, Content, MsgShow};
 
 type Message = MsgHistoryEntry;
@@ -25,14 +24,5 @@ impl Messages {
             content: event.content,
         };
         self.show.push(message);
-    }
-}
-
-#[allow(unused)]
-pub fn eprint_messages(messages: &[Message], highlights: &Highlights) {
-    for message in messages {
-        eprint!("msg_show {:?}: ", message.kind);
-        print_content(&message.content, highlights);
-        eprintln!();
     }
 }

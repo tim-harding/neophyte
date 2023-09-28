@@ -2,7 +2,6 @@ mod cmdline;
 pub mod grid;
 mod messages;
 mod options;
-mod print;
 
 use self::{
     cmdline::Cmdline,

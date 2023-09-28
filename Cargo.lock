@@ -898,7 +898,6 @@ dependencies = [
  "pollster",
  "rmpv",
  "swash",
- "termcolor",
  "thiserror",
  "wgpu",
  "winit",

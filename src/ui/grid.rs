@@ -3,7 +3,6 @@
 use super::Highlights;
 use crate::{
     event::{grid_line, hl_attr_define::Attributes, Anchor, GridScroll, HlAttrDefine},
-    ui::print::hl_attr_to_colorspec,
     util::vec2::{IntoLossy, Vec2},
 };
 use std::{
@@ -13,7 +12,6 @@ use std::{
     marker::PhantomData,
     vec::IntoIter,
 };
-use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 #[derive(Default, Clone)]
 pub struct Grid {
@@ -219,36 +217,6 @@ impl Grid {
                 self.buffer[i].highlight = cursor.hl;
             }
         }
-    }
-
-    pub fn print_colored(&self, highlights: &Highlights) {
-        let mut f = StandardStream::stdout(ColorChoice::Always);
-        let mut prev_hl = 0;
-        writeln!(f, "┏{:━<1$}┓", "", self.size.x as usize);
-        for cell_row in self.rows() {
-            f.reset();
-            write!(f, "┃");
-            for cell in cell_row.into_iter() {
-                if cell.highlight != prev_hl {
-                    if let Some(hl_attr) = highlights.get(&cell.highlight) {
-                        f.set_color(&hl_attr_to_colorspec(hl_attr));
-                    } else {
-                        f.reset();
-                    }
-                    prev_hl = cell.highlight;
-                }
-                let c = if cell.text.is_empty() {
-                    " "
-                } else {
-                    cell.text.as_str()
-                };
-                write!(f, "{}", c);
-            }
-            f.reset();
-            writeln!(f, "┃");
-        }
-        f.reset();
-        writeln!(f, "┗{:━<1$}┛", "", self.size.x as usize);
     }
 
     pub fn grid_line(&mut self, row: u64, col_start: u64, cells: Vec<grid_line::Cell>) {
