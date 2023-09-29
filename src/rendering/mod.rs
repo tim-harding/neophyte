@@ -18,9 +18,12 @@ use crate::{
 };
 use bitfield_struct::bitfield;
 use rmpv::Value;
-use std::sync::{
-    mpsc::{Receiver, TryRecvError},
-    Arc,
+use std::{
+    ops::{BitOr, BitOrAssign},
+    sync::{
+        mpsc::{Receiver, TryRecvError},
+        Arc,
+    },
 };
 use winit::window::Window;
 
@@ -331,4 +334,28 @@ pub fn nearest_sampler(device: &wgpu::Device) -> wgpu::Sampler {
         mipmap_filter: wgpu::FilterMode::Nearest,
         ..Default::default()
     })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Motion {
+    #[default]
+    Still,
+    Animating,
+}
+
+impl BitOr for Motion {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Self::Still, Self::Still) => Self::Still,
+            _ => Self::Animating,
+        }
+    }
+}
+
+impl BitOrAssign for Motion {
+    fn bitor_assign(&mut self, rhs: Self) {
+        *self = *self | rhs;
+    }
 }

@@ -1,6 +1,6 @@
 use crate::{
     event::mode_info_set::CursorShape,
-    rendering::{nearest_sampler, TARGET_FORMAT},
+    rendering::{nearest_sampler, Motion, TARGET_FORMAT},
     ui::Ui,
     util::vec2::{IntoLossy, Vec2},
 };
@@ -13,6 +13,7 @@ pub struct Pipeline {
     bind_group: wgpu::BindGroup,
     bind_group_layout: wgpu::BindGroupLayout,
     sampler: wgpu::Sampler,
+    target: Vec2<f32>,
 }
 
 impl Pipeline {
@@ -101,6 +102,7 @@ impl Pipeline {
             bind_group_layout,
             bind_group,
             sampler,
+            target: Vec2::default(),
         }
     }
 
@@ -130,7 +132,7 @@ impl Pipeline {
 
         self.push_constants = PushConstants {
             vertex: PushConstantsVertex {
-                position: (ui.position(ui.cursor.grid) + ui.cursor.pos.into_lossy()).into_lossy(),
+                position: self.push_constants.vertex.position,
                 target_size: surface_size,
                 fill: match mode.cursor_shape.unwrap_or(CursorShape::Block) {
                     CursorShape::Block => Vec2::new(1.0, 1.0),
@@ -144,6 +146,7 @@ impl Pipeline {
                 bg: fg.into_linear(),
             },
         };
+        self.target = (ui.position(ui.cursor.grid) + ui.cursor.pos.into_lossy()).into_lossy();
 
         self.bind_group = bind_group(
             device,
@@ -153,7 +156,22 @@ impl Pipeline {
         );
     }
 
-    pub fn render(&self, encoder: &mut wgpu::CommandEncoder, color_target: &wgpu::TextureView) {
+    pub fn render(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        color_target: &wgpu::TextureView,
+        delta_seconds: f32,
+    ) -> Motion {
+        let toward = self.target - self.push_constants.vertex.position;
+        let length = toward.length();
+        if length > 2f32 {
+            let direction = toward / length;
+            let offset = direction * delta_seconds * 256f32;
+            self.push_constants.vertex.position += offset;
+        } else {
+            self.push_constants.vertex.position = self.target;
+        }
+
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Cursor render pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -180,6 +198,8 @@ impl Pipeline {
         );
         render_pass.set_bind_group(0, &self.bind_group, &[]);
         render_pass.draw(0..6, 0..1);
+
+        Motion::Animating
     }
 }
 

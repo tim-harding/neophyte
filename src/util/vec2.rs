@@ -20,10 +20,39 @@ impl<T> Vec2<T> {
 
 impl<T> Vec2<T>
 where
-    T: Mul<Output = T> + Clone,
+    T: Mul<Output = T> + Copy,
 {
     pub fn area(&self) -> T {
-        self.x.clone() * self.y.clone()
+        self.x * self.y
+    }
+}
+
+impl<T> Vec2<T>
+where
+    T: Mul<Output = T> + Add<Output = T> + Copy,
+{
+    pub fn length_squared(&self) -> T {
+        self.x * self.x + self.y * self.y
+    }
+}
+
+impl Vec2<f32> {
+    pub fn length(&self) -> f32 {
+        self.length_squared().sqrt()
+    }
+
+    pub fn normalized(self) -> Self {
+        self / self.length()
+    }
+}
+
+impl Vec2<f64> {
+    pub fn length(&self) -> f64 {
+        self.length_squared().sqrt()
+    }
+
+    pub fn normalized(self) -> Self {
+        self / self.length()
     }
 }
 

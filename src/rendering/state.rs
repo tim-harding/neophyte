@@ -4,7 +4,7 @@ use super::{
     highlights::Highlights,
     pipelines::{blend, cell_fill, cursor, emoji, gamma_blit, monochrome},
     texture::Texture,
-    TARGET_FORMAT,
+    Motion, TARGET_FORMAT,
 };
 use crate::{
     text::{cache::FontCache, fonts::Fonts},
@@ -205,9 +205,9 @@ impl RenderState {
         }
         self.wants_redraw = false;
         let now = Instant::now();
-        let delta_time = now.duration_since(self.previous_frame_time);
+        let delta_seconds = now.duration_since(self.previous_frame_time);
+        let delta_seconds = delta_seconds.as_secs_f32();
         self.previous_frame_time = now;
-        println!("{delta_time:?}");
 
         let output = match self.surface.get_current_texture() {
             Ok(output) => output,
@@ -236,6 +236,7 @@ impl RenderState {
                 label: Some("Render encoder"),
             });
         let target_size = self.targets.color.texture.size().into();
+        let mut motion = Motion::Still;
 
         self.pipelines.cell_fill.render(
             &mut encoder,
@@ -261,9 +262,10 @@ impl RenderState {
             .blend
             .render(&mut encoder, &self.targets.color.view);
 
-        self.pipelines
-            .cursor
-            .render(&mut encoder, &self.targets.color.view);
+        motion |=
+            self.pipelines
+                .cursor
+                .render(&mut encoder, &self.targets.color.view, delta_seconds);
 
         self.pipelines.emoji.render(
             &mut encoder,
@@ -279,6 +281,8 @@ impl RenderState {
 
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
+
+        self.wants_redraw = motion == Motion::Animating;
     }
 
     pub fn clear_glyph_cache(&mut self) {
