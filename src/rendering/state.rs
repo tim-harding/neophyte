@@ -27,7 +27,7 @@ pub struct RenderState {
     shape_context: ShapeContext,
     font_cache: FontCache,
     wants_redraw: bool,
-    previous_frame_time: Instant,
+    previous_frame_time: Option<Instant>,
 }
 
 struct Targets {
@@ -135,7 +135,7 @@ impl RenderState {
             surface,
             surface_config,
             wants_redraw: false,
-            previous_frame_time: Instant::now(),
+            previous_frame_time: None,
         }
     }
 
@@ -174,6 +174,7 @@ impl RenderState {
         self.pipelines
             .blend
             .update(&self.device, &self.targets.monochrome.view);
+        self.previous_frame_time = None;
     }
 
     pub fn resize(&mut self, new_size: Vec2<u32>, cell_size: Vec2<u32>) {
@@ -204,10 +205,15 @@ impl RenderState {
             return;
         }
         self.wants_redraw = false;
-        let now = Instant::now();
-        let delta_seconds = now.duration_since(self.previous_frame_time);
-        let delta_seconds = delta_seconds.as_secs_f32();
-        self.previous_frame_time = now;
+        let delta_seconds = if let Some(previous_frame_time) = self.previous_frame_time {
+            let now = Instant::now();
+            let delta_seconds = now.duration_since(previous_frame_time).as_secs_f32();
+            self.previous_frame_time = Some(now);
+            delta_seconds
+        } else {
+            self.previous_frame_time = Some(Instant::now());
+            0.
+        };
 
         let output = match self.surface.get_current_texture() {
             Ok(output) => output,

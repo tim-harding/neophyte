@@ -43,9 +43,7 @@ fn vs_main(
     let target_size = vec2<f32>(info.vertex.target_size);
 
     var out: VertexOutput;
-    out.uv = (info.vertex.position + fill)
-        * info.vertex.cell_size
-        / target_size;
+    out.uv = (info.vertex.position + fill * info.vertex.cell_size) / target_size;
     out.clip_position = vec4<f32>(
         out.uv
         * vec2<f32>(2.0, -2.0) 

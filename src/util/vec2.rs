@@ -16,7 +16,13 @@ impl<T> Vec2<T> {
     pub fn new(x: T, y: T) -> Self {
         Self { x, y }
     }
+
+    pub fn map(self, f: fn(T) -> T) -> Self {
+        Self::new(f(self.x), f(self.y))
+    }
 }
+
+impl<T> Vec2<T> where T: Copy {}
 
 impl<T> Vec2<T>
 where

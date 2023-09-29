@@ -146,7 +146,15 @@ impl Pipeline {
                 bg: fg.into_linear(),
             },
         };
-        self.target = (ui.position(ui.cursor.grid) + ui.cursor.pos.into_lossy()).into_lossy();
+
+        let new_target = (ui.position(ui.cursor.grid) + ui.cursor.pos.into_lossy()).into_lossy();
+        let difference = (self.target - new_target).map(f32::abs);
+        if (difference.x < f32::EPSILON && difference.y < 1.01 && difference.y > f32::EPSILON)
+            || (difference.y < f32::EPSILON && difference.x < 1.01 && difference.x > f32::EPSILON)
+        {
+            self.push_constants.vertex.position = new_target * cell_size;
+        }
+        self.target = new_target;
 
         self.bind_group = bind_group(
             device,
@@ -162,15 +170,21 @@ impl Pipeline {
         color_target: &wgpu::TextureView,
         delta_seconds: f32,
     ) -> Motion {
-        let toward = self.target - self.push_constants.vertex.position;
+        let cell_size = self.push_constants.vertex.cell_size;
+        let toward = self.target * cell_size - self.push_constants.vertex.position;
         let length = toward.length();
-        if length > 2f32 {
+        let motion = if delta_seconds == 0. {
+            Motion::Animating
+        } else if length > 0.025 {
             let direction = toward / length;
-            let offset = direction * delta_seconds * 256f32;
-            self.push_constants.vertex.position += offset;
+            let t = ((length + 1.).ln() + length.sqrt()) * 400. * delta_seconds;
+            let t = t.min(length);
+            self.push_constants.vertex.position += direction * t;
+            Motion::Animating
         } else {
-            self.push_constants.vertex.position = self.target;
-        }
+            self.push_constants.vertex.position = self.target * cell_size;
+            Motion::Still
+        };
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Cursor render pass"),
@@ -199,7 +213,7 @@ impl Pipeline {
         render_pass.set_bind_group(0, &self.bind_group, &[]);
         render_pass.draw(0..6, 0..1);
 
-        Motion::Animating
+        motion
     }
 }
 
