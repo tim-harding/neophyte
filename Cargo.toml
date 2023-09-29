@@ -2,6 +2,12 @@
 name = "neophyte"
 version = "0.1.0"
 edition = "2021"
+authors = ["Tim Harding"]
+repository = "https://github.com/tim-harding/neophyte"
+license = "MIT"
+keywords = ["neovim"]
+categories = ["text-editors", "gui", "development-tools"]
+description = "A WebGPU rendered Neovim GUI"
 
 [dependencies]
 swash = "0.1.8"
