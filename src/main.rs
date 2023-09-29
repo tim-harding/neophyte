@@ -9,7 +9,7 @@ mod util;
 use neovim::Neovim;
 use rendering::{RenderEvent, RenderLoop, ScrollKind};
 use std::{
-    sync::{mpsc, Arc, Mutex},
+    sync::{mpsc, Arc},
     thread,
 };
 use util::vec2::Vec2;
@@ -27,10 +27,13 @@ fn main() {
     let (render_tx, render_rx) = mpsc::channel();
     let (mut neovim, handler) = Neovim::new().unwrap();
 
-    let wants_shutdown = Arc::new(Mutex::new(false));
+    neovim.ui_attach();
+    let event_loop = EventLoop::new();
+    let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
+
     {
         let render_tx = render_tx.clone();
-        let wants_shutdown = wants_shutdown.clone();
+        let proxy = event_loop.create_proxy();
         thread::spawn(move || {
             handler.start(
                 |method, params| {
@@ -39,15 +42,11 @@ fn main() {
                         .unwrap();
                 },
                 || {
-                    *wants_shutdown.lock().unwrap() = true;
+                    let _ = proxy.send_event(());
                 },
             );
         });
     }
-
-    neovim.ui_attach();
-    let event_loop = EventLoop::new();
-    let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
 
     {
         let window = window.clone();
@@ -60,12 +59,10 @@ fn main() {
 
     let mut modifiers = ModifiersState::default();
     event_loop.run(move |event, _, control_flow| {
-        *control_flow = if *wants_shutdown.lock().unwrap() {
-            ControlFlow::Exit
-        } else {
-            ControlFlow::Wait
-        };
+        *control_flow = ControlFlow::Wait;
         match event {
+            Event::UserEvent(()) => *control_flow = ControlFlow::Exit,
+
             Event::WindowEvent {
                 window_id,
                 ref event,
