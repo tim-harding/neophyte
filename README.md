@@ -1,5 +1,7 @@
 # Neophyte
 
+![Crates.io](https://img.shields.io/crates/d/neophyte)
+
 Neophyte is a Neovim GUI rendered with WebGPU. It offers several niceties over
 the default terminal-based UI:
 
