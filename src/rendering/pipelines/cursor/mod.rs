@@ -146,10 +146,15 @@ impl Pipeline {
         };
 
         let new_target = ui.position(ui.cursor.grid) + ui.cursor.pos.cast_as();
-        let new_target = new_target.cast_as::<f32>() * cell_size;
-        let difference = (self.target_position - new_target).map(f32::abs);
-        if (difference.x < f32::EPSILON && difference.y < 1.01 && difference.y > f32::EPSILON)
-            || (difference.y < f32::EPSILON && difference.x < 1.01 && difference.x > f32::EPSILON)
+        let new_target = cell_size * new_target.cast_as();
+        let difference = (self.current_position - new_target).map(f32::abs);
+        if self.current_position == Vec2::default()
+            || (difference.x < f32::EPSILON
+                && difference.y <= cell_size.y + 0.01
+                && difference.y > f32::EPSILON)
+            || (difference.y < f32::EPSILON
+                && difference.x <= cell_size.x + 0.01
+                && difference.x > f32::EPSILON)
         {
             self.current_position = new_target;
         }
@@ -177,7 +182,7 @@ impl Pipeline {
             Motion::Animating
         } else if length > 0.025 {
             let direction = toward / length;
-            let t = ((length + 1.).ln() + length.sqrt()) * 400. * delta_seconds;
+            let t = ((length + 1.).ln() + length.sqrt()) * 200. * delta_seconds;
             let t = t.min(length);
             self.current_position += direction * t;
             Motion::Animating
