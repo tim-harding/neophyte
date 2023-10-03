@@ -15,7 +15,7 @@ use crate::{
         HlAttrDefine, PopupmenuShow, TablineUpdate, WinFloatPos, WinPos,
     },
     ui::grid::{FloatingWindow, Window},
-    util::vec2::{IntoLossy, Vec2},
+    util::vec2::Vec2,
 };
 use grid::Grid;
 use std::{
@@ -293,7 +293,7 @@ impl Ui {
     pub fn composite(&self) -> Grid {
         let mut outer_grid = self.grids.get(0).unwrap_or(&Grid::default()).clone();
         for &grid in self.draw_order.iter() {
-            let position = self.position(grid).into_lossy();
+            let position = self.position(grid).cast_as();
             let grid = self.grid(grid).unwrap();
             outer_grid.combine(grid.clone(), self.cursor_render_info(grid.id), position);
         }
@@ -335,17 +335,17 @@ impl Ui {
         cursor: Vec2<u64>,
         cell_size: Vec2<u64>,
     ) -> Option<GridUnderCursor> {
-        let cursor: Vec2<f64> = cursor.into_lossy();
-        let cell_size: Vec2<f64> = cell_size.into_lossy();
+        let cursor: Vec2<f64> = cursor.cast_as();
+        let cell_size: Vec2<f64> = cell_size.cast_as();
         for &grid_id in self.draw_order.iter().rev() {
             let grid = self.grid(grid_id).unwrap();
-            let size: Vec2<f64> = grid.size.into_lossy();
+            let size: Vec2<f64> = grid.size.cast_as();
             let start = self.position(grid_id) * cell_size;
             let end = start + size * cell_size;
             if cursor.x > start.x && cursor.y > start.y && cursor.x < end.x && cursor.y < end.y {
                 let position = (cursor - start) / cell_size;
-                let position: Vec2<i64> = position.into_lossy();
-                let Ok(position) = position.try_into() else {
+                let position: Vec2<i64> = position.cast_as();
+                let Ok(position) = position.try_cast() else {
                     continue;
                 };
                 return Some(GridUnderCursor {

@@ -14,7 +14,7 @@ use crate::{
     neovim::{Action, Button, Modifiers, Neovim},
     text::fonts::Fonts,
     ui::Ui,
-    util::vec2::{IntoLossy, Vec2},
+    util::vec2::Vec2,
 };
 use bitfield_struct::bitfield;
 use rmpv::Value;
@@ -143,7 +143,7 @@ impl RenderLoop {
                         reset,
                         modifiers,
                     } => {
-                        let delta: Vec2<i64> = delta.into_lossy();
+                        let delta: Vec2<i64> = delta.cast_as();
                         if reset {
                             self.mouse.scroll = Vec2::default();
                         }
@@ -152,7 +152,7 @@ impl RenderLoop {
                             ScrollKind::Lines => delta,
                             ScrollKind::Pixels => {
                                 self.mouse.scroll += delta;
-                                let cell_size: Vec2<i64> = self.cell_size().into();
+                                let cell_size: Vec2<i64> = self.cell_size().cast();
                                 let lines = self.mouse.scroll / cell_size;
                                 self.mouse.scroll -= lines * cell_size;
                                 lines
@@ -161,7 +161,7 @@ impl RenderLoop {
 
                         let Some(grid) = self.ui.grid_under_cursor(
                             self.mouse.position.into(),
-                            self.fonts.metrics().into_pixels().cell_size().into(),
+                            self.fonts.metrics().into_pixels().cell_size().cast(),
                         ) else {
                             continue;
                         };
@@ -205,19 +205,19 @@ impl RenderLoop {
                         position,
                         modifiers,
                     } => {
-                        let position: Vec2<i64> = position.into_lossy();
+                        let position: Vec2<i64> = position.cast_as();
                         let surface_size = self.render_state.surface_size();
                         let cell_size = self.cell_size();
                         let inner = (surface_size / cell_size) * cell_size;
                         let margin = (surface_size - inner) / 2;
-                        let position = position - margin.into();
-                        let Ok(position) = <Vec2<u64>>::try_from(position) else {
+                        let position = position - margin.cast();
+                        let Ok(position) = position.try_cast::<u64>() else {
                             continue;
                         };
                         self.mouse.position = position;
                         if let Some(grid) = self.ui.grid_under_cursor(
                             position,
-                            self.fonts.metrics().into_pixels().cell_size().into(),
+                            self.fonts.metrics().into_pixels().cell_size().cast(),
                         ) {
                             self.neovim.input_mouse(
                                 self.mouse.buttons.first().unwrap_or(Button::Move),
@@ -249,7 +249,7 @@ impl RenderLoop {
                         }
                         if let Some(grid) = self.ui.grid_under_cursor(
                             self.mouse.position,
-                            self.fonts.metrics().into_pixels().cell_size().into(),
+                            self.fonts.metrics().into_pixels().cell_size().cast(),
                         ) {
                             self.neovim.input_mouse(
                                 button,
@@ -314,7 +314,7 @@ impl RenderLoop {
     fn resize_neovim_grid(&mut self) {
         let surface_size = self.render_state.surface_size();
         let size = surface_size / self.cell_size();
-        let size: Vec2<u64> = size.into();
+        let size: Vec2<u64> = size.cast();
         self.neovim.ui_try_resize_grid(1, size.x, size.y);
     }
 

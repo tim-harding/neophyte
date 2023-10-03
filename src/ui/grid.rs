@@ -3,7 +3,7 @@
 use super::Highlights;
 use crate::{
     event::{grid_line, hl_attr_define::Attributes, Anchor, GridScroll, HlAttrDefine},
-    util::vec2::{IntoLossy, Vec2},
+    util::vec2::Vec2,
 };
 use std::{
     collections::HashMap,
@@ -37,7 +37,7 @@ impl Window {
             Window::None => Default::default(),
             Window::External => Default::default(),
             Window::Normal(window) => WindowOffset {
-                offset: window.start.into_lossy(),
+                offset: window.start.cast_as(),
                 anchor_grid: None,
             },
             Window::Floating(window) => {
@@ -53,7 +53,7 @@ impl Window {
                         Anchor::Se => Vec2::new(1, 1),
                     };
                 WindowOffset {
-                    offset: anchor_pos - offset.into_lossy(),
+                    offset: anchor_pos - offset.cast_as(),
                     anchor_grid: Some(window.anchor_grid),
                 }
             }
@@ -210,9 +210,9 @@ impl Grid {
         }
 
         if let Some(cursor) = cursor {
-            let cursor_pos: Vec2<i64> = cursor.pos.try_into().unwrap();
-            let pos: Vec2<i64> = cursor_pos + start;
-            if let Ok(pos) = pos.try_into() {
+            let cursor_pos = cursor.pos.try_cast::<i64>().unwrap();
+            let pos = cursor_pos + start;
+            if let Ok(pos) = pos.try_cast() {
                 let i = self.index_for(pos);
                 self.buffer[i].highlight = cursor.hl;
             }

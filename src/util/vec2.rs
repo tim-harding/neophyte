@@ -20,6 +20,36 @@ impl<T> Vec2<T> {
     pub fn map(self, f: fn(T) -> T) -> Self {
         Self::new(f(self.x), f(self.y))
     }
+
+    pub fn cast<F>(self) -> Vec2<F>
+    where
+        F: From<T>,
+    {
+        Vec2 {
+            x: F::from(self.x),
+            y: F::from(self.y),
+        }
+    }
+
+    pub fn try_cast<F>(self) -> Result<Vec2<F>, <F as TryFrom<T>>::Error>
+    where
+        F: TryFrom<T>,
+    {
+        Ok(Vec2 {
+            x: F::try_from(self.x)?,
+            y: F::try_from(self.y)?,
+        })
+    }
+
+    pub fn cast_as<F>(self) -> Vec2<F>
+    where
+        T: As<F>,
+    {
+        Vec2 {
+            x: self.x.r#as(),
+            y: self.y.r#as(),
+        }
+    }
 }
 
 impl<T> Vec2<T> where T: Copy {}
@@ -250,290 +280,46 @@ where
     }
 }
 
-macro_rules! vec_try_from {
-    ($t:ty, $u:ty) => {
-        impl TryFrom<Vec2<$t>> for Vec2<$u>
-        where
-            $u: TryFrom<$t>,
-        {
-            type Error = <$u as TryFrom<$t>>::Error;
+pub trait As<T> {
+    fn r#as(self) -> T;
+}
 
-            fn try_from(value: Vec2<$t>) -> Result<Self, Self::Error> {
-                Ok(Vec2::new(value.x.try_into()?, value.y.try_into()?))
+macro_rules! as_impl {
+    ($t:ty, $a:ty) => {
+        impl As<$a> for $t {
+            fn r#as(self) -> $a {
+                self as $a
             }
         }
     };
 }
 
-macro_rules! vec_from {
-    ($t:ty, $u:ty) => {
-        impl From<Vec2<$t>> for Vec2<$u> {
-            fn from(value: Vec2<$t>) -> Self {
-                Vec2::new(value.x.into(), value.y.into())
-            }
-        }
+macro_rules! as_impls {
+    ($t:ty) => {
+        as_impl!($t, u8);
+        as_impl!($t, u16);
+        as_impl!($t, u32);
+        as_impl!($t, u64);
+        as_impl!($t, u128);
+        as_impl!($t, i8);
+        as_impl!($t, i16);
+        as_impl!($t, i32);
+        as_impl!($t, i64);
+        as_impl!($t, i128);
+        as_impl!($t, f32);
+        as_impl!($t, f64);
     };
 }
 
-macro_rules! vec_from_lossy {
-    ($t:ty, $u:ty) => {
-        impl FromLossy<Vec2<$t>> for Vec2<$u> {
-            fn from_lossy(value: Vec2<$t>) -> Self {
-                Vec2::new(value.x as $u, value.y as $u)
-            }
-        }
-    };
-}
-
-pub trait FromLossy<T> {
-    fn from_lossy(t: T) -> Self;
-}
-
-pub trait IntoLossy<T> {
-    fn into_lossy(self) -> T;
-}
-
-impl<A, B> IntoLossy<B> for A
-where
-    B: FromLossy<A>,
-{
-    fn into_lossy(self) -> B {
-        B::from_lossy(self)
-    }
-}
-
-vec_from_lossy!(u8, u16);
-vec_from_lossy!(u8, u32);
-vec_from_lossy!(u8, u64);
-vec_from_lossy!(u8, u128);
-vec_from_lossy!(u8, i8);
-vec_from_lossy!(u8, i16);
-vec_from_lossy!(u8, i32);
-vec_from_lossy!(u8, i64);
-vec_from_lossy!(u8, i128);
-vec_from_lossy!(u8, f32);
-vec_from_lossy!(u8, f64);
-vec_from_lossy!(u16, u8);
-vec_from_lossy!(u16, u32);
-vec_from_lossy!(u16, u64);
-vec_from_lossy!(u16, u128);
-vec_from_lossy!(u16, i8);
-vec_from_lossy!(u16, i16);
-vec_from_lossy!(u16, i32);
-vec_from_lossy!(u16, i64);
-vec_from_lossy!(u16, i128);
-vec_from_lossy!(u16, f32);
-vec_from_lossy!(u16, f64);
-vec_from_lossy!(u32, u8);
-vec_from_lossy!(u32, u16);
-vec_from_lossy!(u32, u64);
-vec_from_lossy!(u32, u128);
-vec_from_lossy!(u32, i8);
-vec_from_lossy!(u32, i16);
-vec_from_lossy!(u32, i32);
-vec_from_lossy!(u32, i64);
-vec_from_lossy!(u32, i128);
-vec_from_lossy!(u32, f32);
-vec_from_lossy!(u32, f64);
-vec_from_lossy!(u64, u8);
-vec_from_lossy!(u64, u16);
-vec_from_lossy!(u64, u32);
-vec_from_lossy!(u64, u128);
-vec_from_lossy!(u64, i8);
-vec_from_lossy!(u64, i16);
-vec_from_lossy!(u64, i32);
-vec_from_lossy!(u64, i64);
-vec_from_lossy!(u64, i128);
-vec_from_lossy!(u64, f32);
-vec_from_lossy!(u64, f64);
-vec_from_lossy!(u128, u8);
-vec_from_lossy!(u128, u16);
-vec_from_lossy!(u128, u32);
-vec_from_lossy!(u128, u64);
-vec_from_lossy!(u128, i8);
-vec_from_lossy!(u128, i16);
-vec_from_lossy!(u128, i32);
-vec_from_lossy!(u128, i64);
-vec_from_lossy!(u128, i128);
-vec_from_lossy!(u128, f32);
-vec_from_lossy!(u128, f64);
-vec_from_lossy!(i8, u8);
-vec_from_lossy!(i8, u16);
-vec_from_lossy!(i8, u32);
-vec_from_lossy!(i8, u64);
-vec_from_lossy!(i8, u128);
-vec_from_lossy!(i8, i16);
-vec_from_lossy!(i8, i32);
-vec_from_lossy!(i8, i64);
-vec_from_lossy!(i8, i128);
-vec_from_lossy!(i8, f32);
-vec_from_lossy!(i8, f64);
-vec_from_lossy!(i16, u8);
-vec_from_lossy!(i16, u16);
-vec_from_lossy!(i16, u32);
-vec_from_lossy!(i16, u64);
-vec_from_lossy!(i16, u128);
-vec_from_lossy!(i16, i8);
-vec_from_lossy!(i16, i32);
-vec_from_lossy!(i16, i64);
-vec_from_lossy!(i16, i128);
-vec_from_lossy!(i16, f32);
-vec_from_lossy!(i16, f64);
-vec_from_lossy!(i32, u8);
-vec_from_lossy!(i32, u16);
-vec_from_lossy!(i32, u32);
-vec_from_lossy!(i32, u64);
-vec_from_lossy!(i32, u128);
-vec_from_lossy!(i32, i8);
-vec_from_lossy!(i32, i16);
-vec_from_lossy!(i32, i64);
-vec_from_lossy!(i32, i128);
-vec_from_lossy!(i32, f32);
-vec_from_lossy!(i32, f64);
-vec_from_lossy!(i64, u8);
-vec_from_lossy!(i64, u16);
-vec_from_lossy!(i64, u32);
-vec_from_lossy!(i64, u64);
-vec_from_lossy!(i64, u128);
-vec_from_lossy!(i64, i8);
-vec_from_lossy!(i64, i16);
-vec_from_lossy!(i64, i32);
-vec_from_lossy!(i64, i128);
-vec_from_lossy!(i64, f32);
-vec_from_lossy!(i64, f64);
-vec_from_lossy!(i128, u8);
-vec_from_lossy!(i128, u16);
-vec_from_lossy!(i128, u32);
-vec_from_lossy!(i128, u64);
-vec_from_lossy!(i128, u128);
-vec_from_lossy!(i128, i8);
-vec_from_lossy!(i128, i16);
-vec_from_lossy!(i128, i32);
-vec_from_lossy!(i128, i64);
-vec_from_lossy!(i128, f32);
-vec_from_lossy!(i128, f64);
-vec_from_lossy!(f32, u8);
-vec_from_lossy!(f32, u16);
-vec_from_lossy!(f32, u32);
-vec_from_lossy!(f32, u64);
-vec_from_lossy!(f32, u128);
-vec_from_lossy!(f32, i8);
-vec_from_lossy!(f32, i16);
-vec_from_lossy!(f32, i32);
-vec_from_lossy!(f32, i64);
-vec_from_lossy!(f32, i128);
-vec_from_lossy!(f32, f64);
-vec_from_lossy!(f64, u8);
-vec_from_lossy!(f64, u16);
-vec_from_lossy!(f64, u32);
-vec_from_lossy!(f64, u64);
-vec_from_lossy!(f64, u128);
-vec_from_lossy!(f64, i8);
-vec_from_lossy!(f64, i16);
-vec_from_lossy!(f64, i32);
-vec_from_lossy!(f64, i64);
-vec_from_lossy!(f64, i128);
-vec_from_lossy!(f64, f32);
-
-vec_from!(u8, u16);
-vec_from!(u8, u32);
-vec_from!(u8, u64);
-vec_from!(u8, u128);
-vec_from!(u8, i16);
-vec_from!(u8, i32);
-vec_from!(u8, i64);
-vec_from!(u8, i128);
-vec_from!(u8, f32);
-vec_from!(u8, f64);
-vec_from!(u16, u32);
-vec_from!(u16, u64);
-vec_from!(u16, u128);
-vec_from!(u16, i32);
-vec_from!(u16, i64);
-vec_from!(u16, i128);
-vec_from!(u16, f32);
-vec_from!(u16, f64);
-vec_from!(u32, u64);
-vec_from!(u32, u128);
-vec_from!(u32, i64);
-vec_from!(u32, i128);
-vec_from!(u32, f64);
-vec_from!(u64, u128);
-vec_from!(u64, i128);
-vec_from!(i8, i16);
-vec_from!(i8, i32);
-vec_from!(i8, i64);
-vec_from!(i8, i128);
-vec_from!(i8, f32);
-vec_from!(i8, f64);
-vec_from!(i16, i32);
-vec_from!(i16, i64);
-vec_from!(i16, i128);
-vec_from!(i16, f32);
-vec_from!(i16, f64);
-vec_from!(i32, i64);
-vec_from!(i32, i128);
-vec_from!(i32, f64);
-vec_from!(i64, i128);
-vec_from!(f32, f64);
-
-vec_try_from!(u8, i8);
-vec_try_from!(u16, u8);
-vec_try_from!(u16, i8);
-vec_try_from!(u16, i16);
-vec_try_from!(u32, u8);
-vec_try_from!(u32, u16);
-vec_try_from!(u32, i8);
-vec_try_from!(u32, i16);
-vec_try_from!(u32, i32);
-vec_try_from!(u64, u8);
-vec_try_from!(u64, u16);
-vec_try_from!(u64, u32);
-vec_try_from!(u64, i8);
-vec_try_from!(u64, i16);
-vec_try_from!(u64, i32);
-vec_try_from!(u64, i64);
-vec_try_from!(u128, u8);
-vec_try_from!(u128, u16);
-vec_try_from!(u128, u32);
-vec_try_from!(u128, u64);
-vec_try_from!(u128, i8);
-vec_try_from!(u128, i16);
-vec_try_from!(u128, i32);
-vec_try_from!(u128, i64);
-vec_try_from!(u128, i128);
-vec_try_from!(i8, u8);
-vec_try_from!(i8, u16);
-vec_try_from!(i8, u32);
-vec_try_from!(i8, u64);
-vec_try_from!(i8, u128);
-vec_try_from!(i16, u8);
-vec_try_from!(i16, u16);
-vec_try_from!(i16, u32);
-vec_try_from!(i16, u64);
-vec_try_from!(i16, u128);
-vec_try_from!(i16, i8);
-vec_try_from!(i32, u8);
-vec_try_from!(i32, u16);
-vec_try_from!(i32, u32);
-vec_try_from!(i32, u64);
-vec_try_from!(i32, u128);
-vec_try_from!(i32, i8);
-vec_try_from!(i32, i16);
-vec_try_from!(i64, u8);
-vec_try_from!(i64, u16);
-vec_try_from!(i64, u32);
-vec_try_from!(i64, u64);
-vec_try_from!(i64, u128);
-vec_try_from!(i64, i8);
-vec_try_from!(i64, i16);
-vec_try_from!(i64, i32);
-vec_try_from!(i128, u8);
-vec_try_from!(i128, u16);
-vec_try_from!(i128, u32);
-vec_try_from!(i128, u64);
-vec_try_from!(i128, u128);
-vec_try_from!(i128, i8);
-vec_try_from!(i128, i16);
-vec_try_from!(i128, i32);
-vec_try_from!(i128, i64);
+as_impls!(u8);
+as_impls!(u16);
+as_impls!(u32);
+as_impls!(u64);
+as_impls!(u128);
+as_impls!(i8);
+as_impls!(i16);
+as_impls!(i32);
+as_impls!(i64);
+as_impls!(i128);
+as_impls!(f32);
+as_impls!(f64);

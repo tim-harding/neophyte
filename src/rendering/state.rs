@@ -9,7 +9,7 @@ use super::{
 use crate::{
     text::{cache::FontCache, fonts::Fonts},
     ui::Ui,
-    util::vec2::{IntoLossy, Vec2},
+    util::vec2::Vec2,
 };
 use std::{sync::Arc, time::Instant};
 use swash::shape::ShapeContext;
@@ -155,7 +155,7 @@ impl RenderState {
             &self.device,
             ui,
             target_size,
-            cell_size.into_lossy(),
+            cell_size.cast_as(),
             &self.targets.monochrome.view,
         );
         self.pipelines.monochrome.update(

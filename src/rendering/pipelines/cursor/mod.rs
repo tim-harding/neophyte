@@ -2,7 +2,7 @@ use crate::{
     event::mode_info_set::CursorShape,
     rendering::{nearest_sampler, Motion, TARGET_FORMAT},
     ui::Ui,
-    util::vec2::{IntoLossy, Vec2},
+    util::vec2::Vec2,
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
@@ -147,7 +147,7 @@ impl Pipeline {
             },
         };
 
-        let new_target = (ui.position(ui.cursor.grid) + ui.cursor.pos.into_lossy()).into_lossy();
+        let new_target = (ui.position(ui.cursor.grid) + ui.cursor.pos.cast_as()).cast_as();
         let difference = (self.target - new_target).map(f32::abs);
         if (difference.x < f32::EPSILON && difference.y < 1.01 && difference.y > f32::EPSILON)
             || (difference.y < f32::EPSILON && difference.x < 1.01 && difference.x > f32::EPSILON)

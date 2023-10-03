@@ -224,7 +224,7 @@ fn main() {
 
                     let (delta, kind) = match delta {
                         MouseScrollDelta::LineDelta(horizontal, vertical) => {
-                            (Vec2::new(*horizontal, *vertical).into(), ScrollKind::Lines)
+                            (Vec2::new(*horizontal, *vertical).cast(), ScrollKind::Lines)
                         }
 
                         MouseScrollDelta::PixelDelta(delta) => {

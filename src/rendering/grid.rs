@@ -58,10 +58,10 @@ impl Grid {
         let metrics = fonts.metrics();
         let metrics_px = metrics.into_pixels();
         let cell_size = metrics_px.cell_size();
-        let offset = position * Vec2::<f64>::from(cell_size);
+        let offset = position * cell_size.cast::<f64>();
 
         self.offset = Vec2::new(offset.x as i32, offset.y as i32);
-        self.size = grid.size.try_into().unwrap();
+        self.size = grid.size.try_cast().unwrap();
 
         self.monochrome.clear();
         self.emoji.clear();
