@@ -141,7 +141,6 @@ impl RenderState {
 
     pub fn update(&mut self, ui: &Ui, fonts: &mut Fonts) {
         let cell_size = fonts.metrics().into_pixels().cell_size();
-        let target_size = (self.surface_size() / cell_size) * cell_size;
         self.grids.update(
             &self.device,
             &self.queue,
@@ -154,7 +153,6 @@ impl RenderState {
         self.pipelines.cursor.update(
             &self.device,
             ui,
-            target_size,
             cell_size.cast_as(),
             &self.targets.monochrome.view,
         );
@@ -268,10 +266,13 @@ impl RenderState {
             .blend
             .render(&mut encoder, &self.targets.color.view);
 
-        motion |=
-            self.pipelines
-                .cursor
-                .render(&mut encoder, &self.targets.color.view, delta_seconds);
+        motion |= self.pipelines.cursor.render(
+            &mut encoder,
+            &self.targets.color.view,
+            delta_seconds,
+            cell_size.cast_as(),
+            target_size.cast_as(),
+        );
 
         self.pipelines.emoji.render(
             &mut encoder,

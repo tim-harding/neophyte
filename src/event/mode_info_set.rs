@@ -86,8 +86,9 @@ impl Debug for ModeInfo {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum CursorShape {
+    #[default]
     Block,
     Horizontal,
     Vertical,

@@ -1,31 +1,28 @@
-use std::mem::size_of;
-
 use crate::{
+    event::mode_info_set::CursorShape,
     rendering::{nearest_sampler, Motion, TARGET_FORMAT},
     ui::Ui,
     util::{mat3::Mat3, vec2::Vec2},
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
+use std::mem::size_of;
 use wgpu::include_wgsl;
 
 pub struct Pipeline {
     pipeline: wgpu::RenderPipeline,
-    push_constants: PushConstants,
     bind_group: wgpu::BindGroup,
     bind_group_layout: wgpu::BindGroupLayout,
     sampler: wgpu::Sampler,
-    target: Vec2<f32>,
+    fragment_push_constants: FragmentPushConstants,
+    current_position: Vec2<f32>,
+    target_position: Vec2<f32>,
+    fill: Vec2<f32>,
 }
 
 impl Pipeline {
     pub fn new(device: &wgpu::Device, monochrome_target: &wgpu::TextureView) -> Self {
         let shader = device.create_shader_module(include_wgsl!("cursor.wgsl"));
         let sampler = nearest_sampler(device);
-
-        assert_eq!(
-            PushConstants::SIZE,
-            PushConstantsVertex::SIZE + PushConstantsFragment::SIZE
-        );
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Cursor bind group layout"),
@@ -57,11 +54,12 @@ impl Pipeline {
             push_constant_ranges: &[
                 wgpu::PushConstantRange {
                     stages: wgpu::ShaderStages::VERTEX,
-                    range: 0..PushConstantsVertex::SIZE,
+                    range: 0..VertexPushConstants::SIZE,
                 },
                 wgpu::PushConstantRange {
                     stages: wgpu::ShaderStages::FRAGMENT,
-                    range: PushConstantsVertex::SIZE..PushConstants::SIZE,
+                    range: VertexPushConstants::SIZE
+                        ..(VertexPushConstants::SIZE + FragmentPushConstants::SIZE),
                 },
             ],
         });
@@ -103,11 +101,13 @@ impl Pipeline {
 
         Self {
             pipeline,
-            push_constants: Default::default(),
             bind_group_layout,
             bind_group,
             sampler,
-            target: Vec2::default(),
+            target_position: Vec2::default(),
+            current_position: Vec2::default(),
+            fragment_push_constants: FragmentPushConstants::default(),
+            fill: Vec2::default(),
         }
     }
 
@@ -115,12 +115,9 @@ impl Pipeline {
         &mut self,
         device: &wgpu::Device,
         ui: &Ui,
-        surface_size: Vec2<u32>,
         cell_size: Vec2<f32>,
         monochrome_target: &wgpu::TextureView,
     ) {
-        // let mode = &ui.modes[ui.current_mode as usize];
-        // let fill = mode.cell_percentage.unwrap_or(10) as f32 / 100.0;
         let (fg, bg) = ui
             .highlight_groups
             .get("Cursor")
@@ -135,33 +132,28 @@ impl Pipeline {
                 ui.default_colors.rgb_bg.unwrap_or_default(),
             ));
 
-        self.push_constants = PushConstants {
-            vertex: PushConstantsVertex {
-                position: self.push_constants.vertex.position,
-                target_size: surface_size,
-                // fill: match mode.cursor_shape.unwrap_or(CursorShape::Block) {
-                //     CursorShape::Block => Vec2::new(1.0, 1.0),
-                //     CursorShape::Horizontal => Vec2::new(1.0, fill),
-                //     CursorShape::Vertical => Vec2::new(fill, 1.0),
-                // },
-                cell_size,
-                transform: Mat3::IDENTITY,
-                padding: Vec2::default(),
-            },
-            fragment: PushConstantsFragment {
-                fg: bg.into_linear(),
-                bg: fg.into_linear(),
-            },
+        self.fragment_push_constants = FragmentPushConstants {
+            fg: bg.into_linear(),
+            bg: fg.into_linear(),
         };
 
+        let mode = &ui.modes[ui.current_mode as usize];
+        let fill = mode.cell_percentage.unwrap_or(10) as f32 / 100.0;
+        self.fill = match mode.cursor_shape.unwrap_or(CursorShape::Block) {
+            CursorShape::Block => Vec2::new(1.0, 1.0),
+            CursorShape::Horizontal => Vec2::new(1.0, fill),
+            CursorShape::Vertical => Vec2::new(fill, 1.0),
+        };
+
+        // TODO: Store both with the same scale
         let new_target = (ui.position(ui.cursor.grid) + ui.cursor.pos.cast_as()).cast_as();
-        let difference = (self.target - new_target).map(f32::abs);
+        let difference = (self.target_position - new_target).map(f32::abs);
         if (difference.x < f32::EPSILON && difference.y < 1.01 && difference.y > f32::EPSILON)
             || (difference.y < f32::EPSILON && difference.x < 1.01 && difference.x > f32::EPSILON)
         {
-            self.push_constants.vertex.position = new_target * cell_size;
+            self.current_position = new_target * cell_size;
         }
-        self.target = new_target;
+        self.target_position = new_target;
 
         self.bind_group = bind_group(
             device,
@@ -176,9 +168,10 @@ impl Pipeline {
         encoder: &mut wgpu::CommandEncoder,
         color_target: &wgpu::TextureView,
         delta_seconds: f32,
+        cell_size: Vec2<f32>,
+        target_size: Vec2<f32>,
     ) -> Motion {
-        let cell_size = self.push_constants.vertex.cell_size;
-        let toward = self.target * cell_size - self.push_constants.vertex.position;
+        let toward = self.target_position * cell_size - self.current_position;
         let length = toward.length();
         let motion = if delta_seconds == 0. {
             Motion::Animating
@@ -186,10 +179,10 @@ impl Pipeline {
             let direction = toward / length;
             let t = ((length + 1.).ln() + length.sqrt()) * 400. * delta_seconds;
             let t = t.min(length);
-            self.push_constants.vertex.position += direction * t;
+            self.current_position += direction * t;
             Motion::Animating
         } else {
-            self.push_constants.vertex.position = self.target * cell_size;
+            self.current_position = self.target_position * cell_size;
             Motion::Still
         };
 
@@ -210,12 +203,16 @@ impl Pipeline {
         render_pass.set_push_constants(
             wgpu::ShaderStages::VERTEX,
             0,
-            cast_slice(&[self.push_constants.vertex]),
+            cast_slice(&[VertexPushConstants {
+                transform: Mat3::scale(target_size.map(f32::recip))
+                    * Mat3::translate(self.current_position)
+                    * Mat3::scale(cell_size),
+            }]),
         );
         render_pass.set_push_constants(
             wgpu::ShaderStages::FRAGMENT,
-            PushConstantsVertex::SIZE,
-            cast_slice(&[self.push_constants.fragment]),
+            VertexPushConstants::SIZE,
+            cast_slice(&[self.fragment_push_constants]),
         );
         render_pass.set_bind_group(0, &self.bind_group, &[]);
         render_pass.draw(0..6, 0..1);
@@ -248,37 +245,22 @@ fn bind_group(
 
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
-struct PushConstants {
-    vertex: PushConstantsVertex,
-    fragment: PushConstantsFragment,
-}
-
-impl PushConstants {
-    pub const SIZE: u32 = size_of::<Self>() as u32;
-}
-
-#[repr(C)]
-#[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
-struct PushConstantsVertex {
-    position: Vec2<f32>,
-    target_size: Vec2<u32>,
-    cell_size: Vec2<f32>,
-    padding: Vec2<f32>,
+struct VertexPushConstants {
     transform: Mat3,
 }
 
-impl PushConstantsFragment {
+impl FragmentPushConstants {
     #[allow(unused)]
     pub const SIZE: u32 = size_of::<Self>() as u32;
 }
 
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
-struct PushConstantsFragment {
+struct FragmentPushConstants {
     fg: [f32; 4],
     bg: [f32; 4],
 }
 
-impl PushConstantsVertex {
+impl VertexPushConstants {
     pub const SIZE: u32 = size_of::<Self>() as u32;
 }

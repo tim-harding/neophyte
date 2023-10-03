@@ -17,6 +17,32 @@ impl Mat3 {
     pub const fn with_columns(x: Vec3, y: Vec3, z: Vec3) -> Self {
         Self { x, y, z }
     }
+
+    pub fn rotate(radians: f32) -> Self {
+        let sin = radians.sin();
+        let cos = radians.cos();
+        Self {
+            x: Vec3::new(cos, sin, 0.0),
+            y: Vec3::new(-sin, cos, 0.0),
+            z: Vec3::Z,
+        }
+    }
+
+    pub fn translate(axes: Vec2<f32>) -> Self {
+        Self {
+            x: Vec3::X,
+            y: Vec3::Y,
+            z: axes.into(),
+        }
+    }
+
+    pub fn scale(axes: Vec2<f32>) -> Self {
+        Self {
+            x: Vec3::X * axes.x,
+            y: Vec3::Y * axes.y,
+            z: Vec3::Z,
+        }
+    }
 }
 
 impl Mul<Vec3> for Mat3 {

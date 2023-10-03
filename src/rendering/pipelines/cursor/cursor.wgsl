@@ -1,7 +1,4 @@
 struct VertexInfo {
-    position: vec2<f32>,
-    target_size: vec2<u32>,
-    cell_size: vec2<f32>,
     transform: mat3x3<f32>,
 }
 
@@ -26,10 +23,6 @@ struct VertexOutput {
     @location(0) uv: vec2<f32>,
 }
 
-fn rev_y(v: vec2<f32>) -> vec2<f32> {
-    return v * vec2<f32>(1.0, -1.0) + vec2<f32>(0.0, 1.0);
-}
-
 @vertex
 fn vs_main(
     @builtin(vertex_index) in_vertex_index: u32,
@@ -38,14 +31,10 @@ fn vs_main(
         f32(in_vertex_index % 2u),
         f32(((in_vertex_index + 5u) % 6u) / 3u),
     );
-
-    // let fill = rev_y(rev_y(corner) * info.vertex.fill);
-    let tmp = info.vertex.transform * vec3<f32>(corner, 1.0);
-    let fill = vec2<f32>(tmp.x / tmp.z, tmp.y / tmp.z);
-    let target_size = vec2<f32>(info.vertex.target_size);
+    let affine = info.vertex.transform * vec3<f32>(corner, 1.0);
 
     var out: VertexOutput;
-    out.uv = (info.vertex.position + fill * info.vertex.cell_size) / target_size;
+    out.uv = vec2<f32>(affine.x / affine.z, affine.y / affine.z);
     out.clip_position = vec4<f32>(
         out.uv
         * vec2<f32>(2.0, -2.0) 
