@@ -12,8 +12,10 @@ pub struct Mat3 {
 }
 
 impl Mat3 {
+    #[allow(unused)]
     pub const IDENTITY: Self = Self::with_columns(Vec3::X, Vec3::Y, Vec3::Z);
 
+    #[allow(unused)]
     pub const fn with_columns(x: Vec3, y: Vec3, z: Vec3) -> Self {
         Self { x, y, z }
     }

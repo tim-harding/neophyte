@@ -145,13 +145,13 @@ impl Pipeline {
             CursorShape::Vertical => Vec2::new(fill, 1.0),
         };
 
-        // TODO: Store both with the same scale
-        let new_target = (ui.position(ui.cursor.grid) + ui.cursor.pos.cast_as()).cast_as();
+        let new_target = ui.position(ui.cursor.grid) + ui.cursor.pos.cast_as();
+        let new_target = new_target.cast_as::<f32>() * cell_size;
         let difference = (self.target_position - new_target).map(f32::abs);
         if (difference.x < f32::EPSILON && difference.y < 1.01 && difference.y > f32::EPSILON)
             || (difference.y < f32::EPSILON && difference.x < 1.01 && difference.x > f32::EPSILON)
         {
-            self.current_position = new_target * cell_size;
+            self.current_position = new_target;
         }
         self.target_position = new_target;
 
@@ -171,7 +171,7 @@ impl Pipeline {
         cell_size: Vec2<f32>,
         target_size: Vec2<f32>,
     ) -> Motion {
-        let toward = self.target_position * cell_size - self.current_position;
+        let toward = self.target_position - self.current_position;
         let length = toward.length();
         let motion = if delta_seconds == 0. {
             Motion::Animating
@@ -182,7 +182,7 @@ impl Pipeline {
             self.current_position += direction * t;
             Motion::Animating
         } else {
-            self.current_position = self.target_position * cell_size;
+            self.current_position = self.target_position;
             Motion::Still
         };
 
