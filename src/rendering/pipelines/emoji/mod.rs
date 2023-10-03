@@ -141,6 +141,7 @@ impl Pipeline {
                     target_size,
                     offset: grid.offset(),
                     z,
+                    padding: 0.0,
                 }
                 .set(&mut render_pass);
                 render_pass.draw(0..grid.emoji_count() * 6, 0..1);

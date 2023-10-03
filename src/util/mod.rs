@@ -1,3 +1,4 @@
+pub mod mat3;
 mod parse;
 pub mod vec2;
 

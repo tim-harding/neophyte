@@ -8,6 +8,7 @@ pub struct GlyphPushConstants {
     pub target_size: Vec2<u32>,
     pub offset: Vec2<i32>,
     pub z: f32,
+    pub padding: f32,
 }
 
 impl GlyphPushConstants {

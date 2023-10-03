@@ -2,7 +2,7 @@ use bytemuck::{Pod, Zeroable};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 
-#[repr(C)]
+#[repr(C, align(8))]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct Vec2<T> {
     pub x: T,

@@ -1,8 +1,9 @@
+use std::mem::size_of;
+
 use crate::{
-    event::mode_info_set::CursorShape,
     rendering::{nearest_sampler, Motion, TARGET_FORMAT},
     ui::Ui,
-    util::vec2::Vec2,
+    util::{mat3::Mat3, vec2::Vec2},
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
@@ -20,6 +21,11 @@ impl Pipeline {
     pub fn new(device: &wgpu::Device, monochrome_target: &wgpu::TextureView) -> Self {
         let shader = device.create_shader_module(include_wgsl!("cursor.wgsl"));
         let sampler = nearest_sampler(device);
+
+        assert_eq!(
+            PushConstants::SIZE,
+            PushConstantsVertex::SIZE + PushConstantsFragment::SIZE
+        );
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Cursor bind group layout"),
@@ -51,12 +57,11 @@ impl Pipeline {
             push_constant_ranges: &[
                 wgpu::PushConstantRange {
                     stages: wgpu::ShaderStages::VERTEX,
-                    range: 0..PushConstantsVertex::SIZE as u32,
+                    range: 0..PushConstantsVertex::SIZE,
                 },
                 wgpu::PushConstantRange {
                     stages: wgpu::ShaderStages::FRAGMENT,
-                    range: (PushConstantsVertex::SIZE as u32)
-                        ..(PushConstantsVertex::SIZE as u32 + PushConstantsFragment::SIZE as u32),
+                    range: PushConstantsVertex::SIZE..PushConstants::SIZE,
                 },
             ],
         });
@@ -114,8 +119,8 @@ impl Pipeline {
         cell_size: Vec2<f32>,
         monochrome_target: &wgpu::TextureView,
     ) {
-        let mode = &ui.modes[ui.current_mode as usize];
-        let fill = mode.cell_percentage.unwrap_or(10) as f32 / 100.0;
+        // let mode = &ui.modes[ui.current_mode as usize];
+        // let fill = mode.cell_percentage.unwrap_or(10) as f32 / 100.0;
         let (fg, bg) = ui
             .highlight_groups
             .get("Cursor")
@@ -134,12 +139,14 @@ impl Pipeline {
             vertex: PushConstantsVertex {
                 position: self.push_constants.vertex.position,
                 target_size: surface_size,
-                fill: match mode.cursor_shape.unwrap_or(CursorShape::Block) {
-                    CursorShape::Block => Vec2::new(1.0, 1.0),
-                    CursorShape::Horizontal => Vec2::new(1.0, fill),
-                    CursorShape::Vertical => Vec2::new(fill, 1.0),
-                },
+                // fill: match mode.cursor_shape.unwrap_or(CursorShape::Block) {
+                //     CursorShape::Block => Vec2::new(1.0, 1.0),
+                //     CursorShape::Horizontal => Vec2::new(1.0, fill),
+                //     CursorShape::Vertical => Vec2::new(fill, 1.0),
+                // },
                 cell_size,
+                transform: Mat3::IDENTITY,
+                padding: Vec2::default(),
             },
             fragment: PushConstantsFragment {
                 fg: bg.into_linear(),
@@ -207,7 +214,7 @@ impl Pipeline {
         );
         render_pass.set_push_constants(
             wgpu::ShaderStages::FRAGMENT,
-            PushConstantsVertex::SIZE as u32,
+            PushConstantsVertex::SIZE,
             cast_slice(&[self.push_constants.fragment]),
         );
         render_pass.set_bind_group(0, &self.bind_group, &[]);
@@ -246,17 +253,23 @@ struct PushConstants {
     fragment: PushConstantsFragment,
 }
 
+impl PushConstants {
+    pub const SIZE: u32 = size_of::<Self>() as u32;
+}
+
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 struct PushConstantsVertex {
     position: Vec2<f32>,
     target_size: Vec2<u32>,
-    fill: Vec2<f32>,
     cell_size: Vec2<f32>,
+    padding: Vec2<f32>,
+    transform: Mat3,
 }
 
 impl PushConstantsFragment {
-    pub const SIZE: usize = std::mem::size_of::<Self>();
+    #[allow(unused)]
+    pub const SIZE: u32 = size_of::<Self>() as u32;
 }
 
 #[repr(C)]
@@ -267,5 +280,5 @@ struct PushConstantsFragment {
 }
 
 impl PushConstantsVertex {
-    pub const SIZE: usize = std::mem::size_of::<Self>();
+    pub const SIZE: u32 = size_of::<Self>() as u32;
 }

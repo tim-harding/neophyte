@@ -1,8 +1,8 @@
 struct VertexInfo {
     position: vec2<f32>,
     target_size: vec2<u32>,
-    fill: vec2<f32>,
     cell_size: vec2<f32>,
+    transform: mat3x3<f32>,
 }
 
 struct FragmentInfo {
@@ -39,7 +39,9 @@ fn vs_main(
         f32(((in_vertex_index + 5u) % 6u) / 3u),
     );
 
-    let fill = rev_y(rev_y(corner) * info.vertex.fill);
+    // let fill = rev_y(rev_y(corner) * info.vertex.fill);
+    let tmp = info.vertex.transform * vec3<f32>(corner, 1.0);
+    let fill = vec2<f32>(tmp.x / tmp.z, tmp.y / tmp.z);
     let target_size = vec2<f32>(info.vertex.target_size);
 
     var out: VertexOutput;
