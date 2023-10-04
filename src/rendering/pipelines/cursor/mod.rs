@@ -149,19 +149,9 @@ impl Pipeline {
 
         let new_target = ui.position(ui.cursor.grid) + ui.cursor.pos.cast_as();
         let new_target = cell_size * new_target.cast_as();
-        let current_position = self.start_position.lerp(self.target_position, self.t());
-        let difference = (current_position - new_target).map(f32::abs);
 
-        if current_position == Vec2::default()
-            || (difference.x < f32::EPSILON
-                && difference.y <= cell_size.y + 0.01
-                && difference.y > f32::EPSILON)
-            || (difference.y < f32::EPSILON
-                && difference.x <= cell_size.x + 0.01
-                && difference.x > f32::EPSILON)
-        {
-            self.start_position = new_target;
-        } else if new_target != self.target_position {
+        if new_target != self.target_position {
+            let current_position = self.start_position.lerp(self.target_position, self.t());
             self.start_position = current_position;
             self.elapsed = 0.0;
         }
@@ -176,15 +166,12 @@ impl Pipeline {
     }
 
     fn t(&self) -> f32 {
-        // let t = ((length + 1.).ln() + length.sqrt()) * 10. * delta_seconds;
-        // let t = t.min(length);
         let length = (self.target_position - self.start_position).length();
         if length < 0.25 {
             f32::MAX
         } else {
             let length = length.sqrt() / 100.;
             let normal = (self.elapsed / length).min(1.);
-            // normal.sqrt() * 20.
             let a = 1.0 - normal;
             1.0 - a * a
         }
