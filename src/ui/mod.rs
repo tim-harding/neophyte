@@ -2,12 +2,11 @@ mod cmdline;
 pub mod grid;
 mod messages;
 mod options;
+pub mod window;
 
 use self::{
-    cmdline::Cmdline,
-    grid::{CursorRenderInfo, WindowOffset},
-    messages::Messages,
-    options::Options,
+    cmdline::Cmdline, grid::CursorRenderInfo, messages::Messages, options::Options,
+    window::WindowOffset,
 };
 use crate::{
     event::{
@@ -17,7 +16,7 @@ use crate::{
         MsgSetPos, MsgShowcmd, MsgShowmode, PopupmenuSelect, PopupmenuShow, TablineUpdate,
         WinClose, WinExternalPos, WinFloatPos, WinHide, WinPos, WinViewport,
     },
-    ui::grid::{FloatingWindow, Window},
+    ui::window::{FloatingWindow, NormalWindow, Window},
     util::vec2::Vec2,
 };
 use grid::Grid;
@@ -186,7 +185,7 @@ impl Ui {
                 self.draw_order.push(grid);
                 self.float_windows_start += 1;
                 let grid = self.grid_mut(grid);
-                grid.window = Window::Normal(grid::NormalWindow {
+                grid.window = Window::Normal(NormalWindow {
                     start: Vec2::new(start_col, start_row),
                     size: Vec2::new(width, height),
                 });
