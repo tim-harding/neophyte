@@ -11,8 +11,11 @@ use self::{
 };
 use crate::{
     event::{
-        mode_info_set::ModeInfo, Anchor, DefaultColorsSet, Event, GridLine, GridScroll,
-        HlAttrDefine, PopupmenuShow, TablineUpdate, WinFloatPos, WinPos,
+        mode_info_set::ModeInfo, Anchor, CmdlineBlockAppend, CmdlineBlockShow, CmdlinePos,
+        DefaultColorsSet, Event, GridClear, GridCursorGoto, GridDestroy, GridLine, GridResize,
+        GridScroll, HlAttrDefine, HlGroupSet, ModeChange, ModeInfoSet, MsgHistoryShow, MsgRuler,
+        MsgSetPos, MsgShowcmd, MsgShowmode, PopupmenuSelect, PopupmenuShow, TablineUpdate,
+        WinClose, WinExternalPos, WinFloatPos, WinHide, WinPos,
     },
     ui::grid::{FloatingWindow, Window},
     util::vec2::Vec2,
@@ -121,24 +124,31 @@ impl Ui {
                 self.new_highlights.push(event.id);
                 self.highlights.insert(event.id, event);
             }
-            Event::ModeChange(event) => self.current_mode = event.mode_idx,
-            Event::ModeInfoSet(event) => {
-                self.cursor.style_enabled = event.cursor_style_enabled;
-                self.modes = event.mode_info;
+            Event::ModeChange(ModeChange { mode_idx, mode: _ }) => self.current_mode = mode_idx,
+            Event::ModeInfoSet(ModeInfoSet {
+                cursor_style_enabled,
+                mode_info,
+            }) => {
+                self.cursor.style_enabled = cursor_style_enabled;
+                self.modes = mode_info;
             }
-            Event::HlGroupSet(event) => {
-                self.highlight_groups.insert(event.name, event.hl_id);
+            Event::HlGroupSet(HlGroupSet { name, hl_id }) => {
+                self.highlight_groups.insert(name, hl_id);
             }
 
-            Event::GridResize(event) => {
-                let grid = self.get_or_create_grid(event.grid);
-                grid.resize(Vec2::new(event.width, event.height));
+            Event::GridResize(GridResize {
+                grid,
+                width,
+                height,
+            }) => {
+                let grid = self.get_or_create_grid(grid);
+                grid.resize(Vec2::new(width, height));
             }
-            Event::GridClear(event) => self.grid_mut(event.grid).clear(),
-            Event::GridDestroy(event) => self.delete_grid(event.grid),
-            Event::GridCursorGoto(event) => {
-                self.cursor.pos = Vec2::new(event.column, event.row);
-                self.cursor.grid = event.grid;
+            Event::GridClear(GridClear { grid }) => self.grid_mut(grid).clear(),
+            Event::GridDestroy(GridDestroy { grid }) => self.delete_grid(grid),
+            Event::GridCursorGoto(GridCursorGoto { grid, row, column }) => {
+                self.cursor.pos = Vec2::new(column, row);
+                self.cursor.grid = grid;
             }
             Event::GridScroll(GridScroll {
                 grid,
@@ -199,50 +209,57 @@ impl Ui {
                     anchor_pos: Vec2::new(anchor_col, anchor_row),
                 })
             }
-            Event::WinExternalPos(event) => {
-                let grid = self.grid_mut(event.grid);
+            Event::WinExternalPos(WinExternalPos { grid, win: _ }) => {
+                let grid = self.grid_mut(grid);
                 grid.window = Window::External;
             }
-            Event::WinHide(event) => self.hide(event.grid),
-            Event::WinClose(event) => {
-                self.hide(event.grid);
-                let grid = self.grid_mut(event.grid);
+            Event::WinHide(WinHide { grid }) => self.hide(grid),
+            Event::WinClose(WinClose { grid }) => {
+                self.hide(grid);
+                let grid = self.grid_mut(grid);
                 grid.window = Window::None;
             }
             Event::WinViewport(_) => {} // For smooth scrolling
-            Event::WinExtmark(_) => {}  // Ignored
+            Event::WinExtmark(_) => {}
 
             Event::PopupmenuShow(event) => self.popupmenu = Some(event),
-            Event::PopupmenuSelect(event) => {
+            Event::PopupmenuSelect(PopupmenuSelect { selected }) => {
                 if let Some(menu) = &mut self.popupmenu {
-                    menu.selected = event.selected
+                    menu.selected = selected
                 }
             }
             Event::PopupmenuHide => self.popupmenu = None,
 
             Event::CmdlineShow(event) => self.cmdline.show(event),
-            Event::CmdlinePos(event) => self.cmdline.set_cursor_pos(event.pos),
-            Event::CmdlineBlockShow(event) => self.cmdline.show_block(event.lines),
-            Event::CmdlineBlockAppend(event) => self.cmdline.append_block(event.line),
+            Event::CmdlinePos(CmdlinePos { pos, level: _ }) => self.cmdline.set_cursor_pos(pos),
+            Event::CmdlineBlockShow(CmdlineBlockShow { lines }) => self.cmdline.show_block(lines),
+            Event::CmdlineBlockAppend(CmdlineBlockAppend { line }) => {
+                self.cmdline.append_block(line)
+            }
             Event::CmdlineSpecialChar(event) => self.cmdline.special(event),
             Event::CmdlineHide => self.cmdline.hide(),
             Event::CmdlineBlockHide => self.cmdline.hide_block(),
 
-            Event::MsgHistoryShow(event) => self.messages.history = event.entries,
-            Event::MsgRuler(event) => self.messages.ruler = event.content,
-            Event::MsgSetPos(event) => {
-                self.show(event.grid);
-                let grid = self.get_or_create_grid(event.grid);
+            Event::MsgHistoryShow(MsgHistoryShow { entries }) => self.messages.history = entries,
+            Event::MsgRuler(MsgRuler { content }) => self.messages.ruler = content,
+            Event::MsgSetPos(MsgSetPos {
+                grid,
+                row,
+                scrolled: _,
+                sep_char: _,
+            }) => {
+                self.show(grid);
+                let grid = self.get_or_create_grid(grid);
                 grid.window = Window::Floating(FloatingWindow {
                     anchor: Anchor::Nw,
                     anchor_grid: 1,
-                    anchor_pos: Vec2::new(0.0, event.row as f64),
+                    anchor_pos: Vec2::new(0.0, row as f64),
                     focusable: false,
                 });
             }
             Event::MsgShow(event) => self.messages.show(event),
-            Event::MsgShowmode(event) => self.messages.showmode = event.content,
-            Event::MsgShowcmd(event) => self.messages.showcmd = event.content,
+            Event::MsgShowmode(MsgShowmode { content }) => self.messages.showmode = content,
+            Event::MsgShowcmd(MsgShowcmd { content }) => self.messages.showcmd = content,
             Event::MsgClear => self.messages.show.clear(),
             Event::MsgHistoryClear => self.messages.history.clear(),
 
