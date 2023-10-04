@@ -185,7 +185,6 @@ impl Pipeline {
         cell_size: Vec2<f32>,
         target_size: Vec2<f32>,
     ) -> Motion {
-        dbg!(delta_seconds);
         self.elapsed += delta_seconds;
         let t = self.t();
 

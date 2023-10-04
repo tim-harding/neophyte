@@ -11,7 +11,7 @@ use crate::{
     ui::Ui,
     util::vec2::Vec2,
 };
-use std::{sync::Arc, time::Instant};
+use std::sync::Arc;
 use swash::shape::ShapeContext;
 use winit::window::Window;
 
@@ -27,7 +27,6 @@ pub struct RenderState {
     shape_context: ShapeContext,
     font_cache: FontCache,
     wants_redraw: bool,
-    previous_frame_time: Option<Instant>,
 }
 
 struct Targets {
@@ -135,7 +134,6 @@ impl RenderState {
             surface,
             surface_config,
             wants_redraw: false,
-            previous_frame_time: None,
         }
     }
 
@@ -172,7 +170,6 @@ impl RenderState {
         self.pipelines
             .blend
             .update(&self.device, &self.targets.monochrome.view);
-        self.previous_frame_time = None;
     }
 
     pub fn resize(&mut self, new_size: Vec2<u32>, cell_size: Vec2<u32>) {
@@ -198,22 +195,11 @@ impl RenderState {
         );
     }
 
-    pub fn maybe_render(&mut self, cell_size: Vec2<u32>) {
+    pub fn maybe_render(&mut self, cell_size: Vec2<u32>, framerate: u32) {
         if !self.wants_redraw {
             return;
         }
         self.wants_redraw = false;
-        let delta_seconds = if let Some(previous_frame_time) = self.previous_frame_time {
-            let now = Instant::now();
-            let delta_seconds = now.duration_since(previous_frame_time).as_secs_f32();
-            self.previous_frame_time = Some(now);
-            delta_seconds
-        } else {
-            self.previous_frame_time = Some(Instant::now());
-            // TODO: This creates a one-frame animation lag. Use the monitor
-            // framerate for the first frame (and possibly subsequent ones)
-            0.
-        };
 
         let output = match self.surface.get_current_texture() {
             Ok(output) => output,
@@ -271,7 +257,7 @@ impl RenderState {
         motion |= self.pipelines.cursor.render(
             &mut encoder,
             &self.targets.color.view,
-            delta_seconds,
+            framerate as f32 / 100_000_000.,
             cell_size.cast_as(),
             target_size.cast_as(),
         );

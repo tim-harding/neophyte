@@ -116,7 +116,13 @@ impl RenderLoop {
 
     pub fn run(mut self, rx: Receiver<RenderEvent>) {
         loop {
-            self.render_state.maybe_render(self.cell_size());
+            let framerate = self
+                .window
+                .current_monitor()
+                .map(|monitor| monitor.refresh_rate_millihertz())
+                .flatten()
+                .unwrap_or(60000);
+            self.render_state.maybe_render(self.cell_size(), framerate);
 
             loop {
                 let event = match rx.try_recv() {
