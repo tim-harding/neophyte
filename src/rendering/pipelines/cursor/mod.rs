@@ -171,6 +171,7 @@ impl Pipeline {
             f32::MAX
         } else {
             let length = length.sqrt() / 100.;
+            let length = length.ln_1p() / 1.;
             let normal = (self.elapsed / length).min(1.);
             let a = 1.0 - normal;
             1.0 - a * a
@@ -185,6 +186,11 @@ impl Pipeline {
         cell_size: Vec2<f32>,
         target_size: Vec2<f32>,
     ) -> Motion {
+        dbg!(delta_seconds);
+        self.elapsed += delta_seconds;
+        let t = self.t();
+
+        let current_position = self.start_position.lerp(self.target_position, t);
         let toward = self.target_position - self.start_position;
         let length = toward.length();
         let direction = if length < 0.25 {
@@ -194,24 +200,27 @@ impl Pipeline {
         };
         let angle = f32::atan2(direction.x, direction.y);
 
-        dbg!(delta_seconds);
-        self.elapsed += delta_seconds;
-        let t = self.t();
-        let current_position = self.start_position.lerp(self.target_position, t);
-
-        let transform = Mat3::scale(target_size.map(f32::recip))
-                    * Mat3::translate(current_position)
-                    * Mat3::translate(cell_size / 2.0)
-                    * Mat3::rotate(-angle)
-                    * Mat3::scale(Vec2::new(1.0, 1.0 + t * 40.0))
-                    * Mat3::rotate(angle)
-                    // * Mat3::skew(Vec2::new(-(angle * 2.0).sin(), 0.0))
-                    * Mat3::translate(-cell_size / 2.0)
-                    * Mat3::scale(cell_size);
+        let a = {
+            let t = 2. * (t - 0.5);
+            1. - t * t
+        };
 
         let transform = Mat3::scale(target_size.map(f32::recip))
             * Mat3::translate(current_position)
+            * Mat3::translate(cell_size / 2.0)
+            * Mat3::rotate(-angle)
+            * Mat3::scale(Vec2::new(
+                1.0,
+                1.0 + (1.0 - t) * length / cell_size.length() * a / 2.,
+            ))
+            * Mat3::rotate(angle)
+            * Mat3::translate(direction * cell_size / 2.0 * (1. - t))
+            * Mat3::translate(-cell_size / 2.0)
             * Mat3::scale(cell_size);
+
+        // let transform = Mat3::scale(target_size.map(f32::recip))
+        //     * Mat3::translate(current_position)
+        //     * Mat3::scale(cell_size);
 
         let motion = if t >= 1.0 {
             Motion::Still
