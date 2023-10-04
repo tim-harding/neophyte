@@ -210,6 +210,8 @@ impl RenderState {
             delta_seconds
         } else {
             self.previous_frame_time = Some(Instant::now());
+            // TODO: This creates a one-frame animation lag. Use the monitor
+            // framerate for the first frame (and possibly subsequent ones)
             0.
         };
 

@@ -14,8 +14,9 @@ pub struct Pipeline {
     bind_group_layout: wgpu::BindGroupLayout,
     sampler: wgpu::Sampler,
     fragment_push_constants: FragmentPushConstants,
-    current_position: Vec2<f32>,
+    start_position: Vec2<f32>,
     target_position: Vec2<f32>,
+    elapsed: f32,
     fill: Vec2<f32>,
 }
 
@@ -105,7 +106,8 @@ impl Pipeline {
             bind_group,
             sampler,
             target_position: Vec2::default(),
-            current_position: Vec2::default(),
+            start_position: Vec2::default(),
+            elapsed: f32::MAX,
             fragment_push_constants: FragmentPushConstants::default(),
             fill: Vec2::default(),
         }
@@ -147,8 +149,10 @@ impl Pipeline {
 
         let new_target = ui.position(ui.cursor.grid) + ui.cursor.pos.cast_as();
         let new_target = cell_size * new_target.cast_as();
-        let difference = (self.current_position - new_target).map(f32::abs);
-        if self.current_position == Vec2::default()
+        let current_position = self.start_position.lerp(self.target_position, self.t());
+        let difference = (current_position - new_target).map(f32::abs);
+
+        if current_position == Vec2::default()
             || (difference.x < f32::EPSILON
                 && difference.y <= cell_size.y + 0.01
                 && difference.y > f32::EPSILON)
@@ -156,16 +160,34 @@ impl Pipeline {
                 && difference.x <= cell_size.x + 0.01
                 && difference.x > f32::EPSILON)
         {
-            self.current_position = new_target;
+            self.start_position = new_target;
+        } else if new_target != self.target_position {
+            self.start_position = current_position;
+            self.elapsed = 0.0;
         }
-        self.target_position = new_target;
 
+        self.target_position = new_target;
         self.bind_group = bind_group(
             device,
             &self.bind_group_layout,
             monochrome_target,
             &self.sampler,
         );
+    }
+
+    fn t(&self) -> f32 {
+        // let t = ((length + 1.).ln() + length.sqrt()) * 10. * delta_seconds;
+        // let t = t.min(length);
+        let length = (self.target_position - self.start_position).length();
+        if length < 0.25 {
+            f32::MAX
+        } else {
+            let length = length.sqrt() / 100.;
+            let normal = (self.elapsed / length).min(1.);
+            // normal.sqrt() * 20.
+            let a = 1.0 - normal;
+            1.0 - a * a
+        }
     }
 
     pub fn render(
@@ -176,20 +198,38 @@ impl Pipeline {
         cell_size: Vec2<f32>,
         target_size: Vec2<f32>,
     ) -> Motion {
-        let toward = self.target_position - self.current_position;
+        let toward = self.target_position - self.start_position;
         let length = toward.length();
-        // TODO: This creates a one-frame lag
-        let (motion, angle) = if delta_seconds == 0. {
-            (Motion::Animating, 0.0)
-        } else if length > 0.025 {
-            let direction = toward / length;
-            let t = ((length + 1.).ln() + length.sqrt()) * 10. * delta_seconds;
-            let t = t.min(length);
-            self.current_position += direction * t;
-            (Motion::Animating, f32::atan2(direction.x, direction.y))
+        let direction = if length < 0.25 {
+            Vec2::new(1.0, 0.0)
         } else {
-            self.current_position = self.target_position;
-            (Motion::Still, 0.0)
+            toward / length
+        };
+        let angle = f32::atan2(direction.x, direction.y);
+
+        dbg!(delta_seconds);
+        self.elapsed += delta_seconds;
+        let t = self.t();
+        let current_position = self.start_position.lerp(self.target_position, t);
+
+        let transform = Mat3::scale(target_size.map(f32::recip))
+                    * Mat3::translate(current_position)
+                    * Mat3::translate(cell_size / 2.0)
+                    * Mat3::rotate(-angle)
+                    * Mat3::scale(Vec2::new(1.0, 1.0 + t * 40.0))
+                    * Mat3::rotate(angle)
+                    // * Mat3::skew(Vec2::new(-(angle * 2.0).sin(), 0.0))
+                    * Mat3::translate(-cell_size / 2.0)
+                    * Mat3::scale(cell_size);
+
+        let transform = Mat3::scale(target_size.map(f32::recip))
+            * Mat3::translate(current_position)
+            * Mat3::scale(cell_size);
+
+        let motion = if t >= 1.0 {
+            Motion::Still
+        } else {
+            Motion::Animating
         };
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -209,26 +249,7 @@ impl Pipeline {
         render_pass.set_push_constants(
             wgpu::ShaderStages::VERTEX,
             0,
-            cast_slice(&[VertexPushConstants {
-                // transform: Mat3::scale(target_size.map(f32::recip))
-                //     * Mat3::translate(self.current_position)
-                //     * Mat3::translate(cell_size / 2.0)
-                //     * Mat3::rotate(-angle)
-                //     * Mat3::scale(Vec2::new(1.0, 1.0 + length / cell_size.y))
-                //     * Mat3::translate(Vec2::new(
-                //         0.0,
-                //         (cell_size.y / 2.0).min(length / cell_size.y),
-                //     ))
-                //     * Mat3::rotate(angle)
-                //     * Mat3::scale(cell_size)
-                //     * Mat3::translate(Vec2::new(-0.5, -0.5)),
-                transform: Mat3::scale(target_size.map(f32::recip))
-                    * Mat3::translate(self.current_position)
-                    * Mat3::translate(cell_size / 2.0)
-                    * Mat3::skew(Vec2::new((angle * 2.0).sin(), 0.0))
-                    * Mat3::translate(-cell_size / 2.0)
-                    * Mat3::scale(cell_size),
-            }]),
+            cast_slice(&[VertexPushConstants { transform }]),
         );
         render_pass.set_push_constants(
             wgpu::ShaderStages::FRAGMENT,

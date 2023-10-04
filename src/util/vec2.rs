@@ -79,25 +79,27 @@ where
     }
 }
 
-impl Vec2<f32> {
-    pub fn length(&self) -> f32 {
-        self.length_squared().sqrt()
-    }
+macro_rules! float_impl {
+    ($t:ty) => {
+        impl Vec2<$t> {
+            pub fn length(&self) -> $t {
+                self.length_squared().sqrt()
+            }
 
-    pub fn normalized(self) -> Self {
-        self / self.length()
-    }
+            pub fn normalized(self) -> Self {
+                self / self.length()
+            }
+
+            pub fn lerp(self, other: Self, t: $t) -> Self {
+                let t = t.max(0.0).min(1.0);
+                self * (1.0 - t) + other * t
+            }
+        }
+    };
 }
 
-impl Vec2<f64> {
-    pub fn length(&self) -> f64 {
-        self.length_squared().sqrt()
-    }
-
-    pub fn normalized(self) -> Self {
-        self / self.length()
-    }
-}
+float_impl!(f32);
+float_impl!(f64);
 
 impl<T> From<PhysicalSize<T>> for Vec2<T> {
     fn from(value: PhysicalSize<T>) -> Self {
