@@ -21,8 +21,7 @@ impl Mat3 {
     }
 
     pub fn rotate(radians: f32) -> Self {
-        let sin = radians.sin();
-        let cos = radians.cos();
+        let (sin, cos) = radians.sin_cos();
         Self {
             x: Vec3::new(cos, sin, 0.0),
             y: Vec3::new(-sin, cos, 0.0),
@@ -42,6 +41,14 @@ impl Mat3 {
         Self {
             x: Vec3::X * axes.x,
             y: Vec3::Y * axes.y,
+            z: Vec3::Z,
+        }
+    }
+
+    pub fn skew(axes: Vec2<f32>) -> Self {
+        Self {
+            x: Vec3::new(1.0, axes.x, 0.0),
+            y: Vec3::new(axes.y, 1.0, 0.0),
             z: Vec3::Z,
         }
     }

@@ -178,17 +178,18 @@ impl Pipeline {
     ) -> Motion {
         let toward = self.target_position - self.current_position;
         let length = toward.length();
-        let motion = if delta_seconds == 0. {
-            Motion::Animating
+        // TODO: This creates a one-frame lag
+        let (motion, angle) = if delta_seconds == 0. {
+            (Motion::Animating, 0.0)
         } else if length > 0.025 {
             let direction = toward / length;
-            let t = ((length + 1.).ln() + length.sqrt()) * 200. * delta_seconds;
+            let t = ((length + 1.).ln() + length.sqrt()) * 10. * delta_seconds;
             let t = t.min(length);
             self.current_position += direction * t;
-            Motion::Animating
+            (Motion::Animating, f32::atan2(direction.x, direction.y))
         } else {
             self.current_position = self.target_position;
-            Motion::Still
+            (Motion::Still, 0.0)
         };
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -209,8 +210,23 @@ impl Pipeline {
             wgpu::ShaderStages::VERTEX,
             0,
             cast_slice(&[VertexPushConstants {
+                // transform: Mat3::scale(target_size.map(f32::recip))
+                //     * Mat3::translate(self.current_position)
+                //     * Mat3::translate(cell_size / 2.0)
+                //     * Mat3::rotate(-angle)
+                //     * Mat3::scale(Vec2::new(1.0, 1.0 + length / cell_size.y))
+                //     * Mat3::translate(Vec2::new(
+                //         0.0,
+                //         (cell_size.y / 2.0).min(length / cell_size.y),
+                //     ))
+                //     * Mat3::rotate(angle)
+                //     * Mat3::scale(cell_size)
+                //     * Mat3::translate(Vec2::new(-0.5, -0.5)),
                 transform: Mat3::scale(target_size.map(f32::recip))
                     * Mat3::translate(self.current_position)
+                    * Mat3::translate(cell_size / 2.0)
+                    * Mat3::skew(Vec2::new((angle * 2.0).sin(), 0.0))
+                    * Mat3::translate(-cell_size / 2.0)
                     * Mat3::scale(cell_size),
             }]),
         );

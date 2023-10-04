@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 
 #[repr(C, align(8))]
@@ -19,6 +19,13 @@ impl<T> Vec2<T> {
 
     pub fn map(self, f: fn(T) -> T) -> Self {
         Self::new(f(self.x), f(self.y))
+    }
+
+    pub fn transpose(self) -> Self {
+        Self {
+            x: self.y,
+            y: self.x,
+        }
     }
 
     pub fn cast<F>(self) -> Vec2<F>
@@ -277,6 +284,20 @@ where
     fn div_assign(&mut self, rhs: T) {
         self.x /= rhs;
         self.y /= rhs;
+    }
+}
+
+impl<T> Neg for Vec2<T>
+where
+    T: Neg<Output = T>,
+{
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self {
+            x: -self.x,
+            y: -self.y,
+        }
     }
 }
 
