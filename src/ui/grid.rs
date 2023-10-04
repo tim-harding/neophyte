@@ -20,6 +20,7 @@ pub struct Grid {
     pub buffer: Vec<Cell>,
     pub window: Window,
     pub dirty: bool,
+    pub scroll_delta: i64,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -96,7 +97,7 @@ impl Grid {
     }
 
     pub fn resize(&mut self, size: Vec2<u64>) {
-        self.dirty = true;
+        self.set_dirty();
         let mut old = std::mem::take(&mut self.buffer).into_iter();
         self.buffer = vec![Cell::default(); size.area() as usize];
         for y in 0..self.size.y.min(size.y) {
@@ -109,6 +110,60 @@ impl Grid {
             }
         }
         self.size = size;
+    }
+
+    pub fn scroll(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64) {
+        self.set_dirty();
+        let height = self.size.y;
+        let mut cut_and_paste = move |src_y, dst_y| {
+            for x in left..right {
+                let t = self.take(Vec2::new(x, src_y));
+                self.set(Vec2::new(x, dst_y), t);
+            }
+        };
+        let dst_top = top as i64 - rows;
+        let dst_bot = bot as i64 - rows;
+        if rows > 0 {
+            for dst_y in dst_top.max(0)..dst_bot.max(0) {
+                let y = dst_y + rows;
+                cut_and_paste(y as u64, dst_y as u64);
+            }
+        } else {
+            let dst_top = dst_top.min(height as i64);
+            let dst_bot = dst_bot.min(height as i64);
+            for dst_y in (dst_top..dst_bot).rev() {
+                cut_and_paste((dst_y + rows) as u64, dst_y as u64);
+            }
+        }
+    }
+
+    pub fn grid_line(&mut self, row: u64, col_start: u64, cells: Vec<grid_line::Cell>) {
+        self.set_dirty();
+        let mut row = self.row_mut(row).skip(col_start as usize);
+        let mut highlight = 0;
+        for cell in cells {
+            if let Some(hl_id) = cell.hl_id {
+                highlight = hl_id;
+            }
+            if let Some(repeat) = cell.repeat {
+                if repeat == 0 {
+                    continue;
+                }
+                for _ in 0..repeat - 1 {
+                    let dst = row.next().unwrap();
+                    dst.text = cell.text.clone();
+                    dst.highlight = highlight;
+                }
+            }
+            let dst = row.next().unwrap();
+            dst.text = cell.text;
+            dst.highlight = highlight;
+        }
+    }
+
+    fn set_dirty(&mut self) {
+        self.dirty = true;
+        self.scroll_delta = 0;
     }
 
     pub fn index_for(&self, position: Vec2<u64>) -> usize {
@@ -132,31 +187,6 @@ impl Grid {
     pub fn clear(&mut self) {
         for dst in self.buffer.iter_mut() {
             *dst = Cell::default();
-        }
-    }
-
-    pub fn scroll(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64) {
-        self.dirty = true;
-        let height = self.size.y;
-        let mut cut_and_paste = move |src_y, dst_y| {
-            for x in left..right {
-                let t = self.take(Vec2::new(x, src_y));
-                self.set(Vec2::new(x, dst_y), t);
-            }
-        };
-        let dst_top = top as i64 - rows;
-        let dst_bot = bot as i64 - rows;
-        if rows > 0 {
-            for dst_y in dst_top.max(0)..dst_bot.max(0) {
-                let y = dst_y + rows;
-                cut_and_paste(y as u64, dst_y as u64);
-            }
-        } else {
-            let dst_top = dst_top.min(height as i64);
-            let dst_bot = dst_bot.min(height as i64);
-            for dst_y in (dst_top..dst_bot).rev() {
-                cut_and_paste((dst_y + rows) as u64, dst_y as u64);
-            }
         }
     }
 
@@ -216,30 +246,6 @@ impl Grid {
                 let i = self.index_for(pos);
                 self.buffer[i].highlight = cursor.hl;
             }
-        }
-    }
-
-    pub fn grid_line(&mut self, row: u64, col_start: u64, cells: Vec<grid_line::Cell>) {
-        self.dirty = true;
-        let mut row = self.row_mut(row).skip(col_start as usize);
-        let mut highlight = 0;
-        for cell in cells {
-            if let Some(hl_id) = cell.hl_id {
-                highlight = hl_id;
-            }
-            if let Some(repeat) = cell.repeat {
-                if repeat == 0 {
-                    continue;
-                }
-                for _ in 0..repeat - 1 {
-                    let dst = row.next().unwrap();
-                    dst.text = cell.text.clone();
-                    dst.highlight = highlight;
-                }
-            }
-            let dst = row.next().unwrap();
-            dst.text = cell.text;
-            dst.highlight = highlight;
         }
     }
 }

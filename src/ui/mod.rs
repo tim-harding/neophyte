@@ -15,7 +15,7 @@ use crate::{
         DefaultColorsSet, Event, GridClear, GridCursorGoto, GridDestroy, GridLine, GridResize,
         GridScroll, HlAttrDefine, HlGroupSet, ModeChange, ModeInfoSet, MsgHistoryShow, MsgRuler,
         MsgSetPos, MsgShowcmd, MsgShowmode, PopupmenuSelect, PopupmenuShow, TablineUpdate,
-        WinClose, WinExternalPos, WinFloatPos, WinHide, WinPos,
+        WinClose, WinExternalPos, WinFloatPos, WinHide, WinPos, WinViewport,
     },
     ui::grid::{FloatingWindow, Window},
     util::vec2::Vec2,
@@ -219,7 +219,19 @@ impl Ui {
                 let grid = self.grid_mut(grid);
                 grid.window = Window::None;
             }
-            Event::WinViewport(_) => {} // For smooth scrolling
+            Event::WinViewport(WinViewport {
+                grid,
+                scroll_delta,
+                win: _,
+                topline: _,
+                botline: _,
+                curline: _,
+                curcol: _,
+                line_count: _,
+            }) => {
+                let grid = self.grid_mut(grid);
+                grid.scroll_delta = scroll_delta;
+            }
             Event::WinExtmark(_) => {}
 
             Event::PopupmenuShow(event) => self.popupmenu = Some(event),
