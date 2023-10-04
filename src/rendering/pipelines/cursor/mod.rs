@@ -107,7 +107,7 @@ impl Pipeline {
             sampler,
             target_position: Vec2::default(),
             start_position: Vec2::default(),
-            elapsed: f32::MAX,
+            elapsed: 1.0,
             fragment_push_constants: FragmentPushConstants::default(),
             fill: Vec2::default(),
         }
@@ -168,12 +168,12 @@ impl Pipeline {
     fn t(&self) -> f32 {
         let length = (self.target_position - self.start_position).length();
         if length < 0.25 {
-            f32::MAX
+            1.0
         } else {
-            let length = length.ln_1p() / 30.;
+            let length = length.sqrt() / 100.;
             let normal = (self.elapsed / length).min(1.);
-            let a = 1.0 - normal;
-            1.0 - a * a
+            let t = 1.0 - normal;
+            1.0 - t * t
         }
     }
 
@@ -187,6 +187,7 @@ impl Pipeline {
     ) -> Motion {
         self.elapsed += delta_seconds;
         let t = self.t();
+        let cell_diagonal = cell_size.length();
 
         let current_position = self.start_position.lerp(self.target_position, t);
         let toward = self.target_position - self.start_position;
@@ -198,10 +199,12 @@ impl Pipeline {
         };
         let angle = f32::atan2(direction.x, direction.y);
 
-        let a = {
+        let arch = {
             let t = 2. * (t - 0.5);
             1. - t * t
         };
+
+        let hyperbola = { (1. + length * length).sqrt() - cell_diagonal };
 
         let transform = Mat3::scale(target_size.map(f32::recip))
             * Mat3::translate(current_position)
@@ -209,10 +212,10 @@ impl Pipeline {
             * Mat3::rotate(-angle)
             * Mat3::scale(Vec2::new(
                 1.0,
-                1.0 + (1.0 - t) * length / cell_size.length() * a / 2.,
+                1.0 + (1.0 - t) * hyperbola / cell_diagonal * arch / 2.,
             ))
             * Mat3::rotate(angle)
-            * Mat3::translate(direction * cell_size / 2.0 * (1. - t))
+            * Mat3::translate(direction * cell_size * (1. - t))
             * Mat3::translate(-cell_size / 2.0)
             * Mat3::scale(cell_size)
             * Mat3::translate(Vec2::new(0.0, 1.0))
