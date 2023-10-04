@@ -45,6 +45,7 @@ impl Mat3 {
         }
     }
 
+    #[allow(unused)]
     pub fn skew(axes: Vec2<f32>) -> Self {
         Self {
             x: Vec3::new(1.0, axes.x, 0.0),

@@ -170,8 +170,7 @@ impl Pipeline {
         if length < 0.25 {
             f32::MAX
         } else {
-            let length = length.sqrt() / 100.;
-            let length = length.ln_1p() / 1.;
+            let length = length.ln_1p() / 30.;
             let normal = (self.elapsed / length).min(1.);
             let a = 1.0 - normal;
             1.0 - a * a
@@ -216,11 +215,10 @@ impl Pipeline {
             * Mat3::rotate(angle)
             * Mat3::translate(direction * cell_size / 2.0 * (1. - t))
             * Mat3::translate(-cell_size / 2.0)
-            * Mat3::scale(cell_size);
-
-        // let transform = Mat3::scale(target_size.map(f32::recip))
-        //     * Mat3::translate(current_position)
-        //     * Mat3::scale(cell_size);
+            * Mat3::scale(cell_size)
+            * Mat3::translate(Vec2::new(0.0, 1.0))
+            * Mat3::scale(self.fill)
+            * Mat3::translate(Vec2::new(0.0, -1.0));
 
         let motion = if t >= 1.0 {
             Motion::Still
