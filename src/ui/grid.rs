@@ -2,7 +2,6 @@
 
 use bitfield_struct::bitfield;
 use compact_str::CompactString;
-use smallvec::SmallVec;
 
 use super::{
     packed_char::{PackedChar, U22},

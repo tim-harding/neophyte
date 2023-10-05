@@ -4,11 +4,19 @@ use crate::{
         cache::{CacheValue, FontCache, GlyphKind},
         fonts::{FontStyle, Fonts},
     },
-    ui::{self, packed_char::PackedCharContents, Highlights},
+    ui::{
+        grid::{Cell as UiCell, Grid as UiGrid},
+        packed_char::PackedCharContents,
+        Highlights,
+    },
     util::vec2::Vec2,
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
-use std::{num::NonZeroU64, str::Chars};
+use std::{
+    num::NonZeroU64,
+    ops::{Add, Sub},
+    str::Chars,
+};
 use swash::{
     shape::ShapeContext,
     text::{
@@ -32,6 +40,7 @@ pub struct Grid {
     emoji_count: u32,
     offset: Vec2<i32>,
     size: Vec2<u32>,
+    scrolling: ScrollingGrids,
 }
 
 impl Grid {
@@ -40,6 +49,14 @@ impl Grid {
             id,
             ..Default::default()
         }
+    }
+
+    pub fn add_scrolling_grid(&mut self, grid: &UiGrid, offset: i64, current_grid_height: usize) {
+        self.scrolling.push(grid, offset, current_grid_height);
+    }
+
+    pub fn finish_scroll(&mut self) {
+        self.scrolling.finish_scroll();
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -52,7 +69,7 @@ impl Grid {
         fonts: &mut Fonts,
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
-        grid: &ui::grid::Grid,
+        grid: &UiGrid,
     ) {
         let metrics = fonts.metrics();
         let metrics_px = metrics.into_pixels();
@@ -397,5 +414,187 @@ impl<'a> Iterator for OnceOrChars<'a> {
             OnceOrChars::Char(iter) => iter.next(),
             OnceOrChars::Chars(iter) => iter.next(),
         }
+    }
+}
+
+// TODO: Remove scrolling grids that have exited the viewport
+#[derive(Default)]
+struct ScrollingGrids {
+    scrolling_count: usize,
+    scrolling: Vec<GridPart>,
+}
+
+impl ScrollingGrids {
+    pub fn new(grid: UiGrid) -> Self {
+        Self {
+            scrolling_count: 0,
+            scrolling: vec![],
+        }
+    }
+
+    pub fn finish_scroll(&mut self) {
+        self.scrolling_count = 0;
+        for grid in self.scrolling.iter_mut() {
+            grid.clear();
+        }
+    }
+
+    // TODO: Better to take ownership of previous grid?
+    pub fn push(&mut self, grid: &UiGrid, offset: i64, current_grid_height: usize) {
+        if self.scrolling_count == self.scrolling.len() {
+            self.scrolling.push(GridPart::new(grid.clone()));
+        } else {
+            let part = &mut self.scrolling[self.scrolling_count];
+            part.grid.copy_from(grid);
+        }
+
+        self.scrolling_count += 1;
+        let mut cover = Range::until(current_grid_height as i64);
+        for part in self.scrolling.iter_mut().take(self.scrolling_count) {
+            part.offset += offset;
+            let grid_range = Range::until(part.grid.size.y as i64) + part.offset;
+            let grid_range = grid_range.cover(cover) - part.offset;
+            part.start = grid_range.start.try_into().unwrap();
+            part.end = grid_range.end.try_into().unwrap();
+            cover = cover.union(grid_range);
+        }
+    }
+
+    pub fn rows<'a, 'b: 'a>(
+        &'a self,
+        current: &'b UiGrid,
+    ) -> impl Iterator<Item = (i64, impl Iterator<Item = &'a UiCell> + '_ + Clone)> + '_ + Clone
+    {
+        current
+            .rows()
+            .enumerate()
+            .map(|(i, row)| (i as i64, row))
+            .chain(
+                self.scrolling
+                    .iter()
+                    .take(self.scrolling_count)
+                    .rev()
+                    .flat_map(|part| {
+                        part.grid
+                            .rows()
+                            .enumerate()
+                            .skip(part.start)
+                            .take(part.end - part.start)
+                            .map(|(i, cells)| (i as i64 + part.offset, cells))
+                    }),
+            )
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+struct Range {
+    start: i64,
+    end: i64,
+}
+
+impl Range {
+    pub fn new(start: i64, end: i64) -> Self {
+        assert!(end >= start);
+        Self { start, end }
+    }
+
+    pub fn until(end: i64) -> Self {
+        Self::new(0, end)
+    }
+
+    pub const fn len(&self) -> usize {
+        (self.end - self.start) as usize
+    }
+
+    pub fn union(self, other: Self) -> Self {
+        Self {
+            start: self.start.min(other.start),
+            end: self.end.min(other.end),
+        }
+    }
+
+    pub fn cover(self, cover: Self) -> Self {
+        if self.start >= cover.start && self.end >= cover.end {
+            //     |
+            // --- |
+            // --- |
+            // ---   <-- cover.end
+            // ---
+            //       <-- self.end
+            Self::new(cover.end, self.end)
+        } else if self.start <= cover.start && self.end <= cover.end {
+            // ---   <-- self.start
+            // ---
+            // --- | <-- cover.start
+            // --- |
+            //     |
+            Self::new(self.start, cover.start)
+        } else if self.start <= cover.start && self.end <= cover.start {
+            // ---   <-- self.start
+            // ---
+            //       <-- self.end
+            //     |
+            //     |
+            self
+        } else if self.start >= cover.end && self.end >= cover.end {
+            //     |
+            //     |
+            // ---   <-- self.start
+            // ---
+            //       <-- self.end
+            self
+        } else if self.start >= cover.start && self.end <= cover.end {
+            //     |
+            // --- |
+            // --- |
+            //     |
+            Self::new(self.start, self.start)
+        } else {
+            // NOTE: We expect cover to be larger than or equal in size to self, so we use this
+            // default for the other possibilities. In rare cases where grid shrinks in the middle
+            // of an animation we just don't draw the covered grid.
+            Self::new(self.start, self.start)
+        }
+    }
+}
+
+impl Add<i64> for Range {
+    type Output = Self;
+
+    fn add(self, rhs: i64) -> Self::Output {
+        Self::new(self.start + rhs, self.end + rhs)
+    }
+}
+
+impl Sub<i64> for Range {
+    type Output = Self;
+
+    fn sub(self, rhs: i64) -> Self::Output {
+        Self::new(self.start - rhs, self.end - rhs)
+    }
+}
+
+struct GridPart {
+    grid: UiGrid,
+    offset: i64,
+    start: usize,
+    end: usize,
+}
+
+impl GridPart {
+    pub fn new(grid: UiGrid) -> Self {
+        Self {
+            grid,
+            offset: 0,
+            start: 0,
+            end: 0,
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.grid.clear();
+        self.offset = 0;
+        self.start = 0;
+        self.end = 0;
     }
 }
