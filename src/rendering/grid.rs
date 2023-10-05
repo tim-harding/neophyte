@@ -4,11 +4,11 @@ use crate::{
         cache::{CacheValue, FontCache, GlyphKind},
         fonts::{FontStyle, Fonts},
     },
-    ui::{self, Highlights},
+    ui::{self, packed_char::PackedCharContents, Highlights},
     util::vec2::Vec2,
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
-use std::num::NonZeroU64;
+use std::{num::NonZeroU64, str::Chars};
 use swash::{
     shape::ShapeContext,
     text::{
@@ -76,7 +76,13 @@ impl Grid {
             let mut parser = Parser::new(
                 Script::Latin,
                 cell_line.enumerate().flat_map(|(cell_i, cell)| {
-                    cell.text.chars().map(move |c| Token {
+                    let iter: OnceOrChars = match cell.text.contents() {
+                        PackedCharContents::Char(c) => c.into(),
+                        PackedCharContents::U22(u22) => {
+                            grid.overflow[u22.as_u32() as usize].chars().into()
+                        }
+                    };
+                    iter.map(move |c| Token {
                         ch: c,
                         offset: cell_i as u32,
                         len: 0,
@@ -362,4 +368,33 @@ pub struct Cell {
     pub position: Vec2<i32>,
     pub glyph_index: u32,
     pub highlight_index: u32,
+}
+
+#[derive(Clone)]
+enum OnceOrChars<'a> {
+    Char(std::iter::Once<char>),
+    Chars(Chars<'a>),
+}
+
+impl<'a> From<char> for OnceOrChars<'a> {
+    fn from(c: char) -> Self {
+        Self::Char(std::iter::once(c))
+    }
+}
+
+impl<'a> From<Chars<'a>> for OnceOrChars<'a> {
+    fn from(chars: Chars<'a>) -> Self {
+        Self::Chars(chars)
+    }
+}
+
+impl<'a> Iterator for OnceOrChars<'a> {
+    type Item = char;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            OnceOrChars::Char(iter) => iter.next(),
+            OnceOrChars::Chars(iter) => iter.next(),
+        }
+    }
 }

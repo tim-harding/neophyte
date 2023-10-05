@@ -1,11 +1,15 @@
 #![allow(unused)]
 
+use compact_str::CompactString;
+
 use super::{
+    packed_char::{PackedChar, U22},
     window::{Window, WindowOffset},
     Highlights,
 };
 use crate::{
     event::{grid_line, hl_attr_define::Attributes, Anchor, GridScroll, HlAttrDefine},
+    ui::packed_char::PackedCharContents,
     util::vec2::Vec2,
 };
 use std::{
@@ -24,12 +28,22 @@ pub struct Grid {
     pub window: Window,
     pub dirty: bool,
     pub scroll_delta: i64,
+    pub overflow: Vec<CompactString>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Cell {
-    pub text: String,
-    pub highlight: u64,
+    pub text: PackedChar,
+    pub highlight: u32,
+}
+
+impl Default for Cell {
+    fn default() -> Self {
+        Self {
+            text: PackedChar::from_char('\0'),
+            highlight: 0,
+        }
+    }
 }
 
 impl Grid {
@@ -83,25 +97,39 @@ impl Grid {
 
     pub fn grid_line(&mut self, row: u64, col_start: u64, cells: Vec<grid_line::Cell>) {
         self.set_dirty();
-        let mut row = self.row_mut(row).skip(col_start as usize);
+
+        // Inlined self.row_mut() to satisfy borrow checker
+        let w = self.size.x as usize;
+        let start = row as usize * w;
+        let end = start + w;
+        let mut row = self.buffer[start..end].iter_mut().skip(col_start as usize);
+
         let mut highlight = 0;
         for cell in cells {
             if let Some(hl_id) = cell.hl_id {
                 highlight = hl_id;
             }
-            if let Some(repeat) = cell.repeat {
-                if repeat == 0 {
-                    continue;
+
+            let repeat = cell.repeat.unwrap_or(1);
+            let mut chars = cell.text.chars();
+            let packed = match (chars.next(), chars.next()) {
+                (None, None) => PackedChar::from_char(' '),
+                (None, Some(c)) => unreachable!(),
+                (Some(c), None) => PackedChar::from_char(c),
+                (Some(c1), Some(c2)) => {
+                    let i: u32 = self.overflow.len().try_into().unwrap();
+                    self.overflow.push(cell.text.into());
+                    PackedChar::from_u22(U22::from_u32(i).unwrap())
                 }
-                for _ in 0..repeat - 1 {
-                    let dst = row.next().unwrap();
-                    dst.text = cell.text.clone();
-                    dst.highlight = highlight;
-                }
+            };
+            let cell = Cell {
+                text: packed,
+                highlight: highlight.try_into().unwrap(),
+            };
+
+            for _ in 0..repeat {
+                *row.next().unwrap() = cell;
             }
-            let dst = row.next().unwrap();
-            dst.text = cell.text;
-            dst.highlight = highlight;
         }
     }
 
@@ -188,7 +216,7 @@ impl Grid {
             let pos = cursor_pos + start;
             if let Ok(pos) = pos.try_cast() {
                 let i = self.index_for(pos);
-                self.buffer[i].highlight = cursor.hl;
+                self.buffer[i].highlight = cursor.hl.try_into().unwrap();
             }
         }
     }
@@ -200,12 +228,15 @@ impl Debug for Grid {
         for row in self.rows() {
             write!(f, "┃");
             for cell in row {
-                let c = if cell.text.is_empty() {
-                    " "
-                } else {
-                    cell.text.as_str()
-                };
-                write!(f, "{}", cell.text)?;
+                match cell.text.contents() {
+                    PackedCharContents::Char(c) => {
+                        write!(f, "{}", c)?;
+                    }
+                    PackedCharContents::U22(u22) => {
+                        let s = &self.overflow[u22.as_u32() as usize];
+                        write!(f, "{s}");
+                    }
+                }
             }
             writeln!(f, "┃")?;
         }
