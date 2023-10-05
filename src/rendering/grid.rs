@@ -64,7 +64,7 @@ impl Grid {
         self.cell_fill.clear();
 
         for cell in grid.buffer.iter() {
-            self.cell_fill.push(cell.highlight as u32);
+            self.cell_fill.push(cell.highlight);
         }
 
         for (cell_line_i, cell_line) in grid.rows().enumerate() {
@@ -83,7 +83,7 @@ impl Grid {
                         offset: cell_i as u32,
                         len: 0,
                         info: c.into(),
-                        data: cell.highlight as u32,
+                        data: cell.highlight,
                     })
                 }),
             );

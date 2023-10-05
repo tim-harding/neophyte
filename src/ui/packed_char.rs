@@ -52,7 +52,7 @@ impl PackedChar {
 
     pub fn contents(self) -> PackedCharContents {
         let c = self.0 & Self::CHAR_MASK;
-        if c < Self::SURROGATE_LOW || c > Self::SURROGATE_HIGH {
+        if !(Self::SURROGATE_LOW..=Self::SURROGATE_HIGH).contains(&c) {
             // TODO: Make this function const when from_u32_unchecked as const
             // is stablized.
             PackedCharContents::Char(unsafe { char::from_u32_unchecked(c) })

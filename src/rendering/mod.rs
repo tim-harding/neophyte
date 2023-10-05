@@ -119,8 +119,7 @@ impl RenderLoop {
             let framerate = self
                 .window
                 .current_monitor()
-                .map(|monitor| monitor.refresh_rate_millihertz())
-                .flatten()
+                .and_then(|monitor| monitor.refresh_rate_millihertz())
                 .unwrap_or(60000);
             self.render_state.maybe_render(self.cell_size(), framerate);
 
@@ -166,7 +165,7 @@ impl RenderLoop {
                         };
 
                         let Some(grid) = self.ui.grid_under_cursor(
-                            self.mouse.position.into(),
+                            self.mouse.position,
                             self.fonts.metrics().into_pixels().cell_size().cast(),
                         ) else {
                             continue;
