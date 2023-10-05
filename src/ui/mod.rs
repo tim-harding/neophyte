@@ -6,10 +6,7 @@ pub mod packed_char;
 pub mod window;
 
 use self::{
-    cmdline::Cmdline,
-    grid::{CursorRenderInfo, DoubleBufferGrid},
-    messages::Messages,
-    options::Options,
+    cmdline::Cmdline, grid::DoubleBufferGrid, messages::Messages, options::Options,
     window::WindowOffset,
 };
 use crate::{
@@ -333,19 +330,6 @@ impl Ui {
             }
         } else {
             Vec2::default()
-        }
-    }
-
-    fn cursor_render_info(&self, grid: u64) -> Option<CursorRenderInfo> {
-        if self.cursor.enabled && grid == self.cursor.grid {
-            self.highlight_groups
-                .get("Cursor")
-                .map(|&hl| CursorRenderInfo {
-                    hl,
-                    pos: self.cursor.pos,
-                })
-        } else {
-            None
         }
     }
 
