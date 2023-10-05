@@ -63,6 +63,14 @@ impl Grids {
             };
             let grid = &mut self.grids[index];
 
+            if ui_grid.scroll_delta != 0 {
+                grid.add_scrolling_grid(
+                    ui_grid.previous(),
+                    ui_grid.scroll_delta,
+                    ui_grid.current().size.y as usize,
+                );
+            }
+
             if ui_grid.is_grid_dirty() {
                 grid.update_grid(
                     device,

@@ -276,7 +276,7 @@ impl DoubleBufferGrid {
         &mut self.current
     }
 
-    pub fn previous(&mut self) -> &Grid {
+    pub fn previous(&self) -> &Grid {
         &self.previous
     }
 

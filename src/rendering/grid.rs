@@ -84,7 +84,7 @@ impl Grid {
             self.cell_fill.push(cell.highlight);
         }
 
-        for (cell_line_i, cell_line) in grid.rows().enumerate() {
+        for (cell_line_i, cell_line) in self.scrolling.rows(grid) {
             let mut cluster = CharCluster::new();
             let mut parser = Parser::new(
                 Script::Latin,
@@ -167,7 +167,8 @@ impl Grid {
                                     + Vec2::new(
                                         (glyph.x * metrics.scale_factor).round() as i32 + x as i32,
                                         (glyph.y * metrics.scale_factor
-                                            + (cell_line_i as u32 * cell_size.y + metrics_px.em)
+                                            + (cell_line_i * cell_size.y as i64
+                                                + metrics_px.em as i64)
                                                 as f32)
                                             .round() as i32,
                                     );
@@ -425,11 +426,8 @@ struct ScrollingGrids {
 }
 
 impl ScrollingGrids {
-    pub fn new(grid: UiGrid) -> Self {
-        Self {
-            scrolling_count: 0,
-            scrolling: vec![],
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn finish_scroll(&mut self) {
@@ -450,10 +448,15 @@ impl ScrollingGrids {
 
         self.scrolling_count += 1;
         let mut cover = Range::until(current_grid_height as i64);
+        dbg!(cover);
         for part in self.scrolling.iter_mut().take(self.scrolling_count) {
-            part.offset += offset;
+            part.offset -= offset;
+            dbg!(part.offset);
             let grid_range = Range::until(part.grid.size.y as i64) + part.offset;
+            dbg!(grid_range);
+            dbg!(grid_range.cover(cover));
             let grid_range = grid_range.cover(cover) - part.offset;
+            dbg!(grid_range);
             part.start = grid_range.start.try_into().unwrap();
             part.end = grid_range.end.try_into().unwrap();
             cover = cover.union(grid_range);
@@ -514,21 +517,12 @@ impl Range {
     }
 
     pub fn cover(self, cover: Self) -> Self {
-        if self.start >= cover.start && self.end >= cover.end {
+        if self.start >= cover.start && self.end <= cover.end {
             //     |
             // --- |
             // --- |
-            // ---   <-- cover.end
-            // ---
-            //       <-- self.end
-            Self::new(cover.end, self.end)
-        } else if self.start <= cover.start && self.end <= cover.end {
-            // ---   <-- self.start
-            // ---
-            // --- | <-- cover.start
-            // --- |
             //     |
-            Self::new(self.start, cover.start)
+            Self::new(self.start, self.start)
         } else if self.start <= cover.start && self.end <= cover.start {
             // ---   <-- self.start
             // ---
@@ -543,12 +537,21 @@ impl Range {
             // ---
             //       <-- self.end
             self
-        } else if self.start >= cover.start && self.end <= cover.end {
+        } else if self.start >= cover.start && self.end >= cover.end {
             //     |
             // --- |
             // --- |
+            // ---   <-- cover.end
+            // ---
+            //       <-- self.end
+            Self::new(cover.end, self.end)
+        } else if self.start <= cover.start && self.end <= cover.end {
+            // ---   <-- self.start
+            // ---
+            // --- | <-- cover.start
+            // --- |
             //     |
-            Self::new(self.start, self.start)
+            Self::new(self.start, cover.start)
         } else {
             // NOTE: We expect cover to be larger than or equal in size to self, so we use this
             // default for the other possibilities. In rare cases where grid shrinks in the middle
