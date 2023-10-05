@@ -1,3 +1,28 @@
+//! This type allows us to store either a char or up to 22 bits of other
+//! information in the space of a char. We do this by taking advantage of the
+//! valid ranges for a char, which are 0..0xD800 and 0xDFFF..0x10FFFF. The range
+//! 0xD800..=0xDFFF contains surrogate code points which are not valid chars. We
+//! store chars in their normal representation. To encode the 22 bits without
+//! overlapping valid char ranges, we first split it into two 11 bit chunks. The
+//! left chunk is stored in leading bits of the u32 that chars never overlap
+//! with. The right chunk needs to be stored in the trailing bits, which are
+//! also used by chars. To do this, we make note of the bit pattern in the
+//! surrogate range:
+//!
+//! 1101100000000000
+//! 1101111111111111
+//!
+//! Note that the leading five bits are constant for this range. Therefore, we
+//! extract them as the surrogate mask and set them along with the left and
+//! right chunks of our 22 bits:
+//!
+//! 11111111111  00000    11011            11111111111
+//! left chunk | unused | surrogate mask | right chunk
+//!
+//! Now if we mask out the left chunk, the remaining bit pattern will never be a
+//! valid char because it falls in the surrogate range. We use this to
+//! distinguish what the packed char contains.
+
 use std::fmt::{self, Debug, Formatter};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
