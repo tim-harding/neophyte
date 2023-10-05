@@ -43,7 +43,7 @@ impl Grid {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn update(
+    pub fn update_grid(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -53,14 +53,10 @@ impl Grid {
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
         grid: &ui::grid::Grid,
-        position: Vec2<f64>,
     ) {
         let metrics = fonts.metrics();
         let metrics_px = metrics.into_pixels();
         let cell_size = metrics_px.cell_size();
-        let offset = position * cell_size.cast::<f64>();
-
-        self.offset = Vec2::new(offset.x as i32, offset.y as i32);
         self.size = grid.size.try_cast().unwrap();
 
         self.monochrome.clear();
@@ -265,6 +261,11 @@ impl Grid {
                 }],
             })
         });
+    }
+
+    pub fn update_window(&mut self, position: Vec2<f64>, cell_size: Vec2<f64>) {
+        let offset = position * cell_size;
+        self.offset = Vec2::new(offset.x as i32, offset.y as i32);
     }
 
     pub fn id(&self) -> u64 {

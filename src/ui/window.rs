@@ -1,6 +1,6 @@
 use crate::{event::Anchor, util::vec2::Vec2};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default)]
 pub enum Window {
     #[default]
     None,
@@ -45,7 +45,7 @@ pub struct WindowOffset {
     pub anchor_grid: Option<u64>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct FloatingWindow {
     pub anchor: Anchor,
     pub anchor_grid: u64,
@@ -53,7 +53,7 @@ pub struct FloatingWindow {
     pub focusable: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct NormalWindow {
     pub start: Vec2<u64>,
     pub size: Vec2<u64>,

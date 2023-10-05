@@ -1,6 +1,8 @@
 #![allow(unused)]
 
+use bitfield_struct::bitfield;
 use compact_str::CompactString;
+use smallvec::SmallVec;
 
 use super::{
     packed_char::{PackedChar, U22},
@@ -17,17 +19,14 @@ use std::{
     fmt::{self, Debug, Display, Formatter},
     io::Write,
     marker::PhantomData,
+    ops::Not,
     vec::IntoIter,
 };
 
 #[derive(Default, Clone)]
 pub struct Grid {
-    pub id: u64,
     pub size: Vec2<u64>,
     pub buffer: Vec<Cell>,
-    pub window: Window,
-    pub dirty: bool,
-    pub scroll_delta: i64,
     pub overflow: Vec<CompactString>,
 }
 
@@ -47,15 +46,11 @@ impl Default for Cell {
 }
 
 impl Grid {
-    pub fn new(id: u64) -> Self {
-        Self {
-            id,
-            ..Default::default()
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn resize(&mut self, size: Vec2<u64>) {
-        self.set_dirty();
         let mut old = std::mem::take(&mut self.buffer).into_iter();
         self.buffer = vec![Cell::default(); size.area() as usize];
         for y in 0..self.size.y.min(size.y) {
@@ -71,7 +66,6 @@ impl Grid {
     }
 
     pub fn scroll(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64) {
-        self.set_dirty();
         let height = self.size.y;
         let mut cut_and_paste = move |src_y, dst_y| {
             for x in left..right {
@@ -96,8 +90,6 @@ impl Grid {
     }
 
     pub fn grid_line(&mut self, row: u64, col_start: u64, cells: Vec<grid_line::Cell>) {
-        self.set_dirty();
-
         // Inlined self.row_mut() to satisfy borrow checker
         let w = self.size.x as usize;
         let start = row as usize * w;
@@ -131,11 +123,6 @@ impl Grid {
                 *row.next().unwrap() = cell;
             }
         }
-    }
-
-    fn set_dirty(&mut self) {
-        self.dirty = true;
-        self.scroll_delta = 0;
     }
 
     pub fn index_for(&self, position: Vec2<u64>) -> usize {
@@ -190,10 +177,6 @@ impl Grid {
             .map(|chunk| chunk.iter_mut())
     }
 
-    pub fn offset(&self) -> WindowOffset {
-        self.window.offset(self.size)
-    }
-
     pub fn combine(&mut self, other: Grid, cursor: Option<CursorRenderInfo>, start: Vec2<i64>) {
         let mut iter = other.buffer.into_iter();
         let size_x = self.size.x;
@@ -219,6 +202,14 @@ impl Grid {
                 self.buffer[i].highlight = cursor.hl.try_into().unwrap();
             }
         }
+    }
+
+    pub fn copy_from(&mut self, other: &Grid) {
+        self.size = other.size;
+        self.overflow
+            .extend_from_slice(&other.overflow[self.overflow.len()..]);
+        self.buffer.resize(other.buffer.len(), Cell::default());
+        self.buffer.copy_from_slice(other.buffer.as_slice());
     }
 }
 
@@ -248,4 +239,71 @@ impl Debug for Grid {
 pub struct CursorRenderInfo {
     pub hl: u64,
     pub pos: Vec2<u64>,
+}
+
+#[derive(Debug, Default)]
+pub struct DoubleBufferGrid {
+    pub id: u64,
+    pub scroll_delta: i64,
+    dirty: DirtyFlags,
+    window: Window,
+    current: Grid,
+    previous: Grid,
+}
+
+#[bitfield(u8)]
+#[derive(PartialEq, Eq)]
+struct DirtyFlags {
+    pub grid: bool,
+    pub window: bool,
+    #[bits(6)]
+    __: u8,
+}
+
+impl DoubleBufferGrid {
+    pub fn new(id: u64) -> Self {
+        Self {
+            id,
+            ..Default::default()
+        }
+    }
+
+    pub fn current(&self) -> &Grid {
+        &self.current
+    }
+
+    pub fn current_mut(&mut self) -> &mut Grid {
+        self.dirty.set_grid(true);
+        &mut self.current
+    }
+
+    pub fn previous(&mut self) -> &Grid {
+        &self.previous
+    }
+
+    pub fn window(&self) -> &Window {
+        &self.window
+    }
+
+    pub fn window_mut(&mut self) -> &mut Window {
+        self.dirty.set_window(true);
+        &mut self.window
+    }
+
+    pub fn is_grid_dirty(&self) -> bool {
+        self.dirty.grid()
+    }
+
+    pub fn is_window_dirty(&self) -> bool {
+        self.dirty.window()
+    }
+
+    pub fn flush(&mut self) {
+        if self.dirty.grid() {
+            self.previous.copy_from(&self.current);
+        }
+        self.dirty.set_window(false);
+        self.dirty.set_grid(false);
+        self.scroll_delta = 0;
+    }
 }

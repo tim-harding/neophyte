@@ -6,7 +6,10 @@ pub mod packed_char;
 pub mod window;
 
 use self::{
-    cmdline::Cmdline, grid::CursorRenderInfo, messages::Messages, options::Options,
+    cmdline::Cmdline,
+    grid::{CursorRenderInfo, DoubleBufferGrid},
+    messages::Messages,
+    options::Options,
     window::WindowOffset,
 };
 use crate::{
@@ -20,20 +23,15 @@ use crate::{
     ui::window::{FloatingWindow, NormalWindow, Window},
     util::vec2::Vec2,
 };
-use grid::Grid;
-use std::{
-    collections::HashMap,
-    fmt::{self, Debug, Formatter},
-};
+use std::{collections::HashMap, fmt::Debug};
 
 pub use options::{FontSize, FontsSetting};
 
 pub type Highlights = HashMap<u64, HlAttrDefine>;
 pub type HighlightGroups = HashMap<String, u64>;
 
-#[derive(Clone)]
 pub struct Ui {
-    pub grids: Vec<Grid>,
+    pub grids: Vec<DoubleBufferGrid>,
     pub draw_order: Vec<u64>,
     pub float_windows_start: usize,
     pub cursor: CursorInfo,
@@ -96,20 +94,21 @@ impl Ui {
         self.grids.binary_search_by(|probe| probe.id.cmp(&id))
     }
 
-    pub fn grid_mut(&mut self, id: u64) -> &mut Grid {
-        let i = self.grid_index(id).unwrap();
-        self.grids.get_mut(i).unwrap()
+    pub fn grid_mut(&mut self, id: u64) -> Option<&mut DoubleBufferGrid> {
+        self.grid_index(id)
+            .map(|i| self.grids.get_mut(i).unwrap())
+            .ok()
     }
 
-    pub fn grid(&self, id: u64) -> Option<&Grid> {
+    pub fn grid(&self, id: u64) -> Option<&DoubleBufferGrid> {
         self.grid_index(id).map(|i| self.grids.get(i).unwrap()).ok()
     }
 
-    fn get_or_create_grid(&mut self, id: u64) -> &mut Grid {
+    fn get_or_create_grid(&mut self, id: u64) -> &mut DoubleBufferGrid {
         match self.grid_index(id) {
             Ok(i) => self.grids.get_mut(i).unwrap(),
             Err(i) => {
-                self.grids.insert(i, Grid::new(id));
+                self.grids.insert(i, DoubleBufferGrid::new(id));
                 self.grids.get_mut(i).unwrap()
             }
         }
@@ -141,10 +140,13 @@ impl Ui {
                 width,
                 height,
             }) => {
-                let grid = self.get_or_create_grid(grid);
-                grid.resize(Vec2::new(width, height));
+                self.get_or_create_grid(grid)
+                    .current_mut()
+                    .resize(Vec2::new(width, height));
             }
-            Event::GridClear(GridClear { grid }) => self.grid_mut(grid).clear(),
+            Event::GridClear(GridClear { grid }) => {
+                self.grid_mut(grid).unwrap().current_mut().clear()
+            }
             Event::GridDestroy(GridDestroy { grid }) => self.delete_grid(grid),
             Event::GridCursorGoto(GridCursorGoto { grid, row, column }) => {
                 self.cursor.pos = Vec2::new(column, row);
@@ -159,8 +161,10 @@ impl Ui {
                 rows,
                 cols: _,
             }) => {
-                let grid = self.grid_mut(grid);
-                grid.scroll(top, bot, left, right, rows);
+                self.grid_mut(grid)
+                    .unwrap()
+                    .current_mut()
+                    .scroll(top, bot, left, right, rows);
             }
             Event::GridLine(GridLine {
                 grid,
@@ -168,8 +172,10 @@ impl Ui {
                 col_start,
                 cells,
             }) => {
-                let grid = self.grid_mut(grid);
-                grid.grid_line(row, col_start, cells);
+                self.grid_mut(grid)
+                    .unwrap()
+                    .current_mut()
+                    .grid_line(row, col_start, cells);
             }
 
             Event::WinPos(WinPos {
@@ -185,8 +191,7 @@ impl Ui {
                 }
                 self.draw_order.push(grid);
                 self.float_windows_start += 1;
-                let grid = self.grid_mut(grid);
-                grid.window = Window::Normal(NormalWindow {
+                *self.grid_mut(grid).unwrap().window_mut() = Window::Normal(NormalWindow {
                     start: Vec2::new(start_col, start_row),
                     size: Vec2::new(width, height),
                 });
@@ -201,8 +206,7 @@ impl Ui {
                 focusable,
             }) => {
                 self.show(grid);
-                let grid = self.grid_mut(grid);
-                grid.window = Window::Floating(FloatingWindow {
+                *self.grid_mut(grid).unwrap().window_mut() = Window::Floating(FloatingWindow {
                     anchor,
                     focusable,
                     anchor_grid,
@@ -210,14 +214,12 @@ impl Ui {
                 })
             }
             Event::WinExternalPos(WinExternalPos { grid, win: _ }) => {
-                let grid = self.grid_mut(grid);
-                grid.window = Window::External;
+                *self.grid_mut(grid).unwrap().window_mut() = Window::External;
             }
             Event::WinHide(WinHide { grid }) => self.hide(grid),
             Event::WinClose(WinClose { grid }) => {
                 self.hide(grid);
-                let grid = self.grid_mut(grid);
-                grid.window = Window::None;
+                *self.grid_mut(grid).unwrap().window_mut() = Window::None;
             }
             Event::WinViewport(WinViewport {
                 grid,
@@ -229,8 +231,7 @@ impl Ui {
                 curcol: _,
                 line_count: _,
             }) => {
-                let grid = self.grid_mut(grid);
-                grid.scroll_delta = scroll_delta;
+                self.grid_mut(grid).unwrap().scroll_delta = scroll_delta;
             }
             Event::WinExtmark(_) => {}
 
@@ -261,8 +262,7 @@ impl Ui {
                 sep_char: _,
             }) => {
                 self.show(grid);
-                let grid = self.get_or_create_grid(grid);
-                grid.window = Window::Floating(FloatingWindow {
+                *self.get_or_create_grid(grid).window_mut() = Window::Floating(FloatingWindow {
                     anchor: Anchor::Nw,
                     anchor_grid: 1,
                     anchor_pos: Vec2::new(0.0, row as f64),
@@ -284,7 +284,7 @@ impl Ui {
             Event::Flush => {
                 self.new_highlights.clear();
                 for grid in self.grids.iter_mut() {
-                    grid.dirty = false;
+                    grid.flush();
                 }
             }
 
@@ -319,23 +319,13 @@ impl Ui {
         }
     }
 
-    pub fn composite(&self) -> Grid {
-        let mut outer_grid = self.grids.get(0).unwrap_or(&Grid::default()).clone();
-        for &grid in self.draw_order.iter() {
-            let position = self.position(grid).cast_as();
-            let grid = self.grid(grid).unwrap();
-            outer_grid.combine(grid.clone(), self.cursor_render_info(grid.id), position);
-        }
-        outer_grid
-    }
-
     pub fn position(&self, grid: u64) -> Vec2<f64> {
         if let Ok(index) = self.grid_index(grid) {
             let grid = &self.grids[index];
             let WindowOffset {
                 offset,
                 anchor_grid,
-            } = grid.offset();
+            } = grid.window().offset(grid.current().size);
             if let Some(anchor_grid) = anchor_grid {
                 self.position(anchor_grid) + offset
             } else {
@@ -368,7 +358,7 @@ impl Ui {
         let cell_size: Vec2<f64> = cell_size.cast_as();
         for &grid_id in self.draw_order.iter().rev() {
             let grid = self.grid(grid_id).unwrap();
-            let size: Vec2<f64> = grid.size.cast_as();
+            let size: Vec2<f64> = grid.current().size.cast_as();
             let start = self.position(grid_id) * cell_size;
             let end = start + size * cell_size;
             if cursor.x > start.x && cursor.y > start.y && cursor.x < end.x && cursor.y < end.y {
@@ -384,13 +374,6 @@ impl Ui {
             }
         }
         None
-    }
-}
-
-impl Debug for Ui {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let grid = self.composite();
-        write!(f, "{:?}", grid)
     }
 }
 

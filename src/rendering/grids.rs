@@ -63,8 +63,8 @@ impl Grids {
             };
             let grid = &mut self.grids[index];
 
-            if ui_grid.dirty {
-                grid.update(
+            if ui_grid.is_grid_dirty() {
+                grid.update_grid(
                     device,
                     queue,
                     &self.bind_group_layout,
@@ -72,8 +72,14 @@ impl Grids {
                     fonts,
                     font_cache,
                     shape_context,
-                    ui_grid,
+                    ui_grid.current(),
+                );
+            }
+
+            if ui_grid.is_window_dirty() {
+                grid.update_window(
                     ui.position(ui_grid.id),
+                    fonts.metrics().into_pixels().cell_size().cast(),
                 );
             }
         }
