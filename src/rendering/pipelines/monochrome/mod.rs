@@ -1,7 +1,7 @@
 use crate::{
     rendering::{
         depth_texture::DepthTexture, glyph_bind_group::GlyphBindGroup,
-        glyph_push_constants::GlyphPushConstants, grid::Grid, TARGET_FORMAT,
+        glyph_push_constants::GlyphPushConstants, grid::Grid, Motion, TARGET_FORMAT,
     },
     text::cache::Cached,
     util::vec2::Vec2,
@@ -108,6 +108,7 @@ impl Pipeline {
         color_target: &wgpu::TextureView,
         depth_target: &wgpu::TextureView,
         target_size: Vec2<u32>,
+        cell_height: i32,
         highlights_bind_group: &wgpu::BindGroup,
     ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -143,7 +144,7 @@ impl Pipeline {
                 render_pass.set_bind_group(2, monochrome_bind_group, &[]);
                 GlyphPushConstants {
                     target_size,
-                    offset: grid.offset(),
+                    offset: grid.offset() + Vec2::new(0, grid.scrolling().t() as i32 * cell_height),
                     z,
                     padding: 0.0,
                 }

@@ -26,6 +26,8 @@ use swash::{
     },
 };
 
+use super::Motion;
+
 #[derive(Default)]
 pub struct Grid {
     id: u64,
@@ -52,12 +54,12 @@ impl Grid {
         }
     }
 
-    pub fn add_scrolling_grid(&mut self, grid: &UiGrid, offset: i64, current_grid_height: usize) {
-        self.scrolling.push(grid, offset, current_grid_height);
+    pub fn scrolling(&self) -> &ScrollingGrids {
+        &self.scrolling
     }
 
-    pub fn finish_scroll(&mut self) {
-        self.scrolling.finish_scroll();
+    pub fn scrolling_mut(&mut self) -> &mut ScrollingGrids {
+        &mut self.scrolling
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -421,9 +423,10 @@ impl<'a> Iterator for OnceOrChars<'a> {
 
 // TODO: Remove scrolling grids that have exited the viewport
 #[derive(Default)]
-struct ScrollingGrids {
+pub struct ScrollingGrids {
     scrolling_count: usize,
     scrolling: Vec<GridPart>,
+    t: f32,
 }
 
 impl ScrollingGrids {
@@ -438,6 +441,29 @@ impl ScrollingGrids {
         }
     }
 
+    pub fn target_offset(&self) -> i64 {
+        self.scrolling
+            .first()
+            .map(|grid_part| grid_part.offset)
+            .unwrap_or(0)
+    }
+
+    pub fn t(&self) -> f32 {
+        self.t
+    }
+
+    pub fn advance(&mut self, delta_seconds: f32) -> Motion {
+        if self.t.abs() < 0.25 {
+            self.t = 0.0;
+            Motion::Still
+        } else {
+            let sign = if self.t.is_sign_positive() { -1.0 } else { 1.0 };
+            let magnitude = (delta_seconds * 1_0.).min(self.t.abs());
+            self.t += sign * magnitude;
+            Motion::Animating
+        }
+    }
+
     // TODO: Better to take ownership of previous grid?
     pub fn push(&mut self, grid: &UiGrid, offset: i64, current_grid_height: usize) {
         if self.scrolling_count == self.scrolling.len() {
@@ -447,6 +473,7 @@ impl ScrollingGrids {
             part.grid.copy_from(grid);
         }
 
+        self.t += offset as f32;
         self.scrolling_count += 1;
         let mut cover = Range::until(current_grid_height as i64);
         for part in self.scrolling.iter_mut().take(self.scrolling_count) {

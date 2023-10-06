@@ -200,6 +200,7 @@ impl RenderState {
             return;
         }
         self.wants_redraw = false;
+        let delta_seconds = framerate as f32 / 100_000_000.0;
 
         let output = match self.surface.get_current_texture() {
             Ok(output) => output,
@@ -230,6 +231,10 @@ impl RenderState {
         let target_size = self.targets.color.texture.size().into();
         let mut motion = Motion::Still;
 
+        for grid in self.grids.iter_mut() {
+            motion |= grid.scrolling_mut().advance(delta_seconds);
+        }
+
         self.pipelines.cell_fill.render(
             &mut encoder,
             self.grids.front_to_back(),
@@ -247,6 +252,7 @@ impl RenderState {
             &self.targets.monochrome.view,
             &self.targets.depth.view,
             target_size,
+            cell_size.y as i32,
             highlights_bind_group,
         );
 
@@ -257,7 +263,7 @@ impl RenderState {
         motion |= self.pipelines.cursor.render(
             &mut encoder,
             &self.targets.color.view,
-            framerate as f32 / 100_000_000.,
+            delta_seconds,
             cell_size.cast_as(),
             target_size.cast_as(),
         );

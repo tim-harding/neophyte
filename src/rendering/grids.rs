@@ -1,4 +1,4 @@
-use super::grid;
+use super::grid::{self, Grid};
 use crate::{
     text::{cache::FontCache, fonts::Fonts},
     ui::Ui,
@@ -6,7 +6,7 @@ use crate::{
 use swash::shape::ShapeContext;
 
 pub struct Grids {
-    grids: Vec<grid::Grid>,
+    grids: Vec<Grid>,
     draw_order_cache: Vec<usize>,
     bind_group_layout: wgpu::BindGroupLayout,
 }
@@ -57,14 +57,14 @@ impl Grids {
             {
                 Ok(index) => index,
                 Err(index) => {
-                    self.grids.insert(index, grid::Grid::new(ui_grid.id));
+                    self.grids.insert(index, Grid::new(ui_grid.id));
                     index
                 }
             };
             let grid = &mut self.grids[index];
 
             if ui_grid.scroll_delta != 0 {
-                grid.add_scrolling_grid(
+                grid.scrolling_mut().push(
                     ui_grid.previous(),
                     ui_grid.scroll_delta,
                     ui_grid.current().size.y as usize,
@@ -106,11 +106,19 @@ impl Grids {
         &self.bind_group_layout
     }
 
-    pub fn front_to_back(&self) -> impl Iterator<Item = (f32, &grid::Grid)> {
+    pub fn front_to_back(&self) -> impl Iterator<Item = (f32, &Grid)> {
         let len = self.draw_order_cache.len() as f32;
         self.draw_order_cache
             .iter()
             .enumerate()
             .map(move |(i, &grid_i)| (i as f32 / len, &self.grids[grid_i]))
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Grid> {
+        self.grids.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Grid> {
+        self.grids.iter_mut()
     }
 }
