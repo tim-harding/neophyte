@@ -455,6 +455,7 @@ impl ScrollingGrids {
     pub fn advance(&mut self, delta_seconds: f32) -> Motion {
         if self.t.abs() < 0.25 {
             self.t = 0.0;
+            self.finish_scroll();
             Motion::Still
         } else {
             let sign = if self.t.is_sign_positive() { -1.0 } else { 1.0 };
