@@ -1,4 +1,4 @@
-use super::grid::{self, Grid};
+use super::grid::Grid;
 use crate::{
     text::{cache::FontCache, fonts::Fonts},
     ui::Ui,
@@ -114,6 +114,7 @@ impl Grids {
             .map(move |(i, &grid_i)| (i as f32 / len, &self.grids[grid_i]))
     }
 
+    #[allow(unused)]
     pub fn iter(&self) -> impl Iterator<Item = &Grid> {
         self.grids.iter()
     }

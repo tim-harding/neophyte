@@ -450,6 +450,7 @@ pub struct ScrollingGrids {
 }
 
 impl ScrollingGrids {
+    #[allow(unused)]
     pub fn new() -> Self {
         Self::default()
     }
@@ -544,6 +545,7 @@ impl Range {
         Self::new(0, end)
     }
 
+    #[allow(unused)]
     pub const fn len(&self) -> usize {
         (self.end - self.start) as usize
     }
