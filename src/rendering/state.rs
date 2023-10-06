@@ -252,7 +252,7 @@ impl RenderState {
             &self.targets.monochrome.view,
             &self.targets.depth.view,
             target_size,
-            cell_size.y as f32,
+            cell_size,
             highlights_bind_group,
         );
 
@@ -273,7 +273,7 @@ impl RenderState {
             self.grids.front_to_back(),
             &self.targets.color.view,
             &self.targets.depth.view,
-            cell_size.y as f32,
+            cell_size,
             target_size,
         );
 

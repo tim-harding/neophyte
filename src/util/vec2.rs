@@ -17,7 +17,7 @@ impl<T> Vec2<T> {
         Self { x, y }
     }
 
-    pub fn map(self, f: fn(T) -> T) -> Self {
+    pub fn map(self, f: impl Fn(T) -> T) -> Self {
         Self::new(f(self.x), f(self.y))
     }
 

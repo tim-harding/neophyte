@@ -105,7 +105,7 @@ impl Pipeline {
         grids: impl Iterator<Item = (f32, &'b Grid)>,
         color_target: &wgpu::TextureView,
         depth_target: &wgpu::TextureView,
-        cell_height: f32,
+        cell_size: Vec2<u32>,
         target_size: Vec2<u32>,
     ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -138,10 +138,10 @@ impl Pipeline {
                     continue;
                 };
                 render_pass.set_bind_group(1, emoji_bind_group, &[]);
+                grid.set_scissor(cell_size, target_size, &mut render_pass);
                 GlyphPushConstants {
                     target_size,
-                    offset: grid.offset()
-                        + Vec2::new(0., grid.scrolling().t() * cell_height as f32).cast_as(),
+                    offset: grid.offset(cell_size.y as f32),
                     z,
                     padding: 0.0,
                 }
