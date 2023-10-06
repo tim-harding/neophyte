@@ -101,6 +101,7 @@ impl Pipeline {
         self.pipeline = Some(pipeline);
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn render<'a, 'b>(
         &'a self,
         encoder: &'a mut wgpu::CommandEncoder,
@@ -142,9 +143,7 @@ impl Pipeline {
                     continue;
                 };
                 render_pass.set_bind_group(2, monochrome_bind_group, &[]);
-
                 grid.set_scissor(cell_size, target_size, &mut render_pass);
-
                 GlyphPushConstants {
                     target_size,
                     offset: grid.offset(cell_size.y as f32),
