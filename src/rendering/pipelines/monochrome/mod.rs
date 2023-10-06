@@ -144,7 +144,8 @@ impl Pipeline {
                 render_pass.set_bind_group(2, monochrome_bind_group, &[]);
                 GlyphPushConstants {
                     target_size,
-                    offset: grid.offset() + Vec2::new(0, grid.scrolling().t() as i32 * cell_height),
+                    offset: grid.offset()
+                        + Vec2::new(0., grid.scrolling().t() * cell_height as f32).cast_as(),
                     z,
                     padding: 0.0,
                 }

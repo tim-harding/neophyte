@@ -111,87 +111,84 @@ impl Grid {
             let mut next_font: Option<BestFont> = None;
             let mut is_parser_empty = false;
             while !is_parser_empty {
-                match next_font {
-                    Some(current_font_unwrapped) => {
-                        let font_info = fonts.iter().nth(current_font_unwrapped.index).unwrap();
-                        let font = font_info.style(current_font_unwrapped.style).unwrap();
-                        let mut shaper = shape_context
-                            .builder(font.as_ref())
-                            .script(Script::Arabic)
-                            .build();
-                        shaper.add_cluster(&cluster);
+                if let Some(current_font_unwrapped) = next_font {
+                    let font_info = fonts.iter().nth(current_font_unwrapped.index).unwrap();
+                    let font = font_info.style(current_font_unwrapped.style).unwrap();
+                    let mut shaper = shape_context
+                        .builder(font.as_ref())
+                        .script(Script::Arabic)
+                        .build();
+                    shaper.add_cluster(&cluster);
 
-                        loop {
-                            if !parser.next(&mut cluster) {
-                                is_parser_empty = true;
-                                break;
-                            }
+                    loop {
+                        if !parser.next(&mut cluster) {
+                            is_parser_empty = true;
+                            break;
+                        }
 
-                            let best_font = best_font(&mut cluster, fonts, highlights);
-                            match best_font {
-                                Some(best_font) => {
-                                    if current_font_unwrapped == best_font {
-                                        shaper.add_cluster(&cluster);
-                                    } else {
-                                        next_font = Some(best_font);
-                                        break;
-                                    }
-                                }
-
-                                None => {
-                                    next_font = None;
+                        let best_font = best_font(&mut cluster, fonts, highlights);
+                        match best_font {
+                            Some(best_font) => {
+                                if current_font_unwrapped == best_font {
+                                    shaper.add_cluster(&cluster);
+                                } else {
+                                    next_font = Some(best_font);
                                     break;
                                 }
                             }
-                        }
 
-                        shaper.shape_with(|glyph_cluster| {
-                            let x = glyph_cluster.source.start * cell_size.x;
-                            for glyph in glyph_cluster.glyphs {
-                                let CacheValue { index, kind } = match font_cache.get(
-                                    font.as_ref(),
-                                    metrics.em,
-                                    glyph.id,
-                                    current_font_unwrapped.style,
-                                    current_font_unwrapped.index,
-                                ) {
-                                    Some(glyph) => glyph,
-                                    None => {
-                                        continue;
-                                    }
-                                };
-                                let glyph_index = index as u32;
-
-                                let offset = match kind {
-                                    GlyphKind::Monochrome => font_cache.monochrome.offset[index],
-                                    GlyphKind::Emoji => font_cache.emoji.offset[index],
-                                };
-                                let position = offset * Vec2::new(1, -1)
-                                    + Vec2::new(
-                                        (glyph.x * metrics.scale_factor).round() as i32 + x as i32,
-                                        (glyph.y * metrics.scale_factor
-                                            + (cell_line_i * cell_size.y as i64
-                                                + metrics_px.em as i64)
-                                                as f32)
-                                            .round() as i32,
-                                    );
-                                match kind {
-                                    GlyphKind::Monochrome => self.monochrome.push(Cell {
-                                        position,
-                                        glyph_index,
-                                        highlight_index: glyph.data,
-                                    }),
-                                    GlyphKind::Emoji => self.emoji.push(Cell {
-                                        position,
-                                        glyph_index,
-                                        highlight_index: 0,
-                                    }),
-                                }
+                            None => {
+                                next_font = None;
+                                break;
                             }
-                        });
+                        }
                     }
 
-                    None => loop {
+                    shaper.shape_with(|glyph_cluster| {
+                        let x = glyph_cluster.source.start * cell_size.x;
+                        for glyph in glyph_cluster.glyphs {
+                            let CacheValue { index, kind } = match font_cache.get(
+                                font.as_ref(),
+                                metrics.em,
+                                glyph.id,
+                                current_font_unwrapped.style,
+                                current_font_unwrapped.index,
+                            ) {
+                                Some(glyph) => glyph,
+                                None => {
+                                    continue;
+                                }
+                            };
+                            let glyph_index = index as u32;
+
+                            let offset = match kind {
+                                GlyphKind::Monochrome => font_cache.monochrome.offset[index],
+                                GlyphKind::Emoji => font_cache.emoji.offset[index],
+                            };
+                            let position = offset * Vec2::new(1, -1)
+                                + Vec2::new(
+                                    (glyph.x * metrics.scale_factor).round() as i32 + x as i32,
+                                    (glyph.y * metrics.scale_factor
+                                        + (cell_line_i * cell_size.y as i64 + metrics_px.em as i64)
+                                            as f32)
+                                        .round() as i32,
+                                );
+                            match kind {
+                                GlyphKind::Monochrome => self.monochrome.push(Cell {
+                                    position,
+                                    glyph_index,
+                                    highlight_index: glyph.data,
+                                }),
+                                GlyphKind::Emoji => self.emoji.push(Cell {
+                                    position,
+                                    glyph_index,
+                                    highlight_index: 0,
+                                }),
+                            }
+                        }
+                    });
+                } else {
+                    loop {
                         if !parser.next(&mut cluster) {
                             is_parser_empty = true;
                             break;
@@ -200,7 +197,7 @@ impl Grid {
                             next_font = Some(best_font);
                             break;
                         }
-                    },
+                    }
                 }
             }
         }
@@ -441,25 +438,22 @@ impl ScrollingGrids {
         }
     }
 
-    pub fn target_offset(&self) -> i64 {
-        self.scrolling
-            .first()
-            .map(|grid_part| grid_part.offset)
-            .unwrap_or(0)
-    }
-
     pub fn t(&self) -> f32 {
         self.t
     }
 
     pub fn advance(&mut self, delta_seconds: f32) -> Motion {
-        if self.t.abs() < 0.25 {
+        if self.t.abs() < 0.025 {
             self.t = 0.0;
             self.finish_scroll();
             Motion::Still
         } else {
             let sign = if self.t.is_sign_positive() { -1.0 } else { 1.0 };
-            let magnitude = (delta_seconds * 1_0.).min(self.t.abs());
+            //let mag = self.t.abs() + 1.;
+            //let mag = mag * mag;
+            let mag = self.t.abs().powf(1.5) + 0.25;
+            let mag = mag * 3.;
+            let magnitude = (mag * delta_seconds).min(self.t.abs());
             self.t += sign * magnitude;
             Motion::Animating
         }
