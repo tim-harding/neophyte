@@ -108,7 +108,7 @@ impl Pipeline {
         color_target: &wgpu::TextureView,
         depth_target: &wgpu::TextureView,
         target_size: Vec2<u32>,
-        cell_height: i32,
+        cell_height: f32,
         highlights_bind_group: &wgpu::BindGroup,
     ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

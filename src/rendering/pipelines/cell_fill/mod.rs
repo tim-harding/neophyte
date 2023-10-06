@@ -113,7 +113,8 @@ impl Pipeline {
             PushConstants {
                 target_size,
                 cell_size,
-                offset: grid.offset(),
+                offset: grid.offset()
+                    + Vec2::new(0., grid.scrolling().t() * cell_size.y as f32).cast_as(),
                 grid_width: grid.size().x,
                 z,
             }
