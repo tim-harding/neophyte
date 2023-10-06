@@ -13,6 +13,7 @@ use crate::{
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
 use std::{
+    cmp::Ordering,
     num::NonZeroU64,
     ops::{Add, Sub},
     str::Chars,
@@ -448,18 +449,13 @@ impl ScrollingGrids {
 
         self.scrolling_count += 1;
         let mut cover = Range::until(current_grid_height as i64);
-        dbg!(cover);
         for part in self.scrolling.iter_mut().take(self.scrolling_count) {
             part.offset -= offset;
-            dbg!(part.offset);
             let grid_range = Range::until(part.grid.size.y as i64) + part.offset;
-            dbg!(grid_range);
-            dbg!(grid_range.cover(cover));
             let grid_range = grid_range.cover(cover) - part.offset;
-            dbg!(grid_range);
+            cover = cover.union(grid_range);
             part.start = grid_range.start.try_into().unwrap();
             part.end = grid_range.end.try_into().unwrap();
-            cover = cover.union(grid_range);
         }
     }
 
@@ -512,51 +508,90 @@ impl Range {
     pub fn union(self, other: Self) -> Self {
         Self {
             start: self.start.min(other.start),
-            end: self.end.min(other.end),
+            end: self.end.max(other.end),
         }
     }
 
+    pub fn covered(self) -> Self {
+        Self::new(self.start, self.start)
+    }
+
     pub fn cover(self, cover: Self) -> Self {
-        if self.start >= cover.start && self.end <= cover.end {
-            //     |
-            // --- |
-            // --- |
-            //     |
-            Self::new(self.start, self.start)
-        } else if self.start <= cover.start && self.end <= cover.start {
-            // ---   <-- self.start
-            // ---
-            //       <-- self.end
-            //     |
-            //     |
-            self
-        } else if self.start >= cover.end && self.end >= cover.end {
-            //     |
-            //     |
-            // ---   <-- self.start
-            // ---
-            //       <-- self.end
-            self
-        } else if self.start >= cover.start && self.end >= cover.end {
-            //     |
-            // --- |
-            // --- |
-            // ---   <-- cover.end
-            // ---
-            //       <-- self.end
-            Self::new(cover.end, self.end)
-        } else if self.start <= cover.start && self.end <= cover.end {
-            // ---   <-- self.start
-            // ---
-            // --- | <-- cover.start
-            // --- |
-            //     |
-            Self::new(self.start, cover.start)
-        } else {
-            // NOTE: We expect cover to be larger than or equal in size to self, so we use this
-            // default for the other possibilities. In rare cases where grid shrinks in the middle
-            // of an animation we just don't draw the covered grid.
-            Self::new(self.start, self.start)
+        match self.start.cmp(&cover.start) {
+            // |...
+            //    -...
+            Ordering::Less => match self.end.cmp(&cover.start) {
+                // |    |
+                //         ------
+                // ^    ^
+                Ordering::Less => self,
+
+                // |    |
+                //      ------
+                // ^    ^
+                Ordering::Equal => self,
+
+                // |    |
+                //    ------
+                // ^  ^
+                Ordering::Greater => Self::new(self.start, cover.start),
+            },
+
+            // |...
+            // -...
+            Ordering::Equal => match self.end.cmp(&cover.end) {
+                // |    |
+                // --------
+                // ^
+                // ^
+                Ordering::Less => self.covered(),
+
+                // |    |
+                // ------
+                // ^
+                // ^
+                Ordering::Equal => self.covered(),
+
+                // |    |
+                // ---
+                //   ^  ^
+                Ordering::Greater => Self::new(cover.end, self.end),
+            },
+
+            //    |...
+            // -...
+            Ordering::Greater => {
+                match self.start.cmp(&cover.end) {
+                    //   |...
+                    // ------
+                    Ordering::Less => match self.end.cmp(&cover.end) {
+                        //   |    |
+                        // ----------
+                        //   ^
+                        //   ^
+                        Ordering::Less => self.covered(),
+
+                        //   |    |
+                        // --------
+                        //   ^
+                        //   ^
+                        Ordering::Equal => self.covered(),
+
+                        //   |    |
+                        // -----
+                        //     ^  ^
+                        Ordering::Greater => Self::new(cover.end, self.end),
+                    },
+
+                    //      |...
+                    // ------
+                    Ordering::Equal => self,
+
+                    //          |...
+                    // ------
+                    Ordering::Greater => self,
+                }
+            }
         }
     }
 }
