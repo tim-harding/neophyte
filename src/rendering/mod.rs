@@ -290,6 +290,11 @@ impl RenderLoop {
                     }
                 }
             }
+
+            "neophyte.set_font_height" => {
+                println!("{params:?}");
+            }
+
             _ => log::error!("Unrecognized notification: {method}"),
         }
     }

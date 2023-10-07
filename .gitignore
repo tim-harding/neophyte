@@ -1,3 +1,4 @@
 /target
 *.txt
 *.mm_profdata
+*.json
