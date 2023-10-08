@@ -12,8 +12,8 @@ use winit::event::{ElementState, ModifiersState, MouseButton};
 
 #[derive(Debug, Clone)]
 pub struct Neovim {
-    stdin_tx: mpsc::Sender<Message>,
-    incoming: Arc<RwLock<IncomingRequests>>,
+    tx: mpsc::Sender<rpc::Message>,
+    incoming: Arc<RwLock<Incoming>>,
     next_msgid: Arc<Mutex<u64>>,
 }
 
@@ -41,20 +41,22 @@ impl Neovim {
             }
         });
 
-        let incoming = Arc::new(RwLock::new(IncomingRequests::new()));
-
+        let incoming = Arc::new(RwLock::new(Incoming::new()));
         Ok((
             Neovim {
-                stdin_tx: tx.clone(),
+                tx,
                 incoming: incoming.clone(),
                 next_msgid: Default::default(),
             },
-            Handler {
-                stdin_tx: tx,
-                incoming,
-                stdout,
-            },
+            Handler { incoming, stdout },
         ))
+    }
+
+    pub fn send_response(&self, response: rpc::Response) {
+        self.incoming
+            .write()
+            .unwrap()
+            .push_response(response, &self.tx);
     }
 
     fn call(&self, method: &str, args: Vec<Value>) -> u64 {
@@ -71,7 +73,7 @@ impl Neovim {
             params: args,
         };
 
-        match self.stdin_tx.send(req.into()) {
+        match self.tx.send(req.into()) {
             Ok(_) => {}
             Err(e) => {
                 log::error!("{e}");
@@ -261,13 +263,13 @@ impl From<ModifiersState> for Modifiers {
 
 // NOTE: Responses must be given in reverse order of requests (like "unwinding a stack").
 
-#[derive(Debug, Default, Clone)]
-struct IncomingRequests {
+#[derive(Debug, Clone, Default)]
+struct Incoming {
     requests: Vec<u64>,
     responses: BinaryHeap<QueuedResponse>,
 }
 
-impl IncomingRequests {
+impl Incoming {
     pub fn new() -> Self {
         Self::default()
     }
@@ -276,11 +278,14 @@ impl IncomingRequests {
         self.requests.push(msgid);
     }
 
-    pub fn push_response(&mut self, response: rpc::Response) {
+    pub fn push_response(&mut self, response: rpc::Response, tx: &mpsc::Sender<rpc::Message>) {
         self.responses.push(response.into());
+        while let Some(ready) = self.next_ready() {
+            tx.send(ready.into()).unwrap();
+        }
     }
 
-    pub fn next_ready(&mut self) -> Option<rpc::Response> {
+    fn next_ready(&mut self) -> Option<rpc::Response> {
         if let (Some(id), Some(response)) = (self.requests.last(), self.responses.peek()) {
             if *id == response.0.msgid {
                 self.requests.pop();
@@ -330,8 +335,7 @@ impl From<QueuedResponse> for rpc::Response {
 }
 
 pub struct Handler {
-    stdin_tx: mpsc::Sender<Message>,
-    incoming: Arc<RwLock<IncomingRequests>>,
+    incoming: Arc<RwLock<Incoming>>,
     stdout: ChildStdout,
 }
 
@@ -376,6 +380,7 @@ impl Handler {
             match msg {
                 Message::Request(request) => {
                     log::info!("RPC Request: {}, {:?}", request.method, request.params);
+                    self.incoming.write().unwrap().push_request(request.msgid);
                     request_handler(request);
                 }
 
