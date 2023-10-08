@@ -1,7 +1,6 @@
 #![allow(unused)]
 
 use bitfield_struct::bitfield;
-use compact_str::CompactString;
 
 use super::{
     packed_char::{PackedChar, U22},
@@ -26,7 +25,7 @@ use std::{
 pub struct Grid {
     pub size: Vec2<u64>,
     pub buffer: Vec<Cell>,
-    pub overflow: Vec<CompactString>,
+    pub overflow: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -109,7 +108,7 @@ impl Grid {
                 (Some(c), None) => PackedChar::from_char(c),
                 (Some(c1), Some(c2)) => {
                     let i: u32 = self.overflow.len().try_into().unwrap();
-                    self.overflow.push(cell.text.into());
+                    self.overflow.push(cell.text);
                     PackedChar::from_u22(U22::from_u32(i).unwrap())
                 }
             };
