@@ -7,7 +7,7 @@ mod ui;
 mod util;
 
 use neovim::Neovim;
-use rendering::{RenderEvent, RenderLoop, ScrollKind};
+use rendering::{Notification, RenderEvent, RenderLoop, ScrollKind};
 use std::{
     sync::{mpsc, Arc},
     thread,
@@ -15,8 +15,8 @@ use std::{
 use util::vec2::Vec2;
 use winit::{
     event::{
-        ElementState, Event, KeyboardInput, ModifiersState, MouseScrollDelta, TouchPhase,
-        VirtualKeyCode, WindowEvent,
+        ElementState, KeyboardInput, ModifiersState, MouseScrollDelta, TouchPhase, VirtualKeyCode,
+        WindowEvent,
     },
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
@@ -36,10 +36,28 @@ fn main() {
         let proxy = event_loop.create_proxy();
         thread::spawn(move || {
             handler.start(
-                |method, params| {
-                    render_tx
-                        .send(RenderEvent::Notification(method, params))
-                        .unwrap();
+                |method, params| match method.as_str() {
+                    "redraw" => {
+                        for param in params {
+                            match event::Event::try_parse(param.clone()) {
+                                Ok(events) => render_tx
+                                    .send(RenderEvent::Notification(Notification::Redraw(events)))
+                                    .unwrap(),
+                                Err(e) => match e {
+                                    event::Error::UnknownEvent(name) => {
+                                        log::error!("Unknown event: {name}\n{param:#?}");
+                                    }
+                                    _ => log::error!("{e}"),
+                                },
+                            }
+                        }
+                    }
+
+                    "neophyte.set_font_height" => {
+                        println!("{params:?}");
+                    }
+
+                    _ => log::error!("Unrecognized notification: {method}"),
                 },
                 || {
                     let _ = proxy.send_event(());
@@ -59,6 +77,7 @@ fn main() {
 
     let mut modifiers = ModifiersState::default();
     event_loop.run(move |event, _, control_flow| {
+        use winit::event::Event;
         *control_flow = ControlFlow::Wait;
         match event {
             Event::UserEvent(()) => *control_flow = ControlFlow::Exit,
@@ -265,7 +284,7 @@ fn main() {
             },
 
             Event::RedrawRequested(window_id) if window_id == window.id() => {
-                render_tx.send(RenderEvent::Redraw).unwrap();
+                render_tx.send(RenderEvent::RequestRedraw).unwrap();
             }
 
             _ => {}

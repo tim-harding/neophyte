@@ -10,14 +10,13 @@ mod texture;
 
 use self::state::RenderState;
 use crate::{
-    event::{self, Event, OptionSet, SetTitle},
+    event::{Event, OptionSet, SetTitle},
     neovim::{Action, Button, Modifiers, Neovim},
     text::fonts::Fonts,
     ui::Ui,
     util::vec2::Vec2,
 };
 use bitfield_struct::bitfield;
-use rmpv::Value;
 use std::{
     ops::{BitOr, BitOrAssign},
     sync::{
@@ -30,9 +29,9 @@ use winit::window::Window;
 pub const TARGET_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
 pub enum RenderEvent {
-    Notification(String, Vec<Value>),
+    Notification(Notification),
     Resized(Vec2<u32>),
-    Redraw,
+    RequestRedraw,
     Scroll {
         delta: Vec2<f64>,
         kind: ScrollKind,
@@ -48,6 +47,10 @@ pub enum RenderEvent {
         action: Action,
         modifiers: Modifiers,
     },
+}
+
+pub enum Notification {
+    Redraw(Vec<Event>),
 }
 
 pub enum ScrollKind {
@@ -131,16 +134,20 @@ impl RenderLoop {
                 };
 
                 match event {
-                    RenderEvent::Notification(method, params) => {
-                        self.handle_notification(method, params)
-                    }
+                    RenderEvent::Notification(notification) => match notification {
+                        Notification::Redraw(events) => {
+                            for event in events {
+                                self.handle_event(event);
+                            }
+                        }
+                    },
 
                     RenderEvent::Resized(size) => {
                         self.render_state.resize(size, self.cell_size());
                         self.resize_neovim_grid();
                     }
 
-                    RenderEvent::Redraw => self.render_state.request_redraw(),
+                    RenderEvent::RequestRedraw => self.render_state.request_redraw(),
 
                     RenderEvent::Scroll {
                         delta,
@@ -268,34 +275,6 @@ impl RenderLoop {
                     }
                 }
             }
-        }
-    }
-
-    fn handle_notification(&mut self, method: String, params: Vec<Value>) {
-        match method.as_str() {
-            "redraw" => {
-                for param in params {
-                    match Event::try_parse(param.clone()) {
-                        Ok(events) => {
-                            for event in events {
-                                self.handle_event(event);
-                            }
-                        }
-                        Err(e) => match e {
-                            event::Error::UnknownEvent(name) => {
-                                log::error!("Unknown event: {name}\n{param:#?}");
-                            }
-                            _ => log::error!("{e}"),
-                        },
-                    }
-                }
-            }
-
-            "neophyte.set_font_height" => {
-                println!("{params:?}");
-            }
-
-            _ => log::error!("Unrecognized notification: {method}"),
         }
     }
 
