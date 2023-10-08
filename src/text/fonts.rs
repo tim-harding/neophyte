@@ -21,7 +21,13 @@ impl Fonts {
         }
     }
 
-    pub fn reload(&mut self, setting: &FontsSetting) {
+    pub fn set_font_size(&mut self, size: FontSize) {
+        for font in self.fonts.iter_mut() {
+            font.resize(size);
+        }
+    }
+
+    pub fn set_fonts(&mut self, setting: &FontsSetting) {
         let mut old = std::mem::take(&mut self.fonts);
         self.fonts = setting
             .fonts

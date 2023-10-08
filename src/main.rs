@@ -12,7 +12,8 @@ use std::{
     sync::{mpsc, Arc},
     thread,
 };
-use util::vec2::Vec2;
+use util::Parse;
+use util::{vec2::Vec2, Values};
 use winit::{
     event::{
         ElementState, KeyboardInput, ModifiersState, MouseScrollDelta, TouchPhase, VirtualKeyCode,
@@ -54,7 +55,12 @@ fn main() {
                     }
 
                     "neophyte.set_font_height" => {
-                        println!("{params:?}");
+                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                        let height: u32 = args.next().unwrap();
+                        let size = ui::FontSize::Height(height);
+                        render_tx
+                            .send(RenderEvent::Notification(Notification::SetFontSize(size)))
+                            .unwrap();
                     }
 
                     _ => log::error!("Unrecognized notification: {method}"),

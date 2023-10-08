@@ -13,7 +13,7 @@ use crate::{
     event::{Event, OptionSet, SetTitle},
     neovim::{Action, Button, Modifiers, Neovim},
     text::fonts::Fonts,
-    ui::Ui,
+    ui::{FontSize, Ui},
     util::vec2::Vec2,
 };
 use bitfield_struct::bitfield;
@@ -51,6 +51,7 @@ pub enum RenderEvent {
 
 pub enum Notification {
     Redraw(Vec<Event>),
+    SetFontSize(FontSize),
 }
 
 pub enum ScrollKind {
@@ -139,6 +140,11 @@ impl RenderLoop {
                             for event in events {
                                 self.handle_event(event);
                             }
+                        }
+
+                        Notification::SetFontSize(size) => {
+                            self.fonts.set_font_size(size);
+                            self.render_state.clear_glyph_cache();
                         }
                     },
 
@@ -291,7 +297,7 @@ impl RenderLoop {
                 let is_gui_font = matches!(event, OptionSet::Guifont(_));
                 self.ui.process(Event::OptionSet(event));
                 if is_gui_font {
-                    self.fonts.reload(&self.ui.options.guifont);
+                    self.fonts.set_fonts(&self.ui.options.guifont);
                     self.render_state.clear_glyph_cache();
                     self.resize_neovim_grid();
                 }

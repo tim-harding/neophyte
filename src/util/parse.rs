@@ -38,6 +38,24 @@ impl Parse for u64 {
     }
 }
 
+impl Parse for u32 {
+    fn parse(value: Value) -> Option<Self> {
+        u64::parse(value).and_then(|n| n.try_into().ok())
+    }
+}
+
+impl Parse for u16 {
+    fn parse(value: Value) -> Option<Self> {
+        u64::parse(value).and_then(|n| n.try_into().ok())
+    }
+}
+
+impl Parse for u8 {
+    fn parse(value: Value) -> Option<Self> {
+        u64::parse(value).and_then(|n| n.try_into().ok())
+    }
+}
+
 impl Parse for i64 {
     fn parse(value: Value) -> Option<Self> {
         match value {
@@ -47,12 +65,36 @@ impl Parse for i64 {
     }
 }
 
+impl Parse for i32 {
+    fn parse(value: Value) -> Option<Self> {
+        i64::parse(value).and_then(|n| n.try_into().ok())
+    }
+}
+
+impl Parse for i16 {
+    fn parse(value: Value) -> Option<Self> {
+        i64::parse(value).and_then(|n| n.try_into().ok())
+    }
+}
+
+impl Parse for i8 {
+    fn parse(value: Value) -> Option<Self> {
+        i64::parse(value).and_then(|n| n.try_into().ok())
+    }
+}
+
 impl Parse for f64 {
     fn parse(value: Value) -> Option<Self> {
         match value {
             Value::F64(n) => Some(n),
             _ => None,
         }
+    }
+}
+
+impl Parse for f32 {
+    fn parse(value: Value) -> Option<Self> {
+        f64::parse(value).map(|n| n as f32)
     }
 }
 
