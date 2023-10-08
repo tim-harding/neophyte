@@ -357,22 +357,22 @@ impl Handler {
                 Err(e) => {
                     match e {
                         DecodeError::Rmpv(e) => {
-                            let io_error = match &e {
+                            if let Some(io_error) = match &e {
                                 Error::InvalidMarkerRead(e) => Some(e.kind()),
                                 Error::InvalidDataRead(e) => Some(e.kind()),
                                 Error::DepthLimitExceeded => None,
-                            };
-                            let Some(io_error) = io_error else {
+                            } {
+                                match io_error {
+                                    ErrorKind::UnexpectedEof => {}
+                                    _ => log::error!("{e}"),
+                                }
+                            } else {
                                 log::error!("{e}");
-                                continue;
                             };
-                            match io_error {
-                                ErrorKind::UnexpectedEof => shutdown_handler(),
-                                _ => log::error!("{e}"),
-                            }
                         }
                         DecodeError::Parse => log::error!("Failed to parse an RPC message"),
                     }
+                    shutdown_handler();
                     return;
                 }
             };
