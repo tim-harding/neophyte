@@ -36,7 +36,7 @@ fn main() {
         let proxy = event_loop.create_proxy();
         thread::spawn(move || {
             handler.start(
-                |method, params| match method.as_str() {
+                |rpc::Notification { method, params }| match method.as_str() {
                     "redraw" => {
                         for param in params {
                             match event::Event::try_parse(param.clone()) {

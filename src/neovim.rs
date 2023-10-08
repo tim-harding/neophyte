@@ -1,17 +1,18 @@
-use crate::rpc::{decode, encode, DecodeError, RpcMessage};
+use crate::rpc::{self, decode, encode, DecodeError, Message, Notification, Request};
 use bitfield_struct::bitfield;
 use rmpv::Value;
 use std::{
+    collections::BinaryHeap,
     io::{self, ErrorKind},
     process::{ChildStdout, Command, Stdio},
-    sync::{mpsc, Arc, Mutex},
+    sync::{mpsc, Arc, Mutex, RwLock},
     thread,
 };
 use winit::event::{ElementState, ModifiersState, MouseButton};
 
 #[derive(Debug, Clone)]
 pub struct Neovim {
-    stdin_tx: mpsc::Sender<RpcMessage>,
+    stdin_tx: mpsc::Sender<Message>,
     msgid: Arc<Mutex<u64>>,
 }
 
@@ -59,13 +60,13 @@ impl Neovim {
             msgid
         };
 
-        let req = RpcMessage::Request {
+        let req = Request {
             msgid,
             method: method.to_owned(),
             params: args,
         };
 
-        match self.stdin_tx.send(req) {
+        match self.stdin_tx.send(req.into()) {
             Ok(_) => {}
             Err(e) => {
                 log::error!("{e}");
@@ -253,15 +254,22 @@ impl From<ModifiersState> for Modifiers {
     }
 }
 
+// NOTE: Responses must be given in reverse order of requests (like "unwinding a stack").
+
+struct Shared {
+    incoming_requests: RwLock<Vec<u64>>,
+    incoming_request_responses: RwLock<BinaryHeap<()>>,
+}
+
 pub struct Handler {
-    stdin_tx: mpsc::Sender<RpcMessage>,
+    stdin_tx: mpsc::Sender<Message>,
     stdout: ChildStdout,
 }
 
 impl Handler {
-    pub fn start<F, S>(mut self, mut notification_handler: F, shutdown_handler: S)
+    pub fn start<N, S>(mut self, mut notification_handler: N, shutdown_handler: S)
     where
-        F: FnMut(String, Vec<Value>),
+        N: FnMut(Notification),
         S: Fn(),
     {
         use rmpv::decode::Error;
@@ -292,18 +300,18 @@ impl Handler {
             };
 
             match msg {
-                RpcMessage::Request {
+                Message::Request(Request {
                     msgid,
                     method,
                     params,
-                } => {
+                }) => {
                     log::info!("RPC Request: {method}, {params:?}");
-                    let response = RpcMessage::Response {
+                    let response = rpc::Response {
                         msgid,
                         result: Value::Nil,
                         error: "Not handled".into(),
                     };
-                    match self.stdin_tx.send(response) {
+                    match self.stdin_tx.send(response.into()) {
                         Ok(_) => {}
                         Err(e) => {
                             log::error!("{e}");
@@ -312,11 +320,11 @@ impl Handler {
                     }
                 }
 
-                RpcMessage::Response {
+                Message::Response(rpc::Response {
                     msgid,
                     result,
                     error,
-                } => {
+                }) => {
                     if error != Value::Nil {
                         log::error!("RPC response to {msgid}: {error:?}");
                     } else {
@@ -324,7 +332,7 @@ impl Handler {
                     };
                 }
 
-                RpcMessage::Notification { method, params } => notification_handler(method, params),
+                Message::Notification(notification) => notification_handler(notification),
             };
         }
     }
