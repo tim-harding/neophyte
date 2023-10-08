@@ -288,6 +288,7 @@ impl RenderState {
     }
 
     pub fn clear_glyph_cache(&mut self) {
+        self.font_cache.clear();
         self.pipelines.emoji.clear();
         self.pipelines.monochrome.clear();
     }

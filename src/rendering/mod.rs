@@ -145,6 +145,7 @@ impl RenderLoop {
                         Notification::SetFontSize(size) => {
                             self.fonts.set_font_size(size);
                             self.render_state.clear_glyph_cache();
+                            self.resize_neovim_grid();
                         }
                     },
 
