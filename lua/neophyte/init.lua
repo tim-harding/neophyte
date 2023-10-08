@@ -12,4 +12,8 @@ function M.set_font_width(width)
   vim.rpcnotify(1, "neophyte.set_font_width", { integral })
 end
 
+function M.get_ten()
+  return vim.rpcrequest(1, "neophyte.get_ten", {})
+end
+
 return M

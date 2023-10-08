@@ -34,6 +34,7 @@ fn main() {
     {
         let render_tx = render_tx.clone();
         let proxy = event_loop.create_proxy();
+        let neovim = neovim.clone();
         thread::spawn(move || {
             handler.start(
                 |rpc::Notification { method, params }| match method.as_str() {
@@ -74,10 +75,17 @@ fn main() {
                     _ => log::error!("Unrecognized notification: {method}"),
                 },
                 |rpc::Request {
-                     msgid: _,
-                     method: _,
-                     params: _,
-                 }| {},
+                     msgid,
+                     method,
+                     params,
+                 }| {
+                    match method.as_str() {
+                        "neophyte.get_ten" => {
+                            neovim.send_response(rpc::Response::result(msgid, 10.into()))
+                        }
+                        _ => log::error!("Unknown request: {}, {:?}", method, params),
+                    }
+                },
                 || {
                     let _ = proxy.send_event(());
                 },

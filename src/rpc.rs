@@ -105,6 +105,24 @@ pub struct Response {
     pub result: Value,
 }
 
+impl Response {
+    pub fn error(msgid: u64, error: Value) -> Self {
+        Self {
+            msgid,
+            error,
+            result: Value::Nil,
+        }
+    }
+
+    pub fn result(msgid: u64, result: Value) -> Self {
+        Self {
+            msgid,
+            result,
+            error: Value::Nil,
+        }
+    }
+}
+
 impl From<Response> for Value {
     fn from(response: Response) -> Self {
         let Response {
