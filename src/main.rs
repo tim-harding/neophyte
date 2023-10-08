@@ -12,7 +12,6 @@ use std::{
     sync::{mpsc, Arc},
     thread,
 };
-use util::Parse;
 use util::{vec2::Vec2, Values};
 use winit::{
     event::{
@@ -58,6 +57,15 @@ fn main() {
                         let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
                         let height: u32 = args.next().unwrap();
                         let size = ui::FontSize::Height(height);
+                        render_tx
+                            .send(RenderEvent::Notification(Notification::SetFontSize(size)))
+                            .unwrap();
+                    }
+
+                    "neophyte.set_font_width" => {
+                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                        let width: u32 = args.next().unwrap();
+                        let size = ui::FontSize::Width(width);
                         render_tx
                             .send(RenderEvent::Notification(Notification::SetFontSize(size)))
                             .unwrap();
