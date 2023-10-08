@@ -1,4 +1,4 @@
-use crate::rpc::{self, decode, encode, DecodeError, Message, Notification, Request};
+use crate::rpc::{self, decode, encode, DecodeError, Message, Request};
 use bitfield_struct::bitfield;
 use rmpv::Value;
 use std::{
@@ -13,7 +13,8 @@ use winit::event::{ElementState, ModifiersState, MouseButton};
 #[derive(Debug, Clone)]
 pub struct Neovim {
     stdin_tx: mpsc::Sender<Message>,
-    msgid: Arc<Mutex<u64>>,
+    incoming: Arc<RwLock<IncomingRequests>>,
+    next_msgid: Arc<Mutex<u64>>,
 }
 
 impl Neovim {
@@ -40,21 +41,25 @@ impl Neovim {
             }
         });
 
+        let incoming = Arc::new(RwLock::new(IncomingRequests::new()));
+
         Ok((
             Neovim {
                 stdin_tx: tx.clone(),
-                msgid: Default::default(),
+                incoming: incoming.clone(),
+                next_msgid: Default::default(),
             },
             Handler {
                 stdin_tx: tx,
+                incoming,
                 stdout,
             },
         ))
     }
 
-    pub fn call(&self, method: &str, args: Vec<Value>) -> u64 {
+    fn call(&self, method: &str, args: Vec<Value>) -> u64 {
         let msgid = {
-            let mut lock = self.msgid.lock().unwrap();
+            let mut lock = self.next_msgid.lock().unwrap();
             let msgid = *lock;
             *lock += 1;
             msgid
@@ -256,20 +261,89 @@ impl From<ModifiersState> for Modifiers {
 
 // NOTE: Responses must be given in reverse order of requests (like "unwinding a stack").
 
-struct Shared {
-    incoming_requests: RwLock<Vec<u64>>,
-    incoming_request_responses: RwLock<BinaryHeap<()>>,
+#[derive(Debug, Default, Clone)]
+struct IncomingRequests {
+    requests: Vec<u64>,
+    responses: BinaryHeap<QueuedResponse>,
+}
+
+impl IncomingRequests {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn push_request(&mut self, msgid: u64) {
+        self.requests.push(msgid);
+    }
+
+    pub fn push_response(&mut self, response: rpc::Response) {
+        self.responses.push(response.into());
+    }
+
+    pub fn next_ready(&mut self) -> Option<rpc::Response> {
+        if let (Some(id), Some(response)) = (self.requests.last(), self.responses.peek()) {
+            if *id == response.0.msgid {
+                self.requests.pop();
+                self.responses.pop().map(|response| response.into())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct QueuedResponse(rpc::Response);
+
+impl PartialEq for QueuedResponse {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.msgid == other.0.msgid
+    }
+}
+
+impl Eq for QueuedResponse {}
+
+impl Ord for QueuedResponse {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.msgid.cmp(&other.0.msgid)
+    }
+}
+
+impl PartialOrd for QueuedResponse {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(&other))
+    }
+}
+
+impl From<rpc::Response> for QueuedResponse {
+    fn from(response: rpc::Response) -> Self {
+        Self(response)
+    }
+}
+
+impl From<QueuedResponse> for rpc::Response {
+    fn from(value: QueuedResponse) -> Self {
+        value.0
+    }
 }
 
 pub struct Handler {
     stdin_tx: mpsc::Sender<Message>,
+    incoming: Arc<RwLock<IncomingRequests>>,
     stdout: ChildStdout,
 }
 
 impl Handler {
-    pub fn start<N, S>(mut self, mut notification_handler: N, shutdown_handler: S)
-    where
-        N: FnMut(Notification),
+    pub fn start<N, R, S>(
+        mut self,
+        mut notification_handler: N,
+        mut request_handler: R,
+        shutdown_handler: S,
+    ) where
+        N: FnMut(rpc::Notification),
+        R: FnMut(rpc::Request),
         S: Fn(),
     {
         use rmpv::decode::Error;
@@ -300,24 +374,9 @@ impl Handler {
             };
 
             match msg {
-                Message::Request(Request {
-                    msgid,
-                    method,
-                    params,
-                }) => {
-                    log::info!("RPC Request: {method}, {params:?}");
-                    let response = rpc::Response {
-                        msgid,
-                        result: Value::Nil,
-                        error: "Not handled".into(),
-                    };
-                    match self.stdin_tx.send(response.into()) {
-                        Ok(_) => {}
-                        Err(e) => {
-                            log::error!("{e}");
-                            return;
-                        }
-                    }
+                Message::Request(request) => {
+                    log::info!("RPC Request: {}, {:?}", request.method, request.params);
+                    request_handler(request);
                 }
 
                 Message::Response(rpc::Response {

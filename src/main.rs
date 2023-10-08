@@ -73,6 +73,11 @@ fn main() {
 
                     _ => log::error!("Unrecognized notification: {method}"),
                 },
+                |rpc::Request {
+                     msgid: _,
+                     method: _,
+                     params: _,
+                 }| {},
                 || {
                     let _ = proxy.send_event(());
                 },
