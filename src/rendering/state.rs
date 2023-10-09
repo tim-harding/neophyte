@@ -11,7 +11,7 @@ use crate::{
     ui::Ui,
     util::vec2::Vec2,
 };
-use std::sync::Arc;
+use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use swash::shape::ShapeContext;
 use winit::window::Window;
 
@@ -27,6 +27,22 @@ pub struct RenderState {
     shape_context: ShapeContext,
     font_cache: FontCache,
     wants_redraw: bool,
+    settings: RwLock<Settings>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Settings {
+    pub cursor_speed: f32,
+    pub scroll_speed: f32,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            cursor_speed: 100.,
+            scroll_speed: 3.,
+        }
+    }
 }
 
 struct Targets {
@@ -107,6 +123,7 @@ impl RenderState {
         };
 
         Self {
+            settings: Default::default(),
             pipelines: Pipelines {
                 cursor: cursor::Pipeline::new(&device, &targets.monochrome.view),
                 blend: blend::Pipeline::new(&device, &targets.color.view),
@@ -299,5 +316,13 @@ impl RenderState {
 
     pub fn request_redraw(&mut self) {
         self.wants_redraw = true;
+    }
+
+    pub fn settings(&self) -> RwLockReadGuard<'_, Settings> {
+        self.settings.read().unwrap()
+    }
+
+    pub fn settings_mut(&mut self) -> RwLockWriteGuard<'_, Settings> {
+        self.settings.write().unwrap()
     }
 }

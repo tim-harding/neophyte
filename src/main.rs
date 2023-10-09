@@ -7,7 +7,7 @@ mod ui;
 mod util;
 
 use neovim::Neovim;
-use rendering::{Notification, RenderEvent, RenderLoop, ScrollKind};
+use rendering::{Notification, RenderEvent, RenderLoop, RequestKind, ScrollKind};
 use std::{
     sync::{mpsc, Arc},
     thread,
@@ -34,7 +34,6 @@ fn main() {
     {
         let render_tx = render_tx.clone();
         let proxy = event_loop.create_proxy();
-        let neovim = neovim.clone();
         thread::spawn(move || {
             handler.start(
                 |rpc::Notification { method, params }| match method.as_str() {
@@ -80,9 +79,24 @@ fn main() {
                      params,
                  }| {
                     match method.as_str() {
-                        "neophyte.get_ten" => {
-                            neovim.send_response(rpc::Response::result(msgid, 10.into()))
-                        }
+                        "neophyte.get_fonts" => render_tx
+                            .send(RenderEvent::Request(rendering::Request {
+                                msgid,
+                                kind: RequestKind::Fonts,
+                            }))
+                            .unwrap(),
+                        "neophyte.get_cursor_speed" => render_tx
+                            .send(RenderEvent::Request(rendering::Request {
+                                msgid,
+                                kind: RequestKind::CursorSpeed,
+                            }))
+                            .unwrap(),
+                        "neophyte.get_scroll_speed" => render_tx
+                            .send(RenderEvent::Request(rendering::Request {
+                                msgid,
+                                kind: RequestKind::ScrollSpeed,
+                            }))
+                            .unwrap(),
                         _ => log::error!("Unknown request: {}, {:?}", method, params),
                     }
                 },

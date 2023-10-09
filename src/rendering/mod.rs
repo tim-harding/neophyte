@@ -12,6 +12,7 @@ use self::state::RenderState;
 use crate::{
     event::{Event, OptionSet, SetTitle},
     neovim::{Action, Button, Modifiers, Neovim},
+    rpc,
     text::fonts::Fonts,
     ui::{FontSize, Ui},
     util::vec2::Vec2,
@@ -30,6 +31,7 @@ pub const TARGET_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
 pub enum RenderEvent {
     Notification(Notification),
+    Request(Request),
     Resized(Vec2<u32>),
     RequestRedraw,
     Scroll {
@@ -52,6 +54,17 @@ pub enum RenderEvent {
 pub enum Notification {
     Redraw(Vec<Event>),
     SetFontSize(FontSize),
+}
+
+pub struct Request {
+    pub msgid: u64,
+    pub kind: RequestKind,
+}
+
+pub enum RequestKind {
+    Fonts,
+    ScrollSpeed,
+    CursorSpeed,
 }
 
 pub enum ScrollKind {
@@ -280,6 +293,28 @@ impl RenderLoop {
                             );
                         }
                     }
+
+                    RenderEvent::Request(request) => match request.kind {
+                        RequestKind::Fonts => {
+                            let names = self.fonts.iter().map(|font| font.name.clone()).collect();
+                            self.neovim
+                                .send_response(rpc::Response::result(request.msgid, names));
+                        }
+                        RequestKind::ScrollSpeed => {
+                            let scroll_speed = self.render_state.settings().scroll_speed;
+                            self.neovim.send_response(rpc::Response::result(
+                                request.msgid,
+                                scroll_speed.into(),
+                            ));
+                        }
+                        RequestKind::CursorSpeed => {
+                            let cursor_speed = self.render_state.settings().cursor_speed;
+                            self.neovim.send_response(rpc::Response::result(
+                                request.msgid,
+                                cursor_speed.into(),
+                            ));
+                        }
+                    },
                 }
             }
         }
