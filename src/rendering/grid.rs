@@ -85,6 +85,8 @@ impl Grid {
 
         for cell in grid.buffer.iter() {
             self.cell_fill.push(cell.highlight);
+            // let hl = highlights.get(&cell.highlight).unwrap();
+            // hl.rgb_attr.
         }
 
         for (cell_line_i, cell_line) in self.scrolling.rows(grid) {

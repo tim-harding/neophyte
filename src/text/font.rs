@@ -57,15 +57,67 @@ impl Font {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Metrics {
+    /// Multiplier from units per em to pixels
     pub scale_factor: f32,
+    /// The width of a cell
     pub width: f32,
+    /// The height of a cell
     pub em: f32,
+    /// Distance from the baseline to the bottom of the alignment box.
     pub descent: f32,
+    /// Distance from the baseline to the top of the alignment box.
+    pub ascent: f32,
+    /// Recommended additional spacing between lines.
+    pub leading: f32,
+    /// Distance from the baseline to the top of a typical English capital.
+    pub cap_height: f32,
+    /// Distance from the baseline to the top of the lowercase "x" or
+    /// similar character.
+    pub x_height: f32,
+    /// Recommended distance from the baseline to the top of an underline
+    /// stroke.
+    pub underline_offset: f32,
+    /// Recommended distance from the baseline to the top of a strikeout
+    /// stroke.
+    pub strikeout_offset: f32,
+    /// Recommended thickness of an underline or strikeout stroke.
+    pub stroke_size: f32,
 }
 
 impl Metrics {
     pub fn into_pixels(self) -> MetricsPixels {
         self.into()
+    }
+
+    fn new(font: FontRef, size: FontSize) -> Self {
+        let metrics = font.metrics(&[]);
+        let (scale_factor, em) = match size {
+            FontSize::Width(width) => {
+                let scale_factor = width as f32 / metrics.max_width;
+                let em = metrics.units_per_em as f32 * scale_factor;
+                (scale_factor, em)
+            }
+
+            FontSize::Height(height) => {
+                let scale_factor = height / metrics.units_per_em as f32;
+                (scale_factor, height)
+            }
+        };
+
+        let metrics = metrics.scale(em);
+        Self {
+            scale_factor,
+            em,
+            width: metrics.max_width,
+            descent: metrics.descent,
+            ascent: metrics.ascent,
+            leading: metrics.leading,
+            cap_height: metrics.cap_height,
+            x_height: metrics.x_height,
+            underline_offset: metrics.underline_offset,
+            strikeout_offset: metrics.strikeout_offset,
+            stroke_size: metrics.stroke_size,
+        }
     }
 }
 
@@ -85,36 +137,9 @@ impl MetricsPixels {
 impl From<Metrics> for MetricsPixels {
     fn from(metrics: Metrics) -> Self {
         Self {
-            width: metrics.width.ceil() as u32,
-            em: metrics.em.ceil() as u32,
-            descent: metrics.descent.ceil() as u32,
-        }
-    }
-}
-
-impl Metrics {
-    fn new(font: FontRef, size: FontSize) -> Self {
-        let metrics = font.metrics(&[]);
-        match size {
-            FontSize::Width(width) => {
-                let scale_factor = width as f32 / metrics.max_width;
-                Self {
-                    scale_factor,
-                    width: width as f32,
-                    em: metrics.units_per_em as f32 * scale_factor,
-                    descent: metrics.descent * scale_factor,
-                }
-            }
-
-            FontSize::Height(height) => {
-                let metrics = metrics.scale(height as f32);
-                Self {
-                    scale_factor: height as f32 / metrics.units_per_em as f32,
-                    width: metrics.max_width,
-                    em: height as f32,
-                    descent: metrics.descent,
-                }
-            }
+            width: metrics.width.round() as u32,
+            em: metrics.em.round() as u32,
+            descent: metrics.descent.round() as u32,
         }
     }
 }

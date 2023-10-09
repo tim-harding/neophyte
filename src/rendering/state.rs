@@ -32,7 +32,9 @@ pub struct RenderState {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Settings {
+    /// Multiplier of the default cursor speed
     pub cursor_speed: f32,
+    /// Multiplier of the default scroll speed
     pub scroll_speed: f32,
 }
 
