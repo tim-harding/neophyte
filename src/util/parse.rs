@@ -87,6 +87,8 @@ impl Parse for f64 {
     fn parse(value: Value) -> Option<Self> {
         match value {
             Value::F64(n) => Some(n),
+            Value::F32(n) => Some(n as f64),
+            Value::Integer(n) => n.as_f64(),
             _ => None,
         }
     }
@@ -94,7 +96,12 @@ impl Parse for f64 {
 
 impl Parse for f32 {
     fn parse(value: Value) -> Option<Self> {
-        f64::parse(value).map(|n| n as f32)
+        match value {
+            Value::F32(n) => Some(n),
+            Value::F64(n) => Some(n as f32),
+            Value::Integer(n) => n.as_f64().map(|n| n as f32),
+            _ => None,
+        }
     }
 }
 

@@ -39,8 +39,8 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            cursor_speed: 100.,
-            scroll_speed: 3.,
+            cursor_speed: 1.,
+            scroll_speed: 1.,
         }
     }
 }
@@ -237,6 +237,8 @@ impl RenderState {
             return;
         };
 
+        let settings = self.settings().clone();
+
         let output_view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -249,7 +251,9 @@ impl RenderState {
         let mut motion = Motion::Still;
 
         for grid in self.grids.iter_mut() {
-            motion |= grid.scrolling_mut().advance(delta_seconds);
+            motion |= grid
+                .scrolling_mut()
+                .advance(delta_seconds * settings.scroll_speed);
         }
 
         self.pipelines.cell_fill.render(
@@ -280,7 +284,7 @@ impl RenderState {
         motion |= self.pipelines.cursor.render(
             &mut encoder,
             &self.targets.color.view,
-            delta_seconds,
+            delta_seconds * settings.cursor_speed,
             cell_size.cast_as(),
             target_size.cast_as(),
         );

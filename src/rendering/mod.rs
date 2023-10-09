@@ -54,6 +54,8 @@ pub enum RenderEvent {
 pub enum Notification {
     Redraw(Vec<Event>),
     SetFontSize(FontSize),
+    SetScrollSpeed(f32),
+    SetCursorSpeed(f32),
 }
 
 pub struct Request {
@@ -161,6 +163,14 @@ impl RenderLoop {
                             self.fonts.set_font_size(size);
                             self.render_state.clear_glyph_cache();
                             self.resize_neovim_grid();
+                        }
+
+                        Notification::SetScrollSpeed(speed) => {
+                            self.render_state.settings_mut().scroll_speed = speed;
+                        }
+
+                        Notification::SetCursorSpeed(speed) => {
+                            self.render_state.settings_mut().cursor_speed = speed;
                         }
                     },
 

@@ -71,6 +71,26 @@ fn main() {
                             .unwrap();
                     }
 
+                    "neophyte.set_cursor_speed" => {
+                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                        let speed: f32 = args.next().unwrap();
+                        render_tx
+                            .send(RenderEvent::Notification(Notification::SetCursorSpeed(
+                                speed,
+                            )))
+                            .unwrap();
+                    }
+
+                    "neophyte.set_scroll_speed" => {
+                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                        let speed: f32 = args.next().unwrap();
+                        render_tx
+                            .send(RenderEvent::Notification(Notification::SetScrollSpeed(
+                                speed,
+                            )))
+                            .unwrap();
+                    }
+
                     _ => log::error!("Unrecognized notification: {method}"),
                 },
                 |rpc::Request {
@@ -85,30 +105,35 @@ fn main() {
                                 kind: RequestKind::Fonts,
                             }))
                             .unwrap(),
+
                         "neophyte.get_cursor_speed" => render_tx
                             .send(RenderEvent::Request(rendering::Request {
                                 msgid,
                                 kind: RequestKind::CursorSpeed,
                             }))
                             .unwrap(),
+
                         "neophyte.get_scroll_speed" => render_tx
                             .send(RenderEvent::Request(rendering::Request {
                                 msgid,
                                 kind: RequestKind::ScrollSpeed,
                             }))
                             .unwrap(),
+
                         "neophyte.get_font_width" => render_tx
                             .send(RenderEvent::Request(rendering::Request {
                                 msgid,
                                 kind: RequestKind::FontWidth,
                             }))
                             .unwrap(),
+
                         "neophyte.get_font_height" => render_tx
                             .send(RenderEvent::Request(rendering::Request {
                                 msgid,
                                 kind: RequestKind::FontHeight,
                             }))
                             .unwrap(),
+
                         _ => log::error!("Unknown request: {}, {:?}", method, params),
                     }
                 },

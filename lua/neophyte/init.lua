@@ -36,10 +36,9 @@ function M.get_fonts()
   return vim.rpcrequest(1, "neophyte.get_fonts", {})
 end
 
--- TODO
 ---@param speed number
 function M.set_cursor_speed(speed)
-  vim.rpcnotify(1, "neophyte.set_cursor_speed", speed)
+  vim.rpcnotify(1, "neophyte.set_cursor_speed", { speed })
 end
 
 ---@return number
@@ -47,10 +46,9 @@ function M.get_cursor_speed()
   return vim.rpcrequest(1, "neophyte.get_cursor_speed", {})
 end
 
--- TODO
 ---@param speed number
 function M.set_scroll_speed(speed)
-  vim.rpcnotify(1, "neophyte.set_scroll_speed", speed)
+  vim.rpcnotify(1, "neophyte.set_scroll_speed", { speed })
 end
 
 ---@return number
