@@ -34,11 +34,13 @@ pub struct Grid {
     monochrome: Vec<Cell>,
     emoji: Vec<Cell>,
     cell_fill: Vec<u32>,
+    lines: Vec<Line>,
     buffer: Option<wgpu::Buffer>,
     buffer_capacity: u64,
     cell_fill_bind_group: Option<wgpu::BindGroup>,
     monochrome_bind_group: Option<wgpu::BindGroup>,
     emoji_bind_group: Option<wgpu::BindGroup>,
+    lines_bind_group: Option<wgpu::BindGroup>,
     monochrome_count: u32,
     emoji_count: u32,
     offset: Vec2<i32>,
@@ -82,12 +84,7 @@ impl Grid {
         self.monochrome.clear();
         self.emoji.clear();
         self.cell_fill.clear();
-
-        for cell in grid.buffer.iter() {
-            self.cell_fill.push(cell.highlight);
-            // let hl = highlights.get(&cell.highlight).unwrap();
-            // hl.rgb_attr.
-        }
+        self.lines.clear();
 
         for (cell_line_i, cell_line) in self.scrolling.rows(grid) {
             let mut cluster = CharCluster::new();
@@ -103,7 +100,7 @@ impl Grid {
                     iter.map(move |c| Token {
                         ch: c,
                         offset: cell_i as u32,
-                        len: 0,
+                        len: 1,
                         info: c.into(),
                         data: cell.highlight,
                     })
@@ -147,6 +144,17 @@ impl Grid {
                     }
 
                     shaper.shape_with(|glyph_cluster| {
+                        // NOTE: Although some programming fonts are said to
+                        // contain ligatures, in practice these are more
+                        // commonly implemented as multi-character alternates.
+                        // In contrast to genuine OpenType ligatures,
+                        // multi-character alternates still get a glyph cluster
+                        // per input char where some of those clusters may
+                        // contain an empty glyph. That means we can produce the
+                        // cell fill characters during shaping without worrying
+                        // too much about whether a glyph cluster spans multiple
+                        // cells. This is something to improve on in the future.
+                        self.cell_fill.push(glyph_cluster.data);
                         let x = glyph_cluster.source.start * cell_size.x;
                         for glyph in glyph_cluster.glyphs {
                             let CacheValue { index, kind } = match font_cache.get(
@@ -412,6 +420,15 @@ pub struct Cell {
     pub position: Vec2<i32>,
     pub glyph_index: u32,
     pub highlight_index: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
+pub struct Line {
+    pub position: Vec2<i32>,
+    pub size: Vec2<i32>,
+    pub highlight_index: u32,
+    pub padding: u32,
 }
 
 #[derive(Clone)]

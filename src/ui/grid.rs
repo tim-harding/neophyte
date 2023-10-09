@@ -28,19 +28,10 @@ pub struct Grid {
     pub overflow: Vec<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Cell {
     pub text: PackedChar,
     pub highlight: u32,
-}
-
-impl Default for Cell {
-    fn default() -> Self {
-        Self {
-            text: PackedChar::from_char('\0'),
-            highlight: 0,
-        }
-    }
 }
 
 impl Grid {
@@ -219,6 +210,7 @@ impl Debug for Grid {
             for cell in row {
                 match cell.text.contents() {
                     PackedCharContents::Char(c) => {
+                        let c = if c == '\0' { ' ' } else { c };
                         write!(f, "{}", c)?;
                     }
                     PackedCharContents::U22(u22) => {

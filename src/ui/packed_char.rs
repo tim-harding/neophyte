@@ -25,7 +25,7 @@
 
 use std::fmt::{self, Debug, Formatter};
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct PackedChar(u32);
 
 impl PackedChar {
