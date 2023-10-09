@@ -88,12 +88,12 @@ fn fonts_from_option(option: String) -> FontsSetting {
                 }
                 ',' => {
                     out.fonts.push(current);
-                    out.size = FontSize::new(size, kind);
+                    out.size = FontSize::new(size as f32, kind);
                     current = String::default();
                     state = ParseState::Normal;
                 }
                 ':' => {
-                    out.size = FontSize::new(size, kind);
+                    out.size = FontSize::new(size as f32, kind);
                     state = ParseState::OptionStart;
                 }
                 _ => {
@@ -121,20 +121,20 @@ fn fonts_from_option(option: String) -> FontsSetting {
     out
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct FontsSetting {
     pub fonts: Vec<String>,
     pub size: FontSize,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FontSize {
-    Width(u32),
-    Height(u32),
+    Width(f32),
+    Height(f32),
 }
 
 impl FontSize {
-    fn new(size: u32, kind: SizeKind) -> Self {
+    fn new(size: f32, kind: SizeKind) -> Self {
         match kind {
             SizeKind::Width => Self::Width(size),
             SizeKind::Height => Self::Height(size),
@@ -144,7 +144,7 @@ impl FontSize {
 
 impl Default for FontSize {
     fn default() -> Self {
-        Self::Height(18)
+        Self::Height(18.)
     }
 }
 

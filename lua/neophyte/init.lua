@@ -5,8 +5,7 @@ local M = {}
 
 ---@param height number
 function M.set_font_height(height)
-  local integral, _ = math.modf(height)
-  vim.rpcnotify(1, "neophyte.set_font_height", { integral })
+  vim.rpcnotify(1, "neophyte.set_font_height", { height })
 end
 
 ---@return number
@@ -16,8 +15,7 @@ end
 
 ---@param width number
 function M.set_font_width(width)
-  local integral, _ = math.modf(width)
-  vim.rpcnotify(1, "neophyte.set_font_width", { integral })
+  vim.rpcnotify(1, "neophyte.set_font_width", { width })
 end
 
 ---@return number
@@ -25,7 +23,6 @@ function M.get_font_width()
   return vim.rpcrequest(1, "neophyte.get_font_width", {})
 end
 
--- TODO
 ---@param fonts string[]
 function M.set_fonts(fonts)
   vim.rpcnotify(1, "neophyte.set_fonts", fonts)

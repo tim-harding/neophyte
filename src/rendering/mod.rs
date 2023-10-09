@@ -14,7 +14,7 @@ use crate::{
     neovim::{Action, Button, Modifiers, Neovim},
     rpc,
     text::fonts::Fonts,
-    ui::{FontSize, Ui},
+    ui::{FontSize, FontsSetting, Ui},
     util::vec2::Vec2,
 };
 use bitfield_struct::bitfield;
@@ -54,6 +54,7 @@ pub enum RenderEvent {
 pub enum Notification {
     Redraw(Vec<Event>),
     SetFontSize(FontSize),
+    SetFonts(Vec<String>),
     SetScrollSpeed(f32),
     SetCursorSpeed(f32),
 }
@@ -161,6 +162,15 @@ impl RenderLoop {
 
                         Notification::SetFontSize(size) => {
                             self.fonts.set_font_size(size);
+                            self.render_state.clear_glyph_cache();
+                            self.resize_neovim_grid();
+                        }
+
+                        Notification::SetFonts(fonts) => {
+                            self.fonts.set_fonts(&FontsSetting {
+                                fonts,
+                                size: FontSize::Height(self.fonts.metrics().em),
+                            });
                             self.render_state.clear_glyph_cache();
                             self.resize_neovim_grid();
                         }

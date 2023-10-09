@@ -55,7 +55,7 @@ fn main() {
 
                     "neophyte.set_font_height" => {
                         let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                        let height: u32 = args.next().unwrap();
+                        let height: f32 = args.next().unwrap();
                         let size = ui::FontSize::Height(height);
                         render_tx
                             .send(RenderEvent::Notification(Notification::SetFontSize(size)))
@@ -64,7 +64,7 @@ fn main() {
 
                     "neophyte.set_font_width" => {
                         let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                        let width: u32 = args.next().unwrap();
+                        let width: f32 = args.next().unwrap();
                         let size = ui::FontSize::Width(width);
                         render_tx
                             .send(RenderEvent::Notification(Notification::SetFontSize(size)))
@@ -88,6 +88,17 @@ fn main() {
                             .send(RenderEvent::Notification(Notification::SetScrollSpeed(
                                 speed,
                             )))
+                            .unwrap();
+                    }
+
+                    "neophyte.set_fonts" => {
+                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                        let mut fonts = vec![];
+                        while let Some(font) = args.next() {
+                            fonts.push(font);
+                        }
+                        render_tx
+                            .send(RenderEvent::Notification(Notification::SetFonts(fonts)))
                             .unwrap();
                     }
 
