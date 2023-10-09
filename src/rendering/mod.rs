@@ -65,6 +65,8 @@ pub enum RequestKind {
     Fonts,
     ScrollSpeed,
     CursorSpeed,
+    FontWidth,
+    FontHeight,
 }
 
 pub enum ScrollKind {
@@ -313,6 +315,16 @@ impl RenderLoop {
                                 request.msgid,
                                 cursor_speed.into(),
                             ));
+                        }
+                        RequestKind::FontWidth => {
+                            let width = self.fonts.metrics().width;
+                            self.neovim
+                                .send_response(rpc::Response::result(request.msgid, width.into()));
+                        }
+                        RequestKind::FontHeight => {
+                            let width = self.fonts.metrics().em;
+                            self.neovim
+                                .send_response(rpc::Response::result(request.msgid, width.into()));
                         }
                     },
                 }

@@ -97,6 +97,18 @@ fn main() {
                                 kind: RequestKind::ScrollSpeed,
                             }))
                             .unwrap(),
+                        "neophyte.get_font_width" => render_tx
+                            .send(RenderEvent::Request(rendering::Request {
+                                msgid,
+                                kind: RequestKind::FontWidth,
+                            }))
+                            .unwrap(),
+                        "neophyte.get_font_height" => render_tx
+                            .send(RenderEvent::Request(rendering::Request {
+                                msgid,
+                                kind: RequestKind::FontHeight,
+                            }))
+                            .unwrap(),
                         _ => log::error!("Unknown request: {}, {:?}", method, params),
                     }
                 },
