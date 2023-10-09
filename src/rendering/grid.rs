@@ -155,6 +155,7 @@ impl Grid {
                         // too much about whether a glyph cluster spans multiple
                         // cells. This is something to improve on in the future.
                         self.cell_fill.push(glyph_cluster.data);
+
                         let x = glyph_cluster.source.start * cell_size.x;
                         for glyph in glyph_cluster.glyphs {
                             let CacheValue { index, kind } = match font_cache.get(
@@ -171,18 +172,39 @@ impl Grid {
                             };
                             let glyph_index = index as u32;
 
+                            let position = Vec2::new(glyph.x, glyph.y) * metrics.scale_factor;
                             let offset = match kind {
                                 GlyphKind::Monochrome => font_cache.monochrome.offset[index],
                                 GlyphKind::Emoji => font_cache.emoji.offset[index],
                             };
-                            let position = offset * Vec2::new(1, -1)
-                                + Vec2::new(
-                                    (glyph.x * metrics.scale_factor).round() as i32 + x as i32,
-                                    (glyph.y * metrics.scale_factor
-                                        + (cell_line_i * cell_size.y as i64 + metrics_px.em as i64)
-                                            as f32)
-                                        .round() as i32,
-                                );
+                            let position = Vec2::new(
+                                position.x.round() as i32 + x as i32,
+                                (position.y
+                                    + (cell_line_i * cell_size.y as i64 + metrics_px.em as i64)
+                                        as f32)
+                                    .round() as i32,
+                            );
+
+                            if let Some(hl) = highlights.get(&(glyph.data as u64)) {
+                                if hl.rgb_attr.underline.unwrap_or(false) {
+                                    self.lines.push(Line {
+                                        position: position
+                                            + Vec2::new(
+                                                0,
+                                                (cell_size.y + metrics_px.underline_offset + 1)
+                                                    as i32,
+                                            ),
+                                        size: Vec2::new(
+                                            metrics_px.width,
+                                            metrics_px.stroke_size.min(1),
+                                        ),
+                                        highlight_index: glyph.data,
+                                        padding: 0,
+                                    })
+                                }
+                            }
+
+                            let position = offset * Vec2::new(1, -1) + position;
                             match kind {
                                 GlyphKind::Monochrome => self.monochrome.push(Cell {
                                     position,
@@ -212,20 +234,34 @@ impl Grid {
             }
         }
 
+        println!("{:#?}", metrics_px);
+
         self.monochrome_count = self.monochrome.len() as u32;
         self.emoji_count = self.emoji.len() as u32;
 
         let glyphs = cast_slice(self.monochrome.as_slice());
         let emoji = cast_slice(self.emoji.as_slice());
         let bg = cast_slice(self.cell_fill.as_slice());
+        let lines = cast_slice(self.lines.as_slice());
 
         let alignment = device.limits().min_storage_buffer_offset_alignment as u64;
+
         let glyphs_len = glyphs.len() as u64;
         let emoji_len = emoji.len() as u64;
         let bg_len = bg.len() as u64;
+        let lines_len = lines.len() as u64;
+
         let glyphs_padding = alignment - glyphs_len % alignment;
         let emoji_padding = alignment - emoji_len % alignment;
-        let total_length = glyphs_len + glyphs_padding + emoji_len + emoji_padding + bg_len;
+        let bg_padding = alignment - bg_len % alignment;
+
+        let total_length = glyphs_len
+            + glyphs_padding
+            + emoji_len
+            + emoji_padding
+            + bg_len
+            + bg_padding
+            + lines_len;
 
         if total_length > self.buffer_capacity {
             self.buffer_capacity = total_length * 2;
@@ -243,7 +279,7 @@ impl Grid {
         queue.write_buffer(buffer, 0, glyphs);
         self.monochrome_bind_group = NonZeroU64::new(glyphs_len).map(|size| {
             device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("Glyph bind group"),
+                label: Some("Monochrome bind group"),
                 layout: grid_bind_group_layout,
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
@@ -260,7 +296,7 @@ impl Grid {
         queue.write_buffer(buffer, offset, emoji);
         self.emoji_bind_group = NonZeroU64::new(emoji_len).map(|size| {
             device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("Glyph bind group"),
+                label: Some("Emoji bind group"),
                 layout: grid_bind_group_layout,
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
@@ -277,7 +313,24 @@ impl Grid {
         queue.write_buffer(buffer, offset, bg);
         self.cell_fill_bind_group = NonZeroU64::new(bg_len).map(|size| {
             device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("Glyph bind group"),
+                label: Some("Cell fill bind group"),
+                layout: grid_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer,
+                        offset,
+                        size: Some(size),
+                    }),
+                }],
+            })
+        });
+        offset += bg_len + bg_padding;
+
+        queue.write_buffer(buffer, offset, lines);
+        self.lines_bind_group = NonZeroU64::new(lines_len).map(|size| {
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Lines bind group"),
                 layout: grid_bind_group_layout,
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
@@ -310,6 +363,10 @@ impl Grid {
 
     pub fn emoji_bind_group(&self) -> Option<&wgpu::BindGroup> {
         self.emoji_bind_group.as_ref()
+    }
+
+    pub fn lines_bind_group(&self) -> Option<&wgpu::BindGroup> {
+        self.lines_bind_group.as_ref()
     }
 
     pub fn size(&self) -> Vec2<u32> {
@@ -426,7 +483,7 @@ pub struct Cell {
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
 pub struct Line {
     pub position: Vec2<i32>,
-    pub size: Vec2<i32>,
+    pub size: Vec2<u32>,
     pub highlight_index: u32,
     pub padding: u32,
 }

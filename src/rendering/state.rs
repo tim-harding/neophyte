@@ -2,7 +2,7 @@ use super::{
     depth_texture::DepthTexture,
     grids::Grids,
     highlights::Highlights,
-    pipelines::{blend, cell_fill, cursor, emoji, gamma_blit, monochrome},
+    pipelines::{blend, cell_fill, cursor, emoji, gamma_blit, lines, monochrome},
     texture::Texture,
     Motion, TARGET_FORMAT,
 };
@@ -60,6 +60,7 @@ struct Pipelines {
     emoji: emoji::Pipeline,
     gamma_blit: gamma_blit::Pipeline,
     monochrome: monochrome::Pipeline,
+    lines: lines::Pipeline,
 }
 
 impl RenderState {
@@ -142,6 +143,12 @@ impl RenderState {
                     &targets.color.view,
                 ),
                 monochrome: monochrome::Pipeline::new(&device),
+                lines: lines::Pipeline::new(
+                    &device,
+                    highlights.layout(),
+                    grids.bind_group_layout(),
+                    TARGET_FORMAT,
+                ),
             },
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
@@ -298,6 +305,16 @@ impl RenderState {
             &self.targets.depth.view,
             cell_size,
             target_size,
+        );
+
+        self.pipelines.lines.render(
+            &mut encoder,
+            self.grids.front_to_back(),
+            &self.targets.color.view,
+            &self.targets.depth.view,
+            highlights_bind_group,
+            target_size,
+            cell_size,
         );
 
         self.pipelines

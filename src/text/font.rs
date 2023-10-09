@@ -123,9 +123,31 @@ impl Metrics {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MetricsPixels {
+    /// Multiplier from units per em to pixels
+    pub scale_factor: u32,
+    /// The width of a cell
     pub width: u32,
+    /// The height of a cell
     pub em: u32,
+    /// Distance from the baseline to the bottom of the alignment box.
     pub descent: u32,
+    /// Distance from the baseline to the top of the alignment box.
+    pub ascent: u32,
+    /// Recommended additional spacing between lines.
+    pub leading: u32,
+    /// Distance from the baseline to the top of a typical English capital.
+    pub cap_height: u32,
+    /// Distance from the baseline to the top of the lowercase "x" or
+    /// similar character.
+    pub x_height: u32,
+    /// Recommended distance from the baseline to the top of an underline
+    /// stroke.
+    pub underline_offset: u32,
+    /// Recommended distance from the baseline to the top of a strikeout
+    /// stroke.
+    pub strikeout_offset: u32,
+    /// Recommended thickness of an underline or strikeout stroke.
+    pub stroke_size: u32,
 }
 
 impl MetricsPixels {
@@ -137,9 +159,17 @@ impl MetricsPixels {
 impl From<Metrics> for MetricsPixels {
     fn from(metrics: Metrics) -> Self {
         Self {
+            scale_factor: metrics.scale_factor.round() as u32,
             width: metrics.width.round() as u32,
             em: metrics.em.round() as u32,
             descent: metrics.descent.round() as u32,
+            ascent: metrics.ascent.round() as u32,
+            leading: metrics.leading.round() as u32,
+            cap_height: metrics.cap_height.round() as u32,
+            x_height: metrics.x_height.round() as u32,
+            underline_offset: metrics.underline_offset.round() as u32,
+            strikeout_offset: metrics.strikeout_offset.round() as u32,
+            stroke_size: metrics.stroke_size.round() as u32,
         }
     }
 }
