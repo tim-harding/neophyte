@@ -18,7 +18,7 @@ use winit::{
         ElementState, KeyboardInput, ModifiersState, MouseScrollDelta, TouchPhase, VirtualKeyCode,
         WindowEvent,
     },
-    event_loop::{ControlFlow, EventLoop},
+    event_loop::{ControlFlow, EventLoopBuilder},
     window::WindowBuilder,
 };
 
@@ -28,7 +28,7 @@ fn main() {
     let (mut neovim, handler) = Neovim::new().unwrap();
 
     neovim.ui_attach();
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoopBuilder::<()>::with_user_event().build();
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
 
     {
