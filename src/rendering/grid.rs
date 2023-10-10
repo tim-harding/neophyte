@@ -86,8 +86,8 @@ impl Grid {
         self.cell_fill.clear();
         self.lines.clear();
 
+        let mut cluster = CharCluster::new();
         for (cell_line_i, cell_line) in self.scrolling.rows(grid) {
-            let mut cluster = CharCluster::new();
             let mut parser = Parser::new(
                 Script::Latin,
                 cell_line.enumerate().flat_map(|(cell_i, cell)| {
@@ -143,7 +143,7 @@ impl Grid {
                         }
                     }
 
-                    shaper.shape_with(|glyph_cluster| {
+                    shaper.shape_with(|cluster| {
                         // NOTE: Although some programming fonts are said to
                         // contain ligatures, in practice these are more
                         // commonly implemented as multi-character alternates.
@@ -154,10 +154,10 @@ impl Grid {
                         // cell fill characters during shaping without worrying
                         // too much about whether a glyph cluster spans multiple
                         // cells. This is something to improve on in the future.
-                        self.cell_fill.push(glyph_cluster.data);
+                        self.cell_fill.push(cluster.data);
 
-                        let x = glyph_cluster.source.start * cell_size.x;
-                        for glyph in glyph_cluster.glyphs {
+                        let x = cluster.source.start * cell_size.x;
+                        for glyph in cluster.glyphs {
                             let CacheValue { index, kind } = match font_cache.get(
                                 font.as_ref(),
                                 metrics.em,
@@ -221,10 +221,16 @@ impl Grid {
                     });
                 } else {
                     loop {
+                        let range = cluster.range();
+                        for _ in range.start..range.end {
+                            self.cell_fill.push(cluster.user_data());
+                        }
+
                         if !parser.next(&mut cluster) {
                             is_parser_empty = true;
                             break;
                         }
+
                         if let Some(best_font) = best_font(&mut cluster, fonts, highlights) {
                             next_font = Some(best_font);
                             break;
