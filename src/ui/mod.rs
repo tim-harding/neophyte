@@ -183,10 +183,7 @@ impl Ui {
                 width,
                 height,
             }) => {
-                if let Some(i) = self.draw_order.iter().position(|&r| r == grid) {
-                    self.draw_order.remove(i);
-                }
-                self.draw_order.push(grid);
+                self.show(grid);
                 self.float_windows_start += 1;
                 *self.grid_mut(grid).unwrap().window_mut() = Window::Normal(NormalWindow {
                     start: Vec2::new(start_col, start_row),
@@ -208,7 +205,7 @@ impl Ui {
                     focusable,
                     anchor_grid,
                     anchor_pos: Vec2::new(anchor_col, anchor_row),
-                })
+                });
             }
             Event::WinExternalPos(WinExternalPos { grid, win: _ }) => {
                 *self.grid_mut(grid).unwrap().window_mut() = Window::External;

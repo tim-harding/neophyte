@@ -234,8 +234,6 @@ impl Grid {
             }
         }
 
-        println!("{:#?}", metrics_px);
-
         self.monochrome_count = self.monochrome.len() as u32;
         self.emoji_count = self.emoji.len() as u32;
 

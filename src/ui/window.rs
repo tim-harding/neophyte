@@ -19,19 +19,15 @@ impl Window {
                 anchor_grid: None,
             },
             Window::Floating(window) => {
-                let anchor_pos = {
-                    let (x, y) = window.anchor_pos.into();
-                    Vec2::new(x, y)
-                };
                 let offset = grid_size
                     * match window.anchor {
                         Anchor::Nw => Vec2::new(0, 0),
-                        Anchor::Ne => Vec2::new(0, 1),
-                        Anchor::Sw => Vec2::new(1, 0),
+                        Anchor::Ne => Vec2::new(1, 0),
+                        Anchor::Sw => Vec2::new(0, 1),
                         Anchor::Se => Vec2::new(1, 1),
                     };
                 WindowOffset {
-                    offset: anchor_pos - offset.cast_as(),
+                    offset: window.anchor_pos - offset.cast_as(),
                     anchor_grid: Some(window.anchor_grid),
                 }
             }
