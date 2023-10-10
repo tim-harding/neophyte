@@ -11,10 +11,11 @@ use rendering::{Notification, RenderEvent, RenderLoop, RequestKind, ScrollKind};
 use std::{
     sync::{
         mpsc::{self, Sender},
-        Arc,
+        Arc, RwLock,
     },
     thread,
 };
+use text::fonts::Fonts;
 use util::{vec2::Vec2, Values};
 use winit::{
     event::{
@@ -42,11 +43,12 @@ fn main() {
 
     let mut stdin_thread = Some(std::thread::spawn(move || stdin_handler.start()));
 
+    let fonts = Arc::new(RwLock::new(Fonts::new()));
     let mut render_loop_thread = Some({
         let window = window.clone();
         let neovim = neovim.clone();
         thread::spawn(move || {
-            let render_loop = RenderLoop::new(window, neovim);
+            let render_loop = RenderLoop::new(window, neovim, fonts.clone());
             render_loop.run(render_rx);
         })
     });

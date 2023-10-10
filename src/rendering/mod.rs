@@ -22,7 +22,7 @@ use std::{
     ops::{BitOr, BitOrAssign},
     sync::{
         mpsc::{Receiver, TryRecvError},
-        Arc,
+        Arc, RwLock,
     },
 };
 use winit::window::Window;
@@ -110,7 +110,7 @@ impl Buttons {
 
 pub struct RenderLoop {
     render_state: RenderState,
-    fonts: Fonts,
+    fonts: Arc<RwLock<Fonts>>,
     window: Arc<Window>,
     ui: Ui,
     neovim: Neovim,
@@ -118,12 +118,15 @@ pub struct RenderLoop {
 }
 
 impl RenderLoop {
-    pub fn new(window: Arc<Window>, neovim: Neovim) -> Self {
-        let fonts = Fonts::new();
+    pub fn new(window: Arc<Window>, neovim: Neovim, fonts: Arc<RwLock<Fonts>>) -> Self {
         let render_state = {
             let window = window.clone();
             pollster::block_on(async {
-                RenderState::new(window.clone(), fonts.metrics().into_pixels().cell_size()).await
+                RenderState::new(
+                    window.clone(),
+                    fonts.read().unwrap().metrics().into_pixels().cell_size(),
+                )
+                .await
             })
         };
         Self {
@@ -161,15 +164,15 @@ impl RenderLoop {
                         }
 
                         Notification::SetFontSize(size) => {
-                            self.fonts.set_font_size(size);
+                            self.fonts.write().unwrap().set_font_size(size);
                             self.render_state.clear_glyph_cache();
                             self.resize_neovim_grid();
                         }
 
                         Notification::SetFonts(fonts) => {
-                            self.fonts.set_fonts(&FontsSetting {
+                            self.fonts.write().unwrap().set_fonts(&FontsSetting {
                                 fonts,
-                                size: FontSize::Height(self.fonts.metrics().em),
+                                size: FontSize::Height(self.fonts.read().unwrap().metrics().em),
                             });
                             self.render_state.clear_glyph_cache();
                             self.resize_neovim_grid();
@@ -215,7 +218,13 @@ impl RenderLoop {
 
                         let Some(grid) = self.ui.grid_under_cursor(
                             self.mouse.position,
-                            self.fonts.metrics().into_pixels().cell_size().cast(),
+                            self.fonts
+                                .read()
+                                .unwrap()
+                                .metrics()
+                                .into_pixels()
+                                .cell_size()
+                                .cast(),
                         ) else {
                             continue;
                         };
@@ -271,7 +280,13 @@ impl RenderLoop {
                         self.mouse.position = position;
                         if let Some(grid) = self.ui.grid_under_cursor(
                             position,
-                            self.fonts.metrics().into_pixels().cell_size().cast(),
+                            self.fonts
+                                .read()
+                                .unwrap()
+                                .metrics()
+                                .into_pixels()
+                                .cell_size()
+                                .cast(),
                         ) {
                             self.neovim.input_mouse(
                                 self.mouse.buttons.first().unwrap_or(Button::Move),
@@ -303,7 +318,13 @@ impl RenderLoop {
                         }
                         if let Some(grid) = self.ui.grid_under_cursor(
                             self.mouse.position,
-                            self.fonts.metrics().into_pixels().cell_size().cast(),
+                            self.fonts
+                                .read()
+                                .unwrap()
+                                .metrics()
+                                .into_pixels()
+                                .cell_size()
+                                .cast(),
                         ) {
                             self.neovim.input_mouse(
                                 button,
@@ -318,7 +339,13 @@ impl RenderLoop {
 
                     RenderEvent::Request(request) => match request.kind {
                         RequestKind::Fonts => {
-                            let names = self.fonts.iter().map(|font| font.name.clone()).collect();
+                            let names = self
+                                .fonts
+                                .read()
+                                .unwrap()
+                                .iter()
+                                .map(|font| font.name.clone())
+                                .collect();
                             self.neovim
                                 .send_response(rpc::Response::result(request.msgid, names));
                         }
@@ -337,12 +364,12 @@ impl RenderLoop {
                             ));
                         }
                         RequestKind::FontWidth => {
-                            let width = self.fonts.metrics().width;
+                            let width = self.fonts.read().unwrap().metrics().width;
                             self.neovim
                                 .send_response(rpc::Response::result(request.msgid, width.into()));
                         }
                         RequestKind::FontHeight => {
-                            let width = self.fonts.metrics().em;
+                            let width = self.fonts.read().unwrap().metrics().em;
                             self.neovim
                                 .send_response(rpc::Response::result(request.msgid, width.into()));
                         }
@@ -356,7 +383,8 @@ impl RenderLoop {
         log::info!("{event:?}");
         match event {
             Event::Flush => {
-                self.render_state.update(&self.ui, &mut self.fonts);
+                self.render_state
+                    .update(&self.ui, &mut self.fonts.write().unwrap());
                 self.ui.process(Event::Flush);
                 self.render_state.request_redraw();
             }
@@ -365,7 +393,10 @@ impl RenderLoop {
                 let is_gui_font = matches!(event, OptionSet::Guifont(_));
                 self.ui.process(Event::OptionSet(event));
                 if is_gui_font {
-                    self.fonts.set_fonts(&self.ui.options.guifont);
+                    self.fonts
+                        .write()
+                        .unwrap()
+                        .set_fonts(&self.ui.options.guifont);
                     self.render_state.clear_glyph_cache();
                     self.resize_neovim_grid();
                 }
@@ -382,7 +413,12 @@ impl RenderLoop {
     }
 
     fn cell_size(&self) -> Vec2<u32> {
-        self.fonts.metrics().into_pixels().cell_size()
+        self.fonts
+            .read()
+            .unwrap()
+            .metrics()
+            .into_pixels()
+            .cell_size()
     }
 }
 
