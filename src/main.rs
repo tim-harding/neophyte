@@ -6,58 +6,192 @@ pub mod text;
 mod ui;
 mod util;
 
-use neovim::{Neovim, StdoutHandler};
-use rendering::{Notification, RenderEvent, RenderLoop, RequestKind, ScrollKind};
+use bitfield_struct::bitfield;
+use event::{Event, OptionSet, SetTitle};
+use neovim::Neovim;
+use rendering::state::RenderState;
 use std::{
-    sync::{
-        mpsc::{self, Sender},
-        Arc, RwLock,
-    },
+    sync::{Arc, RwLock},
     thread,
 };
-use text::fonts::FontsHandle;
+use text::fonts::{Fonts, FontsHandle};
+use ui::{FontSize, FontsSetting, Ui};
 use util::{vec2::Vec2, Values};
 use winit::{
     event::{
         ElementState, KeyboardInput, ModifiersState, MouseScrollDelta, TouchPhase, VirtualKeyCode,
         WindowEvent,
     },
-    event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy},
+    event_loop::{ControlFlow, EventLoopBuilder},
     window::WindowBuilder,
 };
 
+use crate::neovim::{Action, Button};
+
 fn main() {
     env_logger::builder().format_timestamp(None).init();
-    let (render_tx, render_rx) = mpsc::channel();
     let (neovim, stdout_handler, stdin_handler) = Neovim::new().unwrap();
     let settings = Arc::new(RwLock::new(Settings::new()));
     let fonts = Arc::new(FontsHandle::new());
-
-    neovim.ui_attach();
     let event_loop = EventLoopBuilder::<()>::with_user_event().build();
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
+    let ui = Arc::new(RwLock::new(Ui::new()));
+    let render_state = Arc::new(RwLock::new(pollster::block_on(async {
+        RenderState::new(
+            window.clone(),
+            fonts.read().metrics().into_pixels().cell_size(),
+        )
+        .await
+    })));
+    neovim.ui_attach();
 
     let mut stdout_thread = Some({
-        let render_tx = render_tx.clone();
         let proxy = event_loop.create_proxy();
+        let render_state = render_state.clone();
+        let fonts = fonts.clone();
         let neovim = neovim.clone();
         let settings = settings.clone();
-        thread::spawn(move || stdout_thread(stdout_handler, render_tx, proxy, neovim, settings))
+        let ui = ui.clone();
+        let window = window.clone();
+        thread::spawn(move || {
+            stdout_handler.start(
+                |rpc::Notification { method, params }| match method.as_str() {
+                    "redraw" => {
+                        for param in params {
+                            match event::Event::try_parse(param.clone()) {
+                                Ok(events) => {
+                                    let mut ui = ui.write().unwrap();
+                                    for event in events {
+                                        log::info!("{event:?}");
+                                        match event {
+                                            Event::Flush => {
+                                                let mut render_state =
+                                                    render_state.write().unwrap();
+                                                render_state.update(&ui, fonts.as_ref());
+                                                ui.process(Event::Flush);
+                                                render_state.request_redraw();
+                                            }
+                                            Event::SetTitle(SetTitle { title }) => {
+                                                window.set_title(&title)
+                                            }
+                                            Event::OptionSet(event) => {
+                                                let is_gui_font =
+                                                    matches!(event, OptionSet::Guifont(_));
+                                                ui.process(Event::OptionSet(event));
+                                                if is_gui_font {
+                                                    fonts.write().set_fonts(&ui.options.guifont);
+                                                    resize_neovim_grid(
+                                                        &render_state.read().unwrap(),
+                                                        &fonts.read(),
+                                                        &neovim,
+                                                    );
+                                                }
+                                            }
+                                            event => ui.process(event),
+                                        }
+                                    }
+                                }
+                                Err(e) => match e {
+                                    event::Error::UnknownEvent(name) => {
+                                        log::error!("Unknown event: {name}\n{param:#?}");
+                                    }
+                                    _ => log::error!("{e}"),
+                                },
+                            }
+                        }
+                    }
+
+                    "neophyte.set_font_height" => {
+                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                        let height: f32 = args.next().unwrap();
+                        let size = ui::FontSize::Height(height);
+                        fonts.write().set_font_size(size);
+                        resize_neovim_grid(&render_state.read().unwrap(), &fonts.read(), &neovim);
+                    }
+
+                    "neophyte.set_font_width" => {
+                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                        let width: f32 = args.next().unwrap();
+                        let size = ui::FontSize::Width(width);
+                        fonts.write().set_font_size(size);
+                        resize_neovim_grid(&render_state.read().unwrap(), &fonts.read(), &neovim);
+                    }
+
+                    "neophyte.set_cursor_speed" => {
+                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                        let speed: f32 = args.next().unwrap();
+                        settings.write().unwrap().cursor_speed = speed;
+                    }
+
+                    "neophyte.set_scroll_speed" => {
+                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                        let speed: f32 = args.next().unwrap();
+                        settings.write().unwrap().scroll_speed = speed;
+                    }
+
+                    "neophyte.set_fonts" => {
+                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                        let mut font_names = vec![];
+                        while let Some(font) = args.next() {
+                            font_names.push(font);
+                        }
+                        let mut lock = fonts.write();
+                        let em = lock.metrics().em;
+                        lock.set_fonts(&FontsSetting {
+                            fonts: font_names,
+                            size: FontSize::Height(em),
+                        });
+                        drop(lock);
+                        resize_neovim_grid(&render_state.read().unwrap(), &fonts.read(), &neovim);
+                    }
+
+                    _ => log::error!("Unrecognized notification: {method}"),
+                },
+                |rpc::Request {
+                     msgid,
+                     method,
+                     params,
+                 }| {
+                    match method.as_str() {
+                        "neophyte.get_fonts" => {
+                            let names = fonts.read().iter().map(|font| font.name.clone()).collect();
+                            neovim.send_response(rpc::Response::result(msgid, names));
+                        }
+
+                        "neophyte.get_cursor_speed" => {
+                            let cursor_speed = settings.read().unwrap().cursor_speed;
+                            neovim.send_response(rpc::Response::result(msgid, cursor_speed.into()));
+                        }
+
+                        "neophyte.get_scroll_speed" => {
+                            let scroll_speed = settings.read().unwrap().scroll_speed;
+                            neovim.send_response(rpc::Response::result(msgid, scroll_speed.into()));
+                        }
+
+                        "neophyte.get_font_width" => {
+                            let width = fonts.read().metrics().width;
+                            neovim.send_response(rpc::Response::result(msgid, width.into()));
+                        }
+
+                        "neophyte.get_font_height" => {
+                            let width = fonts.read().metrics().em;
+                            neovim.send_response(rpc::Response::result(msgid, width.into()));
+                        }
+
+                        _ => log::error!("Unknown request: {}, {:?}", method, params),
+                    }
+                },
+                || {
+                    let _ = proxy.send_event(());
+                },
+            );
+        })
     });
 
     let mut stdin_thread = Some(std::thread::spawn(move || stdin_handler.start()));
 
-    let mut render_loop_thread = Some({
-        let window = window.clone();
-        let neovim = neovim.clone();
-        thread::spawn(move || {
-            let render_loop = RenderLoop::new(window, neovim, fonts.clone(), settings.clone());
-            render_loop.run(render_rx);
-        })
-    });
-
+    let mut mouse = Mouse::new();
     let mut neovim = Some(neovim);
-    let mut render_tx = Some(render_tx);
     let mut modifiers = ModifiersState::default();
     event_loop.run(move |event, _, control_flow| {
         use winit::event::Event;
@@ -66,11 +200,6 @@ fn main() {
             Event::UserEvent(()) => {
                 // Already terminated since it generated the user event
                 stdout_thread.take().unwrap().join().unwrap();
-
-                // Consume the last RenderEvent sender so that the render thread
-                // knows to close
-                let _ = render_tx.take();
-                render_loop_thread.take().unwrap().join().unwrap();
 
                 // Consume the last Neovim instance so the stdin handler knows
                 // to close
@@ -211,14 +340,31 @@ fn main() {
                 }
 
                 WindowEvent::CursorMoved { position, .. } => {
-                    render_tx
-                        .as_ref()
-                        .unwrap()
-                        .send(RenderEvent::MouseMove {
-                            position: (*position).into(),
-                            modifiers: modifiers.into(),
-                        })
-                        .unwrap();
+                    let position: Vec2<f64> = (*position).into();
+                    let position: Vec2<i64> = position.cast_as();
+                    let surface_size = render_state.read().unwrap().surface_size();
+                    let cell_size = fonts.read().metrics().into_pixels().cell_size();
+                    let inner = (surface_size / cell_size) * cell_size;
+                    let margin = (surface_size - inner) / 2;
+                    let position = position - margin.cast();
+                    let Ok(position) = position.try_cast::<u64>() else {
+                        return;
+                    };
+                    mouse.position = position;
+                    if let Some(grid) = ui.write().unwrap().grid_under_cursor(
+                        position,
+                        fonts.read().metrics().into_pixels().cell_size().cast(),
+                    ) {
+                        neovim.as_ref().unwrap().input_mouse(
+                            mouse.buttons.first().unwrap_or(Button::Move),
+                            // Irrelevant for move
+                            Action::ButtonDrag,
+                            modifiers.into(),
+                            grid.grid,
+                            grid.position.y,
+                            grid.position.x,
+                        );
+                    }
                 }
 
                 WindowEvent::MouseInput { state, button, .. } => {
@@ -226,15 +372,31 @@ fn main() {
                         return;
                     };
 
-                    render_tx
-                        .as_ref()
-                        .unwrap()
-                        .send(RenderEvent::Click {
+                    let action = (*state).into();
+                    let depressed = match action {
+                        Action::ButtonPress => true,
+                        Action::ButtonRelease => false,
+                        _ => unreachable!(),
+                    };
+                    match button {
+                        Button::Left => mouse.buttons.set_left(depressed),
+                        Button::Right => mouse.buttons.set_right(depressed),
+                        Button::Middle => mouse.buttons.set_middle(depressed),
+                        _ => unreachable!(),
+                    }
+                    if let Some(grid) = ui.read().unwrap().grid_under_cursor(
+                        mouse.position,
+                        fonts.read().metrics().into_pixels().cell_size().cast(),
+                    ) {
+                        neovim.as_ref().unwrap().input_mouse(
                             button,
-                            action: (*state).into(),
-                            modifiers: modifiers.into(),
-                        })
-                        .unwrap();
+                            action,
+                            modifiers.into(),
+                            grid.grid,
+                            grid.position.y,
+                            grid.position.x,
+                        );
+                    }
                 }
 
                 WindowEvent::MouseWheel { delta, phase, .. } => {
@@ -254,24 +416,76 @@ fn main() {
                     };
 
                     let modifiers = modifiers.into();
-                    render_tx
-                        .as_ref()
-                        .unwrap()
-                        .send(RenderEvent::Scroll {
-                            delta,
-                            kind,
-                            reset,
+
+                    let delta: Vec2<i64> = delta.cast_as();
+                    if reset {
+                        mouse.scroll = Vec2::default();
+                    }
+
+                    let lines = match kind {
+                        ScrollKind::Lines => delta,
+                        ScrollKind::Pixels => {
+                            mouse.scroll += delta;
+                            let cell_size: Vec2<i64> =
+                                fonts.read().metrics().into_pixels().cell_size().cast();
+                            let lines = mouse.scroll / cell_size;
+                            mouse.scroll -= lines * cell_size;
+                            lines
+                        }
+                    };
+
+                    let Some(grid) = ui.read().unwrap().grid_under_cursor(
+                        mouse.position,
+                        fonts.read().metrics().into_pixels().cell_size().cast(),
+                    ) else {
+                        return;
+                    };
+
+                    let action = if lines.y < 0 {
+                        Action::WheelDown
+                    } else {
+                        Action::WheelUp
+                    };
+
+                    for _ in 0..lines.y.abs() {
+                        neovim.as_ref().unwrap().input_mouse(
+                            Button::Wheel,
+                            action,
                             modifiers,
-                        })
-                        .unwrap();
+                            grid.grid,
+                            grid.position.y,
+                            grid.position.x,
+                        );
+                    }
+
+                    let action = if lines.x < 0 {
+                        Action::WheelRight
+                    } else {
+                        Action::WheelLeft
+                    };
+
+                    for _ in 0..lines.x.abs() {
+                        neovim.as_ref().unwrap().input_mouse(
+                            Button::Wheel,
+                            action,
+                            modifiers,
+                            grid.grid,
+                            grid.position.y,
+                            grid.position.x,
+                        );
+                    }
                 }
 
                 WindowEvent::Resized(physical_size) => {
-                    render_tx
-                        .as_ref()
-                        .unwrap()
-                        .send(RenderEvent::Resized((*physical_size).into()))
-                        .unwrap();
+                    render_state.write().unwrap().resize(
+                        (*physical_size).into(),
+                        fonts.read().metrics().into_pixels().cell_size(),
+                    );
+                    resize_neovim_grid(
+                        &render_state.read().unwrap(),
+                        &fonts.read(),
+                        neovim.as_ref().unwrap(),
+                    );
                 }
 
                 // TODO: Use the scale factor
@@ -279,11 +493,15 @@ fn main() {
                     new_inner_size,
                     scale_factor: _,
                 } => {
-                    render_tx
-                        .as_ref()
-                        .unwrap()
-                        .send(RenderEvent::Resized((**new_inner_size).into()))
-                        .unwrap();
+                    render_state.write().unwrap().resize(
+                        (**new_inner_size).into(),
+                        fonts.read().metrics().into_pixels().cell_size(),
+                    );
+                    resize_neovim_grid(
+                        &render_state.read().unwrap(),
+                        &fonts.read(),
+                        neovim.as_ref().unwrap(),
+                    );
                 }
 
                 WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
@@ -291,12 +509,18 @@ fn main() {
                 _ => {}
             },
 
+            Event::MainEventsCleared => window.request_redraw(),
+
             Event::RedrawRequested(window_id) if window_id == window.id() => {
-                render_tx
-                    .as_ref()
-                    .unwrap()
-                    .send(RenderEvent::RequestRedraw)
-                    .unwrap();
+                let framerate = window
+                    .current_monitor()
+                    .and_then(|monitor| monitor.refresh_rate_millihertz())
+                    .unwrap_or(60000);
+                render_state.write().unwrap().maybe_render(
+                    fonts.read().metrics().into_pixels().cell_size(),
+                    framerate,
+                    *settings.read().unwrap(),
+                );
             }
 
             _ => {}
@@ -321,118 +545,11 @@ fn send_keys(c: &str, modifiers: &mut ModifiersState, neovim: &mut Neovim, ignor
     neovim.input(c);
 }
 
-fn stdout_thread(
-    stdout_handler: StdoutHandler,
-    render_tx: Sender<RenderEvent>,
-    proxy: EventLoopProxy<()>,
-    neovim: Neovim,
-    settings: Arc<RwLock<Settings>>,
-) {
-    stdout_handler.start(
-        |rpc::Notification { method, params }| match method.as_str() {
-            "redraw" => {
-                for param in params {
-                    match event::Event::try_parse(param.clone()) {
-                        Ok(events) => render_tx
-                            .send(RenderEvent::Notification(Notification::Redraw(events)))
-                            .unwrap(),
-                        Err(e) => match e {
-                            event::Error::UnknownEvent(name) => {
-                                log::error!("Unknown event: {name}\n{param:#?}");
-                            }
-                            _ => log::error!("{e}"),
-                        },
-                    }
-                }
-            }
-
-            "neophyte.set_font_height" => {
-                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                let height: f32 = args.next().unwrap();
-                let size = ui::FontSize::Height(height);
-                render_tx
-                    .send(RenderEvent::Notification(Notification::SetFontSize(size)))
-                    .unwrap();
-            }
-
-            "neophyte.set_font_width" => {
-                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                let width: f32 = args.next().unwrap();
-                let size = ui::FontSize::Width(width);
-                render_tx
-                    .send(RenderEvent::Notification(Notification::SetFontSize(size)))
-                    .unwrap();
-            }
-
-            "neophyte.set_cursor_speed" => {
-                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                let speed: f32 = args.next().unwrap();
-                settings.write().unwrap().cursor_speed = speed;
-            }
-
-            "neophyte.set_scroll_speed" => {
-                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                let speed: f32 = args.next().unwrap();
-                settings.write().unwrap().scroll_speed = speed;
-            }
-
-            "neophyte.set_fonts" => {
-                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                let mut fonts = vec![];
-                while let Some(font) = args.next() {
-                    fonts.push(font);
-                }
-                render_tx
-                    .send(RenderEvent::Notification(Notification::SetFonts(fonts)))
-                    .unwrap();
-            }
-
-            _ => log::error!("Unrecognized notification: {method}"),
-        },
-        |rpc::Request {
-             msgid,
-             method,
-             params,
-         }| {
-            match method.as_str() {
-                "neophyte.get_fonts" => render_tx
-                    .send(RenderEvent::Request(rendering::Request {
-                        msgid,
-                        kind: RequestKind::Fonts,
-                    }))
-                    .unwrap(),
-
-                "neophyte.get_cursor_speed" => {
-                    let cursor_speed = settings.read().unwrap().cursor_speed;
-                    neovim.send_response(rpc::Response::result(msgid, cursor_speed.into()));
-                }
-
-                "neophyte.get_scroll_speed" => {
-                    let scroll_speed = settings.read().unwrap().scroll_speed;
-                    neovim.send_response(rpc::Response::result(msgid, scroll_speed.into()));
-                }
-
-                "neophyte.get_font_width" => render_tx
-                    .send(RenderEvent::Request(rendering::Request {
-                        msgid,
-                        kind: RequestKind::FontWidth,
-                    }))
-                    .unwrap(),
-
-                "neophyte.get_font_height" => render_tx
-                    .send(RenderEvent::Request(rendering::Request {
-                        msgid,
-                        kind: RequestKind::FontHeight,
-                    }))
-                    .unwrap(),
-
-                _ => log::error!("Unknown request: {}, {:?}", method, params),
-            }
-        },
-        || {
-            let _ = proxy.send_event(());
-        },
-    );
+fn resize_neovim_grid(render_state: &RenderState, fonts: &Fonts, neovim: &Neovim) {
+    let surface_size = render_state.surface_size();
+    let size = surface_size / fonts.metrics().into_pixels().cell_size();
+    let size: Vec2<u64> = size.cast();
+    neovim.ui_try_resize_grid(1, size.x, size.y);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -456,4 +573,46 @@ impl Default for Settings {
             scroll_speed: 1.,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+struct Mouse {
+    position: Vec2<u64>,
+    scroll: Vec2<i64>,
+    buttons: Buttons,
+}
+
+impl Mouse {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+#[bitfield(u8)]
+#[derive(PartialEq, Eq)]
+struct Buttons {
+    left: bool,
+    right: bool,
+    middle: bool,
+    #[bits(5)]
+    __: u8,
+}
+
+impl Buttons {
+    pub fn first(&self) -> Option<Button> {
+        if self.left() {
+            Some(Button::Left)
+        } else if self.right() {
+            Some(Button::Right)
+        } else if self.middle() {
+            Some(Button::Middle)
+        } else {
+            None
+        }
+    }
+}
+
+pub enum ScrollKind {
+    Lines,
+    Pixels,
 }
