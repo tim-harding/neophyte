@@ -25,17 +25,17 @@ use winit::{
 fn main() {
     env_logger::builder().format_timestamp(None).init();
     let (render_tx, render_rx) = mpsc::channel();
-    let (mut neovim, handler) = Neovim::new().unwrap();
+    let (neovim, stdout_handler, stdin_handler) = Neovim::new().unwrap();
 
     neovim.ui_attach();
     let event_loop = EventLoopBuilder::<()>::with_user_event().build();
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
 
-    {
+    let mut stdout_thread = Some({
         let render_tx = render_tx.clone();
         let proxy = event_loop.create_proxy();
         thread::spawn(move || {
-            handler.start(
+            stdout_handler.start(
                 |rpc::Notification { method, params }| match method.as_str() {
                     "redraw" => {
                         for param in params {
@@ -152,24 +152,43 @@ fn main() {
                     let _ = proxy.send_event(());
                 },
             );
-        });
-    }
+        })
+    });
 
-    {
+    let mut stdin_thread = Some(std::thread::spawn(move || stdin_handler.start()));
+
+    let mut render_loop_thread = Some({
         let window = window.clone();
         let neovim = neovim.clone();
         thread::spawn(move || {
             let render_loop = RenderLoop::new(window, neovim);
             render_loop.run(render_rx);
-        });
-    }
+        })
+    });
 
+    let mut neovim = Some(neovim);
+    let mut render_tx = Some(render_tx);
     let mut modifiers = ModifiersState::default();
     event_loop.run(move |event, _, control_flow| {
         use winit::event::Event;
         *control_flow = ControlFlow::Wait;
         match event {
-            Event::UserEvent(()) => *control_flow = ControlFlow::Exit,
+            Event::UserEvent(()) => {
+                // Already terminated since it generated the user event
+                stdout_thread.take().unwrap().join().unwrap();
+
+                // Consume the last RenderEvent sender so that the render thread
+                // knows to close
+                let _ = render_tx.take();
+                render_loop_thread.take().unwrap().join().unwrap();
+
+                // Consume the last Neovim instance so the stdin handler knows
+                // to close
+                let _ = neovim.take();
+                stdin_thread.take().unwrap().join().unwrap();
+
+                *control_flow = ControlFlow::Exit;
+            }
 
             Event::WindowEvent {
                 window_id,
@@ -197,7 +216,7 @@ fn main() {
                                 }
                             }
                         };
-                        send_keys(&s, &mut modifiers, &mut neovim, true);
+                        send_keys(&s, &mut modifiers, neovim.as_mut().unwrap(), true);
                     };
                     f()
                 }
@@ -297,12 +316,14 @@ fn main() {
                         })
                     };
                     if let Some(c) = c() {
-                        send_keys(c, &mut modifiers, &mut neovim, false);
+                        send_keys(c, &mut modifiers, neovim.as_mut().unwrap(), false);
                     }
                 }
 
                 WindowEvent::CursorMoved { position, .. } => {
                     render_tx
+                        .as_ref()
+                        .unwrap()
                         .send(RenderEvent::MouseMove {
                             position: (*position).into(),
                             modifiers: modifiers.into(),
@@ -316,6 +337,8 @@ fn main() {
                     };
 
                     render_tx
+                        .as_ref()
+                        .unwrap()
                         .send(RenderEvent::Click {
                             button,
                             action: (*state).into(),
@@ -342,6 +365,8 @@ fn main() {
 
                     let modifiers = modifiers.into();
                     render_tx
+                        .as_ref()
+                        .unwrap()
                         .send(RenderEvent::Scroll {
                             delta,
                             kind,
@@ -353,6 +378,8 @@ fn main() {
 
                 WindowEvent::Resized(physical_size) => {
                     render_tx
+                        .as_ref()
+                        .unwrap()
                         .send(RenderEvent::Resized((*physical_size).into()))
                         .unwrap();
                 }
@@ -363,6 +390,8 @@ fn main() {
                     scale_factor: _,
                 } => {
                     render_tx
+                        .as_ref()
+                        .unwrap()
                         .send(RenderEvent::Resized((**new_inner_size).into()))
                         .unwrap();
                 }
@@ -373,7 +402,11 @@ fn main() {
             },
 
             Event::RedrawRequested(window_id) if window_id == window.id() => {
-                render_tx.send(RenderEvent::RequestRedraw).unwrap();
+                render_tx
+                    .as_ref()
+                    .unwrap()
+                    .send(RenderEvent::RequestRedraw)
+                    .unwrap();
             }
 
             _ => {}

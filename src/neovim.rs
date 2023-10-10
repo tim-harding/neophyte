@@ -4,8 +4,11 @@ use rmpv::Value;
 use std::{
     collections::BinaryHeap,
     io::{self, ErrorKind},
-    process::{ChildStdout, Command, Stdio},
-    sync::{mpsc, Arc, Mutex, RwLock},
+    process::{ChildStdin, ChildStdout, Command, Stdio},
+    sync::{
+        mpsc::{self, Receiver},
+        Arc, Mutex, RwLock,
+    },
     thread,
 };
 use winit::event::{ElementState, ModifiersState, MouseButton};
@@ -18,7 +21,7 @@ pub struct Neovim {
 }
 
 impl Neovim {
-    pub fn new() -> io::Result<(Neovim, Handler)> {
+    pub fn new() -> io::Result<(Neovim, StdoutHandler, StdinHandler)> {
         use io::Error;
         let mut child = Command::new("nvim")
             .arg("--embed")
@@ -35,12 +38,6 @@ impl Neovim {
             .ok_or_else(|| Error::new(ErrorKind::Other, "Can't open stdin"))?;
 
         let (tx, rx) = mpsc::channel();
-        thread::spawn(move || loop {
-            while let Ok(msg) = rx.recv() {
-                encode(&mut stdin, msg).unwrap();
-            }
-        });
-
         let incoming = Arc::new(RwLock::new(Incoming::new()));
         Ok((
             Neovim {
@@ -48,7 +45,8 @@ impl Neovim {
                 incoming: incoming.clone(),
                 next_msgid: Default::default(),
             },
-            Handler { incoming, stdout },
+            StdoutHandler { incoming, stdout },
+            StdinHandler { rx, stdin },
         ))
     }
 
@@ -334,12 +332,26 @@ impl From<QueuedResponse> for rpc::Response {
     }
 }
 
-pub struct Handler {
+pub struct StdinHandler {
+    rx: Receiver<Message>,
+    stdin: ChildStdin,
+}
+
+impl StdinHandler {
+    pub fn start(self) {
+        let Self { rx, mut stdin } = self;
+        while let Ok(msg) = rx.recv() {
+            encode(&mut stdin, msg).unwrap();
+        }
+    }
+}
+
+pub struct StdoutHandler {
     incoming: Arc<RwLock<Incoming>>,
     stdout: ChildStdout,
 }
 
-impl Handler {
+impl StdoutHandler {
     pub fn start<N, R, S>(
         mut self,
         mut notification_handler: N,
