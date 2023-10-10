@@ -10,8 +10,9 @@ use crate::{
     text::{cache::FontCache, fonts::Fonts},
     ui::Ui,
     util::vec2::Vec2,
+    Settings,
 };
-use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::Arc;
 use swash::shape::ShapeContext;
 use winit::window::Window;
 
@@ -27,24 +28,6 @@ pub struct RenderState {
     shape_context: ShapeContext,
     font_cache: FontCache,
     wants_redraw: bool,
-    settings: RwLock<Settings>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Settings {
-    /// Multiplier of the default cursor speed
-    pub cursor_speed: f32,
-    /// Multiplier of the default scroll speed
-    pub scroll_speed: f32,
-}
-
-impl Default for Settings {
-    fn default() -> Self {
-        Self {
-            cursor_speed: 1.,
-            scroll_speed: 1.,
-        }
-    }
 }
 
 struct Targets {
@@ -126,7 +109,6 @@ impl RenderState {
         };
 
         Self {
-            settings: Default::default(),
             pipelines: Pipelines {
                 cursor: cursor::Pipeline::new(&device, &targets.monochrome.view),
                 blend: blend::Pipeline::new(&device, &targets.color.view),
@@ -221,7 +203,7 @@ impl RenderState {
         );
     }
 
-    pub fn maybe_render(&mut self, cell_size: Vec2<u32>, framerate: u32) {
+    pub fn maybe_render(&mut self, cell_size: Vec2<u32>, framerate: u32, settings: Settings) {
         if !self.wants_redraw {
             return;
         }
@@ -245,8 +227,6 @@ impl RenderState {
         let Some(highlights_bind_group) = self.highlights.bind_group() else {
             return;
         };
-
-        let settings = self.settings().clone();
 
         let output_view = output
             .texture
@@ -339,13 +319,5 @@ impl RenderState {
 
     pub fn request_redraw(&mut self) {
         self.wants_redraw = true;
-    }
-
-    pub fn settings(&self) -> RwLockReadGuard<'_, Settings> {
-        self.settings.read().unwrap()
-    }
-
-    pub fn settings_mut(&mut self) -> RwLockWriteGuard<'_, Settings> {
-        self.settings.write().unwrap()
     }
 }

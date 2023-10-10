@@ -16,6 +16,7 @@ use crate::{
     text::fonts::Fonts,
     ui::{FontSize, FontsSetting, Ui},
     util::vec2::Vec2,
+    Settings,
 };
 use bitfield_struct::bitfield;
 use std::{
@@ -111,6 +112,7 @@ impl Buttons {
 pub struct RenderLoop {
     render_state: RenderState,
     fonts: Arc<RwLock<Fonts>>,
+    settings: Arc<RwLock<Settings>>,
     window: Arc<Window>,
     ui: Ui,
     neovim: Neovim,
@@ -118,7 +120,12 @@ pub struct RenderLoop {
 }
 
 impl RenderLoop {
-    pub fn new(window: Arc<Window>, neovim: Neovim, fonts: Arc<RwLock<Fonts>>) -> Self {
+    pub fn new(
+        window: Arc<Window>,
+        neovim: Neovim,
+        fonts: Arc<RwLock<Fonts>>,
+        settings: Arc<RwLock<Settings>>,
+    ) -> Self {
         let render_state = {
             let window = window.clone();
             pollster::block_on(async {
@@ -136,6 +143,7 @@ impl RenderLoop {
             render_state,
             neovim,
             mouse: Mouse::default(),
+            settings,
         }
     }
 
@@ -146,7 +154,11 @@ impl RenderLoop {
                 .current_monitor()
                 .and_then(|monitor| monitor.refresh_rate_millihertz())
                 .unwrap_or(60000);
-            self.render_state.maybe_render(self.cell_size(), framerate);
+            self.render_state.maybe_render(
+                self.cell_size(),
+                framerate,
+                *self.settings.read().unwrap(),
+            );
 
             loop {
                 let event = match rx.try_recv() {
@@ -179,11 +191,11 @@ impl RenderLoop {
                         }
 
                         Notification::SetScrollSpeed(speed) => {
-                            self.render_state.settings_mut().scroll_speed = speed;
+                            self.settings.write().unwrap().scroll_speed = speed;
                         }
 
                         Notification::SetCursorSpeed(speed) => {
-                            self.render_state.settings_mut().cursor_speed = speed;
+                            self.settings.write().unwrap().cursor_speed = speed;
                         }
                     },
 
@@ -350,14 +362,14 @@ impl RenderLoop {
                                 .send_response(rpc::Response::result(request.msgid, names));
                         }
                         RequestKind::ScrollSpeed => {
-                            let scroll_speed = self.render_state.settings().scroll_speed;
+                            let scroll_speed = self.settings.read().unwrap().scroll_speed;
                             self.neovim.send_response(rpc::Response::result(
                                 request.msgid,
                                 scroll_speed.into(),
                             ));
                         }
                         RequestKind::CursorSpeed => {
-                            let cursor_speed = self.render_state.settings().cursor_speed;
+                            let cursor_speed = self.settings.read().unwrap().cursor_speed;
                             self.neovim.send_response(rpc::Response::result(
                                 request.msgid,
                                 cursor_speed.into(),

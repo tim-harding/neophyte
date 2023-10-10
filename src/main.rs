@@ -43,12 +43,13 @@ fn main() {
 
     let mut stdin_thread = Some(std::thread::spawn(move || stdin_handler.start()));
 
+    let settings = Arc::new(RwLock::new(Settings::new()));
     let fonts = Arc::new(RwLock::new(Fonts::new()));
     let mut render_loop_thread = Some({
         let window = window.clone();
         let neovim = neovim.clone();
         thread::spawn(move || {
-            let render_loop = RenderLoop::new(window, neovim, fonts.clone());
+            let render_loop = RenderLoop::new(window, neovim, fonts.clone(), settings.clone());
             render_loop.run(render_rx);
         })
     });
@@ -440,4 +441,27 @@ fn stdout_thread(
             let _ = proxy.send_event(());
         },
     );
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Settings {
+    /// Multiplier of the default cursor speed
+    pub cursor_speed: f32,
+    /// Multiplier of the default scroll speed
+    pub scroll_speed: f32,
+}
+
+impl Settings {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            cursor_speed: 1.,
+            scroll_speed: 1.,
+        }
+    }
 }
