@@ -6,10 +6,13 @@ pub mod text;
 mod ui;
 mod util;
 
-use neovim::Neovim;
+use neovim::{Neovim, StdoutHandler};
 use rendering::{Notification, RenderEvent, RenderLoop, RequestKind, ScrollKind};
 use std::{
-    sync::{mpsc, Arc},
+    sync::{
+        mpsc::{self, Sender},
+        Arc,
+    },
     thread,
 };
 use util::{vec2::Vec2, Values};
@@ -18,7 +21,7 @@ use winit::{
         ElementState, KeyboardInput, ModifiersState, MouseScrollDelta, TouchPhase, VirtualKeyCode,
         WindowEvent,
     },
-    event_loop::{ControlFlow, EventLoopBuilder},
+    event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy},
     window::WindowBuilder,
 };
 
@@ -34,125 +37,7 @@ fn main() {
     let mut stdout_thread = Some({
         let render_tx = render_tx.clone();
         let proxy = event_loop.create_proxy();
-        thread::spawn(move || {
-            stdout_handler.start(
-                |rpc::Notification { method, params }| match method.as_str() {
-                    "redraw" => {
-                        for param in params {
-                            match event::Event::try_parse(param.clone()) {
-                                Ok(events) => render_tx
-                                    .send(RenderEvent::Notification(Notification::Redraw(events)))
-                                    .unwrap(),
-                                Err(e) => match e {
-                                    event::Error::UnknownEvent(name) => {
-                                        log::error!("Unknown event: {name}\n{param:#?}");
-                                    }
-                                    _ => log::error!("{e}"),
-                                },
-                            }
-                        }
-                    }
-
-                    "neophyte.set_font_height" => {
-                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                        let height: f32 = args.next().unwrap();
-                        let size = ui::FontSize::Height(height);
-                        render_tx
-                            .send(RenderEvent::Notification(Notification::SetFontSize(size)))
-                            .unwrap();
-                    }
-
-                    "neophyte.set_font_width" => {
-                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                        let width: f32 = args.next().unwrap();
-                        let size = ui::FontSize::Width(width);
-                        render_tx
-                            .send(RenderEvent::Notification(Notification::SetFontSize(size)))
-                            .unwrap();
-                    }
-
-                    "neophyte.set_cursor_speed" => {
-                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                        let speed: f32 = args.next().unwrap();
-                        render_tx
-                            .send(RenderEvent::Notification(Notification::SetCursorSpeed(
-                                speed,
-                            )))
-                            .unwrap();
-                    }
-
-                    "neophyte.set_scroll_speed" => {
-                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                        let speed: f32 = args.next().unwrap();
-                        render_tx
-                            .send(RenderEvent::Notification(Notification::SetScrollSpeed(
-                                speed,
-                            )))
-                            .unwrap();
-                    }
-
-                    "neophyte.set_fonts" => {
-                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                        let mut fonts = vec![];
-                        while let Some(font) = args.next() {
-                            fonts.push(font);
-                        }
-                        render_tx
-                            .send(RenderEvent::Notification(Notification::SetFonts(fonts)))
-                            .unwrap();
-                    }
-
-                    _ => log::error!("Unrecognized notification: {method}"),
-                },
-                |rpc::Request {
-                     msgid,
-                     method,
-                     params,
-                 }| {
-                    match method.as_str() {
-                        "neophyte.get_fonts" => render_tx
-                            .send(RenderEvent::Request(rendering::Request {
-                                msgid,
-                                kind: RequestKind::Fonts,
-                            }))
-                            .unwrap(),
-
-                        "neophyte.get_cursor_speed" => render_tx
-                            .send(RenderEvent::Request(rendering::Request {
-                                msgid,
-                                kind: RequestKind::CursorSpeed,
-                            }))
-                            .unwrap(),
-
-                        "neophyte.get_scroll_speed" => render_tx
-                            .send(RenderEvent::Request(rendering::Request {
-                                msgid,
-                                kind: RequestKind::ScrollSpeed,
-                            }))
-                            .unwrap(),
-
-                        "neophyte.get_font_width" => render_tx
-                            .send(RenderEvent::Request(rendering::Request {
-                                msgid,
-                                kind: RequestKind::FontWidth,
-                            }))
-                            .unwrap(),
-
-                        "neophyte.get_font_height" => render_tx
-                            .send(RenderEvent::Request(rendering::Request {
-                                msgid,
-                                kind: RequestKind::FontHeight,
-                            }))
-                            .unwrap(),
-
-                        _ => log::error!("Unknown request: {}, {:?}", method, params),
-                    }
-                },
-                || {
-                    let _ = proxy.send_event(());
-                },
-            );
-        })
+        thread::spawn(move || stdout_thread(stdout_handler, render_tx, proxy))
     });
 
     let mut stdin_thread = Some(std::thread::spawn(move || stdin_handler.start()));
@@ -429,4 +314,128 @@ fn send_keys(c: &str, modifiers: &mut ModifiersState, neovim: &mut Neovim, ignor
         }
     };
     neovim.input(c);
+}
+
+fn stdout_thread(
+    stdout_handler: StdoutHandler,
+    render_tx: Sender<RenderEvent>,
+    proxy: EventLoopProxy<()>,
+) {
+    stdout_handler.start(
+        |rpc::Notification { method, params }| match method.as_str() {
+            "redraw" => {
+                for param in params {
+                    match event::Event::try_parse(param.clone()) {
+                        Ok(events) => render_tx
+                            .send(RenderEvent::Notification(Notification::Redraw(events)))
+                            .unwrap(),
+                        Err(e) => match e {
+                            event::Error::UnknownEvent(name) => {
+                                log::error!("Unknown event: {name}\n{param:#?}");
+                            }
+                            _ => log::error!("{e}"),
+                        },
+                    }
+                }
+            }
+
+            "neophyte.set_font_height" => {
+                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                let height: f32 = args.next().unwrap();
+                let size = ui::FontSize::Height(height);
+                render_tx
+                    .send(RenderEvent::Notification(Notification::SetFontSize(size)))
+                    .unwrap();
+            }
+
+            "neophyte.set_font_width" => {
+                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                let width: f32 = args.next().unwrap();
+                let size = ui::FontSize::Width(width);
+                render_tx
+                    .send(RenderEvent::Notification(Notification::SetFontSize(size)))
+                    .unwrap();
+            }
+
+            "neophyte.set_cursor_speed" => {
+                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                let speed: f32 = args.next().unwrap();
+                render_tx
+                    .send(RenderEvent::Notification(Notification::SetCursorSpeed(
+                        speed,
+                    )))
+                    .unwrap();
+            }
+
+            "neophyte.set_scroll_speed" => {
+                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                let speed: f32 = args.next().unwrap();
+                render_tx
+                    .send(RenderEvent::Notification(Notification::SetScrollSpeed(
+                        speed,
+                    )))
+                    .unwrap();
+            }
+
+            "neophyte.set_fonts" => {
+                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                let mut fonts = vec![];
+                while let Some(font) = args.next() {
+                    fonts.push(font);
+                }
+                render_tx
+                    .send(RenderEvent::Notification(Notification::SetFonts(fonts)))
+                    .unwrap();
+            }
+
+            _ => log::error!("Unrecognized notification: {method}"),
+        },
+        |rpc::Request {
+             msgid,
+             method,
+             params,
+         }| {
+            match method.as_str() {
+                "neophyte.get_fonts" => render_tx
+                    .send(RenderEvent::Request(rendering::Request {
+                        msgid,
+                        kind: RequestKind::Fonts,
+                    }))
+                    .unwrap(),
+
+                "neophyte.get_cursor_speed" => render_tx
+                    .send(RenderEvent::Request(rendering::Request {
+                        msgid,
+                        kind: RequestKind::CursorSpeed,
+                    }))
+                    .unwrap(),
+
+                "neophyte.get_scroll_speed" => render_tx
+                    .send(RenderEvent::Request(rendering::Request {
+                        msgid,
+                        kind: RequestKind::ScrollSpeed,
+                    }))
+                    .unwrap(),
+
+                "neophyte.get_font_width" => render_tx
+                    .send(RenderEvent::Request(rendering::Request {
+                        msgid,
+                        kind: RequestKind::FontWidth,
+                    }))
+                    .unwrap(),
+
+                "neophyte.get_font_height" => render_tx
+                    .send(RenderEvent::Request(rendering::Request {
+                        msgid,
+                        kind: RequestKind::FontHeight,
+                    }))
+                    .unwrap(),
+
+                _ => log::error!("Unknown request: {}, {:?}", method, params),
+            }
+        },
+        || {
+            let _ = proxy.send_event(());
+        },
+    );
 }

@@ -9,7 +9,6 @@ use std::{
         mpsc::{self, Receiver},
         Arc, Mutex, RwLock,
     },
-    thread,
 };
 use winit::event::{ElementState, ModifiersState, MouseButton};
 
@@ -32,7 +31,7 @@ impl Neovim {
             .stdout
             .take()
             .ok_or_else(|| Error::new(ErrorKind::Other, "Can't open stdout"))?;
-        let mut stdin = child
+        let stdin = child
             .stdin
             .take()
             .ok_or_else(|| Error::new(ErrorKind::Other, "Can't open stdin"))?;
