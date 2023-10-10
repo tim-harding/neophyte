@@ -384,17 +384,21 @@ impl Grid {
         target_size: Vec2<u32>,
         render_pass: &mut wgpu::RenderPass,
     ) {
+        let target_size: Vec2<i32> = target_size.try_cast().unwrap();
+        let minmax = |size| {
+            Vec2::combine(
+                Vec2::combine(size, target_size, i32::min),
+                Vec2::default(),
+                i32::max,
+            )
+        };
         let size = cell_size * self.size();
-        let size = Vec2::new(
-            ((size.x as i32 + self.offset.x).min(target_size.x as i32) - self.offset.x).max(0)
-                as u32,
-            ((size.y as i32 + self.offset.y).min(target_size.y as i32) - self.offset.y).max(0)
-                as u32,
-        );
-        let offset = Vec2::new(
-            self.offset.x.try_into().unwrap_or(0),
-            self.offset.y.try_into().unwrap_or(0),
-        );
+        let size = size.try_cast().unwrap();
+        let size = self.offset + size;
+        let size = minmax(size);
+        let size = size - self.offset;
+        let size = minmax(size).try_cast().unwrap();
+        let offset = minmax(self.offset).try_cast().unwrap_or_default();
         render_pass.set_scissor_rect(offset.x, offset.y, size.x, size.y);
     }
 

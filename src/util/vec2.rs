@@ -17,8 +17,12 @@ impl<T> Vec2<T> {
         Self { x, y }
     }
 
-    pub fn map(self, f: impl Fn(T) -> T) -> Self {
+    pub fn map(self, f: fn(T) -> T) -> Self {
         Self::new(f(self.x), f(self.y))
+    }
+
+    pub fn combine(lhs: Self, rhs: Self, f: fn(T, T) -> T) -> Self {
+        Self::new(f(lhs.x, rhs.x), f(lhs.y, rhs.y))
     }
 
     pub fn transpose(self) -> Self {
