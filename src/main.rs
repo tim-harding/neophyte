@@ -30,6 +30,8 @@ fn main() {
     env_logger::builder().format_timestamp(None).init();
     let (render_tx, render_rx) = mpsc::channel();
     let (neovim, stdout_handler, stdin_handler) = Neovim::new().unwrap();
+    let settings = Arc::new(RwLock::new(Settings::new()));
+    let fonts = Arc::new(FontsHandle::new());
 
     neovim.ui_attach();
     let event_loop = EventLoopBuilder::<()>::with_user_event().build();
@@ -38,13 +40,13 @@ fn main() {
     let mut stdout_thread = Some({
         let render_tx = render_tx.clone();
         let proxy = event_loop.create_proxy();
-        thread::spawn(move || stdout_thread(stdout_handler, render_tx, proxy))
+        let neovim = neovim.clone();
+        let settings = settings.clone();
+        thread::spawn(move || stdout_thread(stdout_handler, render_tx, proxy, neovim, settings))
     });
 
     let mut stdin_thread = Some(std::thread::spawn(move || stdin_handler.start()));
 
-    let settings = Arc::new(RwLock::new(Settings::new()));
-    let fonts = Arc::new(FontsHandle::new());
     let mut render_loop_thread = Some({
         let window = window.clone();
         let neovim = neovim.clone();
@@ -323,6 +325,8 @@ fn stdout_thread(
     stdout_handler: StdoutHandler,
     render_tx: Sender<RenderEvent>,
     proxy: EventLoopProxy<()>,
+    neovim: Neovim,
+    settings: Arc<RwLock<Settings>>,
 ) {
     stdout_handler.start(
         |rpc::Notification { method, params }| match method.as_str() {
@@ -363,21 +367,13 @@ fn stdout_thread(
             "neophyte.set_cursor_speed" => {
                 let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
                 let speed: f32 = args.next().unwrap();
-                render_tx
-                    .send(RenderEvent::Notification(Notification::SetCursorSpeed(
-                        speed,
-                    )))
-                    .unwrap();
+                settings.write().unwrap().cursor_speed = speed;
             }
 
             "neophyte.set_scroll_speed" => {
                 let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
                 let speed: f32 = args.next().unwrap();
-                render_tx
-                    .send(RenderEvent::Notification(Notification::SetScrollSpeed(
-                        speed,
-                    )))
-                    .unwrap();
+                settings.write().unwrap().scroll_speed = speed;
             }
 
             "neophyte.set_fonts" => {
@@ -406,19 +402,15 @@ fn stdout_thread(
                     }))
                     .unwrap(),
 
-                "neophyte.get_cursor_speed" => render_tx
-                    .send(RenderEvent::Request(rendering::Request {
-                        msgid,
-                        kind: RequestKind::CursorSpeed,
-                    }))
-                    .unwrap(),
+                "neophyte.get_cursor_speed" => {
+                    let cursor_speed = settings.read().unwrap().cursor_speed;
+                    neovim.send_response(rpc::Response::result(msgid, cursor_speed.into()));
+                }
 
-                "neophyte.get_scroll_speed" => render_tx
-                    .send(RenderEvent::Request(rendering::Request {
-                        msgid,
-                        kind: RequestKind::ScrollSpeed,
-                    }))
-                    .unwrap(),
+                "neophyte.get_scroll_speed" => {
+                    let scroll_speed = settings.read().unwrap().scroll_speed;
+                    neovim.send_response(rpc::Response::result(msgid, scroll_speed.into()));
+                }
 
                 "neophyte.get_font_width" => render_tx
                     .send(RenderEvent::Request(rendering::Request {

@@ -56,8 +56,6 @@ pub enum Notification {
     Redraw(Vec<Event>),
     SetFontSize(FontSize),
     SetFonts(Vec<String>),
-    SetScrollSpeed(f32),
-    SetCursorSpeed(f32),
 }
 
 pub struct Request {
@@ -67,8 +65,6 @@ pub struct Request {
 
 pub enum RequestKind {
     Fonts,
-    ScrollSpeed,
-    CursorSpeed,
     FontWidth,
     FontHeight,
 }
@@ -189,14 +185,6 @@ impl RenderLoop {
                             });
                             drop(lock);
                             self.resize_neovim_grid();
-                        }
-
-                        Notification::SetScrollSpeed(speed) => {
-                            self.settings.write().unwrap().scroll_speed = speed;
-                        }
-
-                        Notification::SetCursorSpeed(speed) => {
-                            self.settings.write().unwrap().cursor_speed = speed;
                         }
                     },
 
@@ -342,20 +330,6 @@ impl RenderLoop {
                                 .collect();
                             self.neovim
                                 .send_response(rpc::Response::result(request.msgid, names));
-                        }
-                        RequestKind::ScrollSpeed => {
-                            let scroll_speed = self.settings.read().unwrap().scroll_speed;
-                            self.neovim.send_response(rpc::Response::result(
-                                request.msgid,
-                                scroll_speed.into(),
-                            ));
-                        }
-                        RequestKind::CursorSpeed => {
-                            let cursor_speed = self.settings.read().unwrap().cursor_speed;
-                            self.neovim.send_response(rpc::Response::result(
-                                request.msgid,
-                                cursor_speed.into(),
-                            ));
                         }
                         RequestKind::FontWidth => {
                             let width = self.fonts.read().metrics().width;
