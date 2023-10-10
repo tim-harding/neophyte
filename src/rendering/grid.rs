@@ -71,7 +71,7 @@ impl Grid {
         queue: &wgpu::Queue,
         grid_bind_group_layout: &wgpu::BindGroupLayout,
         highlights: &Highlights,
-        fonts: &mut Fonts,
+        fonts: &Fonts,
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
         grid: &UiGrid,

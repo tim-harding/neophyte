@@ -37,7 +37,7 @@ impl Grids {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         ui: &Ui,
-        fonts: &mut Fonts,
+        fonts: &Fonts,
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
     ) {

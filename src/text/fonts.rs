@@ -1,7 +1,40 @@
+use std::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
+
 use super::font::{Font, Metrics};
 use crate::ui::{FontSize, FontsSetting};
 use font_loader::system_fonts::{self, FontPropertyBuilder};
 
+#[derive(Default, Debug)]
+pub struct FontsHandle {
+    needs_glyph_cache_reset: Mutex<bool>,
+    inner: RwLock<Fonts>,
+}
+
+impl FontsHandle {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn write(&self) -> RwLockWriteGuard<Fonts> {
+        let lock = self.inner.write().unwrap();
+        *self.needs_glyph_cache_reset.lock().unwrap() = true;
+        lock
+    }
+
+    pub fn read(&self) -> RwLockReadGuard<Fonts> {
+        self.inner.read().unwrap()
+    }
+
+    pub fn read_and_take_cache_reset(&self) -> (RwLockReadGuard<Fonts>, bool) {
+        let inner_lock = self.inner.read().unwrap();
+        let mut needs_glyph_cache_reset_lock = self.needs_glyph_cache_reset.lock().unwrap();
+        let needs_glyph_cache_reset = *needs_glyph_cache_reset_lock;
+        *needs_glyph_cache_reset_lock = false;
+        (inner_lock, needs_glyph_cache_reset)
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Fonts {
     fonts: Vec<FontVariants>,
     fallback: Font,
@@ -62,6 +95,7 @@ impl Fonts {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct FontVariants {
     pub name: String,
     pub regular: Option<Font>,

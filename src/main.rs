@@ -15,7 +15,7 @@ use std::{
     },
     thread,
 };
-use text::fonts::Fonts;
+use text::fonts::FontsHandle;
 use util::{vec2::Vec2, Values};
 use winit::{
     event::{
@@ -44,7 +44,7 @@ fn main() {
     let mut stdin_thread = Some(std::thread::spawn(move || stdin_handler.start()));
 
     let settings = Arc::new(RwLock::new(Settings::new()));
-    let fonts = Arc::new(RwLock::new(Fonts::new()));
+    let fonts = Arc::new(FontsHandle::new());
     let mut render_loop_thread = Some({
         let window = window.clone();
         let neovim = neovim.clone();

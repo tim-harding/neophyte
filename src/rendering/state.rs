@@ -7,7 +7,7 @@ use super::{
     Motion, TARGET_FORMAT,
 };
 use crate::{
-    text::{cache::FontCache, fonts::Fonts},
+    text::{cache::FontCache, fonts::FontsHandle},
     ui::Ui,
     util::vec2::Vec2,
     Settings,
@@ -145,16 +145,22 @@ impl RenderState {
         }
     }
 
-    pub fn update(&mut self, ui: &Ui, fonts: &mut Fonts) {
+    pub fn update(&mut self, ui: &Ui, fonts: &FontsHandle) {
+        let (fonts, needs_glyph_cache_reset) = fonts.read_and_take_cache_reset();
+        if needs_glyph_cache_reset {
+            self.clear_glyph_cache();
+        }
+
         let cell_size = fonts.metrics().into_pixels().cell_size();
         self.grids.update(
             &self.device,
             &self.queue,
             ui,
-            fonts,
+            &fonts,
             &mut self.font_cache,
             &mut self.shape_context,
         );
+        drop(fonts);
         self.highlights.update(ui, &self.device);
         self.pipelines.cursor.update(
             &self.device,
@@ -307,7 +313,7 @@ impl RenderState {
         self.wants_redraw = motion == Motion::Animating;
     }
 
-    pub fn clear_glyph_cache(&mut self) {
+    fn clear_glyph_cache(&mut self) {
         self.font_cache.clear();
         self.pipelines.emoji.clear();
         self.pipelines.monochrome.clear();

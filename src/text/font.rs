@@ -2,7 +2,7 @@ use crate::{ui::FontSize, util::vec2::Vec2};
 use std::{fs, io, path::Path, sync::Arc};
 use swash::{proxy::CharmapProxy, CacheKey, Charmap, FontRef};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Font {
     data: Arc<Vec<u8>>,
     charmap: CharmapProxy,
