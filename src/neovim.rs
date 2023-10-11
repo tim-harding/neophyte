@@ -340,7 +340,10 @@ impl StdinHandler {
     pub fn start(self) {
         let Self { rx, mut stdin } = self;
         while let Ok(msg) = rx.recv() {
-            encode(&mut stdin, msg).unwrap();
+            match encode(&mut stdin, msg) {
+                Ok(_) => {}
+                Err(_) => return,
+            }
         }
     }
 }

@@ -218,16 +218,15 @@ fn main() {
             Event::UserEvent(user_event) => {
                 match user_event {
                     UserEvent::Exit => {
-                        // Already terminated since it generated the exit event
-                        stdout_thread.take().unwrap().join().unwrap();
-
                         // Consume the render thread channel to kill the thread
                         let _ = render_tx.take();
-                        render_thread.take().unwrap().join().unwrap();
-
                         // Consume the last Neovim instance to close the channel
                         let _ = neovim.take();
+
+                        // Already terminated since it generated the exit event
+                        stdout_thread.take().unwrap().join().unwrap();
                         stdin_thread.take().unwrap().join().unwrap();
+                        render_thread.take().unwrap().join().unwrap();
 
                         *control_flow = ControlFlow::Exit;
                     }
