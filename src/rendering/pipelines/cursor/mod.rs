@@ -123,7 +123,7 @@ impl Pipeline {
         let (fg, bg) = ui
             .highlight_groups
             .get("Cursor")
-            .and_then(|hl_id| ui.highlights.get(hl_id))
+            .and_then(|hl_id| ui.highlights.get((*hl_id) as usize))
             .and_then(|hl| {
                 let fg = hl.rgb_attr.foreground?;
                 let bg = hl.rgb_attr.background?;

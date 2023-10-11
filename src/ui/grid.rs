@@ -1,17 +1,15 @@
 #![allow(unused)]
 
-use bitfield_struct::bitfield;
-
 use super::{
     packed_char::{PackedChar, U22},
     window::{Window, WindowOffset},
-    Highlights,
 };
 use crate::{
     event::{grid_line, hl_attr_define::Attributes, Anchor, GridScroll, HlAttrDefine},
     ui::packed_char::PackedCharContents,
     util::vec2::Vec2,
 };
+use bitfield_struct::bitfield;
 use std::{
     collections::HashMap,
     fmt::{self, Debug, Display, Formatter},

@@ -3,7 +3,7 @@ use rmpv::Value;
 use std::fmt::{self, Debug, Formatter};
 
 /// Add a highlight with id to the highlight table
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct HlAttrDefine {
     pub id: u64,
     /// Highlights in RGB format

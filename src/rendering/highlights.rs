@@ -32,7 +32,15 @@ impl Highlights {
     }
 
     pub fn update(&mut self, ui: &Ui, device: &wgpu::Device) {
-        let fg_default = ui.default_colors.rgb_fg.unwrap_or(Rgb::new(255, 255, 255));
+        if !ui.did_highlights_change {
+            return;
+        }
+
+        let fg_default = ui
+            .default_colors
+            .rgb_fg
+            .unwrap_or(Rgb::new(255, 255, 255))
+            .into_linear();
         let bg_default = ui.default_colors.rgb_bg.unwrap_or(Rgb::new(0, 0, 0));
         self.clear_color = wgpu::Color {
             r: srgb(bg_default.r()) as f64,
@@ -40,57 +48,40 @@ impl Highlights {
             b: srgb(bg_default.b()) as f64,
             a: 1.0,
         };
+        let bg_default = bg_default.into_linear();
 
-        if self.highlights.is_empty() {
-            self.highlights.resize(
-                1,
-                HighlightInfo {
-                    fg: fg_default.into_linear(),
-                    bg: bg_default.into_linear(),
-                },
-            )
-        }
+        self.highlights.resize(
+            ui.highlights.len().max(1),
+            HighlightInfo::new(fg_default, bg_default),
+        );
 
-        for id in ui.new_highlights.iter() {
-            let highlight = ui.highlights.get(id).unwrap();
-            let i = *id as usize;
-            if i + 1 > self.highlights.len() {
-                self.highlights.resize(i + 1, HighlightInfo::default());
+        for (src, dst) in ui.highlights.iter().zip(self.highlights.iter_mut()) {
+            if let Some(fg) = src.rgb_attr.foreground {
+                dst.fg = fg.into_linear();
             }
-            self.highlights[i] = HighlightInfo {
-                fg: highlight
-                    .rgb_attr
-                    .foreground
-                    .unwrap_or(fg_default)
-                    .into_linear(),
-                bg: highlight
-                    .rgb_attr
-                    .background
-                    .unwrap_or(bg_default)
-                    .into_linear(),
-            };
+            if let Some(bg) = src.rgb_attr.background {
+                dst.bg = bg.into_linear();
+            }
         }
 
-        if !ui.new_highlights.is_empty() {
-            let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Highlight buffer"),
-                contents: cast_slice(self.highlights.as_slice()),
-                usage: wgpu::BufferUsages::STORAGE,
-            });
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Highlight buffer"),
+            contents: cast_slice(self.highlights.as_slice()),
+            usage: wgpu::BufferUsages::STORAGE,
+        });
 
-            self.bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("Highlights bind group"),
-                layout: &self.layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                }],
-            }));
-        }
+        self.bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Highlights bind group"),
+            layout: &self.layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &buffer,
+                    offset: 0,
+                    size: None,
+                }),
+            }],
+        }));
     }
 
     pub fn layout(&self) -> &wgpu::BindGroupLayout {
@@ -112,4 +103,10 @@ impl Highlights {
 pub struct HighlightInfo {
     pub fg: [f32; 4],
     pub bg: [f32; 4],
+}
+
+impl HighlightInfo {
+    pub fn new(fg: [f32; 4], bg: [f32; 4]) -> Self {
+        Self { fg, bg }
+    }
 }

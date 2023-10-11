@@ -1,5 +1,5 @@
 use crate::{
-    event::hl_attr_define::Attributes,
+    event::{hl_attr_define::Attributes, HlAttrDefine},
     text::{
         cache::{CacheValue, FontCache, GlyphKind},
         fonts::{FontStyle, Fonts},
@@ -7,7 +7,6 @@ use crate::{
     ui::{
         grid::{Cell as UiCell, Grid as UiGrid},
         packed_char::PackedCharContents,
-        Highlights,
     },
     util::vec2::Vec2,
 };
@@ -70,7 +69,7 @@ impl Grid {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         grid_bind_group_layout: &wgpu::BindGroupLayout,
-        highlights: &Highlights,
+        highlights: &[HlAttrDefine],
         fonts: &Fonts,
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
@@ -185,7 +184,7 @@ impl Grid {
                                     .round() as i32,
                             );
 
-                            if let Some(hl) = highlights.get(&(glyph.data as u64)) {
+                            if let Some(hl) = highlights.get(glyph.data as usize) {
                                 if hl.rgb_attr.underline.unwrap_or(false) {
                                     self.lines.push(Line {
                                         position: position
@@ -424,10 +423,10 @@ impl Grid {
 fn best_font(
     cluster: &mut CharCluster,
     fonts: &Fonts,
-    highlights: &Highlights,
+    highlights: &[HlAttrDefine],
 ) -> Option<BestFont> {
     let style = highlights
-        .get(&(cluster.user_data() as u64))
+        .get(cluster.user_data() as usize)
         .map(|highlight| {
             let Attributes { bold, italic, .. } = highlight.rgb_attr;
             let bold = bold.unwrap_or_default();

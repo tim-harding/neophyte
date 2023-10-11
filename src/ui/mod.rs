@@ -26,18 +26,18 @@ use std::{collections::HashMap, fmt::Debug};
 pub use double_buffer::DoubleBuffer;
 pub use options::{FontSize, FontsSetting};
 
-pub type Highlights = HashMap<u64, HlAttrDefine>;
 pub type HighlightGroups = HashMap<String, u64>;
 
 pub struct Ui {
+    // TODO: Probably should privatize
     pub grids: Vec<DoubleBufferGrid>,
     pub draw_order: Vec<u64>,
     pub float_windows_start: usize,
     pub cursor: CursorInfo,
     pub mouse: bool,
-    pub highlights: Highlights,
-    pub new_highlights: Vec<u64>,
+    pub highlights: Vec<HlAttrDefine>,
     pub highlight_groups: HighlightGroups,
+    pub did_highlights_change: bool,
     pub messages: Messages,
     pub cmdline: Cmdline,
     pub popupmenu: Option<PopupmenuShow>,
@@ -46,7 +46,7 @@ pub struct Ui {
     pub options: Options,
     pub default_colors: DefaultColorsSet,
     pub tabline: Option<TablineUpdate>,
-    pub needs_flush: bool,
+    pub did_flush: bool,
 }
 
 impl Default for Ui {
@@ -58,8 +58,8 @@ impl Default for Ui {
             cursor: Default::default(),
             mouse: Default::default(),
             highlights: Default::default(),
-            new_highlights: vec![],
             highlight_groups: Default::default(),
+            did_highlights_change: false,
             messages: Default::default(),
             cmdline: Default::default(),
             popupmenu: Default::default(),
@@ -68,7 +68,7 @@ impl Default for Ui {
             options: Default::default(),
             default_colors: Default::default(),
             tabline: Default::default(),
-            needs_flush: false,
+            did_flush: false,
         }
     }
 }
@@ -100,20 +100,31 @@ impl Ui {
 
     pub fn process(&mut self, event: Event) {
         log::info!("{event:?}");
-        if self.needs_flush {
-            self.new_highlights.clear();
+        if self.did_flush {
+            self.did_flush = false;
+            self.did_highlights_change = false;
             for grid in self.grids.iter_mut() {
                 grid.flush();
             }
-            self.needs_flush = false;
         }
 
         match event {
             Event::OptionSet(event) => self.options.event(event),
-            Event::DefaultColorsSet(event) => self.default_colors = event,
+            Event::DefaultColorsSet(event) => {
+                self.did_highlights_change = true;
+                self.default_colors = event;
+            }
             Event::HlAttrDefine(event) => {
-                self.new_highlights.push(event.id);
-                self.highlights.insert(event.id, event);
+                self.did_highlights_change = true;
+                let i = event.id as usize;
+                if i > self.highlights.len() {
+                    self.highlights.resize(i * 2, HlAttrDefine::default());
+                }
+                self.highlights.insert(i, event);
+            }
+            Event::HlGroupSet(HlGroupSet { name, hl_id }) => {
+                self.did_highlights_change = true;
+                self.highlight_groups.insert(name, hl_id);
             }
             Event::ModeChange(ModeChange { mode_idx, mode: _ }) => self.current_mode = mode_idx,
             Event::ModeInfoSet(ModeInfoSet {
@@ -122,9 +133,6 @@ impl Ui {
             }) => {
                 self.cursor.style_enabled = cursor_style_enabled;
                 self.modes = mode_info;
-            }
-            Event::HlGroupSet(HlGroupSet { name, hl_id }) => {
-                self.highlight_groups.insert(name, hl_id);
             }
 
             Event::GridResize(GridResize {
@@ -271,7 +279,7 @@ impl Ui {
             Event::BusyStart => self.cursor.enabled = false,
             Event::BusyStop => self.cursor.enabled = true,
             Event::Flush => {
-                self.needs_flush = true;
+                self.did_flush = true;
             }
 
             Event::Suspend
