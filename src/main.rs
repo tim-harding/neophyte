@@ -15,7 +15,7 @@ use std::{
     thread,
 };
 use text::fonts::{Fonts, FontsHandle};
-use ui::{FontSize, FontsSetting, Ui};
+use ui::{FontSize, FontsSetting};
 use util::{vec2::Vec2, Values};
 use winit::{
     event::{
@@ -35,7 +35,7 @@ fn main() {
     let fonts = Arc::new(FontsHandle::new());
     let event_loop = EventLoopBuilder::<()>::with_user_event().build();
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
-    let ui = Arc::new(RwLock::new(Ui::new()));
+    let (ui_handle, ui_thread) = ui::actor::new();
     let render_state = Arc::new(RwLock::new(pollster::block_on(async {
         RenderState::new(
             window.clone(),
@@ -45,13 +45,15 @@ fn main() {
     })));
     neovim.ui_attach();
 
+    let mut ui_thread = Some(ui_thread.run());
+
     let mut stdout_thread = Some({
         let proxy = event_loop.create_proxy();
         let render_state = render_state.clone();
         let fonts = fonts.clone();
         let neovim = neovim.clone();
         let settings = settings.clone();
-        let ui = ui.clone();
+        let ui_handle = ui_handle.clone();
         let window = window.clone();
         thread::spawn(move || {
             stdout_handler.start(
@@ -60,15 +62,15 @@ fn main() {
                         for param in params {
                             match event::Event::try_parse(param.clone()) {
                                 Ok(events) => {
-                                    let mut ui = ui.write().unwrap();
-                                    for event in events {
+                                    for event in events.iter().cloned() {
                                         log::info!("{event:?}");
                                         match event {
                                             Event::Flush => {
                                                 let mut render_state =
                                                     render_state.write().unwrap();
-                                                render_state.update(&ui, fonts.as_ref());
-                                                ui.process(Event::Flush);
+                                                render_state
+                                                    .update(&ui_handle.get(), fonts.as_ref());
+                                                ui_handle.process(Event::Flush);
                                                 render_state.request_redraw();
                                             }
                                             Event::SetTitle(SetTitle { title }) => {
@@ -77,9 +79,11 @@ fn main() {
                                             Event::OptionSet(event) => {
                                                 let is_gui_font =
                                                     matches!(event, OptionSet::Guifont(_));
-                                                ui.process(Event::OptionSet(event));
+                                                ui_handle.process(Event::OptionSet(event));
                                                 if is_gui_font {
-                                                    fonts.write().set_fonts(&ui.options.guifont);
+                                                    fonts.write().set_fonts(
+                                                        &ui_handle.get().options.guifont,
+                                                    );
                                                     resize_neovim_grid(
                                                         &render_state.read().unwrap(),
                                                         &fonts.read(),
@@ -87,8 +91,13 @@ fn main() {
                                                     );
                                                 }
                                             }
-                                            event => ui.process(event),
+                                            event => ui_handle.process(event),
                                         }
+                                    }
+
+                                    ui_handle.swap();
+                                    for event in events {
+                                        ui_handle.process(event);
                                     }
                                 }
                                 Err(e) => match e {
@@ -191,6 +200,7 @@ fn main() {
     let mut stdin_thread = Some(std::thread::spawn(move || stdin_handler.start()));
 
     let mut mouse = Mouse::new();
+    let mut ui_handle = Some(ui_handle);
     let mut neovim = Some(neovim);
     let mut modifiers = ModifiersState::default();
     event_loop.run(move |event, _, control_flow| {
@@ -201,8 +211,11 @@ fn main() {
                 // Already terminated since it generated the user event
                 stdout_thread.take().unwrap().join().unwrap();
 
-                // Consume the last Neovim instance so the stdin handler knows
-                // to close
+                // Consume the last UI handle to close the channel
+                let _ = ui_handle.take();
+                ui_thread.take().unwrap().join().unwrap();
+
+                // Consume the last Neovim instance to close the channel
                 let _ = neovim.take();
                 stdin_thread.take().unwrap().join().unwrap();
 
@@ -351,7 +364,7 @@ fn main() {
                         return;
                     };
                     mouse.position = position;
-                    if let Some(grid) = ui.write().unwrap().grid_under_cursor(
+                    if let Some(grid) = ui_handle.as_ref().unwrap().get().grid_under_cursor(
                         position,
                         fonts.read().metrics().into_pixels().cell_size().cast(),
                     ) {
@@ -384,7 +397,7 @@ fn main() {
                         Button::Middle => mouse.buttons.set_middle(depressed),
                         _ => unreachable!(),
                     }
-                    if let Some(grid) = ui.read().unwrap().grid_under_cursor(
+                    if let Some(grid) = ui_handle.as_ref().unwrap().get().grid_under_cursor(
                         mouse.position,
                         fonts.read().metrics().into_pixels().cell_size().cast(),
                     ) {
@@ -434,7 +447,7 @@ fn main() {
                         }
                     };
 
-                    let Some(grid) = ui.read().unwrap().grid_under_cursor(
+                    let Some(grid) = ui_handle.as_ref().unwrap().get().grid_under_cursor(
                         mouse.position,
                         fonts.read().metrics().into_pixels().cell_size().cast(),
                     ) else {

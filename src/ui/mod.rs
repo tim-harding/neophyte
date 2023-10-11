@@ -1,3 +1,4 @@
+pub mod actor;
 mod cmdline;
 pub mod grid;
 mod messages;
@@ -46,27 +47,8 @@ pub struct Ui {
     pub tabline: Option<TablineUpdate>,
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct CursorInfo {
-    pub pos: Vec2<u64>,
-    pub grid: u64,
-    pub enabled: bool,
-    pub style_enabled: bool,
-}
-
-impl Default for CursorInfo {
+impl Default for Ui {
     fn default() -> Self {
-        Self {
-            pos: Default::default(),
-            grid: 1,
-            enabled: true,
-            style_enabled: false,
-        }
-    }
-}
-
-impl Ui {
-    pub fn new() -> Self {
         Self {
             grids: Default::default(),
             draw_order: vec![1],
@@ -85,6 +67,12 @@ impl Ui {
             default_colors: Default::default(),
             tabline: Default::default(),
         }
+    }
+}
+
+impl Ui {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn grid_index(&self, id: u64) -> Result<usize, usize> {
@@ -362,4 +350,23 @@ impl Ui {
 pub struct GridUnderCursor {
     pub grid: u64,
     pub position: Vec2<u64>,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct CursorInfo {
+    pub pos: Vec2<u64>,
+    pub grid: u64,
+    pub enabled: bool,
+    pub style_enabled: bool,
+}
+
+impl Default for CursorInfo {
+    fn default() -> Self {
+        Self {
+            pos: Default::default(),
+            grid: 1,
+            enabled: true,
+            style_enabled: false,
+        }
+    }
 }
