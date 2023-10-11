@@ -6,7 +6,8 @@ use std::{
 
 #[derive(Clone, Default)]
 pub struct DoubleBuffer {
-    locks: Arc<Locks>,
+    front: Arc<Mutex<Ui>>,
+    back: Arc<RwLock<Ui>>,
 }
 
 impl DoubleBuffer {
@@ -15,25 +16,17 @@ impl DoubleBuffer {
     }
 
     pub fn read(&self) -> RwLockReadGuard<Ui> {
-        self.locks.back.read().unwrap()
+        self.back.read().unwrap()
     }
 
     pub fn write(&self) -> MutexGuard<Ui> {
-        self.locks.front.lock().unwrap()
+        self.front.lock().unwrap()
     }
 
-    pub fn swap(&self) {
-        self.locks.swap()
+    pub fn back(&self) -> Arc<RwLock<Ui>> {
+        self.back.clone()
     }
-}
 
-#[derive(Default)]
-struct Locks {
-    front: Mutex<Ui>,
-    back: RwLock<Ui>,
-}
-
-impl Locks {
     pub fn swap(&self) {
         if let (Ok(mut front), Ok(mut back)) = (self.front.lock(), self.back.write()) {
             mem::swap(&mut *front, &mut *back);

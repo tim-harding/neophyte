@@ -12,7 +12,13 @@ use crate::{
     util::vec2::Vec2,
     Settings,
 };
-use std::sync::Arc;
+use std::{
+    sync::{
+        mpsc::{self, Sender},
+        Arc, RwLock,
+    },
+    thread,
+};
 use swash::shape::ShapeContext;
 use winit::window::Window;
 
@@ -27,7 +33,6 @@ pub struct RenderState {
     highlights: Highlights,
     shape_context: ShapeContext,
     font_cache: FontCache,
-    wants_redraw: bool,
 }
 
 struct Targets {
@@ -92,7 +97,9 @@ impl RenderState {
                 .unwrap_or(surface_caps.formats[0]),
             width: surface_size.x,
             height: surface_size.y,
-            present_mode: surface_caps.present_modes[0], // Vsync
+            present_mode: wgpu::PresentMode::AutoVsync,
+            // TODO: Set premultiplied and update clear color and cell fill with
+            // alpha appropriately
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
         };
@@ -141,17 +148,65 @@ impl RenderState {
             queue,
             surface,
             surface_config,
-            wants_redraw: false,
         }
+    }
+
+    pub fn run(mut self, fonts: Arc<FontsHandle>) -> (thread::JoinHandle<()>, Sender<Message>) {
+        let (tx, rx) = mpsc::channel();
+        let handle = thread::spawn(move || {
+            let mut draw_options = None;
+            loop {
+                loop {
+                    match rx.try_recv() {
+                        Err(e) => match e {
+                            mpsc::TryRecvError::Empty => break,
+                            mpsc::TryRecvError::Disconnected => return,
+                        },
+
+                        Ok(message) => match message {
+                            Message::Update(ui) => {
+                                let ui = ui.read().unwrap();
+                                self.update(&ui, &fonts);
+                            }
+
+                            Message::Redraw(delta_seconds, settings) => {
+                                draw_options = Some((delta_seconds, settings));
+                            }
+
+                            Message::Resize {
+                                screen_size,
+                                cell_size,
+                            } => self.resize(screen_size, cell_size),
+                        },
+                    }
+                }
+
+                let Some((delta_seconds, settings)) = draw_options else {
+                    continue;
+                };
+
+                let motion = self.render(
+                    fonts.read().metrics().into_pixels().cell_size(),
+                    delta_seconds,
+                    settings,
+                );
+
+                match motion {
+                    Motion::Still => draw_options = None,
+                    Motion::Animating => {}
+                }
+            }
+        });
+
+        (handle, tx)
     }
 
     pub fn update(&mut self, ui: &Ui, fonts: &FontsHandle) {
         let (fonts, needs_glyph_cache_reset) = fonts.read_and_take_cache_reset();
+        let cell_size = fonts.metrics().into_pixels().cell_size();
         if needs_glyph_cache_reset {
             self.clear_glyph_cache();
         }
-
-        let cell_size = fonts.metrics().into_pixels().cell_size();
         self.grids.update(
             &self.device,
             &self.queue,
@@ -161,6 +216,7 @@ impl RenderState {
             &mut self.shape_context,
         );
         drop(fonts);
+
         self.highlights.update(ui, &self.device);
         self.pipelines.cursor.update(
             &self.device,
@@ -209,13 +265,12 @@ impl RenderState {
         );
     }
 
-    pub fn maybe_render(&mut self, cell_size: Vec2<u32>, framerate: u32, settings: Settings) {
-        if !self.wants_redraw {
-            return;
-        }
-        self.wants_redraw = false;
-        let delta_seconds = framerate as f32 / 100_000_000.0;
-
+    pub fn render(
+        &mut self,
+        cell_size: Vec2<u32>,
+        delta_seconds: f32,
+        settings: Settings,
+    ) -> Motion {
         let output = match self.surface.get_current_texture() {
             Ok(output) => output,
             Err(e) => {
@@ -226,12 +281,12 @@ impl RenderState {
                     }
                     _ => log::error!("{e}"),
                 }
-                return;
+                return Motion::Still;
             }
         };
 
         let Some(highlights_bind_group) = self.highlights.bind_group() else {
-            return;
+            return Motion::Still;
         };
 
         let output_view = output
@@ -310,7 +365,7 @@ impl RenderState {
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
 
-        self.wants_redraw = motion == Motion::Animating;
+        motion
     }
 
     fn clear_glyph_cache(&mut self) {
@@ -322,8 +377,15 @@ impl RenderState {
     pub fn surface_size(&self) -> Vec2<u32> {
         Vec2::new(self.surface_config.width, self.surface_config.height)
     }
+}
 
-    pub fn request_redraw(&mut self) {
-        self.wants_redraw = true;
-    }
+// TODO: Maybe messages for different updates and just send cloned values for
+// simplicity? Then it would be possible to get rid of UI double buffering.
+pub enum Message {
+    Update(Arc<RwLock<Ui>>),
+    Redraw(f32, Settings),
+    Resize {
+        screen_size: Vec2<u32>,
+        cell_size: Vec2<u32>,
+    },
 }

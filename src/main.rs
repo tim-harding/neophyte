@@ -9,7 +9,7 @@ mod util;
 use bitfield_struct::bitfield;
 use event::{Event, OptionSet, SetTitle};
 use neovim::Neovim;
-use rendering::state::RenderState;
+use rendering::state::{Message, RenderState};
 use std::{
     sync::{Arc, RwLock},
     thread,
@@ -33,26 +33,29 @@ fn main() {
     let (neovim, stdout_handler, stdin_handler) = Neovim::new().unwrap();
     let settings = Arc::new(RwLock::new(Settings::new()));
     let fonts = Arc::new(FontsHandle::new());
-    let event_loop = EventLoopBuilder::<()>::with_user_event().build();
+    let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
     let ui = ui::DoubleBuffer::new();
-    let render_state = Arc::new(RwLock::new(pollster::block_on(async {
+    let render_state = pollster::block_on(async {
         RenderState::new(
             window.clone(),
             fonts.read().metrics().into_pixels().cell_size(),
         )
         .await
-    })));
+    });
     neovim.ui_attach();
+
+    let mut surface_size = render_state.surface_size();
+    let (render_thread, render_tx) = render_state.run(fonts.clone());
 
     let mut stdout_thread = Some({
         let proxy = event_loop.create_proxy();
-        let render_state = render_state.clone();
         let fonts = fonts.clone();
         let neovim = neovim.clone();
         let settings = settings.clone();
         let ui = ui.clone();
         let window = window.clone();
+        let render_tx = render_tx.clone();
         thread::spawn(move || {
             stdout_handler.start(
                 |rpc::Notification { method, params }| match method.as_str() {
@@ -87,17 +90,12 @@ fn main() {
 
                                     if updated_fonts {
                                         fonts.write().set_fonts(&ui.read().options.guifont);
-                                        resize_neovim_grid(
-                                            &render_state.read().unwrap(),
-                                            &fonts.read(),
-                                            &neovim,
-                                        );
+                                        proxy.send_event(UserEvent::ResizeGrid).unwrap();
                                     }
 
                                     if flushed {
-                                        let mut render_state = render_state.write().unwrap();
-                                        render_state.update(&ui.read(), fonts.as_ref());
-                                        render_state.request_redraw();
+                                        render_tx.send(Message::Update(ui.back())).unwrap();
+                                        window.request_redraw();
                                     }
 
                                     {
@@ -124,7 +122,7 @@ fn main() {
                         let height: f32 = args.next().unwrap();
                         let size = ui::FontSize::Height(height);
                         fonts.write().set_font_size(size);
-                        resize_neovim_grid(&render_state.read().unwrap(), &fonts.read(), &neovim);
+                        proxy.send_event(UserEvent::ResizeGrid).unwrap();
                     }
 
                     "neophyte.set_font_width" => {
@@ -132,7 +130,7 @@ fn main() {
                         let width: f32 = args.next().unwrap();
                         let size = ui::FontSize::Width(width);
                         fonts.write().set_font_size(size);
-                        resize_neovim_grid(&render_state.read().unwrap(), &fonts.read(), &neovim);
+                        proxy.send_event(UserEvent::ResizeGrid).unwrap();
                     }
 
                     "neophyte.set_cursor_speed" => {
@@ -160,7 +158,7 @@ fn main() {
                             size: FontSize::Height(em),
                         });
                         drop(lock);
-                        resize_neovim_grid(&render_state.read().unwrap(), &fonts.read(), &neovim);
+                        proxy.send_event(UserEvent::ResizeGrid).unwrap();
                     }
 
                     _ => log::error!("Unrecognized notification: {method}"),
@@ -200,7 +198,7 @@ fn main() {
                     }
                 },
                 || {
-                    let _ = proxy.send_event(());
+                    let _ = proxy.send_event(UserEvent::Exit);
                 },
             );
         })
@@ -208,6 +206,8 @@ fn main() {
 
     let mut stdin_thread = Some(std::thread::spawn(move || stdin_handler.start()));
 
+    let mut render_thread = Some(render_thread);
+    let mut render_tx = Some(render_tx);
     let mut mouse = Mouse::new();
     let mut neovim = Some(neovim);
     let mut modifiers = ModifiersState::default();
@@ -215,15 +215,27 @@ fn main() {
         use winit::event::Event;
         *control_flow = ControlFlow::Wait;
         match event {
-            Event::UserEvent(()) => {
-                // Already terminated since it generated the user event
-                stdout_thread.take().unwrap().join().unwrap();
+            Event::UserEvent(user_event) => {
+                match user_event {
+                    UserEvent::Exit => {
+                        // Already terminated since it generated the exit event
+                        stdout_thread.take().unwrap().join().unwrap();
 
-                // Consume the last Neovim instance to close the channel
-                let _ = neovim.take();
-                stdin_thread.take().unwrap().join().unwrap();
+                        // Consume the render thread channel to kill the thread
+                        let _ = render_tx.take();
+                        render_thread.take().unwrap().join().unwrap();
 
-                *control_flow = ControlFlow::Exit;
+                        // Consume the last Neovim instance to close the channel
+                        let _ = neovim.take();
+                        stdin_thread.take().unwrap().join().unwrap();
+
+                        *control_flow = ControlFlow::Exit;
+                    }
+
+                    UserEvent::ResizeGrid => {
+                        resize_neovim_grid(surface_size, &fonts.read(), neovim.as_ref().unwrap());
+                    }
+                }
             }
 
             Event::WindowEvent {
@@ -359,7 +371,6 @@ fn main() {
                 WindowEvent::CursorMoved { position, .. } => {
                     let position: Vec2<f64> = (*position).into();
                     let position: Vec2<i64> = position.cast_as();
-                    let surface_size = render_state.read().unwrap().surface_size();
                     let cell_size = fonts.read().metrics().into_pixels().cell_size();
                     let inner = (surface_size / cell_size) * cell_size;
                     let margin = (surface_size - inner) / 2;
@@ -494,31 +505,33 @@ fn main() {
                 }
 
                 WindowEvent::Resized(physical_size) => {
-                    render_state.write().unwrap().resize(
-                        (*physical_size).into(),
-                        fonts.read().metrics().into_pixels().cell_size(),
-                    );
-                    resize_neovim_grid(
-                        &render_state.read().unwrap(),
-                        &fonts.read(),
-                        neovim.as_ref().unwrap(),
-                    );
+                    surface_size = (*physical_size).into();
+                    render_tx
+                        .as_ref()
+                        .unwrap()
+                        .send(Message::Resize {
+                            screen_size: surface_size,
+                            cell_size: fonts.read().metrics().into_pixels().cell_size(),
+                        })
+                        .unwrap();
+                    resize_neovim_grid(surface_size, &fonts.read(), neovim.as_ref().unwrap());
                 }
 
-                // TODO: Use the scale factor
                 WindowEvent::ScaleFactorChanged {
                     new_inner_size,
+                    // TODO: Use the scale factor
                     scale_factor: _,
                 } => {
-                    render_state.write().unwrap().resize(
-                        (**new_inner_size).into(),
-                        fonts.read().metrics().into_pixels().cell_size(),
-                    );
-                    resize_neovim_grid(
-                        &render_state.read().unwrap(),
-                        &fonts.read(),
-                        neovim.as_ref().unwrap(),
-                    );
+                    surface_size = (**new_inner_size).into();
+                    render_tx
+                        .as_ref()
+                        .unwrap()
+                        .send(Message::Resize {
+                            screen_size: surface_size,
+                            cell_size: fonts.read().metrics().into_pixels().cell_size(),
+                        })
+                        .unwrap();
+                    resize_neovim_grid(surface_size, &fonts.read(), neovim.as_ref().unwrap());
                 }
 
                 WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
@@ -526,18 +539,17 @@ fn main() {
                 _ => {}
             },
 
-            Event::MainEventsCleared => window.request_redraw(),
-
             Event::RedrawRequested(window_id) if window_id == window.id() => {
                 let framerate = window
                     .current_monitor()
                     .and_then(|monitor| monitor.refresh_rate_millihertz())
-                    .unwrap_or(60000);
-                render_state.write().unwrap().maybe_render(
-                    fonts.read().metrics().into_pixels().cell_size(),
-                    framerate,
-                    *settings.read().unwrap(),
-                );
+                    .unwrap_or(60_000);
+                let delta_seconds = 1_000. / framerate as f32;
+                render_tx
+                    .as_ref()
+                    .unwrap()
+                    .send(Message::Redraw(delta_seconds, *settings.read().unwrap()))
+                    .unwrap();
             }
 
             _ => {}
@@ -562,8 +574,7 @@ fn send_keys(c: &str, modifiers: &mut ModifiersState, neovim: &mut Neovim, ignor
     neovim.input(c);
 }
 
-fn resize_neovim_grid(render_state: &RenderState, fonts: &Fonts, neovim: &Neovim) {
-    let surface_size = render_state.surface_size();
+fn resize_neovim_grid(surface_size: Vec2<u32>, fonts: &Fonts, neovim: &Neovim) {
     let size = surface_size / fonts.metrics().into_pixels().cell_size();
     let size: Vec2<u64> = size.cast();
     neovim.ui_try_resize_grid(1, size.x, size.y);
@@ -632,4 +643,10 @@ impl Buttons {
 pub enum ScrollKind {
     Lines,
     Pixels,
+}
+
+#[derive(Debug)]
+pub enum UserEvent {
+    Exit,
+    ResizeGrid,
 }
