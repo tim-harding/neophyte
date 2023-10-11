@@ -1,5 +1,5 @@
-pub mod actor;
 mod cmdline;
+mod double_buffer;
 pub mod grid;
 mod messages;
 mod options;
@@ -23,6 +23,7 @@ use crate::{
 };
 use std::{collections::HashMap, fmt::Debug};
 
+pub use double_buffer::DoubleBuffer;
 pub use options::{FontSize, FontsSetting};
 
 pub type Highlights = HashMap<u64, HlAttrDefine>;
@@ -45,6 +46,7 @@ pub struct Ui {
     pub options: Options,
     pub default_colors: DefaultColorsSet,
     pub tabline: Option<TablineUpdate>,
+    pub needs_flush: bool,
 }
 
 impl Default for Ui {
@@ -66,15 +68,12 @@ impl Default for Ui {
             options: Default::default(),
             default_colors: Default::default(),
             tabline: Default::default(),
+            needs_flush: false,
         }
     }
 }
 
 impl Ui {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn grid_index(&self, id: u64) -> Result<usize, usize> {
         self.grids.binary_search_by(|probe| probe.id.cmp(&id))
     }
@@ -101,6 +100,14 @@ impl Ui {
 
     pub fn process(&mut self, event: Event) {
         log::info!("{event:?}");
+        if self.needs_flush {
+            self.new_highlights.clear();
+            for grid in self.grids.iter_mut() {
+                grid.flush();
+            }
+            self.needs_flush = false;
+        }
+
         match event {
             Event::OptionSet(event) => self.options.event(event),
             Event::DefaultColorsSet(event) => self.default_colors = event,
@@ -264,10 +271,7 @@ impl Ui {
             Event::BusyStart => self.cursor.enabled = false,
             Event::BusyStop => self.cursor.enabled = true,
             Event::Flush => {
-                self.new_highlights.clear();
-                for grid in self.grids.iter_mut() {
-                    grid.flush();
-                }
+                self.needs_flush = true;
             }
 
             Event::Suspend
