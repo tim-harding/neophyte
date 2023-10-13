@@ -315,7 +315,7 @@ impl Ord for QueuedResponse {
 
 impl PartialOrd for QueuedResponse {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(&other))
+        Some(self.cmp(other))
     }
 }
 

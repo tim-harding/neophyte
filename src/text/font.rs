@@ -93,7 +93,7 @@ impl Metrics {
         let metrics = font.metrics(&[]);
         let (scale_factor, em) = match size {
             FontSize::Width(width) => {
-                let scale_factor = width as f32 / metrics.max_width;
+                let scale_factor = width / metrics.max_width;
                 let em = metrics.units_per_em as f32 * scale_factor;
                 (scale_factor, em)
             }
