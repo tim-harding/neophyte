@@ -13,7 +13,10 @@ use crate::{
 use bitfield_struct::bitfield;
 use event::{Event, OptionSet};
 use neovim::{Neovim, StdoutHandler};
-use rendering::state::{Message, RenderState};
+use rendering::{
+    highlights::HighlightUpdateInfo,
+    state::{Message, RenderState},
+};
 use rpc::Notification;
 use std::{
     sync::{mpsc::Sender, Arc, RwLock},
@@ -562,10 +565,14 @@ impl StdoutHandler for NeovimHandler {
                 }
 
                 if flushed {
-                    self.render_tx.send(Message::Update(ui.clone())).unwrap();
+                    // TODO: Only send changes
+                    self.render_tx
+                        .send(Message::UpdateHighlights(HighlightUpdateInfo::from_ui(&ui)))
+                        .unwrap();
                     self.render_tx
                         .send(Message::UpdateCursor(CursorUpdateInfo::from_ui(&ui)))
                         .unwrap();
+                    self.render_tx.send(Message::Update(ui.clone())).unwrap();
                     ui.clear_dirty();
                 }
             }

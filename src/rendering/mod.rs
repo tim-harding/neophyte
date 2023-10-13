@@ -5,7 +5,7 @@ mod glyph_bind_group;
 mod glyph_push_constants;
 mod grid;
 mod grids;
-mod highlights;
+pub mod highlights;
 pub mod pipelines;
 pub mod state;
 mod texture;

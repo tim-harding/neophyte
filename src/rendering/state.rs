@@ -1,7 +1,7 @@
 use super::{
     depth_texture::DepthTexture,
     grids::Grids,
-    highlights::Highlights,
+    highlights::{HighlightUpdateInfo, Highlights},
     pipelines::{
         blend, cell_fill,
         cursor::{self, CursorUpdateInfo},
@@ -172,7 +172,6 @@ impl RenderState {
                         Ok(message) => match message {
                             Message::Update(ui) => {
                                 self.update(&ui, &fonts);
-                                wants_redraw = true;
                             }
 
                             Message::UpdateCursor(update_info) => {
@@ -186,11 +185,14 @@ impl RenderState {
                                 );
                             }
 
+                            Message::UpdateHighlights(update_info) => {
+                                self.highlights.update(update_info, &self.device);
+                            }
+
                             Message::Redraw(new_delta_seconds, new_settings) => {
                                 log::info!("Render thread got redraw request");
                                 delta_seconds = new_delta_seconds;
                                 settings = new_settings;
-                                wants_redraw = true;
                             }
 
                             Message::Resize {
@@ -199,10 +201,10 @@ impl RenderState {
                             } => {
                                 log::info!("Render thread got resize");
                                 self.resize(screen_size, cell_size);
-                                wants_redraw = true;
                             }
                         },
                     }
+                    wants_redraw = true;
                 }
 
                 if !wants_redraw {
@@ -238,7 +240,6 @@ impl RenderState {
         );
         drop(fonts);
 
-        self.highlights.update(ui, &self.device);
         self.pipelines.monochrome.update(
             &self.device,
             &self.queue,
@@ -400,6 +401,7 @@ impl RenderState {
 pub enum Message {
     Update(Ui),
     UpdateCursor(CursorUpdateInfo),
+    UpdateHighlights(HighlightUpdateInfo),
     Redraw(f32, Settings),
     Resize {
         screen_size: Vec2<u32>,

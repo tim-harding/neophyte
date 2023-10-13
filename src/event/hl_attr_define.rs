@@ -1,4 +1,4 @@
-use crate::util::{maybe_field, maybe_other_field, parse_map, srgb, Parse, Values};
+use crate::util::{maybe_field, parse_map, srgb, Parse, Values};
 use rmpv::Value;
 use std::fmt::{self, Debug, Formatter};
 
@@ -27,9 +27,11 @@ impl Parse for HlAttrDefine {
     }
 }
 
+// TODO: This struct is unnecessarily large
+
 /// Attributes of a highlight attribute definition. Colors may be given in RGB
 /// or terminal 256-color.
-#[derive(Clone, Default)]
+#[derive(Clone, Copy, Default)]
 pub struct Attributes {
     /// foreground color.
     pub foreground: Option<Rgb>,
@@ -60,8 +62,6 @@ pub struct Attributes {
     /// Blend level (0-100). Could be used by UIs to support blending floating
     /// windows to the background or to signal a transparent cursor
     pub blend: Option<u64>,
-    /// Options not enumerated in the UI documentation
-    pub other: Vec<(String, Value)>,
 }
 
 impl Parse for Attributes {
@@ -84,7 +84,7 @@ impl Parse for Attributes {
                 "underdashed" => out.underdashed = Some(Parse::parse(v)?),
                 "altfont" => out.altfont = Some(Parse::parse(v)?),
                 "blend" => out.blend = Some(Parse::parse(v)?),
-                _ => out.other.push((k, v)),
+                _ => {} // Ignore undocumented attributes
             }
         }
         Some(out)
@@ -108,7 +108,6 @@ impl Debug for Attributes {
         maybe_field(&mut s, "underdashed", self.underdashed);
         maybe_field(&mut s, "altfont", self.altfont);
         maybe_field(&mut s, "blend", self.blend);
-        maybe_other_field(&mut s, &self.other);
         s.finish()
     }
 }

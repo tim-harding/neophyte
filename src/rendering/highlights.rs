@@ -1,4 +1,8 @@
-use crate::{event::hl_attr_define::Rgb, ui::Ui, util::srgb};
+use crate::{
+    event::hl_attr_define::{Attributes, Rgb},
+    ui::Ui,
+    util::srgb,
+};
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::util::DeviceExt;
 
@@ -31,35 +35,31 @@ impl Highlights {
         }
     }
 
-    pub fn update(&mut self, ui: &Ui, device: &wgpu::Device) {
-        if !ui.did_highlights_change {
-            return;
-        }
-
-        let fg_default = ui
-            .default_colors
-            .rgb_fg
-            .unwrap_or(Rgb::new(255, 255, 255))
-            .into_linear();
-        let bg_default = ui.default_colors.rgb_bg.unwrap_or(Rgb::new(0, 0, 0));
+    pub fn update(&mut self, update_info: HighlightUpdateInfo, device: &wgpu::Device) {
+        let HighlightUpdateInfo {
+            highlights,
+            fg_default,
+            bg_default,
+        } = update_info;
         self.clear_color = wgpu::Color {
             r: srgb(bg_default.r()) as f64,
             g: srgb(bg_default.g()) as f64,
             b: srgb(bg_default.b()) as f64,
             a: 1.0,
         };
+        let fg_default = fg_default.into_linear();
         let bg_default = bg_default.into_linear();
 
         self.highlights.resize(
-            ui.highlights.len().max(1),
+            highlights.len().max(1),
             HighlightInfo::new(fg_default, bg_default),
         );
 
-        for (src, dst) in ui.highlights.iter().zip(self.highlights.iter_mut()) {
-            if let Some(fg) = src.rgb_attr.foreground {
+        for (src, dst) in highlights.iter().zip(self.highlights.iter_mut()) {
+            if let Some(fg) = src.foreground {
                 dst.fg = fg.into_linear();
             }
-            if let Some(bg) = src.rgb_attr.background {
+            if let Some(bg) = src.background {
                 dst.bg = bg.into_linear();
             }
         }
@@ -108,5 +108,25 @@ pub struct HighlightInfo {
 impl HighlightInfo {
     pub fn new(fg: [f32; 4], bg: [f32; 4]) -> Self {
         Self { fg, bg }
+    }
+}
+
+pub struct HighlightUpdateInfo {
+    highlights: Vec<Attributes>,
+    fg_default: Rgb,
+    bg_default: Rgb,
+}
+
+impl HighlightUpdateInfo {
+    pub fn from_ui(ui: &Ui) -> Self {
+        let fg_default = ui.default_colors.rgb_fg.unwrap_or(Rgb::new(255, 255, 255));
+        let bg_default = ui.default_colors.rgb_bg.unwrap_or(Rgb::new(0, 0, 0));
+        let highlights: Vec<_> = ui.highlights.iter().map(|hl| hl.rgb_attr).collect();
+
+        Self {
+            highlights,
+            fg_default,
+            bg_default,
+        }
     }
 }
