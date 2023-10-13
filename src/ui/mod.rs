@@ -1,6 +1,5 @@
 mod cmdline;
 pub mod grid;
-pub mod handle;
 mod messages;
 mod options;
 pub mod packed_char;
@@ -72,6 +71,10 @@ impl Default for Ui {
 }
 
 impl Ui {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     pub fn grid_index(&self, id: u64) -> Result<usize, usize> {
         self.grids.binary_search_by(|probe| probe.id.cmp(&id))
     }

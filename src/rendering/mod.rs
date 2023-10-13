@@ -6,7 +6,7 @@ mod glyph_push_constants;
 mod grid;
 mod grids;
 mod highlights;
-mod pipelines;
+pub mod pipelines;
 pub mod state;
 mod texture;
 

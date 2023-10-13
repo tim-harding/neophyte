@@ -176,7 +176,7 @@ impl Parse for Kind {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Rgb([u8; 3]);
 
 impl Rgb {

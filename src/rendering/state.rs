@@ -2,13 +2,17 @@ use super::{
     depth_texture::DepthTexture,
     grids::Grids,
     highlights::Highlights,
-    pipelines::{blend, cell_fill, cursor, emoji, gamma_blit, lines, monochrome},
+    pipelines::{
+        blend, cell_fill,
+        cursor::{self, CursorUpdateInfo},
+        emoji, gamma_blit, lines, monochrome,
+    },
     texture::Texture,
     Motion, TARGET_FORMAT,
 };
 use crate::{
     text::{cache::FontCache, fonts::FontsHandle},
-    ui::{handle::UiHandle, Ui},
+    ui::Ui,
     util::vec2::Vec2,
     Settings,
 };
@@ -167,13 +171,19 @@ impl RenderState {
 
                         Ok(message) => match message {
                             Message::Update(ui) => {
-                                log::info!("Render thread got UI update");
-                                let (ui, needs_render_update) =
-                                    ui.read_and_consume_needs_render_update();
-                                if needs_render_update {
-                                    self.update(&ui, &fonts);
-                                    wants_redraw = true;
-                                }
+                                self.update(&ui, &fonts);
+                                wants_redraw = true;
+                            }
+
+                            Message::UpdateCursor(update_info) => {
+                                let cell_size =
+                                    fonts.read().metrics().into_pixels().cell_size().cast_as();
+                                self.pipelines.cursor.update(
+                                    &self.device,
+                                    update_info,
+                                    cell_size,
+                                    &self.targets.monochrome.view,
+                                );
                             }
 
                             Message::Redraw(new_delta_seconds, new_settings) => {
@@ -215,7 +225,6 @@ impl RenderState {
 
     pub fn update(&mut self, ui: &Ui, fonts: &FontsHandle) {
         let (fonts, needs_glyph_cache_reset) = fonts.read_and_take_cache_reset();
-        let cell_size = fonts.metrics().into_pixels().cell_size();
         if needs_glyph_cache_reset {
             self.clear_glyph_cache();
         }
@@ -230,12 +239,6 @@ impl RenderState {
         drop(fonts);
 
         self.highlights.update(ui, &self.device);
-        self.pipelines.cursor.update(
-            &self.device,
-            ui,
-            cell_size.cast_as(),
-            &self.targets.monochrome.view,
-        );
         self.pipelines.monochrome.update(
             &self.device,
             &self.queue,
@@ -395,7 +398,8 @@ impl RenderState {
 // TODO: Maybe messages for different updates and just send cloned values for
 // simplicity? Then it would be possible to get rid of UI double buffering.
 pub enum Message {
-    Update(Arc<UiHandle>),
+    Update(Ui),
+    UpdateCursor(CursorUpdateInfo),
     Redraw(f32, Settings),
     Resize {
         screen_size: Vec2<u32>,
