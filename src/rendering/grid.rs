@@ -9,7 +9,6 @@ use crate::{
         packed_char::PackedCharContents,
     },
     util::vec2::Vec2,
-    Settings,
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
 use std::{
