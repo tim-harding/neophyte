@@ -37,11 +37,8 @@ fn main() {
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
     let ui = Arc::new(UiHandle::new());
     let render_state = pollster::block_on(async {
-        RenderState::new(
-            window.clone(),
-            fonts.read().metrics().into_pixels().cell_size(),
-        )
-        .await
+        let cell_size = fonts.read().metrics().into_pixels().cell_size();
+        RenderState::new(window.clone(), cell_size).await
     });
     neovim.ui_attach();
 
