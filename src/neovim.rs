@@ -20,7 +20,7 @@ pub struct Neovim {
 }
 
 impl Neovim {
-    pub fn new() -> io::Result<(Neovim, StdoutHandler, StdinHandler)> {
+    pub fn new() -> io::Result<(Neovim, StdoutThread, StdinThread)> {
         use io::Error;
         let mut child = Command::new("nvim")
             .arg("--embed")
@@ -44,8 +44,8 @@ impl Neovim {
                 incoming: incoming.clone(),
                 next_msgid: Default::default(),
             },
-            StdoutHandler { incoming, stdout },
-            StdinHandler { rx, stdin },
+            StdoutThread { incoming, stdout },
+            StdinThread { rx, stdin },
         ))
     }
 
@@ -331,12 +331,12 @@ impl From<QueuedResponse> for rpc::Response {
     }
 }
 
-pub struct StdinHandler {
+pub struct StdinThread {
     rx: Receiver<Message>,
     stdin: ChildStdin,
 }
 
-impl StdinHandler {
+impl StdinThread {
     pub fn start(self) {
         let Self { rx, mut stdin } = self;
         while let Ok(msg) = rx.recv() {
@@ -348,21 +348,15 @@ impl StdinHandler {
     }
 }
 
-pub struct StdoutHandler {
+pub struct StdoutThread {
     incoming: Arc<RwLock<Incoming>>,
     stdout: ChildStdout,
 }
 
-impl StdoutHandler {
-    pub fn start<N, R, S>(
-        mut self,
-        mut notification_handler: N,
-        mut request_handler: R,
-        shutdown_handler: S,
-    ) where
-        N: FnMut(rpc::Notification),
-        R: FnMut(rpc::Request),
-        S: Fn(),
+impl StdoutThread {
+    pub fn start<H>(mut self, mut handler: H)
+    where
+        H: StdoutHandler,
     {
         use rmpv::decode::Error;
         loop {
@@ -386,7 +380,7 @@ impl StdoutHandler {
                         }
                         DecodeError::Parse => log::error!("Failed to parse an RPC message"),
                     }
-                    shutdown_handler();
+                    handler.handle_shutdown();
                     return;
                 }
             };
@@ -395,7 +389,7 @@ impl StdoutHandler {
                 Message::Request(request) => {
                     log::info!("RPC Request: {}, {:?}", request.method, request.params);
                     self.incoming.write().unwrap().push_request(request.msgid);
-                    request_handler(request);
+                    handler.handle_request(request);
                 }
 
                 Message::Response(rpc::Response {
@@ -410,8 +404,14 @@ impl StdoutHandler {
                     };
                 }
 
-                Message::Notification(notification) => notification_handler(notification),
+                Message::Notification(notification) => handler.handle_notification(notification),
             };
         }
     }
+}
+
+pub trait StdoutHandler {
+    fn handle_notification(&mut self, notification: rpc::Notification);
+    fn handle_request(&mut self, request: rpc::Request);
+    fn handle_shutdown(&mut self);
 }

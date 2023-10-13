@@ -8,10 +8,11 @@ mod util;
 
 use bitfield_struct::bitfield;
 use event::{Event, OptionSet};
-use neovim::Neovim;
+use neovim::{Neovim, StdoutHandler};
 use rendering::state::{Message, RenderState};
+use rpc::Notification;
 use std::{
-    sync::{Arc, RwLock},
+    sync::{mpsc::Sender, Arc, RwLock},
     thread,
 };
 use text::fonts::{Fonts, FontsHandle};
@@ -22,8 +23,8 @@ use winit::{
         ElementState, KeyboardInput, ModifiersState, MouseScrollDelta, TouchPhase, VirtualKeyCode,
         WindowEvent,
     },
-    event_loop::{ControlFlow, EventLoopBuilder},
-    window::WindowBuilder,
+    event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy},
+    window::{Window, WindowBuilder},
 };
 
 use crate::neovim::{Action, Button};
@@ -48,165 +49,21 @@ fn main() {
     let mut surface_size = render_state.surface_size();
     let (render_thread, render_tx) = render_state.run(fonts.clone());
 
-    // TODO: Move all this to another file
+    let mut stdin_thread = Some(std::thread::spawn(move || stdin_handler.start()));
     let mut stdout_thread = Some({
-        let proxy = event_loop.create_proxy();
-        let window = window.clone();
-        let fonts = fonts.clone();
-        let neovim = neovim.clone();
-        let settings = settings.clone();
-        let ui = ui.clone();
-        let render_tx = render_tx.clone();
+        let handler = NeovimHandler {
+            proxy: event_loop.create_proxy(),
+            window: window.clone(),
+            fonts: fonts.clone(),
+            neovim: neovim.clone(),
+            settings: settings.clone(),
+            ui: ui.clone(),
+            render_tx: render_tx.clone(),
+        };
         thread::spawn(move || {
-            stdout_handler.start(
-                |rpc::Notification { method, params }| match method.as_str() {
-                    "redraw" => {
-                        for param in params {
-                            match event::Event::try_parse(param.clone()) {
-                                Ok(events) => {
-                                    let mut ui_new = ui.read().unwrap().clone();
-                                    ui_new.begin_process_events();
-                                    for event in events.iter().cloned() {
-                                        log::info!("{event:?}");
-                                        match event {
-                                            Event::Flush => {
-                                                ui_new.process(Event::Flush);
-                                                render_tx
-                                                    .send(Message::Update(ui_new.clone()))
-                                                    .unwrap();
-                                                // Flush should be the last event we get in a batch
-                                                break;
-                                            }
-                                            Event::OptionSet(event) => {
-                                                let updated_fonts =
-                                                    matches!(event, OptionSet::Guifont(_));
-                                                ui_new.process(Event::OptionSet(event));
-                                                if updated_fonts {
-                                                    fonts
-                                                        .write()
-                                                        .set_fonts(&ui_new.options.guifont);
-                                                    proxy
-                                                        .send_event(UserEvent::ResizeGrid)
-                                                        .unwrap();
-                                                }
-                                            }
-                                            event => ui_new.process(event),
-                                        }
-                                    }
-                                    *ui.write().unwrap() = ui_new;
-                                }
-
-                                Err(e) => match e {
-                                    event::Error::UnknownEvent(name) => {
-                                        log::error!("Unknown event: {name}\n{param:#?}");
-                                    }
-                                    _ => log::error!("{e}"),
-                                },
-                            }
-                        }
-                    }
-
-                    "neophyte.set_font_height" => {
-                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                        let height: f32 = args.next().unwrap();
-                        let size = ui::FontSize::Height(height);
-                        fonts.write().set_font_size(size);
-                        proxy.send_event(UserEvent::ResizeGrid).unwrap();
-                    }
-
-                    "neophyte.set_font_width" => {
-                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                        let width: f32 = args.next().unwrap();
-                        let size = ui::FontSize::Width(width);
-                        fonts.write().set_font_size(size);
-                        proxy.send_event(UserEvent::ResizeGrid).unwrap();
-                    }
-
-                    "neophyte.set_cursor_speed" => {
-                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                        let speed: f32 = args.next().unwrap();
-                        settings.write().unwrap().cursor_speed = speed;
-                    }
-
-                    "neophyte.set_scroll_speed" => {
-                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                        let speed: f32 = args.next().unwrap();
-                        settings.write().unwrap().scroll_speed = speed;
-                    }
-
-                    "neophyte.set_fonts" => {
-                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                        let mut font_names = vec![];
-                        while let Some(font) = args.next() {
-                            font_names.push(font);
-                        }
-                        let mut lock = fonts.write();
-                        let em = lock.metrics().em;
-                        lock.set_fonts(&FontsSetting {
-                            fonts: font_names,
-                            size: FontSize::Height(em),
-                        });
-                        drop(lock);
-                        proxy.send_event(UserEvent::ResizeGrid).unwrap();
-                    }
-
-                    "neophyte.set_underline_offset" => {
-                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                        let offset: f32 = args.next().unwrap();
-                        let offset: i32 = offset as i32;
-                        settings.write().unwrap().underline_offset = offset;
-                        window.request_redraw();
-                    }
-
-                    _ => log::error!("Unrecognized notification: {method}"),
-                },
-                |rpc::Request {
-                     msgid,
-                     method,
-                     params,
-                 }| {
-                    match method.as_str() {
-                        "neophyte.get_fonts" => {
-                            let names = fonts.read().iter().map(|font| font.name.clone()).collect();
-                            neovim.send_response(rpc::Response::result(msgid, names));
-                        }
-
-                        "neophyte.get_cursor_speed" => {
-                            let cursor_speed = settings.read().unwrap().cursor_speed;
-                            neovim.send_response(rpc::Response::result(msgid, cursor_speed.into()));
-                        }
-
-                        "neophyte.get_scroll_speed" => {
-                            let scroll_speed = settings.read().unwrap().scroll_speed;
-                            neovim.send_response(rpc::Response::result(msgid, scroll_speed.into()));
-                        }
-
-                        "neophyte.get_font_width" => {
-                            let width = fonts.read().metrics().width;
-                            neovim.send_response(rpc::Response::result(msgid, width.into()));
-                        }
-
-                        "neophyte.get_font_height" => {
-                            let width = fonts.read().metrics().em;
-                            neovim.send_response(rpc::Response::result(msgid, width.into()));
-                        }
-
-                        "neophyte.get_underline_offset" => {
-                            let offset = settings.read().unwrap().underline_offset;
-                            neovim.send_response(rpc::Response::result(msgid, offset.into()));
-                        }
-
-                        _ => log::error!("Unknown request: {}, {:?}", method, params),
-                    }
-                },
-                || {
-                    let _ = proxy.send_event(UserEvent::Exit);
-                },
-            );
+            stdout_handler.start(handler);
         })
     });
-
-    let mut stdin_thread = Some(std::thread::spawn(move || stdin_handler.start()));
 
     let mut render_thread = Some(render_thread);
     let mut render_tx = Some(render_tx);
@@ -653,4 +510,172 @@ pub enum ScrollKind {
 pub enum UserEvent {
     Exit,
     ResizeGrid,
+}
+
+struct NeovimHandler {
+    proxy: EventLoopProxy<UserEvent>,
+    window: Arc<Window>,
+    fonts: Arc<FontsHandle>,
+    neovim: Neovim,
+    settings: Arc<RwLock<Settings>>,
+    ui: Arc<RwLock<Ui>>,
+    render_tx: Sender<Message>,
+}
+
+impl StdoutHandler for NeovimHandler {
+    fn handle_notification(&mut self, notification: rpc::Notification) {
+        let Notification { method, params } = notification;
+        match method.as_str() {
+            "redraw" => {
+                for param in params {
+                    match event::Event::try_parse(param.clone()) {
+                        Ok(events) => {
+                            let mut ui_new = self.ui.read().unwrap().clone();
+                            ui_new.begin_process_events();
+                            for event in events.iter().cloned() {
+                                log::info!("{event:?}");
+                                match event {
+                                    Event::Flush => {
+                                        ui_new.process(Event::Flush);
+                                        self.render_tx
+                                            .send(Message::Update(ui_new.clone()))
+                                            .unwrap();
+                                        // Flush should be the last event we get in a batch
+                                        break;
+                                    }
+                                    Event::OptionSet(event) => {
+                                        let updated_fonts = matches!(event, OptionSet::Guifont(_));
+                                        ui_new.process(Event::OptionSet(event));
+                                        if updated_fonts {
+                                            self.fonts.write().set_fonts(&ui_new.options.guifont);
+                                            self.proxy.send_event(UserEvent::ResizeGrid).unwrap();
+                                        }
+                                    }
+                                    event => ui_new.process(event),
+                                }
+                            }
+                            *self.ui.write().unwrap() = ui_new;
+                        }
+
+                        Err(e) => match e {
+                            event::Error::UnknownEvent(name) => {
+                                log::error!("Unknown event: {name}\n{param:#?}");
+                            }
+                            _ => log::error!("{e}"),
+                        },
+                    }
+                }
+            }
+
+            "neophyte.set_font_height" => {
+                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                let height: f32 = args.next().unwrap();
+                let size = ui::FontSize::Height(height);
+                self.fonts.write().set_font_size(size);
+                self.proxy.send_event(UserEvent::ResizeGrid).unwrap();
+            }
+
+            "neophyte.set_font_width" => {
+                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                let width: f32 = args.next().unwrap();
+                let size = ui::FontSize::Width(width);
+                self.fonts.write().set_font_size(size);
+                self.proxy.send_event(UserEvent::ResizeGrid).unwrap();
+            }
+
+            "neophyte.set_cursor_speed" => {
+                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                let speed: f32 = args.next().unwrap();
+                self.settings.write().unwrap().cursor_speed = speed;
+            }
+
+            "neophyte.set_scroll_speed" => {
+                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                let speed: f32 = args.next().unwrap();
+                self.settings.write().unwrap().scroll_speed = speed;
+            }
+
+            "neophyte.set_fonts" => {
+                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                let mut font_names = vec![];
+                while let Some(font) = args.next() {
+                    font_names.push(font);
+                }
+                let mut lock = self.fonts.write();
+                let em = lock.metrics().em;
+                lock.set_fonts(&FontsSetting {
+                    fonts: font_names,
+                    size: FontSize::Height(em),
+                });
+                drop(lock);
+                self.proxy.send_event(UserEvent::ResizeGrid).unwrap();
+            }
+
+            "neophyte.set_underline_offset" => {
+                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                let offset: f32 = args.next().unwrap();
+                let offset: i32 = offset as i32;
+                self.settings.write().unwrap().underline_offset = offset;
+                self.window.request_redraw();
+            }
+
+            _ => log::error!("Unrecognized notification: {method}"),
+        }
+    }
+
+    fn handle_request(&mut self, request: rpc::Request) {
+        let rpc::Request {
+            msgid,
+            method,
+            params,
+        } = request;
+        match method.as_str() {
+            "neophyte.get_fonts" => {
+                let names = self
+                    .fonts
+                    .read()
+                    .iter()
+                    .map(|font| font.name.clone())
+                    .collect();
+                self.neovim
+                    .send_response(rpc::Response::result(msgid, names));
+            }
+
+            "neophyte.get_cursor_speed" => {
+                let cursor_speed = self.settings.read().unwrap().cursor_speed;
+                self.neovim
+                    .send_response(rpc::Response::result(msgid, cursor_speed.into()));
+            }
+
+            "neophyte.get_scroll_speed" => {
+                let scroll_speed = self.settings.read().unwrap().scroll_speed;
+                self.neovim
+                    .send_response(rpc::Response::result(msgid, scroll_speed.into()));
+            }
+
+            "neophyte.get_font_width" => {
+                let width = self.fonts.read().metrics().width;
+                self.neovim
+                    .send_response(rpc::Response::result(msgid, width.into()));
+            }
+
+            "neophyte.get_font_height" => {
+                let width = self.fonts.read().metrics().em;
+                self.neovim
+                    .send_response(rpc::Response::result(msgid, width.into()));
+            }
+
+            "neophyte.get_underline_offset" => {
+                let offset = self.settings.read().unwrap().underline_offset;
+                self.neovim
+                    .send_response(rpc::Response::result(msgid, offset.into()));
+            }
+
+            _ => log::error!("Unknown request: {}, {:?}", method, params),
+        }
+    }
+
+    fn handle_shutdown(&mut self) {
+        let _ = self.proxy.send_event(UserEvent::Exit);
+    }
 }
