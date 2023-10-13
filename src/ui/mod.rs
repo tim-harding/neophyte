@@ -1,5 +1,4 @@
 mod cmdline;
-mod double_buffer;
 pub mod grid;
 mod messages;
 mod options;
@@ -23,11 +22,11 @@ use crate::{
 };
 use std::{collections::HashMap, fmt::Debug};
 
-pub use double_buffer::DoubleBuffer;
 pub use options::{FontSize, FontsSetting};
 
 pub type HighlightGroups = HashMap<String, u64>;
 
+#[derive(Clone)]
 pub struct Ui {
     // TODO: Probably should privatize
     pub grids: Vec<DoubleBufferGrid>,
@@ -74,6 +73,10 @@ impl Default for Ui {
 }
 
 impl Ui {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     pub fn grid_index(&self, id: u64) -> Result<usize, usize> {
         self.grids.binary_search_by(|probe| probe.id.cmp(&id))
     }
@@ -98,8 +101,7 @@ impl Ui {
         }
     }
 
-    pub fn process(&mut self, event: Event) {
-        log::info!("{event:?}");
+    pub fn begin_process_events(&mut self) {
         if self.did_flush {
             self.did_flush = false;
             self.did_highlights_change = false;
@@ -107,7 +109,10 @@ impl Ui {
                 grid.flush();
             }
         }
+    }
 
+    pub fn process(&mut self, event: Event) {
+        log::info!("{event:?}");
         match event {
             Event::OptionSet(event) => self.options.event(event),
             Event::DefaultColorsSet(event) => {

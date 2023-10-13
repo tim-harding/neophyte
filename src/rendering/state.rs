@@ -15,7 +15,7 @@ use crate::{
 use std::{
     sync::{
         mpsc::{self, Sender},
-        Arc, RwLock,
+        Arc,
     },
     thread,
 };
@@ -154,7 +154,9 @@ impl RenderState {
     pub fn run(mut self, fonts: Arc<FontsHandle>) -> (thread::JoinHandle<()>, Sender<Message>) {
         let (tx, rx) = mpsc::channel();
         let handle = thread::spawn(move || {
-            let mut draw_options = None;
+            let mut delta_seconds = 0.0;
+            let mut settings = Settings::default();
+            let mut wants_redraw = false;
             loop {
                 loop {
                     match rx.try_recv() {
@@ -165,36 +167,42 @@ impl RenderState {
 
                         Ok(message) => match message {
                             Message::Update(ui) => {
-                                let ui = ui.read().unwrap();
+                                log::info!("Render thread got UI update");
                                 self.update(&ui, &fonts);
+                                wants_redraw = true;
                             }
 
-                            Message::Redraw(delta_seconds, settings) => {
-                                draw_options = Some((delta_seconds, settings));
+                            Message::Redraw(new_delta_seconds, new_settings) => {
+                                log::info!("Render thread got redraw request");
+                                delta_seconds = new_delta_seconds;
+                                settings = new_settings;
+                                wants_redraw = true;
                             }
 
                             Message::Resize {
                                 screen_size,
                                 cell_size,
-                            } => self.resize(screen_size, cell_size),
+                            } => {
+                                log::info!("Render thread got resize");
+                                self.resize(screen_size, cell_size);
+                                wants_redraw = true;
+                            }
                         },
                     }
                 }
 
-                let Some((delta_seconds, settings)) = draw_options else {
+                if !wants_redraw {
                     continue;
-                };
+                }
 
                 let motion = self.render(
                     fonts.read().metrics().into_pixels().cell_size(),
                     delta_seconds,
                     settings,
                 );
+                log::info!("Redrew UI with result of {motion:?}");
 
-                match motion {
-                    Motion::Still => draw_options = None,
-                    Motion::Animating => {}
-                }
+                wants_redraw = matches!(motion, Motion::Animating);
             }
         });
 
@@ -276,7 +284,7 @@ impl RenderState {
             Err(e) => {
                 match e {
                     wgpu::SurfaceError::Lost => {
-                        // Rebuild swap chain
+                        log::warn!("Rebuilding swap chain");
                         self.resize(self.surface_size(), cell_size);
                     }
                     _ => log::error!("{e}"),
@@ -382,7 +390,7 @@ impl RenderState {
 // TODO: Maybe messages for different updates and just send cloned values for
 // simplicity? Then it would be possible to get rid of UI double buffering.
 pub enum Message {
-    Update(Arc<RwLock<Ui>>),
+    Update(Ui),
     Redraw(f32, Settings),
     Resize {
         screen_size: Vec2<u32>,

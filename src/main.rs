@@ -7,7 +7,7 @@ mod ui;
 mod util;
 
 use bitfield_struct::bitfield;
-use event::{Event, OptionSet, SetTitle};
+use event::{Event, OptionSet};
 use neovim::Neovim;
 use rendering::state::{Message, RenderState};
 use std::{
@@ -15,7 +15,7 @@ use std::{
     thread,
 };
 use text::fonts::{Fonts, FontsHandle};
-use ui::{FontSize, FontsSetting};
+use ui::{FontSize, FontsSetting, Ui};
 use util::{vec2::Vec2, Values};
 use winit::{
     event::{
@@ -35,7 +35,7 @@ fn main() {
     let fonts = Arc::new(FontsHandle::new());
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
-    let ui = ui::DoubleBuffer::new();
+    let ui = Arc::new(RwLock::new(Ui::new()));
     let render_state = pollster::block_on(async {
         RenderState::new(
             window.clone(),
@@ -54,7 +54,6 @@ fn main() {
         let neovim = neovim.clone();
         let settings = settings.clone();
         let ui = ui.clone();
-        let window = window.clone();
         let render_tx = render_tx.clone();
         thread::spawn(move || {
             stdout_handler.start(
@@ -63,48 +62,36 @@ fn main() {
                         for param in params {
                             match event::Event::try_parse(param.clone()) {
                                 Ok(events) => {
-                                    let mut flushed = false;
-                                    let mut updated_fonts = false;
-                                    {
-                                        let mut ui = ui.write();
-                                        for event in events.iter().cloned() {
-                                            log::info!("{event:?}");
-                                            match event {
-                                                Event::Flush => {
-                                                    flushed = true;
-                                                    ui.process(Event::Flush);
-                                                }
-                                                Event::SetTitle(SetTitle { title }) => {
-                                                    window.set_title(&title)
-                                                }
-                                                Event::OptionSet(event) => {
-                                                    updated_fonts |=
-                                                        matches!(event, OptionSet::Guifont(_));
-                                                    ui.process(Event::OptionSet(event));
-                                                }
-                                                event => ui.process(event),
+                                    let mut ui_new = ui.read().unwrap().clone();
+                                    ui_new.begin_process_events();
+                                    for event in events.iter().cloned() {
+                                        log::info!("{event:?}");
+                                        match event {
+                                            Event::Flush => {
+                                                ui_new.process(Event::Flush);
+                                                render_tx
+                                                    .send(Message::Update(ui_new.clone()))
+                                                    .unwrap();
+                                                // Flush should be the last event we get in a batch
+                                                break;
                                             }
+                                            Event::OptionSet(event) => {
+                                                let updated_fonts =
+                                                    matches!(event, OptionSet::Guifont(_));
+                                                ui_new.process(Event::OptionSet(event));
+                                                if updated_fonts {
+                                                    fonts
+                                                        .write()
+                                                        .set_fonts(&ui_new.options.guifont);
+                                                    proxy
+                                                        .send_event(UserEvent::ResizeGrid)
+                                                        .unwrap();
+                                                }
+                                            }
+                                            event => ui_new.process(event),
                                         }
                                     }
-                                    ui.swap();
-
-                                    if updated_fonts {
-                                        fonts.write().set_fonts(&ui.read().options.guifont);
-                                        proxy.send_event(UserEvent::ResizeGrid).unwrap();
-                                    }
-
-                                    if flushed {
-                                        render_tx.send(Message::Update(ui.back())).unwrap();
-                                        window.request_redraw();
-                                    }
-
-                                    {
-                                        let mut ui = ui.write();
-                                        for event in events {
-                                            ui.process(event);
-                                        }
-                                    }
-                                    ui.swap();
+                                    *ui.write().unwrap() = ui_new;
                                 }
 
                                 Err(e) => match e {
@@ -378,7 +365,7 @@ fn main() {
                         return;
                     };
                     mouse.position = position;
-                    if let Some(grid) = ui.read().grid_under_cursor(
+                    if let Some(grid) = ui.read().unwrap().grid_under_cursor(
                         position,
                         fonts.read().metrics().into_pixels().cell_size().cast(),
                     ) {
@@ -411,7 +398,7 @@ fn main() {
                         Button::Middle => mouse.buttons.set_middle(depressed),
                         _ => unreachable!(),
                     }
-                    if let Some(grid) = ui.read().grid_under_cursor(
+                    if let Some(grid) = ui.read().unwrap().grid_under_cursor(
                         mouse.position,
                         fonts.read().metrics().into_pixels().cell_size().cast(),
                     ) {
@@ -461,7 +448,7 @@ fn main() {
                         }
                     };
 
-                    let Some(grid) = ui.read().grid_under_cursor(
+                    let Some(grid) = ui.read().unwrap().grid_under_cursor(
                         mouse.position,
                         fonts.read().metrics().into_pixels().cell_size().cast(),
                     ) else {

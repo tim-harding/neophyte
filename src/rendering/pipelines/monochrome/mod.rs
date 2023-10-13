@@ -43,6 +43,8 @@ impl Pipeline {
             return;
         };
 
+        // TODO: We're recreating the pipeline every update
+
         let glyph_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Monochrome pipeline layout"),

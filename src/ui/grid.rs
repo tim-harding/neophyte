@@ -229,7 +229,7 @@ pub struct CursorRenderInfo {
     pub pos: Vec2<u64>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct DoubleBufferGrid {
     pub id: u64,
     pub scroll_delta: i64,
