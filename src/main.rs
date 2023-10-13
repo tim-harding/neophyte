@@ -51,6 +51,7 @@ fn main() {
     // TODO: Move all this to another file
     let mut stdout_thread = Some({
         let proxy = event_loop.create_proxy();
+        let window = window.clone();
         let fonts = fonts.clone();
         let neovim = neovim.clone();
         let settings = settings.clone();
@@ -149,6 +150,14 @@ fn main() {
                         proxy.send_event(UserEvent::ResizeGrid).unwrap();
                     }
 
+                    "neophyte.set_underline_offset" => {
+                        let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                        let offset: f32 = args.next().unwrap();
+                        let offset: i32 = offset as i32;
+                        settings.write().unwrap().underline_offset = offset;
+                        window.request_redraw();
+                    }
+
                     _ => log::error!("Unrecognized notification: {method}"),
                 },
                 |rpc::Request {
@@ -180,6 +189,11 @@ fn main() {
                         "neophyte.get_font_height" => {
                             let width = fonts.read().metrics().em;
                             neovim.send_response(rpc::Response::result(msgid, width.into()));
+                        }
+
+                        "neophyte.get_underline_offset" => {
+                            let offset = settings.read().unwrap().underline_offset;
+                            neovim.send_response(rpc::Response::result(msgid, offset.into()));
                         }
 
                         _ => log::error!("Unknown request: {}, {:?}", method, params),
@@ -573,6 +587,8 @@ pub struct Settings {
     pub cursor_speed: f32,
     /// Multiplier of the default scroll speed
     pub scroll_speed: f32,
+    /// Additional offset to apply to underlines
+    pub underline_offset: i32,
 }
 
 impl Settings {
@@ -586,6 +602,7 @@ impl Default for Settings {
         Self {
             cursor_speed: 1.,
             scroll_speed: 1.,
+            underline_offset: 2,
         }
     }
 }

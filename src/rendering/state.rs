@@ -364,6 +364,7 @@ impl RenderState {
             highlights_bind_group,
             target_size,
             cell_size,
+            settings.underline_offset,
         );
 
         self.pipelines

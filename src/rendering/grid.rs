@@ -9,6 +9,7 @@ use crate::{
         packed_char::PackedCharContents,
     },
     util::vec2::Vec2,
+    Settings,
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
 use std::{
@@ -188,7 +189,7 @@ impl Grid {
                                         position: position
                                             + Vec2::new(
                                                 0,
-                                                (cell_size.y + metrics_px.underline_offset + 1)
+                                                (metrics_px.ascent + metrics_px.underline_offset)
                                                     as i32,
                                             ),
                                         size: Vec2::new(

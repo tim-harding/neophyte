@@ -1,6 +1,5 @@
 struct GridInfo {
     target_size: vec2<u32>,
-    cell_size: vec2<u32>,
     offset: vec2<i32>,
     grid_width: u32,
     z: f32,

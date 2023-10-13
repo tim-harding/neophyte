@@ -81,6 +81,7 @@ impl Pipeline {
         highlights_bind_group: &wgpu::BindGroup,
         target_size: Vec2<u32>,
         cell_size: Vec2<u32>,
+        underline_offset: i32,
     ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Lines render pass"),
@@ -113,8 +114,7 @@ impl Pipeline {
             grid.set_scissor(cell_size, target_size, &mut render_pass);
             PushConstants {
                 target_size,
-                cell_size,
-                offset: grid.offset(cell_size.y as f32),
+                offset: grid.offset(cell_size.y as f32) + Vec2::new(0, underline_offset),
                 grid_width: grid.size().x,
                 z,
             }
@@ -128,7 +128,6 @@ impl Pipeline {
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
 pub struct PushConstants {
     pub target_size: Vec2<u32>,
-    pub cell_size: Vec2<u32>,
     pub offset: Vec2<i32>,
     pub grid_width: u32,
     pub z: f32,

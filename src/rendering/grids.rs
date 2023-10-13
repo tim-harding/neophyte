@@ -2,6 +2,7 @@ use super::grid::Grid;
 use crate::{
     text::{cache::FontCache, fonts::Fonts},
     ui::Ui,
+    Settings,
 };
 use swash::shape::ShapeContext;
 
