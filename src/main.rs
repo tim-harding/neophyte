@@ -6,6 +6,7 @@ pub mod text;
 mod ui;
 mod util;
 
+use crate::neovim::{Action, Button};
 use bitfield_struct::bitfield;
 use event::{Event, OptionSet};
 use neovim::{Neovim, StdoutHandler};
@@ -16,7 +17,7 @@ use std::{
     thread,
 };
 use text::fonts::{Fonts, FontsHandle};
-use ui::{FontSize, FontsSetting, Ui};
+use ui::{handle::UiHandle, FontSize, FontsSetting};
 use util::{vec2::Vec2, Values};
 use winit::{
     event::{
@@ -27,8 +28,6 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-use crate::neovim::{Action, Button};
-
 fn main() {
     env_logger::builder().format_timestamp(None).init();
     let (neovim, stdout_handler, stdin_handler) = Neovim::new().unwrap();
@@ -36,7 +35,7 @@ fn main() {
     let fonts = Arc::new(FontsHandle::new());
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
-    let ui = Arc::new(RwLock::new(Ui::new()));
+    let ui = Arc::new(UiHandle::new());
     let render_state = pollster::block_on(async {
         RenderState::new(
             window.clone(),
@@ -237,7 +236,7 @@ fn main() {
                         return;
                     };
                     mouse.position = position;
-                    if let Some(grid) = ui.read().unwrap().grid_under_cursor(
+                    if let Some(grid) = ui.read().grid_under_cursor(
                         position,
                         fonts.read().metrics().into_pixels().cell_size().cast(),
                     ) {
@@ -270,7 +269,7 @@ fn main() {
                         Button::Middle => mouse.buttons.set_middle(depressed),
                         _ => unreachable!(),
                     }
-                    if let Some(grid) = ui.read().unwrap().grid_under_cursor(
+                    if let Some(grid) = ui.read().grid_under_cursor(
                         mouse.position,
                         fonts.read().metrics().into_pixels().cell_size().cast(),
                     ) {
@@ -320,7 +319,7 @@ fn main() {
                         }
                     };
 
-                    let Some(grid) = ui.read().unwrap().grid_under_cursor(
+                    let Some(grid) = ui.read().grid_under_cursor(
                         mouse.position,
                         fonts.read().metrics().into_pixels().cell_size().cast(),
                     ) else {
@@ -518,7 +517,7 @@ struct NeovimHandler {
     fonts: Arc<FontsHandle>,
     neovim: Neovim,
     settings: Arc<RwLock<Settings>>,
-    ui: Arc<RwLock<Ui>>,
+    ui: Arc<UiHandle>,
     render_tx: Sender<Message>,
 }
 
@@ -527,34 +526,33 @@ impl StdoutHandler for NeovimHandler {
         let Notification { method, params } = notification;
         match method.as_str() {
             "redraw" => {
+                let (mut ui, needs_render_update) = self.ui.write_and_get_needs_render_update();
+                if !needs_render_update {
+                    ui.clear_dirty();
+                }
+                let mut flushed = false;
                 for param in params {
                     match event::Event::try_parse(param.clone()) {
                         Ok(events) => {
-                            let mut ui_new = self.ui.read().unwrap().clone();
-                            ui_new.begin_process_events();
                             for event in events.iter().cloned() {
                                 log::info!("{event:?}");
                                 match event {
                                     Event::Flush => {
-                                        ui_new.process(Event::Flush);
-                                        self.render_tx
-                                            .send(Message::Update(ui_new.clone()))
-                                            .unwrap();
-                                        // Flush should be the last event we get in a batch
-                                        break;
+                                        flushed = true;
+                                        ui.process(Event::Flush);
                                     }
                                     Event::OptionSet(event) => {
                                         let updated_fonts = matches!(event, OptionSet::Guifont(_));
-                                        ui_new.process(Event::OptionSet(event));
+                                        ui.process(Event::OptionSet(event));
                                         if updated_fonts {
-                                            self.fonts.write().set_fonts(&ui_new.options.guifont);
+                                            // TODO: Probably extract from loop
+                                            self.fonts.write().set_fonts(&ui.options.guifont);
                                             self.proxy.send_event(UserEvent::ResizeGrid).unwrap();
                                         }
                                     }
-                                    event => ui_new.process(event),
+                                    event => ui.process(event),
                                 }
                             }
-                            *self.ui.write().unwrap() = ui_new;
                         }
 
                         Err(e) => match e {
@@ -565,6 +563,16 @@ impl StdoutHandler for NeovimHandler {
                         },
                     }
                 }
+
+                if flushed {
+                    self.ui.end_write_and_set_needs_render_update(ui);
+                } else {
+                    drop(ui);
+                }
+
+                self.render_tx
+                    .send(Message::Update(self.ui.clone()))
+                    .unwrap();
             }
 
             "neophyte.set_font_height" => {

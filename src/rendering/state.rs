@@ -8,7 +8,7 @@ use super::{
 };
 use crate::{
     text::{cache::FontCache, fonts::FontsHandle},
-    ui::Ui,
+    ui::{handle::UiHandle, Ui},
     util::vec2::Vec2,
     Settings,
 };
@@ -168,8 +168,12 @@ impl RenderState {
                         Ok(message) => match message {
                             Message::Update(ui) => {
                                 log::info!("Render thread got UI update");
-                                self.update(&ui, &fonts);
-                                wants_redraw = true;
+                                let (ui, needs_render_update) =
+                                    ui.read_and_consume_needs_render_update();
+                                if needs_render_update {
+                                    self.update(&ui, &fonts);
+                                    wants_redraw = true;
+                                }
                             }
 
                             Message::Redraw(new_delta_seconds, new_settings) => {
@@ -391,7 +395,7 @@ impl RenderState {
 // TODO: Maybe messages for different updates and just send cloned values for
 // simplicity? Then it would be possible to get rid of UI double buffering.
 pub enum Message {
-    Update(Ui),
+    Update(Arc<UiHandle>),
     Redraw(f32, Settings),
     Resize {
         screen_size: Vec2<u32>,

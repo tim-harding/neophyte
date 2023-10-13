@@ -286,7 +286,7 @@ impl DoubleBufferGrid {
         self.dirty.window()
     }
 
-    pub fn flush(&mut self) {
+    pub fn clear_dirty(&mut self) {
         if self.dirty.grid() {
             self.previous.copy_from(&self.current);
         }

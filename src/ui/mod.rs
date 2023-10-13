@@ -1,5 +1,6 @@
 mod cmdline;
 pub mod grid;
+pub mod handle;
 mod messages;
 mod options;
 pub mod packed_char;
@@ -45,7 +46,6 @@ pub struct Ui {
     pub options: Options,
     pub default_colors: DefaultColorsSet,
     pub tabline: Option<TablineUpdate>,
-    pub did_flush: bool,
 }
 
 impl Default for Ui {
@@ -67,7 +67,6 @@ impl Default for Ui {
             options: Default::default(),
             default_colors: Default::default(),
             tabline: Default::default(),
-            did_flush: false,
         }
     }
 }
@@ -101,13 +100,10 @@ impl Ui {
         }
     }
 
-    pub fn begin_process_events(&mut self) {
-        if self.did_flush {
-            self.did_flush = false;
-            self.did_highlights_change = false;
-            for grid in self.grids.iter_mut() {
-                grid.flush();
-            }
+    pub fn clear_dirty(&mut self) {
+        self.did_highlights_change = false;
+        for grid in self.grids.iter_mut() {
+            grid.clear_dirty();
         }
     }
 
@@ -283,9 +279,7 @@ impl Ui {
             Event::MouseOff => self.cursor.enabled = false,
             Event::BusyStart => self.cursor.enabled = false,
             Event::BusyStop => self.cursor.enabled = true,
-            Event::Flush => {
-                self.did_flush = true;
-            }
+            Event::Flush => {}
 
             Event::Suspend
             | Event::SetTitle(_)
