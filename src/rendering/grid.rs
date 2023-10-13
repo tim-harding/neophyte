@@ -178,10 +178,8 @@ impl Grid {
                             };
                             let position = Vec2::new(
                                 position.x.round() as i32 + x as i32,
-                                (position.y
-                                    + (cell_line_i * cell_size.y as i64 + metrics_px.em as i64)
-                                        as f32)
-                                    .round() as i32,
+                                position.y.round() as i32
+                                    + (cell_line_i as i32 * cell_size.y as i32),
                             );
 
                             if let Some(hl) = highlights.get(glyph.data as usize) {
@@ -203,7 +201,9 @@ impl Grid {
                                 }
                             }
 
-                            let position = offset * Vec2::new(1, -1) + position;
+                            let position = offset * Vec2::new(1, -1)
+                                + position
+                                + Vec2::new(0, metrics_px.em as i32);
                             match kind {
                                 GlyphKind::Monochrome => self.monochrome.push(Cell {
                                     position,

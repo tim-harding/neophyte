@@ -48,6 +48,7 @@ fn main() {
     let mut surface_size = render_state.surface_size();
     let (render_thread, render_tx) = render_state.run(fonts.clone());
 
+    // TODO: Move all this to another file
     let mut stdout_thread = Some({
         let proxy = event_loop.create_proxy();
         let fonts = fonts.clone();

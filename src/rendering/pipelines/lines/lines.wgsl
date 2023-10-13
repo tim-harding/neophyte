@@ -47,7 +47,7 @@ fn vs_main(
     var out: VertexOutput;
     out.color = hl_info.fg;
     out.clip_position = vec4<f32>(
-        vec2<f32>(line.position + vec2<i32>(tex_coord * line.size)) / 
+        vec2<f32>(line.position + grid_info.offset + vec2<i32>(tex_coord * line.size)) / 
         vec2<f32>(grid_info.target_size) * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
         grid_info.z, 
         1.0
