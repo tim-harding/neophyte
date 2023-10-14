@@ -576,6 +576,9 @@ impl StdoutHandler for NeovimHandler {
                         .send(Message::UpdateDrawOrder(ui.draw_order.clone()))
                         .unwrap();
                     for grid in ui.grids.iter() {
+                        for grid in ui.deleted_grids.iter() {
+                            self.render_tx.send(Message::DeleteGrid(*grid)).unwrap();
+                        }
                         // TODO: Split grid and window updates
                         if grid.is_grid_dirty() || grid.is_window_dirty() {
                             self.render_tx

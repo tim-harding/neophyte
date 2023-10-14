@@ -185,6 +185,10 @@ impl RenderState {
                                 );
                             }
 
+                            Message::DeleteGrid(id) => {
+                                self.grids.remove_grid(id);
+                            }
+
                             Message::UpdateDrawOrder(draw_order) => {
                                 self.grids.set_draw_order(draw_order);
                             }
@@ -414,6 +418,7 @@ pub enum Message {
         grid: DoubleBufferGrid,
         position: Vec2<f64>,
     },
+    DeleteGrid(u64),
     UpdateDrawOrder(Vec<u64>),
     UpdateCursor(CursorUpdateInfo),
     UpdateHighlights(HighlightUpdateInfo),

@@ -30,6 +30,7 @@ pub type HighlightGroups = HashMap<String, u64>;
 pub struct Ui {
     // TODO: Probably should privatize
     pub grids: Vec<DoubleBufferGrid>,
+    pub deleted_grids: Vec<u64>,
     pub draw_order: Vec<u64>,
     pub float_windows_start: usize,
     pub cursor: CursorInfo,
@@ -51,6 +52,7 @@ impl Default for Ui {
     fn default() -> Self {
         Self {
             grids: Default::default(),
+            deleted_grids: vec![],
             draw_order: vec![1],
             float_windows_start: 0,
             cursor: Default::default(),
@@ -101,6 +103,7 @@ impl Ui {
 
     pub fn clear_dirty(&mut self) {
         self.did_highlights_change = false;
+        self.deleted_grids.clear();
         for grid in self.grids.iter_mut() {
             grid.clear_dirty();
         }
@@ -309,6 +312,7 @@ impl Ui {
         if let Some(i) = self.draw_order.iter().position(|&r| r == grid) {
             self.draw_order.remove(i);
         }
+        self.deleted_grids.push(grid);
     }
 
     pub fn position(&self, grid: u64) -> Vec2<f64> {
