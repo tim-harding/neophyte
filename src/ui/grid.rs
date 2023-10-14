@@ -137,20 +137,6 @@ impl Grid {
         }
     }
 
-    pub fn row(&self, i: u64) -> impl Iterator<Item = &Cell> + '_ {
-        let w = self.size.x as usize;
-        let start = i as usize * w;
-        let end = start + w;
-        self.buffer[start..end].iter()
-    }
-
-    pub fn row_mut(&mut self, i: u64) -> impl Iterator<Item = &mut Cell> + '_ {
-        let w = self.size.x as usize;
-        let start = i as usize * w;
-        let end = start + w;
-        self.buffer[start..end].iter_mut()
-    }
-
     pub fn rows<'a>(
         &'a self,
     ) -> impl Iterator<Item = impl Iterator<Item = CellContents<'a>> + '_ + Clone> + '_ + Clone
@@ -169,39 +155,6 @@ impl Grid {
                 }
             })
         })
-    }
-
-    pub fn rows_mut(&mut self) -> impl Iterator<Item = impl Iterator<Item = &mut Cell> + '_> + '_ {
-        self.buffer
-            .chunks_mut(self.size.x as usize)
-            .map(|chunk| chunk.iter_mut())
-    }
-
-    pub fn combine(&mut self, other: Grid, cursor: Option<CursorRenderInfo>, start: Vec2<i64>) {
-        let mut iter = other.buffer.into_iter();
-        let size_x = self.size.x;
-        for dst in self
-            .rows_mut()
-            .skip(start.y as usize)
-            .take(other.size.y as usize)
-        {
-            for dst in dst
-                .into_iter()
-                .skip(start.x as usize)
-                .take(other.size.x as usize)
-            {
-                *dst = iter.next().unwrap();
-            }
-        }
-
-        if let Some(cursor) = cursor {
-            let cursor_pos = cursor.pos.try_cast::<i64>().unwrap();
-            let pos = cursor_pos + start;
-            if let Ok(pos) = pos.try_cast() {
-                let i = self.index_for(pos);
-                self.buffer[i].highlight = cursor.hl.try_into().unwrap();
-            }
-        }
     }
 
     pub fn copy_from(&mut self, other: &Grid) {
