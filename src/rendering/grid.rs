@@ -23,7 +23,6 @@ use swash::{
 
 use super::Motion;
 
-#[derive(Default)]
 pub struct Grid {
     monochrome: Vec<Cell>,
     emoji: Vec<Cell>,
@@ -35,16 +34,30 @@ pub struct Grid {
     monochrome_bind_group: Option<wgpu::BindGroup>,
     emoji_bind_group: Option<wgpu::BindGroup>,
     lines_bind_group: Option<wgpu::BindGroup>,
-    monochrome_count: u32,
-    emoji_count: u32,
     offset: Vec2<i32>,
     size: Vec2<u32>,
     scrolling: ScrollingGrids,
 }
 
 impl Grid {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(grid: UiGrid) -> Self {
+        Self {
+            monochrome: vec![],
+            emoji: vec![],
+            cell_fill: vec![],
+            lines: vec![],
+            buffer: None,
+            buffer_capacity: 0,
+            cell_fill_bind_group: None,
+            monochrome_bind_group: None,
+            emoji_bind_group: None,
+            lines_bind_group: None,
+            // TODO: Should be initialized to grid position. This may be
+            // causing the initial Telescope scroll.
+            offset: Vec2::default(),
+            size: grid.size.try_cast().unwrap(),
+            scrolling: ScrollingGrids::new(grid),
+        }
     }
 
     pub fn scrolling(&self) -> &ScrollingGrids {
@@ -65,12 +78,11 @@ impl Grid {
         fonts: &Fonts,
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
-        grid: &UiGrid,
     ) {
         let metrics = fonts.metrics();
         let metrics_px = metrics.into_pixels();
         let cell_size = metrics_px.cell_size();
-        self.size = grid.size.try_cast().unwrap();
+        self.size = self.scrolling.size().try_cast().unwrap();
 
         self.monochrome.clear();
         self.emoji.clear();
@@ -78,7 +90,7 @@ impl Grid {
         self.lines.clear();
 
         let mut cluster = CharCluster::new();
-        for (cell_line_i, cell_line) in self.scrolling.rows(grid) {
+        for (cell_line_i, cell_line) in self.scrolling.rows() {
             let mut parser = Parser::new(
                 Script::Latin,
                 cell_line.enumerate().flat_map(|(cell_i, cell)| {
@@ -224,9 +236,6 @@ impl Grid {
                 }
             }
         }
-
-        self.monochrome_count = self.monochrome.len() as u32;
-        self.emoji_count = self.emoji.len() as u32;
 
         let glyphs = cast_slice(self.monochrome.as_slice());
         let emoji = cast_slice(self.emoji.as_slice());
@@ -394,11 +403,15 @@ impl Grid {
     }
 
     pub fn monochrome_count(&self) -> u32 {
-        self.monochrome_count
+        self.monochrome.len() as u32
     }
 
     pub fn emoji_count(&self) -> u32 {
-        self.emoji_count
+        self.emoji.len() as u32
+    }
+
+    pub fn lines_count(&self) -> u32 {
+        self.lines.len() as u32
     }
 }
 
@@ -478,24 +491,23 @@ pub struct Line {
 }
 
 // TODO: Remove scrolling grids that have exited the viewport
-#[derive(Default)]
 pub struct ScrollingGrids {
-    scrolling_count: usize,
     scrolling: Vec<GridPart>,
     t: f32,
 }
 
 impl ScrollingGrids {
     #[allow(unused)]
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(grid: UiGrid) -> Self {
+        Self {
+            scrolling: vec![GridPart::new(grid)],
+            t: 0.,
+        }
     }
 
     pub fn finish_scroll(&mut self) {
-        self.scrolling_count = 0;
-        for grid in self.scrolling.iter_mut() {
-            grid.clear();
-        }
+        self.scrolling.drain(0..self.scrolling.len() - 1);
+        assert_eq!(self.scrolling.len(), 1);
     }
 
     pub fn t(&self) -> f32 {
@@ -517,19 +529,10 @@ impl ScrollingGrids {
         }
     }
 
-    // TODO: Better to take ownership of previous grid?
-    pub fn push(&mut self, grid: &UiGrid, offset: i64, current_grid_height: usize) {
-        if self.scrolling_count == self.scrolling.len() {
-            self.scrolling.push(GridPart::new(grid.clone()));
-        } else {
-            let part = &mut self.scrolling[self.scrolling_count];
-            part.grid.copy_from(grid);
-        }
-
+    pub fn push(&mut self, grid: UiGrid, offset: i64) {
+        let mut cover = Range::until(grid.size.y as i64);
         self.t += offset as f32;
-        self.scrolling_count += 1;
-        let mut cover = Range::until(current_grid_height as i64);
-        for part in self.scrolling.iter_mut().take(self.scrolling_count) {
+        for part in self.scrolling.iter_mut() {
             part.offset -= offset;
             let grid_range = Range::until(part.grid.size.y as i64) + part.offset;
             let grid_range = grid_range.cover(cover) - part.offset;
@@ -537,31 +540,29 @@ impl ScrollingGrids {
             part.start = grid_range.start.try_into().unwrap();
             part.end = grid_range.end.try_into().unwrap();
         }
+        self.scrolling.push(GridPart::new(grid));
+    }
+
+    pub fn replace_last(&mut self, grid: UiGrid) {
+        *self.scrolling.last_mut().unwrap() = GridPart::new(grid);
     }
 
     pub fn rows<'a, 'b: 'a>(
         &'a self,
-        current: &'b UiGrid,
     ) -> impl Iterator<Item = (i64, impl Iterator<Item = CellContents<'a>> + '_ + Clone)> + '_ + Clone
     {
-        current
-            .rows()
-            .enumerate()
-            .map(|(i, row)| (i as i64, row))
-            .chain(
-                self.scrolling
-                    .iter()
-                    .take(self.scrolling_count)
-                    .rev()
-                    .flat_map(|part| {
-                        part.grid
-                            .rows()
-                            .enumerate()
-                            .skip(part.start)
-                            .take(part.end - part.start)
-                            .map(|(i, cells)| (i as i64 + part.offset, cells))
-                    }),
-            )
+        self.scrolling.iter().rev().flat_map(|part| {
+            part.grid
+                .rows()
+                .enumerate()
+                .skip(part.start)
+                .take(part.end - part.start)
+                .map(|(i, cells)| (i as i64 + part.offset, cells))
+        })
+    }
+
+    pub fn size(&self) -> Vec2<u64> {
+        self.scrolling.last().unwrap().grid.size
     }
 }
 
@@ -703,17 +704,10 @@ struct GridPart {
 impl GridPart {
     pub fn new(grid: UiGrid) -> Self {
         Self {
-            grid,
             offset: 0,
             start: 0,
-            end: 0,
+            end: grid.size.y as usize,
+            grid,
         }
-    }
-
-    pub fn clear(&mut self) {
-        self.grid.clear();
-        self.offset = 0;
-        self.start = 0;
-        self.end = 0;
     }
 }

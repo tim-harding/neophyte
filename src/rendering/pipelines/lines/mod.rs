@@ -119,7 +119,7 @@ impl Pipeline {
                 z,
             }
             .set(&mut render_pass);
-            render_pass.draw(0..grid.cell_fill_count() * 6, 0..1);
+            render_pass.draw(0..grid.lines_count() * 6, 0..1);
         }
     }
 }

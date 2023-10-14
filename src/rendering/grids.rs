@@ -46,14 +46,16 @@ impl Grids {
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
     ) {
-        let grid = self.grids.entry(ui_grid.id).or_insert(Grid::new());
+        let grid = self
+            .grids
+            .entry(ui_grid.id)
+            .or_insert(Grid::new(ui_grid.current().clone()));
 
         if ui_grid.scroll_delta != 0 {
-            grid.scrolling_mut().push(
-                ui_grid.previous(),
-                ui_grid.scroll_delta,
-                ui_grid.current().size.y as usize,
-            );
+            grid.scrolling_mut()
+                .push(ui_grid.current().clone(), ui_grid.scroll_delta);
+        } else {
+            grid.scrolling_mut().replace_last(ui_grid.current().clone());
         }
 
         if ui_grid.is_grid_dirty() {
@@ -65,7 +67,6 @@ impl Grids {
                 fonts,
                 font_cache,
                 shape_context,
-                ui_grid.current(),
             );
         }
 
