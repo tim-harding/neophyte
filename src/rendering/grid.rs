@@ -1,10 +1,11 @@
+use super::Motion;
 use crate::{
     event::hl_attr_define::Attributes,
     text::{
         cache::{CacheValue, FontCache, GlyphKind},
         fonts::{FontStyle, Fonts},
     },
-    ui::grid::{CellContents, Grid as UiGrid},
+    ui::grid::{CellContents, GridContents as UiGrid},
     util::vec2::Vec2,
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
@@ -20,8 +21,6 @@ use swash::{
         Script,
     },
 };
-
-use super::Motion;
 
 pub struct Grid {
     monochrome: Vec<Cell>,

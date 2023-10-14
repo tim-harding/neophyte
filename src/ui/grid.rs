@@ -20,8 +20,59 @@ use std::{
     vec::IntoIter,
 };
 
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Grid {
+    pub id: u64,
+    pub scroll_delta: i64,
+    pub dirty: DirtyFlags,
+    window: Window,
+    contents: GridContents,
+}
+
+#[bitfield(u8)]
+#[derive(PartialEq, Eq)]
+pub struct DirtyFlags {
+    pub contents: bool,
+    pub window: bool,
+    #[bits(6)]
+    __: u8,
+}
+
+impl Grid {
+    pub fn new(id: u64) -> Self {
+        Self {
+            id,
+            ..Default::default()
+        }
+    }
+
+    pub fn contents(&self) -> &GridContents {
+        &self.contents
+    }
+
+    pub fn contents_mut(&mut self) -> &mut GridContents {
+        self.dirty.set_contents(true);
+        &mut self.contents
+    }
+
+    pub fn window(&self) -> &Window {
+        &self.window
+    }
+
+    pub fn window_mut(&mut self) -> &mut Window {
+        self.dirty.set_window(true);
+        &mut self.window
+    }
+
+    pub fn clear_dirty(&mut self) {
+        self.dirty.set_window(false);
+        self.dirty.set_contents(false);
+        self.scroll_delta = 0;
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct GridContents {
     pub size: Vec2<u64>,
     pub buffer: Vec<Cell>,
     pub overflow: Vec<String>,
@@ -33,7 +84,7 @@ pub struct Cell {
     pub highlight: u32,
 }
 
-impl Grid {
+impl GridContents {
     pub fn new() -> Self {
         Self::default()
     }
@@ -157,7 +208,7 @@ impl Grid {
         })
     }
 
-    pub fn copy_from(&mut self, other: &Grid) {
+    pub fn copy_from(&mut self, other: &GridContents) {
         self.size = other.size;
         self.overflow
             .extend_from_slice(&other.overflow[self.overflow.len()..]);
@@ -166,7 +217,7 @@ impl Grid {
     }
 }
 
-impl Debug for Grid {
+impl Debug for GridContents {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(f, "┏{:━<1$}┓", "", self.size.x as usize);
         for row in self.rows() {
@@ -183,78 +234,6 @@ impl Debug for Grid {
         }
         write!(f, "┗{:━<1$}┛", "", self.size.x as usize);
         Ok(())
-    }
-}
-
-pub struct CursorRenderInfo {
-    pub hl: u64,
-    pub pos: Vec2<u64>,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct DoubleBufferGrid {
-    pub id: u64,
-    pub scroll_delta: i64,
-    dirty: DirtyFlags,
-    window: Window,
-    current: Grid,
-    previous: Grid,
-}
-
-#[bitfield(u8)]
-#[derive(PartialEq, Eq)]
-struct DirtyFlags {
-    pub grid: bool,
-    pub window: bool,
-    #[bits(6)]
-    __: u8,
-}
-
-impl DoubleBufferGrid {
-    pub fn new(id: u64) -> Self {
-        Self {
-            id,
-            ..Default::default()
-        }
-    }
-
-    pub fn current(&self) -> &Grid {
-        &self.current
-    }
-
-    pub fn current_mut(&mut self) -> &mut Grid {
-        self.dirty.set_grid(true);
-        &mut self.current
-    }
-
-    pub fn previous(&self) -> &Grid {
-        &self.previous
-    }
-
-    pub fn window(&self) -> &Window {
-        &self.window
-    }
-
-    pub fn window_mut(&mut self) -> &mut Window {
-        self.dirty.set_window(true);
-        &mut self.window
-    }
-
-    pub fn is_grid_dirty(&self) -> bool {
-        self.dirty.grid()
-    }
-
-    pub fn is_window_dirty(&self) -> bool {
-        self.dirty.window()
-    }
-
-    pub fn clear_dirty(&mut self) {
-        if self.dirty.grid() {
-            self.previous.copy_from(&self.current);
-        }
-        self.dirty.set_window(false);
-        self.dirty.set_grid(false);
-        self.scroll_delta = 0;
     }
 }
 

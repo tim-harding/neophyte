@@ -2,7 +2,7 @@ use super::grid::Grid;
 use crate::{
     event::hl_attr_define::Attributes,
     text::{cache::FontCache, fonts::Fonts},
-    ui::grid::DoubleBufferGrid,
+    ui::grid::Grid as UiGrid,
     util::vec2::Vec2,
 };
 use std::collections::HashMap;
@@ -39,7 +39,7 @@ impl Grids {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        ui_grid: &DoubleBufferGrid,
+        ui_grid: &UiGrid,
         position: Vec2<f64>,
         highlights: &[Attributes],
         fonts: &Fonts,
@@ -49,16 +49,17 @@ impl Grids {
         let grid = self
             .grids
             .entry(ui_grid.id)
-            .or_insert(Grid::new(ui_grid.current().clone()));
+            .or_insert(Grid::new(ui_grid.contents().clone()));
 
         if ui_grid.scroll_delta != 0 {
             grid.scrolling_mut()
-                .push(ui_grid.current().clone(), ui_grid.scroll_delta);
+                .push(ui_grid.contents().clone(), ui_grid.scroll_delta);
         } else {
-            grid.scrolling_mut().replace_last(ui_grid.current().clone());
+            grid.scrolling_mut()
+                .replace_last(ui_grid.contents().clone());
         }
 
-        if ui_grid.is_grid_dirty() {
+        if ui_grid.dirty.contents() {
             grid.update_grid(
                 device,
                 queue,
@@ -70,7 +71,7 @@ impl Grids {
             );
         }
 
-        if ui_grid.is_window_dirty() {
+        if ui_grid.dirty.window() {
             grid.update_window(position, fonts.metrics().into_pixels().cell_size().cast());
         }
     }

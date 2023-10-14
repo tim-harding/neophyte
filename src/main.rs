@@ -580,7 +580,7 @@ impl StdoutHandler for NeovimHandler {
                             self.render_tx.send(Message::DeleteGrid(*grid)).unwrap();
                         }
                         // TODO: Split grid and window updates
-                        if grid.is_grid_dirty() || grid.is_window_dirty() {
+                        if grid.dirty.contents() || grid.dirty.window() {
                             self.render_tx
                                 .send(Message::UpdateGrid {
                                     position: ui.position(grid.id),

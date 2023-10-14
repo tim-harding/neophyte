@@ -6,8 +6,7 @@ pub mod packed_char;
 pub mod window;
 
 use self::{
-    cmdline::Cmdline, grid::DoubleBufferGrid, messages::Messages, options::Options,
-    window::WindowOffset,
+    cmdline::Cmdline, grid::Grid, messages::Messages, options::Options, window::WindowOffset,
 };
 use crate::{
     event::{
@@ -29,7 +28,7 @@ pub type HighlightGroups = HashMap<String, u64>;
 #[derive(Clone)]
 pub struct Ui {
     // TODO: Probably should privatize
-    pub grids: Vec<DoubleBufferGrid>,
+    pub grids: Vec<Grid>,
     pub deleted_grids: Vec<u64>,
     pub draw_order: Vec<u64>,
     pub float_windows_start: usize,
@@ -81,21 +80,21 @@ impl Ui {
         self.grids.binary_search_by(|probe| probe.id.cmp(&id))
     }
 
-    pub fn grid_mut(&mut self, id: u64) -> Option<&mut DoubleBufferGrid> {
+    pub fn grid_mut(&mut self, id: u64) -> Option<&mut Grid> {
         self.grid_index(id)
             .map(|i| self.grids.get_mut(i).unwrap())
             .ok()
     }
 
-    pub fn grid(&self, id: u64) -> Option<&DoubleBufferGrid> {
+    pub fn grid(&self, id: u64) -> Option<&Grid> {
         self.grid_index(id).map(|i| self.grids.get(i).unwrap()).ok()
     }
 
-    fn get_or_create_grid(&mut self, id: u64) -> &mut DoubleBufferGrid {
+    fn get_or_create_grid(&mut self, id: u64) -> &mut Grid {
         match self.grid_index(id) {
             Ok(i) => self.grids.get_mut(i).unwrap(),
             Err(i) => {
-                self.grids.insert(i, DoubleBufferGrid::new(id));
+                self.grids.insert(i, Grid::new(id));
                 self.grids.get_mut(i).unwrap()
             }
         }
@@ -144,11 +143,11 @@ impl Ui {
                 height,
             }) => {
                 self.get_or_create_grid(grid)
-                    .current_mut()
+                    .contents_mut()
                     .resize(Vec2::new(width, height));
             }
             Event::GridClear(GridClear { grid }) => {
-                self.grid_mut(grid).unwrap().current_mut().clear()
+                self.grid_mut(grid).unwrap().contents_mut().clear()
             }
             Event::GridDestroy(GridDestroy { grid }) => self.delete_grid(grid),
             Event::GridCursorGoto(GridCursorGoto { grid, row, column }) => {
@@ -166,7 +165,7 @@ impl Ui {
             }) => {
                 self.grid_mut(grid)
                     .unwrap()
-                    .current_mut()
+                    .contents_mut()
                     .scroll(top, bot, left, right, rows);
             }
             Event::GridLine(GridLine {
@@ -177,7 +176,7 @@ impl Ui {
             }) => {
                 self.grid_mut(grid)
                     .unwrap()
-                    .current_mut()
+                    .contents_mut()
                     .grid_line(row, col_start, cells);
             }
 
@@ -321,7 +320,7 @@ impl Ui {
             let WindowOffset {
                 offset,
                 anchor_grid,
-            } = grid.window().offset(grid.current().size);
+            } = grid.window().offset(grid.contents().size);
             if let Some(anchor_grid) = anchor_grid {
                 self.position(anchor_grid) + offset
             } else {
@@ -341,7 +340,7 @@ impl Ui {
         let cell_size: Vec2<f64> = cell_size.cast_as();
         for &grid_id in self.draw_order.iter().rev() {
             let grid = self.grid(grid_id).unwrap();
-            let size: Vec2<f64> = grid.current().size.cast_as();
+            let size: Vec2<f64> = grid.contents().size.cast_as();
             let start = self.position(grid_id) * cell_size;
             let end = start + size * cell_size;
             if cursor.x > start.x && cursor.y > start.y && cursor.x < end.x && cursor.y < end.y {

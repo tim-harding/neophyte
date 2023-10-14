@@ -13,7 +13,7 @@ use super::{
 use crate::{
     event::hl_attr_define::Attributes,
     text::{cache::FontCache, fonts::FontsHandle},
-    ui::grid::DoubleBufferGrid,
+    ui::grid::Grid,
     util::vec2::Vec2,
     Settings,
 };
@@ -415,7 +415,7 @@ impl RenderState {
 // simplicity? Then it would be possible to get rid of UI double buffering.
 pub enum Message {
     UpdateGrid {
-        grid: DoubleBufferGrid,
+        grid: Grid,
         position: Vec2<f64>,
     },
     DeleteGrid(u64),
