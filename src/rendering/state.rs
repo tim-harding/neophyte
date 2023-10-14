@@ -11,8 +11,9 @@ use super::{
     Motion, TARGET_FORMAT,
 };
 use crate::{
+    event::hl_attr_define::Attributes,
     text::{cache::FontCache, fonts::FontsHandle},
-    ui::Ui,
+    ui::grid::DoubleBufferGrid,
     util::vec2::Vec2,
     Settings,
 };
@@ -158,6 +159,7 @@ impl RenderState {
     pub fn run(mut self, fonts: Arc<FontsHandle>) -> (thread::JoinHandle<()>, Sender<Message>) {
         let (tx, rx) = mpsc::channel();
         let handle = thread::spawn(move || {
+            let mut highlights: Vec<Attributes> = vec![];
             let mut delta_seconds = 0.0;
             let mut settings = Settings::default();
             let mut wants_redraw = false;
@@ -170,8 +172,21 @@ impl RenderState {
                         },
 
                         Ok(message) => match message {
-                            Message::Update(ui) => {
-                                self.update(&ui, &fonts);
+                            Message::UpdateGrid { grid, position } => {
+                                self.grids.update(
+                                    &self.device,
+                                    &self.queue,
+                                    &grid,
+                                    position,
+                                    &highlights,
+                                    &fonts.read(),
+                                    &mut self.font_cache,
+                                    &mut self.shape_context,
+                                );
+                            }
+
+                            Message::UpdateDrawOrder(draw_order) => {
+                                self.grids.set_draw_order(draw_order);
                             }
 
                             Message::UpdateCursor(update_info) => {
@@ -186,7 +201,8 @@ impl RenderState {
                             }
 
                             Message::UpdateHighlights(update_info) => {
-                                self.highlights.update(update_info, &self.device);
+                                self.highlights.update(&update_info, &self.device);
+                                highlights = update_info.highlights;
                             }
 
                             Message::Redraw(new_delta_seconds, new_settings) => {
@@ -211,6 +227,9 @@ impl RenderState {
                     continue;
                 }
 
+                // TODO: Only necessary if something updated
+                self.update(&fonts);
+
                 let motion = self.render(
                     fonts.read().metrics().into_pixels().cell_size(),
                     delta_seconds,
@@ -225,19 +244,11 @@ impl RenderState {
         (handle, tx)
     }
 
-    pub fn update(&mut self, ui: &Ui, fonts: &FontsHandle) {
+    pub fn update(&mut self, fonts: &FontsHandle) {
         let (fonts, needs_glyph_cache_reset) = fonts.read_and_take_cache_reset();
         if needs_glyph_cache_reset {
             self.clear_glyph_cache();
         }
-        self.grids.update(
-            &self.device,
-            &self.queue,
-            ui,
-            &fonts,
-            &mut self.font_cache,
-            &mut self.shape_context,
-        );
         drop(fonts);
 
         self.pipelines.monochrome.update(
@@ -399,7 +410,11 @@ impl RenderState {
 // TODO: Maybe messages for different updates and just send cloned values for
 // simplicity? Then it would be possible to get rid of UI double buffering.
 pub enum Message {
-    Update(Ui),
+    UpdateGrid {
+        grid: DoubleBufferGrid,
+        position: Vec2<f64>,
+    },
+    UpdateDrawOrder(Vec<u64>),
     UpdateCursor(CursorUpdateInfo),
     UpdateHighlights(HighlightUpdateInfo),
     Redraw(f32, Settings),

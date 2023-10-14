@@ -1,5 +1,5 @@
 use crate::{
-    event::{hl_attr_define::Attributes, HlAttrDefine},
+    event::hl_attr_define::Attributes,
     text::{
         cache::{CacheValue, FontCache, GlyphKind},
         fonts::{FontStyle, Fonts},
@@ -25,7 +25,6 @@ use super::Motion;
 
 #[derive(Default)]
 pub struct Grid {
-    id: u64,
     monochrome: Vec<Cell>,
     emoji: Vec<Cell>,
     cell_fill: Vec<u32>,
@@ -44,11 +43,8 @@ pub struct Grid {
 }
 
 impl Grid {
-    pub fn new(id: u64) -> Self {
-        Self {
-            id,
-            ..Default::default()
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn scrolling(&self) -> &ScrollingGrids {
@@ -65,7 +61,7 @@ impl Grid {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         grid_bind_group_layout: &wgpu::BindGroupLayout,
-        highlights: &[HlAttrDefine],
+        highlights: &[Attributes],
         fonts: &Fonts,
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
@@ -173,7 +169,7 @@ impl Grid {
                             );
 
                             if let Some(hl) = highlights.get(glyph.data as usize) {
-                                if hl.rgb_attr.underline.unwrap_or(false) {
+                                if hl.underline.unwrap_or(false) {
                                     self.lines.push(Line {
                                         position: position
                                             + Vec2::new(
@@ -342,10 +338,6 @@ impl Grid {
         self.offset = Vec2::new(offset.x as i32, offset.y as i32);
     }
 
-    pub fn id(&self) -> u64 {
-        self.id
-    }
-
     pub fn cell_fill_bind_group(&self) -> Option<&wgpu::BindGroup> {
         self.cell_fill_bind_group.as_ref()
     }
@@ -413,12 +405,12 @@ impl Grid {
 fn best_font(
     cluster: &mut CharCluster,
     fonts: &Fonts,
-    highlights: &[HlAttrDefine],
+    highlights: &[Attributes],
 ) -> Option<BestFont> {
     let style = highlights
         .get(cluster.user_data() as usize)
         .map(|highlight| {
-            let Attributes { bold, italic, .. } = highlight.rgb_attr;
+            let Attributes { bold, italic, .. } = highlight;
             let bold = bold.unwrap_or_default();
             let italic = italic.unwrap_or_default();
             FontStyle::new(bold, italic)

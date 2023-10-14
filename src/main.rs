@@ -572,7 +572,20 @@ impl StdoutHandler for NeovimHandler {
                     self.render_tx
                         .send(Message::UpdateCursor(CursorUpdateInfo::from_ui(&ui)))
                         .unwrap();
-                    self.render_tx.send(Message::Update(ui.clone())).unwrap();
+                    self.render_tx
+                        .send(Message::UpdateDrawOrder(ui.draw_order.clone()))
+                        .unwrap();
+                    for grid in ui.grids.iter() {
+                        // TODO: Split grid and window updates
+                        if grid.is_grid_dirty() || grid.is_window_dirty() {
+                            self.render_tx
+                                .send(Message::UpdateGrid {
+                                    position: ui.position(grid.id),
+                                    grid: grid.clone(),
+                                })
+                                .unwrap()
+                        }
+                    }
                     ui.clear_dirty();
                 }
             }

@@ -35,7 +35,7 @@ impl Highlights {
         }
     }
 
-    pub fn update(&mut self, update_info: HighlightUpdateInfo, device: &wgpu::Device) {
+    pub fn update(&mut self, update_info: &HighlightUpdateInfo, device: &wgpu::Device) {
         let HighlightUpdateInfo {
             highlights,
             fg_default,
@@ -112,9 +112,9 @@ impl HighlightInfo {
 }
 
 pub struct HighlightUpdateInfo {
-    highlights: Vec<Attributes>,
-    fg_default: Rgb,
-    bg_default: Rgb,
+    pub highlights: Vec<Attributes>,
+    pub fg_default: Rgb,
+    pub bg_default: Rgb,
 }
 
 impl HighlightUpdateInfo {
