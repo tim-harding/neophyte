@@ -4,10 +4,7 @@ use crate::{
         cache::{CacheValue, FontCache, GlyphKind},
         fonts::{FontStyle, Fonts},
     },
-    ui::{
-        grid::{Cell as UiCell, Grid as UiGrid},
-        packed_char::PackedCharContents,
-    },
+    ui::grid::{CellContents, Grid as UiGrid},
     util::vec2::Vec2,
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
@@ -15,7 +12,6 @@ use std::{
     cmp::Ordering,
     num::NonZeroU64,
     ops::{Add, Sub},
-    str::Chars,
 };
 use swash::{
     shape::ShapeContext,
@@ -90,13 +86,7 @@ impl Grid {
             let mut parser = Parser::new(
                 Script::Latin,
                 cell_line.enumerate().flat_map(|(cell_i, cell)| {
-                    let iter: OnceOrChars = match cell.text.contents() {
-                        PackedCharContents::Char(c) => c.into(),
-                        PackedCharContents::U22(u22) => {
-                            grid.overflow[u22.as_u32() as usize].chars().into()
-                        }
-                    };
-                    iter.map(move |c| Token {
+                    cell.text.map(move |c| Token {
                         ch: c,
                         offset: cell_i as u32,
                         len: 1,
@@ -495,35 +485,6 @@ pub struct Line {
     pub padding: u32,
 }
 
-#[derive(Clone)]
-enum OnceOrChars<'a> {
-    Char(std::iter::Once<char>),
-    Chars(Chars<'a>),
-}
-
-impl<'a> From<char> for OnceOrChars<'a> {
-    fn from(c: char) -> Self {
-        Self::Char(std::iter::once(c))
-    }
-}
-
-impl<'a> From<Chars<'a>> for OnceOrChars<'a> {
-    fn from(chars: Chars<'a>) -> Self {
-        Self::Chars(chars)
-    }
-}
-
-impl<'a> Iterator for OnceOrChars<'a> {
-    type Item = char;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            OnceOrChars::Char(iter) => iter.next(),
-            OnceOrChars::Chars(iter) => iter.next(),
-        }
-    }
-}
-
 // TODO: Remove scrolling grids that have exited the viewport
 #[derive(Default)]
 pub struct ScrollingGrids {
@@ -589,7 +550,7 @@ impl ScrollingGrids {
     pub fn rows<'a, 'b: 'a>(
         &'a self,
         current: &'b UiGrid,
-    ) -> impl Iterator<Item = (i64, impl Iterator<Item = &'a UiCell> + '_ + Clone)> + '_ + Clone
+    ) -> impl Iterator<Item = (i64, impl Iterator<Item = CellContents<'a>> + '_ + Clone)> + '_ + Clone
     {
         current
             .rows()

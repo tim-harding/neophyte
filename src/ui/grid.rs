@@ -16,6 +16,7 @@ use std::{
     io::Write,
     marker::PhantomData,
     ops::Not,
+    str::Chars,
     vec::IntoIter,
 };
 
@@ -150,12 +151,24 @@ impl Grid {
         self.buffer[start..end].iter_mut()
     }
 
-    pub fn rows(
-        &self,
-    ) -> impl Iterator<Item = impl Iterator<Item = &Cell> + '_ + Clone> + '_ + Clone {
-        self.buffer
-            .chunks(self.size.x as usize)
-            .map(|chunk| chunk.iter())
+    pub fn rows<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = impl Iterator<Item = CellContents<'a>> + '_ + Clone> + '_ + Clone
+    {
+        self.buffer.chunks(self.size.x as usize).map(|chunk| {
+            chunk.iter().map(|cell| {
+                let text = match cell.text.contents() {
+                    PackedCharContents::Char(c) => c.into(),
+                    PackedCharContents::U22(u22) => {
+                        self.overflow[u22.as_u32() as usize].chars().into()
+                    }
+                };
+                CellContents {
+                    text,
+                    highlight: cell.highlight,
+                }
+            })
+        })
     }
 
     pub fn rows_mut(&mut self) -> impl Iterator<Item = impl Iterator<Item = &mut Cell> + '_> + '_ {
@@ -205,17 +218,13 @@ impl Debug for Grid {
         writeln!(f, "┏{:━<1$}┓", "", self.size.x as usize);
         for row in self.rows() {
             write!(f, "┃");
-            for cell in row {
-                match cell.text.contents() {
-                    PackedCharContents::Char(c) => {
-                        let c = if c == '\0' { ' ' } else { c };
-                        write!(f, "{}", c)?;
-                    }
-                    PackedCharContents::U22(u22) => {
-                        let s = &self.overflow[u22.as_u32() as usize];
-                        write!(f, "{s}");
-                    }
-                }
+            for mut cell in row {
+                let c = cell
+                    .text
+                    .next()
+                    .map(|c| if c == '\0' { ' ' } else { c })
+                    .unwrap_or(' ');
+                write!(f, "{}", c)?;
             }
             writeln!(f, "┃")?;
         }
@@ -294,4 +303,38 @@ impl DoubleBufferGrid {
         self.dirty.set_grid(false);
         self.scroll_delta = 0;
     }
+}
+
+#[derive(Clone)]
+pub enum OnceOrChars<'a> {
+    Char(std::iter::Once<char>),
+    Chars(Chars<'a>),
+}
+
+impl<'a> From<char> for OnceOrChars<'a> {
+    fn from(c: char) -> Self {
+        Self::Char(std::iter::once(c))
+    }
+}
+
+impl<'a> From<Chars<'a>> for OnceOrChars<'a> {
+    fn from(chars: Chars<'a>) -> Self {
+        Self::Chars(chars)
+    }
+}
+
+impl<'a> Iterator for OnceOrChars<'a> {
+    type Item = char;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            OnceOrChars::Char(iter) => iter.next(),
+            OnceOrChars::Chars(iter) => iter.next(),
+        }
+    }
+}
+
+pub struct CellContents<'a> {
+    pub highlight: u32,
+    pub text: OnceOrChars<'a>,
 }
