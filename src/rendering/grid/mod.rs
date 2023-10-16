@@ -1,15 +1,14 @@
 mod range;
+mod scrolling_grids;
 
-use self::range::Range;
-
-use super::Motion;
+use self::scrolling_grids::ScrollingGrids;
 use crate::{
     event::hl_attr_define::Attributes,
     text::{
         cache::{CacheValue, FontCache, GlyphKind},
         fonts::{FontStyle, Fonts},
     },
-    ui::grid::{CellContents, GridContents as UiGrid},
+    ui::grid::GridContents,
     util::vec2::Vec2,
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
@@ -39,7 +38,7 @@ pub struct Grid {
 }
 
 impl Grid {
-    pub fn new(grid: UiGrid) -> Self {
+    pub fn new(grid: GridContents) -> Self {
         Self {
             monochrome: vec![],
             emoji: vec![],
@@ -487,98 +486,4 @@ pub struct Line {
     pub size: Vec2<u32>,
     pub highlight_index: u32,
     pub padding: u32,
-}
-
-// TODO: Remove scrolling grids that have exited the viewport
-pub struct ScrollingGrids {
-    scrolling: Vec<GridPart>,
-    t: f32,
-}
-
-impl ScrollingGrids {
-    #[allow(unused)]
-    pub fn new(grid: UiGrid) -> Self {
-        Self {
-            scrolling: vec![GridPart::new(grid)],
-            t: 0.,
-        }
-    }
-
-    pub fn finish_scroll(&mut self) {
-        self.scrolling.drain(0..self.scrolling.len() - 1);
-        assert_eq!(self.scrolling.len(), 1);
-    }
-
-    pub fn t(&self) -> f32 {
-        self.t
-    }
-
-    pub fn advance(&mut self, delta_seconds: f32) -> Motion {
-        if self.t.abs() < 0.025 {
-            self.t = 0.0;
-            self.finish_scroll();
-            Motion::Still
-        } else {
-            let sign = if self.t.is_sign_positive() { -1.0 } else { 1.0 };
-            let mag = self.t.abs().powf(1.5) + 0.25;
-            let mag = mag * 3.;
-            let magnitude = (mag * delta_seconds).min(self.t.abs());
-            self.t += sign * magnitude;
-            Motion::Animating
-        }
-    }
-
-    pub fn push(&mut self, grid: UiGrid, offset: i64) {
-        let mut cover = Range::until(grid.size.y as i64);
-        self.t += offset as f32;
-        for part in self.scrolling.iter_mut() {
-            part.offset -= offset;
-            let grid_range = Range::until(part.grid.size.y as i64) + part.offset;
-            let grid_range = grid_range.cover(cover) - part.offset;
-            cover = cover.union(grid_range);
-            part.start = grid_range.start.try_into().unwrap();
-            part.end = grid_range.end.try_into().unwrap();
-        }
-        self.scrolling.push(GridPart::new(grid));
-    }
-
-    pub fn replace_last(&mut self, grid: UiGrid) {
-        *self.scrolling.last_mut().unwrap() = GridPart::new(grid);
-    }
-
-    pub fn rows<'a, 'b: 'a>(
-        &'a self,
-    ) -> impl Iterator<Item = (i64, impl Iterator<Item = CellContents<'a>> + '_ + Clone)> + '_ + Clone
-    {
-        self.scrolling.iter().rev().flat_map(|part| {
-            part.grid
-                .rows()
-                .enumerate()
-                .skip(part.start)
-                .take(part.end - part.start)
-                .map(|(i, cells)| (i as i64 + part.offset, cells))
-        })
-    }
-
-    pub fn size(&self) -> Vec2<u64> {
-        self.scrolling.last().unwrap().grid.size
-    }
-}
-
-struct GridPart {
-    grid: UiGrid,
-    offset: i64,
-    start: usize,
-    end: usize,
-}
-
-impl GridPart {
-    pub fn new(grid: UiGrid) -> Self {
-        Self {
-            offset: 0,
-            start: 0,
-            end: grid.size.y as usize,
-            grid,
-        }
-    }
 }
