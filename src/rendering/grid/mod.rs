@@ -179,7 +179,7 @@ impl Grid {
                             );
 
                             if let Some(hl) = highlights.get(glyph.data as usize) {
-                                if hl.underline.unwrap_or(false) {
+                                if hl.underline() {
                                     self.lines.push(Line {
                                         position: position
                                             + Vec2::new(
@@ -420,12 +420,7 @@ fn best_font(
 ) -> Option<BestFont> {
     let style = highlights
         .get(cluster.user_data() as usize)
-        .map(|highlight| {
-            let Attributes { bold, italic, .. } = highlight;
-            let bold = bold.unwrap_or_default();
-            let italic = italic.unwrap_or_default();
-            FontStyle::new(bold, italic)
-        })
+        .map(|highlight| FontStyle::new(highlight.bold(), highlight.italic()))
         .unwrap_or_default();
     let mut best_font = None;
     for (i, font_info) in fonts.iter().enumerate() {
