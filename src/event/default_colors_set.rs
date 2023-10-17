@@ -1,4 +1,4 @@
-use super::hl_attr_define::Rgb;
+use super::rgb::Rgb;
 use crate::util::{parse_maybe_u64, Parse, Values};
 use rmpv::Value;
 

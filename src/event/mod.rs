@@ -25,6 +25,7 @@ mod msg_showmode;
 pub mod option_set;
 mod popupmenu_select;
 mod popupmenu_show;
+pub mod rgb;
 mod set_icon;
 mod set_title;
 mod tabline_update;

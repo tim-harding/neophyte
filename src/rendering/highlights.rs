@@ -1,5 +1,5 @@
 use crate::{
-    event::hl_attr_define::{Attributes, Rgb},
+    event::{hl_attr_define::Attributes, rgb::Rgb},
     ui::Ui,
     util::srgb,
 };

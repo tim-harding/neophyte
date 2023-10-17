@@ -1,5 +1,5 @@
 use crate::{
-    event::{hl_attr_define::Rgb, mode_info_set::CursorShape},
+    event::{mode_info_set::CursorShape, rgb::Rgb},
     rendering::{nearest_sampler, Motion, TARGET_FORMAT},
     ui::Ui,
     util::{mat3::Mat3, vec2::Vec2},
