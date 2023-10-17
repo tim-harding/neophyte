@@ -2,6 +2,7 @@ use super::vec2::Vec2;
 use bytemuck::{Pod, Zeroable};
 use std::ops::{Add, Mul};
 
+/// A 3x3 matrix type
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
 pub struct Mat3 {

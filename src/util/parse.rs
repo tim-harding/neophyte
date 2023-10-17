@@ -1,6 +1,7 @@
 use super::Values;
 use rmpv::Value;
 
+/// Construct the given type from a MessagePack value. Similar to TryFrom.
 pub trait Parse: Sized {
     fn parse(value: Value) -> Option<Self>;
 }

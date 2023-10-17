@@ -2,6 +2,7 @@ use bytemuck::{Pod, Zeroable};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 
+/// A 2D vector type
 #[repr(C, align(8))]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct Vec2<T> {
@@ -17,14 +18,17 @@ impl<T> Vec2<T> {
         Self { x, y }
     }
 
+    /// Apply f to x and y
     pub fn map(self, f: fn(T) -> T) -> Self {
         Self::new(f(self.x), f(self.y))
     }
 
+    /// Combines lhs and rhs with { x: f(lhs.x, rhs.x), y: f(lhs.y, rhs.y) }
     pub fn combine(lhs: Self, rhs: Self, f: fn(T, T) -> T) -> Self {
         Self::new(f(lhs.x, rhs.x), f(lhs.y, rhs.y))
     }
 
+    /// Swaps the x and y components
     pub fn transpose(self) -> Self {
         Self {
             x: self.y,
@@ -32,6 +36,10 @@ impl<T> Vec2<T> {
         }
     }
 
+    /// Equivalent to Into for converting between vectors
+    ///
+    /// We don't use Into because the implementation conflicts with blanket
+    /// impls from the standard library.
     pub fn cast<F>(self) -> Vec2<F>
     where
         F: From<T>,
@@ -42,6 +50,10 @@ impl<T> Vec2<T> {
         }
     }
 
+    /// Equivalent to TryInto for converting between vectors
+    ///
+    /// We don't use TryInto because the implementation conflicts with blanket
+    /// impls from the standard library.
     pub fn try_cast<F>(self) -> Result<Vec2<F>, <F as TryFrom<T>>::Error>
     where
         F: TryFrom<T>,
@@ -52,6 +64,9 @@ impl<T> Vec2<T> {
         })
     }
 
+    /// Uses the as operator to convert to the destination generic parameter.
+    /// Useful when cast and try_cast are not available, such for saturating
+    /// conversions between integer and floating point types.
     pub fn cast_as<F>(self) -> Vec2<F>
     where
         T: As<F>,
