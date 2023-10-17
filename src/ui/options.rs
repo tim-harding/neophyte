@@ -7,7 +7,7 @@ use crate::event::{
 pub struct Options {
     /// Enable shaping
     pub arabicshape: bool,
-    /// ,hat to do with characters with East Asian Width Class Ambiguous
+    /// What to do with characters with East Asian Width Class Ambiguous
     pub ambiwidth: Ambiwidth,
     /// Emoji characters are considered to be full width
     pub emoji: bool,

@@ -209,11 +209,12 @@ impl RenderState {
                                 highlights = update_info.highlights;
                             }
 
-                            Message::Redraw(new_delta_seconds, new_settings) => {
+                            Message::Redraw(new_delta_seconds) => {
                                 log::info!("Render thread got redraw request");
                                 delta_seconds = new_delta_seconds;
-                                settings = new_settings;
                             }
+
+                            Message::UpdateSettings(new_settings) => settings = new_settings,
 
                             Message::Resize {
                                 screen_size,
@@ -334,7 +335,7 @@ impl RenderState {
         for grid in self.grids.iter_mut() {
             motion |= grid
                 .scrolling_mut()
-                .advance(delta_seconds * settings.scroll_speed);
+                .advance(delta_seconds * settings.scroll_speed * cell_size.y as f32);
         }
 
         self.pipelines.cell_fill.render(
@@ -422,7 +423,8 @@ pub enum Message {
     UpdateDrawOrder(Vec<u64>),
     UpdateCursor(CursorUpdateInfo),
     UpdateHighlights(HighlightUpdateInfo),
-    Redraw(f32, Settings),
+    UpdateSettings(Settings),
+    Redraw(f32),
     Resize {
         screen_size: Vec2<u32>,
         cell_size: Vec2<u32>,

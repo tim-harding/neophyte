@@ -37,7 +37,6 @@ use winit::{
 fn main() {
     env_logger::builder().format_timestamp(None).init();
     let (neovim, stdout_handler, stdin_handler) = Neovim::new().unwrap();
-    let settings = Arc::new(RwLock::new(Settings::new()));
     let fonts = Arc::new(FontsHandle::new());
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
@@ -58,7 +57,7 @@ fn main() {
             window: window.clone(),
             fonts: fonts.clone(),
             neovim: neovim.clone(),
-            settings: settings.clone(),
+            settings: Settings::new(),
             ui: ui.clone(),
             render_tx: render_tx.clone(),
         };
@@ -408,7 +407,7 @@ fn main() {
                 render_tx
                     .as_ref()
                     .unwrap()
-                    .send(Message::Redraw(delta_seconds, *settings.read().unwrap()))
+                    .send(Message::Redraw(delta_seconds))
                     .unwrap();
             }
 
@@ -519,7 +518,7 @@ struct NeovimHandler {
     window: Arc<Window>,
     fonts: Arc<FontsHandle>,
     neovim: Neovim,
-    settings: Arc<RwLock<Settings>>,
+    settings: Settings,
     ui: Arc<RwLock<Ui>>,
     render_tx: Sender<Message>,
 }
@@ -612,13 +611,19 @@ impl StdoutHandler for NeovimHandler {
             "neophyte.set_cursor_speed" => {
                 let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
                 let speed: f32 = args.next().unwrap();
-                self.settings.write().unwrap().cursor_speed = speed;
+                self.settings.cursor_speed = speed;
+                self.render_tx
+                    .send(Message::UpdateSettings(self.settings))
+                    .unwrap();
             }
 
             "neophyte.set_scroll_speed" => {
                 let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
                 let speed: f32 = args.next().unwrap();
-                self.settings.write().unwrap().scroll_speed = speed;
+                self.settings.scroll_speed = speed;
+                self.render_tx
+                    .send(Message::UpdateSettings(self.settings))
+                    .unwrap();
             }
 
             "neophyte.set_fonts" => {
@@ -641,7 +646,7 @@ impl StdoutHandler for NeovimHandler {
                 let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
                 let offset: f32 = args.next().unwrap();
                 let offset: i32 = offset as i32;
-                self.settings.write().unwrap().underline_offset = offset;
+                self.settings.underline_offset = offset;
                 self.window.request_redraw();
             }
 
@@ -668,13 +673,13 @@ impl StdoutHandler for NeovimHandler {
             }
 
             "neophyte.get_cursor_speed" => {
-                let cursor_speed = self.settings.read().unwrap().cursor_speed;
+                let cursor_speed = self.settings.cursor_speed;
                 self.neovim
                     .send_response(rpc::Response::result(msgid, cursor_speed.into()));
             }
 
             "neophyte.get_scroll_speed" => {
-                let scroll_speed = self.settings.read().unwrap().scroll_speed;
+                let scroll_speed = self.settings.scroll_speed;
                 self.neovim
                     .send_response(rpc::Response::result(msgid, scroll_speed.into()));
             }
@@ -692,7 +697,7 @@ impl StdoutHandler for NeovimHandler {
             }
 
             "neophyte.get_underline_offset" => {
-                let offset = self.settings.read().unwrap().underline_offset;
+                let offset = self.settings.underline_offset;
                 self.neovim
                     .send_response(rpc::Response::result(msgid, offset.into()));
             }
