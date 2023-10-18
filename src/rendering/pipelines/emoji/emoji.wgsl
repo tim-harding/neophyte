@@ -6,6 +6,7 @@ struct Cell {
 
 struct GlyphInfo {
     size: vec2<u32>,
+    offset: vec2<i32>,
 }
 
 struct PushConstants {
@@ -53,7 +54,7 @@ fn vs_main(
     out.tex_coord = tex_coord;
     out.clip_position = vec4<f32>(
         (
-            vec2<f32>(emoji_cell.position + constants.offset) + 
+            vec2<f32>(emoji_cell.position + constants.offset + glyph_info.offset) + 
             tex_coord * vec2<f32>(glyph_info.size)
         ) / vec2<f32>(constants.target_size) * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
         constants.z, 

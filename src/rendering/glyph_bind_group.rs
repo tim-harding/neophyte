@@ -43,17 +43,17 @@ impl GlyphBindGroup {
             return;
         }
 
-        for (data, size) in cached_glyphs
+        for (data, info) in cached_glyphs
             .data
             .iter()
-            .zip(cached_glyphs.size.iter())
+            .zip(cached_glyphs.info.iter())
             .skip(self.next_glyph_to_upload)
         {
             self.textures.push(Texture::with_data(
                 device,
                 queue,
                 data.as_slice(),
-                *size,
+                info.size,
                 texture_format,
             ));
         }
@@ -64,7 +64,7 @@ impl GlyphBindGroup {
 
         let font_info_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Glyph info buffer"),
-            contents: cast_slice(cached_glyphs.size.as_slice()),
+            contents: cast_slice(cached_glyphs.info.as_slice()),
             usage: wgpu::BufferUsages::STORAGE,
         });
 

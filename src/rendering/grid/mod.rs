@@ -168,10 +168,6 @@ impl Grid {
                             let glyph_index = index as u32;
 
                             let position = Vec2::new(glyph.x, glyph.y) * metrics.scale_factor;
-                            let offset = match kind {
-                                GlyphKind::Monochrome => font_cache.monochrome.offset[index],
-                                GlyphKind::Emoji => font_cache.emoji.offset[index],
-                            };
                             let position = Vec2::new(
                                 position.x.round() as i32 + x as i32,
                                 position.y.round() as i32
@@ -197,9 +193,7 @@ impl Grid {
                                 }
                             }
 
-                            let position = offset * Vec2::new(1, -1)
-                                + position
-                                + Vec2::new(0, metrics_px.em as i32);
+                            let position = position + Vec2::new(0, metrics_px.em as i32);
                             match kind {
                                 GlyphKind::Monochrome => self.monochrome.push(Cell {
                                     position,
