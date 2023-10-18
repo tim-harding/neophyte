@@ -42,7 +42,7 @@ fn main() {
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
     let ui = Arc::new(RwLock::new(Ui::new()));
     let render_state = pollster::block_on(async {
-        let cell_size = fonts.read().metrics().into_pixels().cell_size();
+        let cell_size = fonts.read().cell_size();
         RenderState::new(window.clone(), cell_size).await
     });
     neovim.ui_attach();
@@ -230,7 +230,7 @@ fn main() {
                 WindowEvent::CursorMoved { position, .. } => {
                     let position: Vec2<f64> = (*position).into();
                     let position: Vec2<i64> = position.cast_as();
-                    let cell_size = fonts.read().metrics().into_pixels().cell_size();
+                    let cell_size = fonts.read().cell_size();
                     let inner = (surface_size / cell_size) * cell_size;
                     let margin = (surface_size - inner) / 2;
                     let position = position - margin.cast();
@@ -238,10 +238,11 @@ fn main() {
                         return;
                     };
                     mouse.position = position;
-                    if let Some(grid) = ui.read().unwrap().grid_under_cursor(
-                        position,
-                        fonts.read().metrics().into_pixels().cell_size().cast(),
-                    ) {
+                    if let Some(grid) = ui
+                        .read()
+                        .unwrap()
+                        .grid_under_cursor(position, fonts.read().cell_size().cast())
+                    {
                         neovim.as_ref().unwrap().input_mouse(
                             mouse.buttons.first().unwrap_or(Button::Move),
                             // Irrelevant for move
@@ -271,10 +272,11 @@ fn main() {
                         Button::Middle => mouse.buttons.set_middle(depressed),
                         _ => unreachable!(),
                     }
-                    if let Some(grid) = ui.read().unwrap().grid_under_cursor(
-                        mouse.position,
-                        fonts.read().metrics().into_pixels().cell_size().cast(),
-                    ) {
+                    if let Some(grid) = ui
+                        .read()
+                        .unwrap()
+                        .grid_under_cursor(mouse.position, fonts.read().cell_size().cast())
+                    {
                         neovim.as_ref().unwrap().input_mouse(
                             button,
                             action,
@@ -313,18 +315,18 @@ fn main() {
                         ScrollKind::Lines => delta,
                         ScrollKind::Pixels => {
                             mouse.scroll += delta;
-                            let cell_size: Vec2<i64> =
-                                fonts.read().metrics().into_pixels().cell_size().cast();
+                            let cell_size: Vec2<i64> = fonts.read().cell_size().cast();
                             let lines = mouse.scroll / cell_size;
                             mouse.scroll -= lines * cell_size;
                             lines
                         }
                     };
 
-                    let Some(grid) = ui.read().unwrap().grid_under_cursor(
-                        mouse.position,
-                        fonts.read().metrics().into_pixels().cell_size().cast(),
-                    ) else {
+                    let Some(grid) = ui
+                        .read()
+                        .unwrap()
+                        .grid_under_cursor(mouse.position, fonts.read().cell_size().cast())
+                    else {
                         return;
                     };
 
@@ -370,7 +372,7 @@ fn main() {
                         .unwrap()
                         .send(Message::Resize {
                             screen_size: surface_size,
-                            cell_size: fonts.read().metrics().into_pixels().cell_size(),
+                            cell_size: fonts.read().cell_size(),
                         })
                         .unwrap();
                     resize_neovim_grid(surface_size, &fonts.read(), neovim.as_ref().unwrap());
@@ -387,7 +389,7 @@ fn main() {
                         .unwrap()
                         .send(Message::Resize {
                             screen_size: surface_size,
-                            cell_size: fonts.read().metrics().into_pixels().cell_size(),
+                            cell_size: fonts.read().cell_size(),
                         })
                         .unwrap();
                     resize_neovim_grid(surface_size, &fonts.read(), neovim.as_ref().unwrap());
@@ -434,7 +436,7 @@ fn send_keys(c: &str, modifiers: &mut ModifiersState, neovim: &mut Neovim, ignor
 }
 
 fn resize_neovim_grid(surface_size: Vec2<u32>, fonts: &Fonts, neovim: &Neovim) {
-    let size = surface_size / fonts.metrics().into_pixels().cell_size();
+    let size = surface_size / fonts.cell_size();
     let size: Vec2<u64> = size.cast();
     neovim.ui_try_resize_grid(1, size.x, size.y);
 }

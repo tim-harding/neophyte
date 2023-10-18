@@ -194,8 +194,7 @@ impl RenderState {
                             }
 
                             Message::UpdateCursor(update_info) => {
-                                let cell_size =
-                                    fonts.read().metrics().into_pixels().cell_size().cast_as();
+                                let cell_size = fonts.read().cell_size().cast_as();
                                 self.pipelines.cursor.update(
                                     &self.device,
                                     update_info,
@@ -235,11 +234,7 @@ impl RenderState {
                 // TODO: Only necessary if something updated
                 self.update(&fonts);
 
-                let motion = self.render(
-                    fonts.read().metrics().into_pixels().cell_size(),
-                    delta_seconds,
-                    settings,
-                );
+                let motion = self.render(fonts.read().cell_size(), delta_seconds, settings);
                 log::info!("Redrew UI with result of {motion:?}");
 
                 wants_redraw = matches!(motion, Motion::Animating);

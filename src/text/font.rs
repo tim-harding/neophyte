@@ -2,6 +2,7 @@ use crate::{ui::FontSize, util::vec2::Vec2};
 use std::{fs, io, path::Path, sync::Arc};
 use swash::{proxy::CharmapProxy, CacheKey, Charmap, FontRef};
 
+/// Wrapper over a Swash font
 #[derive(Debug, Clone)]
 pub struct Font {
     data: Arc<Vec<u8>>,
@@ -12,6 +13,7 @@ pub struct Font {
 }
 
 impl Font {
+    /// Create a font from the given TTF or OTF font file
     pub fn from_file(
         path: impl AsRef<Path>,
         index: usize,
@@ -21,6 +23,7 @@ impl Font {
         Self::from_bytes(data, index, size).ok_or(FontFromFileError::Font)
     }
 
+    /// Create a font from the given TTF or OTF font data
     pub fn from_bytes(data: Vec<u8>, index: usize, size: FontSize) -> Option<Self> {
         let font = FontRef::from_index(&data, index)?;
         Some(Self {
@@ -32,10 +35,12 @@ impl Font {
         })
     }
 
+    /// Cached Swash charmap
     pub fn charmap(&self) -> Charmap {
         self.charmap.materialize(&self.as_ref())
     }
 
+    /// Gets the underlying Swash font
     pub fn as_ref(&self) -> FontRef {
         // Unlike the FontRef constructors, this does not construct a new key,
         // enabling performance optimizations and caching mechanisms
@@ -46,15 +51,18 @@ impl Font {
         }
     }
 
+    /// Update the font metrics with the given font size
     pub fn resize(&mut self, size: FontSize) {
         self.metrics = Metrics::new(self.as_ref(), size);
     }
 
+    /// Cached Swash font metrics
     pub fn metrics(&self) -> Metrics {
         self.metrics
     }
 }
 
+/// Swash metrics in pixels with full precision
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Metrics {
     /// Multiplier from units per em to pixels
@@ -85,6 +93,7 @@ pub struct Metrics {
 }
 
 impl Metrics {
+    /// Convert to metrics in pixels
     pub fn into_pixels(self) -> MetricsPixels {
         self.into()
     }
@@ -121,6 +130,7 @@ impl Metrics {
     }
 }
 
+/// Swash metrics in pixel units
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MetricsPixels {
     /// Multiplier from units per em to pixels
@@ -151,6 +161,7 @@ pub struct MetricsPixels {
 }
 
 impl MetricsPixels {
+    /// The dimensions of a grid cell with this font
     pub fn cell_size(&self) -> Vec2<u32> {
         Vec2::new(self.width, self.em + self.descent)
     }

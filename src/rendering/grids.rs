@@ -72,7 +72,7 @@ impl Grids {
         }
 
         if ui_grid.dirty.window() {
-            grid.update_window(position, fonts.metrics().into_pixels().cell_size().cast());
+            grid.update_window(position, fonts.cell_size().cast());
         }
     }
 

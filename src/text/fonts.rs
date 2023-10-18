@@ -1,8 +1,10 @@
-use std::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
-
 use super::font::{Font, Metrics};
-use crate::ui::{FontSize, FontsSetting};
+use crate::{
+    ui::{FontSize, FontsSetting},
+    util::vec2::Vec2,
+};
 use font_loader::system_fonts::{self, FontPropertyBuilder};
+use std::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 #[derive(Default, Debug)]
 pub struct FontsHandle {
@@ -92,6 +94,10 @@ impl Fonts {
             .iter()
             .find_map(|variants| variants.metrics())
             .unwrap_or(self.fallback.metrics())
+    }
+
+    pub fn cell_size(&self) -> Vec2<u32> {
+        self.metrics().into_pixels().cell_size()
     }
 }
 
