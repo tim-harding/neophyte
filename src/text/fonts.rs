@@ -6,6 +6,8 @@ use crate::{
 use font_loader::system_fonts::{self, FontPropertyBuilder};
 use std::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
+/// A shared handle to fonts with tracking for whether the render thread needs
+/// to reset its glyph cache.
 #[derive(Default, Debug)]
 pub struct FontsHandle {
     needs_glyph_cache_reset: Mutex<bool>,
@@ -17,16 +19,20 @@ impl FontsHandle {
         Self::default()
     }
 
+    /// Gets a write handle to the fonts and flags that the render thread will
+    /// need to reset its glyph cache
     pub fn write(&self) -> RwLockWriteGuard<Fonts> {
         let lock = self.inner.write().unwrap();
         *self.needs_glyph_cache_reset.lock().unwrap() = true;
         lock
     }
 
+    /// Gets a read handle to the fonts
     pub fn read(&self) -> RwLockReadGuard<Fonts> {
         self.inner.read().unwrap()
     }
 
+    /// Get a read handle to the fonts and consume the glyph cache reset flag.
     pub fn read_and_take_cache_reset(&self) -> (RwLockReadGuard<Fonts>, bool) {
         let inner_lock = self.inner.read().unwrap();
         let mut needs_glyph_cache_reset_lock = self.needs_glyph_cache_reset.lock().unwrap();
@@ -36,6 +42,7 @@ impl FontsHandle {
     }
 }
 
+/// Loaded fonts
 #[derive(Debug, Clone)]
 pub struct Fonts {
     fonts: Vec<FontVariants>,
@@ -79,16 +86,11 @@ impl Fonts {
             .collect();
     }
 
-    pub fn with_style(&self, style: FontStyle) -> &Font {
-        self.iter()
-            .find_map(|font_info| font_info.style(style))
-            .unwrap_or(&self.fallback)
-    }
-
     pub fn iter(&self) -> impl Iterator<Item = &FontVariants> {
         self.fonts.iter()
     }
 
+    /// Get the metrics for the first loaded font
     pub fn metrics(&self) -> Metrics {
         self.fonts
             .iter()
@@ -96,6 +98,7 @@ impl Fonts {
             .unwrap_or(self.fallback.metrics())
     }
 
+    /// Get the cell size of the first loaded font
     pub fn cell_size(&self) -> Vec2<u32> {
         self.metrics().into_pixels().cell_size()
     }
@@ -103,14 +106,20 @@ impl Fonts {
 
 #[derive(Clone, Debug)]
 pub struct FontVariants {
+    /// The font name
     pub name: String,
+    /// If regular variant of the font, if available
     pub regular: Option<Font>,
+    /// If bold variant of the font, if available
     pub bold: Option<Font>,
+    /// If italic variant of the font, if available
     pub italic: Option<Font>,
+    /// If bold italic variant of the font, if available
     pub bold_italic: Option<Font>,
 }
 
 impl FontVariants {
+    /// Attempt to load the system font with the given name
     pub fn with_name(name: String, size: FontSize) -> Self {
         let builder = || FontPropertyBuilder::new().family(&name);
         Self {
@@ -122,10 +131,7 @@ impl FontVariants {
         }
     }
 
-    pub fn style_or_regular(&self, style: FontStyle) -> Option<&Font> {
-        self.style(style).or(self.regular.as_ref())
-    }
-
+    /// Gets the variant with the given style
     pub fn style(&self, style: FontStyle) -> Option<&Font> {
         match style {
             FontStyle::Regular => self.regular.as_ref(),
@@ -135,18 +141,21 @@ impl FontVariants {
         }
     }
 
+    /// Recalculate the font metrics for the loaded variants
     pub fn resize(&mut self, size: FontSize) {
         for font in self.iter_mut() {
             font.resize(size);
         }
     }
 
+    /// An iterator over the loaded variants
     pub fn iter(&self) -> impl Iterator<Item = &Font> {
         [&self.regular, &self.bold, &self.italic, &self.bold_italic]
             .into_iter()
             .filter_map(|font| font.as_ref())
     }
 
+    /// An iterator over the loaded variants
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Font> {
         [
             &mut self.regular,
@@ -158,6 +167,7 @@ impl FontVariants {
         .filter_map(|font| font.as_mut())
     }
 
+    /// Metrics for the first loaded variant
     pub fn metrics(&self) -> Option<Metrics> {
         self.iter().map(|font| font.metrics()).next()
     }
