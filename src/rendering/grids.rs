@@ -35,6 +35,7 @@ impl Grids {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn update(
         &mut self,
         device: &wgpu::Device,
@@ -64,7 +65,7 @@ impl Grids {
                 device,
                 queue,
                 &self.bind_group_layout,
-                &highlights,
+                highlights,
                 fonts,
                 font_cache,
                 shape_context,

@@ -188,9 +188,9 @@ impl GridContents {
         }
     }
 
-    pub fn rows<'a>(
-        &'a self,
-    ) -> impl Iterator<Item = impl Iterator<Item = CellContents<'a>> + '_ + Clone> + '_ + Clone
+    pub fn rows(
+        &self,
+    ) -> impl Iterator<Item = impl Iterator<Item = CellContents<'_>> + '_ + Clone> + '_ + Clone
     {
         self.buffer.chunks(self.size.x as usize).map(|chunk| {
             chunk.iter().map(|cell| {
