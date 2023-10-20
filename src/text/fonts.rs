@@ -1,6 +1,6 @@
 use super::font::{Font, Metrics};
 use crate::{
-    ui::{FontSize, FontsSetting},
+    ui::options::{FontSize, FontsSetting},
     util::vec2::Vec2,
 };
 use font_loader::system_fonts::{self, FontPropertyBuilder};

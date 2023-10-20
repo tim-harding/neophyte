@@ -1,4 +1,4 @@
-use crate::{ui::FontSize, util::vec2::Vec2};
+use crate::{ui::options::FontSize, util::vec2::Vec2};
 use std::{fs, io, path::Path, sync::Arc};
 use swash::{proxy::CharmapProxy, CacheKey, Charmap, FontRef};
 

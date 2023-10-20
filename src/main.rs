@@ -23,7 +23,10 @@ use std::{
     thread,
 };
 use text::fonts::{Fonts, FontsHandle};
-use ui::{FontSize, FontsSetting, Ui};
+use ui::{
+    options::{FontSize, FontsSetting},
+    Ui,
+};
 use util::{vec2::Vec2, Values};
 use winit::{
     event::{
@@ -597,7 +600,7 @@ impl StdoutHandler for NeovimHandler {
             "neophyte.set_font_height" => {
                 let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
                 let height: f32 = args.next().unwrap();
-                let size = ui::FontSize::Height(height);
+                let size = FontSize::Height(height);
                 self.fonts.write().set_font_size(size);
                 self.proxy.send_event(UserEvent::ResizeGrid).unwrap();
             }
@@ -605,7 +608,7 @@ impl StdoutHandler for NeovimHandler {
             "neophyte.set_font_width" => {
                 let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
                 let width: f32 = args.next().unwrap();
-                let size = ui::FontSize::Width(width);
+                let size = FontSize::Width(width);
                 self.fonts.write().set_font_size(size);
                 self.proxy.send_event(UserEvent::ResizeGrid).unwrap();
             }

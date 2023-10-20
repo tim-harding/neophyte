@@ -1,7 +1,7 @@
 mod cmdline;
 pub mod grid;
 mod messages;
-mod options;
+pub mod options;
 pub mod packed_char;
 pub mod window;
 
@@ -21,13 +21,10 @@ use crate::{
 };
 use std::{collections::HashMap, fmt::Debug};
 
-pub use options::{FontSize, FontsSetting};
-
 pub type HighlightGroups = HashMap<String, u64>;
 
 #[derive(Clone)]
 pub struct Ui {
-    // TODO: Probably should privatize
     pub grids: Vec<Grid>,
     pub deleted_grids: Vec<u64>,
     pub draw_order: Vec<u64>,
