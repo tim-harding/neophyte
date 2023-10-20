@@ -38,20 +38,24 @@ impl DirtyFlags {
 }
 
 impl DirtyFlags {
-    pub fn set_contents(&mut self, value: bool) {
-        self.0 = (self.0 & !Self::CONTENTS) | (Self::CONTENTS * value as u8);
+    pub fn set_contents(&mut self) {
+        self.0 |= Self::CONTENTS
     }
 
     pub fn contents(self) -> bool {
         self.0 & Self::CONTENTS > 0
     }
 
-    pub fn set_window(&mut self, value: bool) {
-        self.0 = (self.0 & !Self::WINDOW) | (Self::WINDOW * value as u8);
+    pub fn set_window(&mut self) {
+        self.0 |= Self::WINDOW
     }
 
     pub fn window(self) -> bool {
         self.0 & Self::WINDOW > 0
+    }
+
+    pub fn clear(&mut self) {
+        self.0 = 0;
     }
 }
 
@@ -68,7 +72,7 @@ impl Grid {
     }
 
     pub fn contents_mut(&mut self) -> &mut GridContents {
-        self.dirty.set_contents(true);
+        self.dirty.set_contents();
         &mut self.contents
     }
 
@@ -77,21 +81,27 @@ impl Grid {
     }
 
     pub fn window_mut(&mut self) -> &mut Window {
-        self.dirty.set_window(true);
+        self.dirty.set_window();
         &mut self.window
     }
 
+    /// Reset dirty flags and scroll delta
     pub fn clear_dirty(&mut self) {
-        self.dirty.set_window(false);
-        self.dirty.set_contents(false);
+        self.dirty.clear();
         self.scroll_delta = 0;
     }
 }
 
+/// The contents of a grid
 #[derive(Default, Clone)]
 pub struct GridContents {
+    /// Grid dimensions
     pub size: Vec2<u64>,
+    /// Grid cells in rows then columns
     pub buffer: Vec<Cell>,
+    /// Contains cell contents for cells that require more than one char of
+    /// storage. This optimizes for the common case by keeping the main buffer
+    /// tightly packed.
     pub overflow: Vec<String>,
 }
 
@@ -106,47 +116,60 @@ impl GridContents {
         Self::default()
     }
 
+    /// Resize the grid to the new dimensions
     pub fn resize(&mut self, size: Vec2<u64>) {
-        let mut old = std::mem::take(&mut self.buffer).into_iter();
+        let mut old = std::mem::take(&mut self.buffer);
         self.buffer = vec![Cell::default(); size.area() as usize];
-        for y in 0..self.size.y.min(size.y) {
-            let offset = y * size.x;
-            for x in 0..self.size.x.min(size.x) {
-                self.buffer[(offset + x) as usize] = old.next().unwrap();
-            }
-            for _ in size.x..self.size.x {
-                let _ = old.next();
+        for (new, old) in self
+            .buffer
+            .chunks_mut(size.x as usize)
+            .zip(old.chunks(self.size.x.max(1) as usize))
+        {
+            for (new, old) in new.iter_mut().zip(old.iter()) {
+                *new = *old;
             }
         }
         self.size = size;
     }
 
+    /// Apply a grid_scroll event
     pub fn scroll(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64) {
-        let height = self.size.y;
-        let mut cut_and_paste = move |src_y, dst_y| {
-            for x in left..right {
-                let t = self.take(Vec2::new(x, src_y));
-                self.set(Vec2::new(x, dst_y), t);
-            }
-        };
+        let left = left as usize;
+        let right = right as usize;
+        let size = self.size.try_cast::<usize>().unwrap();
         let dst_top = top as i64 - rows;
         let dst_bot = bot as i64 - rows;
         if rows > 0 {
-            for dst_y in dst_top.max(0)..dst_bot.max(0) {
-                let y = dst_y + rows;
-                cut_and_paste(y as u64, dst_y as u64);
+            // Move a region up
+            let rows = rows as usize;
+            let dst_top = dst_top.max(0) as usize;
+            let dst_bot = dst_bot.max(0) as usize;
+            for dst_y in dst_top..dst_bot {
+                let src_y = dst_y + rows;
+                let (dst, src) = self.buffer.split_at_mut(src_y * size.x);
+                let dst = dst.iter_mut().skip(dst_y * size.x);
+                for (dst, src) in dst.zip(src.iter()).skip(left).take(right - left) {
+                    *dst = *src;
+                }
             }
         } else {
-            let dst_top = dst_top.min(height as i64);
-            let dst_bot = dst_bot.min(height as i64);
+            // Move a region down
+            let rows = (-rows) as usize;
+            let dst_top = dst_top.min(size.y as i64) as usize;
+            let dst_bot = dst_bot.min(size.y as i64) as usize;
             for dst_y in (dst_top..dst_bot).rev() {
-                cut_and_paste((dst_y + rows) as u64, dst_y as u64);
+                let src_y = dst_y - rows;
+                let (src, dst) = self.buffer.split_at_mut(dst_y * size.x);
+                let src = src.iter().skip(src_y * size.x);
+                for (dst, src) in dst.iter_mut().zip(src).skip(left).take(right - left) {
+                    *dst = *src;
+                }
             }
         }
     }
 
+    /// Apply a grid_line event
     pub fn grid_line(&mut self, row: u64, col_start: u64, cells: Vec<grid_line::Cell>) {
-        // Inlined self.row_mut() to satisfy borrow checker
         let w = self.size.x as usize;
         let start = row as usize * w;
         let end = start + w;
@@ -161,10 +184,11 @@ impl GridContents {
             let repeat = cell.repeat.unwrap_or(1);
             let mut chars = cell.text.chars();
             let packed = match (chars.next(), chars.next()) {
-                (None, None) => PackedChar::from_char(' '),
+                (None, None) => PackedChar::from_char('\0'),
                 (None, Some(c)) => unreachable!(),
                 (Some(c), None) => PackedChar::from_char(c),
                 (Some(c1), Some(c2)) => {
+                    // TODO: Reuse overflow entries
                     let i: u32 = self.overflow.len().try_into().unwrap();
                     self.overflow.push(cell.text);
                     PackedChar::from_u22(U22::from_u32(i).unwrap())
@@ -181,30 +205,14 @@ impl GridContents {
         }
     }
 
-    pub fn index_for(&self, position: Vec2<u64>) -> usize {
-        (position.y * self.size.x + position.x) as usize
-    }
-
-    pub fn get(&self, position: Vec2<u64>) -> &Cell {
-        &self.buffer[self.index_for(position)]
-    }
-
-    pub fn take(&mut self, position: Vec2<u64>) -> Cell {
-        let i = self.index_for(position);
-        std::mem::take(&mut self.buffer[i])
-    }
-
-    pub fn set(&mut self, position: Vec2<u64>, value: Cell) {
-        let i = self.index_for(position);
-        self.buffer[i] = value;
-    }
-
+    /// Reset the contents of the grid
     pub fn clear(&mut self) {
         for dst in self.buffer.iter_mut() {
             *dst = Cell::default();
         }
     }
 
+    /// Iterate over the grid contents row by row
     pub fn rows(
         &self,
     ) -> impl Iterator<Item = impl Iterator<Item = CellContents<'_>> + '_ + Clone> + '_ + Clone
@@ -225,6 +233,7 @@ impl GridContents {
         })
     }
 
+    /// Copy the contents of the given grid into self
     pub fn copy_from(&mut self, other: &GridContents) {
         self.size = other.size;
         self.overflow
