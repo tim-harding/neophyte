@@ -21,49 +21,65 @@ use crate::{
 };
 use std::{collections::HashMap, fmt::Debug};
 
-pub type HighlightGroups = HashMap<String, u64>;
-
+/// Manages updates to the UI state from UI events
 #[derive(Clone)]
 pub struct Ui {
+    /// UI grids, ordered by ID
     pub grids: Vec<Grid>,
+    /// Grids that have been deleted since the last flush
     pub deleted_grids: Vec<u64>,
+    /// The order in which grids should be drawn, ordered from bottom to top
     pub draw_order: Vec<u64>,
+    /// The index into self.draw_order at which floating windows begin
     pub float_windows_start: usize,
+    /// Cursor information
     pub cursor: CursorInfo,
+    /// Whether the mouse is enabled
     pub mouse: bool,
+    /// UI highlights, indexed by their ID
     pub highlights: Vec<HlAttrDefine>,
-    pub highlight_groups: HighlightGroups,
+    /// A lookup from highlight names to highlight IDs
+    pub highlight_groups: HashMap<String, u64>,
+    /// Whether the highlights changed since the last flush
     pub did_highlights_change: bool,
-    pub messages: Messages,
-    pub cmdline: Cmdline,
-    pub popupmenu: Option<PopupmenuShow>,
+    /// The ID of the current mode
     pub current_mode: u64,
+    /// Information about Vim modes, indexed by ID
     pub modes: Vec<ModeInfo>,
+    /// UI options set by the option_set event
     pub options: Options,
+    /// Default highlight colors
     pub default_colors: DefaultColorsSet,
+    /// Manages ext_hlstate events
+    pub messages: Messages,
+    /// Manages ext_cmdline events
+    pub cmdline: Cmdline,
+    /// Manages ext_popupmenu events
+    pub popupmenu: Option<PopupmenuShow>,
+    /// Manages ext_tabline events
     pub tabline: Option<TablineUpdate>,
 }
 
 impl Default for Ui {
     fn default() -> Self {
         Self {
-            grids: Default::default(),
+            grids: vec![],
             deleted_grids: vec![],
             draw_order: vec![1],
             float_windows_start: 0,
             cursor: Default::default(),
-            mouse: Default::default(),
-            highlights: Default::default(),
-            highlight_groups: Default::default(),
+            mouse: false,
+            highlights: vec![],
+            highlight_groups: HashMap::new(),
             did_highlights_change: false,
-            messages: Default::default(),
-            cmdline: Default::default(),
-            popupmenu: Default::default(),
-            current_mode: Default::default(),
-            modes: Default::default(),
+            current_mode: 0,
+            modes: vec![],
             options: Default::default(),
             default_colors: Default::default(),
-            tabline: Default::default(),
+            messages: Default::default(),
+            cmdline: Default::default(),
+            popupmenu: None,
+            tabline: None,
         }
     }
 }
@@ -73,20 +89,25 @@ impl Ui {
         Self::default()
     }
 
+    /// Index of the grid with the given id, or else the index where the
+    /// grid should be inserted
     pub fn grid_index(&self, id: u64) -> Result<usize, usize> {
         self.grids.binary_search_by(|probe| probe.id.cmp(&id))
     }
 
+    /// Grid with the given ID
     pub fn grid_mut(&mut self, id: u64) -> Option<&mut Grid> {
         self.grid_index(id)
             .map(|i| self.grids.get_mut(i).unwrap())
             .ok()
     }
 
+    /// Grid with the given ID
     pub fn grid(&self, id: u64) -> Option<&Grid> {
         self.grid_index(id).map(|i| self.grids.get(i).unwrap()).ok()
     }
 
+    /// Get the grid with the given ID or create it if it does not exist
     fn get_or_create_grid(&mut self, id: u64) -> &mut Grid {
         match self.grid_index(id) {
             Ok(i) => self.grids.get_mut(i).unwrap(),
@@ -97,6 +118,7 @@ impl Ui {
         }
     }
 
+    /// Reset dirty flags
     pub fn clear_dirty(&mut self) {
         self.did_highlights_change = false;
         self.deleted_grids.clear();
@@ -105,6 +127,7 @@ impl Ui {
         }
     }
 
+    /// Update the UI with the given event
     pub fn process(&mut self, event: Event) {
         log::info!("{event:?}");
         match event {
@@ -273,8 +296,8 @@ impl Ui {
 
             Event::TablineUpdate(event) => self.tabline = Some(event),
 
-            Event::MouseOn => self.cursor.enabled = true,
-            Event::MouseOff => self.cursor.enabled = false,
+            Event::MouseOn => self.mouse = true,
+            Event::MouseOff => self.mouse = false,
             Event::BusyStart => self.cursor.enabled = false,
             Event::BusyStop => self.cursor.enabled = true,
             Event::Flush => {}
@@ -288,6 +311,7 @@ impl Ui {
         }
     }
 
+    /// Move the given grid to the top of the draw order
     fn show(&mut self, grid: u64) {
         if let Some(i) = self.draw_order.iter().position(|&r| r == grid) {
             self.draw_order.remove(i);
@@ -295,12 +319,14 @@ impl Ui {
         self.draw_order.push(grid);
     }
 
+    /// Remove the given grid from the draw order
     fn hide(&mut self, grid: u64) {
         if let Some(i) = self.draw_order.iter().position(|&r| r == grid) {
             self.draw_order.remove(i);
         }
     }
 
+    /// Delete the given grid
     fn delete_grid(&mut self, grid: u64) {
         if let Ok(i) = self.grids.binary_search_by(|probe| probe.id.cmp(&grid)) {
             self.grids.remove(i);
@@ -311,6 +337,8 @@ impl Ui {
         self.deleted_grids.push(grid);
     }
 
+    /// Get the position of the grid, accounting for anchor grids and other
+    /// windowing details
     pub fn position(&self, grid: u64) -> Vec2<f64> {
         if let Ok(index) = self.grid_index(grid) {
             let grid = &self.grids[index];
@@ -328,11 +356,14 @@ impl Ui {
         }
     }
 
+    /// The grid under the cursor, accounting for anchor grids and other
+    /// windowing details
     pub fn grid_under_cursor(
         &self,
         cursor: Vec2<u64>,
         cell_size: Vec2<u64>,
     ) -> Option<GridUnderCursor> {
+        // TODO: Can this be derived from CursorInfo instead?
         let cursor: Vec2<f64> = cursor.cast_as();
         let cell_size: Vec2<f64> = cell_size.cast_as();
         for &grid_id in self.draw_order.iter().rev() {
@@ -358,15 +389,21 @@ impl Ui {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GridUnderCursor {
+    /// The ID of the grid
     pub grid: u64,
+    /// The position of the cursor in grid cells relative to the grid
     pub position: Vec2<u64>,
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct CursorInfo {
+    /// The position of the cursor in grid cells
     pub pos: Vec2<u64>,
+    /// The grid the cursor is on
     pub grid: u64,
+    /// Whether the cursor should be rendered
     pub enabled: bool,
+    /// Whether the UI should set the cursor style
     pub style_enabled: bool,
 }
 
