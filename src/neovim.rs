@@ -1,5 +1,4 @@
 use crate::rpc::{self, decode, encode, DecodeError, Message, Request};
-use bitfield_struct::bitfield;
 use rmpv::Value;
 use std::{
     collections::BinaryHeap,
@@ -224,13 +223,44 @@ impl From<ElementState> for Action {
     }
 }
 
-#[bitfield(u8)]
-pub struct Modifiers {
-    ctrl: bool,
-    shift: bool,
-    alt: bool,
-    #[bits(5)]
-    __: u8,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub struct Modifiers(u8);
+
+#[rustfmt::skip]
+impl Modifiers {
+    const CTRL:  u8 = 0b001;
+    const SHIFT: u8 = 0b010;
+    const ALT:   u8 = 0b100;
+}
+
+impl Modifiers {
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
+    pub fn with_ctrl(self, value: bool) -> Self {
+        Self(self.0 | (Self::CTRL * value as u8))
+    }
+
+    pub fn ctrl(self) -> bool {
+        self.0 & Self::CTRL > 0
+    }
+
+    pub fn with_shift(self, value: bool) -> Self {
+        Self(self.0 | (Self::SHIFT * value as u8))
+    }
+
+    pub fn shift(self) -> bool {
+        self.0 & Self::SHIFT > 0
+    }
+
+    pub fn with_alt(self, value: bool) -> Self {
+        Self(self.0 | (Self::ALT * value as u8))
+    }
+
+    pub fn alt(self) -> bool {
+        self.0 & Self::ALT > 0
+    }
 }
 
 impl From<Modifiers> for String {

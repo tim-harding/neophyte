@@ -20,7 +20,6 @@ wgpu = "0.17.0"
 pollster = "0.3.0"
 bytemuck = { version = "1.13.1", features = ["derive"] }
 font-loader = "0.11.0"
-bitfield-struct = "0.5.4"
 
 # Temporary patch to address miscompilation with non-uniform indexing
 # https://github.com/gfx-rs/wgpu/issues/4029

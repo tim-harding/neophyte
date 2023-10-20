@@ -10,7 +10,6 @@ use crate::{
     neovim::{Action, Button},
     rendering::pipelines::cursor::CursorUpdateInfo,
 };
-use bitfield_struct::bitfield;
 use event::{Event, OptionSet};
 use neovim::{Neovim, StdoutHandler};
 use rendering::{
@@ -270,9 +269,9 @@ fn main() {
                         _ => unreachable!(),
                     };
                     match button {
-                        Button::Left => mouse.buttons.set_left(depressed),
-                        Button::Right => mouse.buttons.set_right(depressed),
-                        Button::Middle => mouse.buttons.set_middle(depressed),
+                        Button::Left => mouse.buttons = mouse.buttons.with_left(depressed),
+                        Button::Right => mouse.buttons = mouse.buttons.with_right(depressed),
+                        Button::Middle => mouse.buttons = mouse.buttons.with_middle(depressed),
                         _ => unreachable!(),
                     }
                     if let Some(grid) = ui
@@ -483,17 +482,41 @@ impl Mouse {
     }
 }
 
-#[bitfield(u8)]
-#[derive(PartialEq, Eq)]
-struct Buttons {
-    left: bool,
-    right: bool,
-    middle: bool,
-    #[bits(5)]
-    __: u8,
+#[derive(PartialEq, Eq, Clone, Copy, Default, PartialOrd, Ord, Debug)]
+struct Buttons(u8);
+
+#[rustfmt::skip]
+impl Buttons {
+    const LEFT:   u8 = 0b001;
+    const RIGHT:  u8 = 0b010;
+    const MIDDLE: u8 = 0b100;
 }
 
 impl Buttons {
+    pub const fn with_left(self, value: bool) -> Self {
+        Self(self.0 | (Self::LEFT * value as u8))
+    }
+
+    pub const fn with_right(self, value: bool) -> Self {
+        Self(self.0 | (Self::RIGHT * value as u8))
+    }
+
+    pub const fn with_middle(self, value: bool) -> Self {
+        Self(self.0 | (Self::MIDDLE * value as u8))
+    }
+
+    pub const fn left(self) -> bool {
+        self.0 & Self::LEFT > 0
+    }
+
+    pub const fn right(self) -> bool {
+        self.0 & Self::RIGHT > 0
+    }
+
+    pub const fn middle(self) -> bool {
+        self.0 & Self::MIDDLE > 0
+    }
+
     pub fn first(&self) -> Option<Button> {
         if self.left() {
             Some(Button::Left)

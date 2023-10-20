@@ -9,7 +9,6 @@ use crate::{
     ui::packed_char::PackedCharContents,
     util::vec2::Vec2,
 };
-use bitfield_struct::bitfield;
 use std::{
     collections::HashMap,
     fmt::{self, Debug, Display, Formatter},
@@ -29,13 +28,31 @@ pub struct Grid {
     contents: GridContents,
 }
 
-#[bitfield(u8)]
-#[derive(PartialEq, Eq)]
-pub struct DirtyFlags {
-    pub contents: bool,
-    pub window: bool,
-    #[bits(6)]
-    __: u8,
+#[derive(PartialEq, Eq, Debug, Default, Clone, Copy, PartialOrd, Ord)]
+pub struct DirtyFlags(u8);
+
+#[rustfmt::skip]
+impl DirtyFlags {
+    const CONTENTS: u8 = 0b01;
+    const WINDOW:   u8 = 0b10;
+}
+
+impl DirtyFlags {
+    pub fn set_contents(&mut self, value: bool) {
+        self.0 = (self.0 & !Self::CONTENTS) | (Self::CONTENTS * value as u8);
+    }
+
+    pub fn contents(self) -> bool {
+        self.0 & Self::CONTENTS > 0
+    }
+
+    pub fn set_window(&mut self, value: bool) {
+        self.0 = (self.0 & !Self::WINDOW) | (Self::WINDOW * value as u8);
+    }
+
+    pub fn window(self) -> bool {
+        self.0 & Self::WINDOW > 0
+    }
 }
 
 impl Grid {
