@@ -15,10 +15,10 @@ unsafe impl<T> Zeroable for Vec2<T> where T: Zeroable {}
 
 impl<T> Vec2<T>
 where
-    T: Clone,
+    T: Copy,
 {
     pub fn splat(xy: T) -> Self {
-        Self::new(xy.clone(), xy.clone())
+        Self::new(xy, xy)
     }
 }
 
@@ -199,6 +199,20 @@ where
     }
 }
 
+impl<T> Add<T> for Vec2<T>
+where
+    T: Add<Output = T> + Copy,
+{
+    type Output = Vec2<T>;
+
+    fn add(self, rhs: T) -> Self::Output {
+        Self {
+            x: self.x + rhs,
+            y: self.y + rhs,
+        }
+    }
+}
+
 impl<T> AddAssign for Vec2<T>
 where
     T: AddAssign,
@@ -206,6 +220,16 @@ where
     fn add_assign(&mut self, rhs: Self) {
         self.x += rhs.x;
         self.y += rhs.y;
+    }
+}
+
+impl<T> AddAssign<T> for Vec2<T>
+where
+    T: AddAssign<T> + Copy,
+{
+    fn add_assign(&mut self, rhs: T) {
+        self.x += rhs;
+        self.y += rhs;
     }
 }
 
@@ -223,6 +247,20 @@ where
     }
 }
 
+impl<T> Sub<T> for Vec2<T>
+where
+    T: Sub<Output = T> + Copy,
+{
+    type Output = Self;
+
+    fn sub(self, rhs: T) -> Self::Output {
+        Self {
+            x: self.x - rhs,
+            y: self.y - rhs,
+        }
+    }
+}
+
 impl<T> SubAssign for Vec2<T>
 where
     T: SubAssign,
@@ -230,6 +268,16 @@ where
     fn sub_assign(&mut self, rhs: Self) {
         self.x -= rhs.x;
         self.y -= rhs.y;
+    }
+}
+
+impl<T> SubAssign<T> for Vec2<T>
+where
+    T: SubAssign<T> + Copy,
+{
+    fn sub_assign(&mut self, rhs: T) {
+        self.x -= rhs;
+        self.y -= rhs;
     }
 }
 

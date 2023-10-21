@@ -120,7 +120,7 @@ impl Pipeline {
         cell_size: Vec2<f32>,
         monochrome_target: &wgpu::TextureView,
     ) {
-        self.fill = update_info.fill;
+        self.fill = update_info.fill - 1.;
         self.fragment_push_constants = FragmentPushConstants {
             fg: update_info.bg.into_linear(),
             bg: update_info.fg.into_linear(),
