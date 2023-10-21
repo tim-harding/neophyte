@@ -362,8 +362,8 @@ impl RenderState {
             &mut encoder,
             &self.targets.color.view,
             delta_seconds * settings.cursor_speed,
-            cell_size.cast_as(),
             target_size.cast_as(),
+            cell_size.cast_as(),
         );
 
         self.pipelines.emoji.render(

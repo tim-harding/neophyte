@@ -1,5 +1,6 @@
 struct VertexInfo {
     transform: mat3x3<f32>,
+    fill: vec2<f32>,
 }
 
 struct FragmentInfo {
@@ -34,7 +35,8 @@ fn vs_main(
     let affine = info.vertex.transform * vec3<f32>(corner, 1.0);
 
     var out: VertexOutput;
-    out.uv = vec2<f32>(affine.x / affine.z, affine.y / affine.z);
+    out.uv = vec2<f32>(affine.x / affine.z, affine.y / affine.z) + 
+        corner * info.vertex.fill;
     out.clip_position = vec4<f32>(
         out.uv
         * vec2<f32>(2.0, -2.0) 

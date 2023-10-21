@@ -159,51 +159,38 @@ impl Pipeline {
         encoder: &mut wgpu::CommandEncoder,
         color_target: &wgpu::TextureView,
         delta_seconds: f32,
-        cell_size: Vec2<f32>,
         target_size: Vec2<f32>,
+        cell_size: Vec2<f32>,
     ) -> Motion {
         self.elapsed += delta_seconds;
-        let t = self.t();
-        let cell_diagonal = cell_size.length();
-
+        let t = self.t().min(1.);
         let current_position = self.start_position.lerp(self.target_position, t);
-        let toward = self.target_position - self.start_position;
-        let length = toward.length();
-        let direction = if length < 0.25 {
-            Vec2::new(1.0, 0.0)
+        let (motion, transform) = if t >= 1.0 {
+            (Motion::Still, Mat3::IDENTITY)
         } else {
-            toward / length
-        };
-        let angle = f32::atan2(direction.x, direction.y);
+            let toward = self.target_position - self.start_position;
+            let length = toward.length();
+            let direction = if length < 0.25 {
+                Vec2::new(1.0, 0.0)
+            } else {
+                toward / length
+            };
+            let angle = f32::atan2(direction.x, direction.y);
 
-        let arch = {
-            let t = 2. * (t - 0.5);
-            1. - t * t
-        };
+            let dir = direction * (1. - t);
+            let translate = Vec2::splat(0.5) - dir / cell_size.length() * 4.;
+            let transform = Mat3::translate(translate)
+                * Mat3::rotate(-angle)
+                * Mat3::scale(Vec2::new(1.0, length * (1. - t) / 2.))
+                * Mat3::rotate(angle)
+                * Mat3::translate(-translate);
 
-        let hyperbola = { (1. + length * length).sqrt() - cell_diagonal };
+            (Motion::Animating, transform)
+        };
 
         let transform = Mat3::scale(target_size.map(f32::recip))
             * Mat3::translate(current_position)
-            * Mat3::translate(cell_size / 2.0)
-            * Mat3::rotate(-angle)
-            * Mat3::scale(Vec2::new(
-                1.0,
-                1.0 + (1.0 - t) * hyperbola / cell_diagonal * arch / 2.,
-            ))
-            * Mat3::rotate(angle)
-            * Mat3::translate(direction * cell_size * (1. - t))
-            * Mat3::translate(-cell_size / 2.0)
-            * Mat3::scale(cell_size)
-            * Mat3::translate(Vec2::new(0.0, 1.0))
-            * Mat3::scale(self.fill)
-            * Mat3::translate(Vec2::new(0.0, -1.0));
-
-        let motion = if t >= 1.0 {
-            Motion::Still
-        } else {
-            Motion::Animating
-        };
+            * transform;
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Cursor render pass"),
@@ -222,7 +209,11 @@ impl Pipeline {
         render_pass.set_push_constants(
             wgpu::ShaderStages::VERTEX,
             0,
-            cast_slice(&[VertexPushConstants { transform }]),
+            cast_slice(&[VertexPushConstants {
+                transform,
+                fill: self.fill / target_size,
+                padding: Vec2::default(),
+            }]),
         );
         render_pass.set_push_constants(
             wgpu::ShaderStages::FRAGMENT,
@@ -262,6 +253,8 @@ fn bind_group(
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 struct VertexPushConstants {
     transform: Mat3,
+    fill: Vec2<f32>,
+    padding: Vec2<f32>,
 }
 
 impl FragmentPushConstants {
@@ -289,7 +282,7 @@ pub struct CursorUpdateInfo {
 }
 
 impl CursorUpdateInfo {
-    pub fn from_ui(ui: &Ui) -> Self {
+    pub fn from_ui(ui: &Ui, cell_size: Vec2<f32>) -> Self {
         let (fg, bg) = ui
             .highlight_groups
             .get("Cursor")
@@ -311,6 +304,7 @@ impl CursorUpdateInfo {
             CursorShape::Horizontal => Vec2::new(1.0, fill),
             CursorShape::Vertical => Vec2::new(fill, 1.0),
         };
+        let fill = fill * cell_size;
 
         let position = ui.position(ui.cursor.grid) + ui.cursor.pos.cast_as();
 

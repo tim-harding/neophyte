@@ -597,7 +597,10 @@ impl StdoutHandler for NeovimHandler {
                         .send(Message::UpdateHighlights(HighlightUpdateInfo::from_ui(&ui)))
                         .unwrap();
                     self.render_tx
-                        .send(Message::UpdateCursor(CursorUpdateInfo::from_ui(&ui)))
+                        .send(Message::UpdateCursor(CursorUpdateInfo::from_ui(
+                            &ui,
+                            self.fonts.read().cell_size().cast_as(),
+                        )))
                         .unwrap();
                     self.render_tx
                         .send(Message::UpdateDrawOrder(ui.draw_order.clone()))

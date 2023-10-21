@@ -13,6 +13,15 @@ pub struct Vec2<T> {
 unsafe impl<T> Pod for Vec2<T> where T: Pod {}
 unsafe impl<T> Zeroable for Vec2<T> where T: Zeroable {}
 
+impl<T> Vec2<T>
+where
+    T: Clone,
+{
+    pub fn splat(xy: T) -> Self {
+        Self::new(xy.clone(), xy.clone())
+    }
+}
+
 impl<T> Vec2<T> {
     pub fn new(x: T, y: T) -> Self {
         Self { x, y }
