@@ -13,7 +13,9 @@ use std::{
     collections::HashMap,
     fmt::{self, Debug, Display, Formatter},
     io::Write,
+    iter::TakeWhile,
     marker::PhantomData,
+    mem::transmute,
     ops::Not,
     str::Chars,
     vec::IntoIter,
@@ -98,11 +100,11 @@ pub struct GridContents {
     /// Grid dimensions
     pub size: Vec2<u64>,
     /// Grid cells in rows then columns
-    pub buffer: Vec<Cell>,
+    buffer: Vec<Cell>,
     /// Contains cell contents for cells that require more than one char of
     /// storage. This optimizes for the common case by keeping the main buffer
     /// tightly packed.
-    pub overflow: Vec<String>,
+    overflow: Overflow,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -188,9 +190,7 @@ impl GridContents {
                 (None, Some(c)) => unreachable!(),
                 (Some(c), None) => PackedChar::from_char(c),
                 (Some(c1), Some(c2)) => {
-                    // TODO: Reuse overflow entries
-                    let i: u32 = self.overflow.len().try_into().unwrap();
-                    self.overflow.push(cell.text);
+                    let i = self.overflow.push([c1, c2].into_iter().chain(chars)) as u32;
                     PackedChar::from_u22(U22::from_u32(i).unwrap())
                 }
             };
@@ -222,7 +222,7 @@ impl GridContents {
                 let text = match cell.text.contents() {
                     PackedCharContents::Char(c) => c.into(),
                     PackedCharContents::U22(u22) => {
-                        self.overflow[u22.as_u32() as usize].chars().into()
+                        self.overflow.item_at(u22.as_u32() as usize).into()
                     }
                 };
                 CellContents {
@@ -236,9 +236,9 @@ impl GridContents {
     /// Copy the contents of the given grid into self
     pub fn copy_from(&mut self, other: &GridContents) {
         self.size = other.size;
-        self.overflow
-            .extend_from_slice(&other.overflow[self.overflow.len()..]);
-        self.buffer.resize(other.buffer.len(), Cell::default());
+        self.overflow.copy_from(&other.overflow);
+        self.buffer.clear();
+        self.buffer.reserve(other.buffer.len());
         self.buffer.copy_from_slice(other.buffer.as_slice());
     }
 }
@@ -263,10 +263,100 @@ impl Debug for GridContents {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+struct Overflow {
+    buffer: Vec<u32>,
+}
+
+impl Overflow {
+    pub const fn new() -> Self {
+        Self { buffer: vec![] }
+    }
+
+    /// Append new chars or return the index of an existing entry if they have
+    /// already been added
+    pub fn push(&mut self, iter: impl Iterator<Item = char>) -> usize {
+        let prev_len = self.buffer.len();
+        self.buffer.push(0); // Will become meta
+        self.buffer.extend(iter.map(|c| c as u32));
+        let len = self.buffer.len() - prev_len - 1;
+        let mut iter = OverflowIterator {
+            buffer: &self.buffer[..prev_len],
+        };
+        let predicate: &[char] = unsafe { std::mem::transmute(&self.buffer[prev_len + 1..]) };
+
+        let mut i = 0;
+        let mut current = &self.buffer[..prev_len];
+        let mut position = None;
+        while !current.is_empty() {
+            let len = current[0] as usize;
+            let (lhs, rhs) = current.split_at(len + 1);
+            if lhs
+                .iter()
+                .skip(1)
+                .cloned()
+                .eq(predicate.iter().cloned().map(|c| c as u32))
+            {
+                position = Some(i);
+                break;
+            }
+            current = rhs;
+            i += len + 1;
+        }
+
+        if let Some(position) = position {
+            self.buffer.drain(prev_len..);
+            position
+        } else {
+            self.buffer[prev_len] = len.try_into().unwrap(); // Create meta
+            prev_len
+        }
+    }
+
+    /// Copy the contents of other into self
+    pub fn copy_from(&mut self, other: &Self) {
+        self.buffer.clear();
+        self.buffer.reserve(other.buffer.len());
+        self.buffer.copy_from_slice(&other.buffer);
+    }
+
+    /// Get the slice of characters at the given index
+    pub fn item_at(&self, i: usize) -> std::slice::Iter<char> {
+        let len = self.buffer[i] as usize;
+        let out: &[char] = unsafe { transmute(&self.buffer[i + 1..i + 1 + len]) };
+        out.iter()
+    }
+
+    pub fn iter(&self) -> OverflowIterator {
+        OverflowIterator {
+            buffer: &self.buffer,
+        }
+    }
+}
+
+struct OverflowIterator<'a> {
+    buffer: &'a [u32],
+}
+
+impl<'a> Iterator for OverflowIterator<'a> {
+    type Item = &'a [char];
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.buffer.is_empty() {
+            None
+        } else {
+            let len = self.buffer[0] as usize;
+            let (current, next) = self.buffer.split_at(len + 1);
+            self.buffer = next;
+            Some(unsafe { std::mem::transmute(&current[1..]) })
+        }
+    }
+}
+
 #[derive(Clone)]
 pub enum OnceOrChars<'a> {
     Char(std::iter::Once<char>),
-    Chars(Chars<'a>),
+    Chars(std::slice::Iter<'a, char>),
 }
 
 impl<'a> From<char> for OnceOrChars<'a> {
@@ -275,9 +365,9 @@ impl<'a> From<char> for OnceOrChars<'a> {
     }
 }
 
-impl<'a> From<Chars<'a>> for OnceOrChars<'a> {
-    fn from(chars: Chars<'a>) -> Self {
-        Self::Chars(chars)
+impl<'a> From<std::slice::Iter<'a, char>> for OnceOrChars<'a> {
+    fn from(value: std::slice::Iter<'a, char>) -> Self {
+        Self::Chars(value)
     }
 }
 
@@ -287,7 +377,7 @@ impl<'a> Iterator for OnceOrChars<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             OnceOrChars::Char(iter) => iter.next(),
-            OnceOrChars::Chars(iter) => iter.next(),
+            OnceOrChars::Chars(iter) => iter.next().cloned(),
         }
     }
 }
