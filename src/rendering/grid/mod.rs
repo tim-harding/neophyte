@@ -152,6 +152,7 @@ impl Grid {
                         self.cell_fill.push(cluster.data);
 
                         let x = cluster.source.start * cell_size.x;
+                        let mut advanced = 0.0f32;
                         for glyph in cluster.glyphs {
                             let CacheValue { index, kind } = match font_cache.get(
                                 font.as_ref(),
@@ -169,7 +170,7 @@ impl Grid {
 
                             let position = Vec2::new(glyph.x, glyph.y) * metrics.scale_factor;
                             let position = Vec2::new(
-                                position.x.round() as i32 + x as i32,
+                                position.x.round() as i32 + x as i32 + advanced.round() as i32,
                                 position.y.round() as i32
                                     + (cell_line_i as i32 * cell_size.y as i32),
                             );
@@ -206,6 +207,7 @@ impl Grid {
                                     highlight_index: 0,
                                 }),
                             }
+                            advanced += glyph.advance * metrics.scale_factor;
                         }
                     });
                 } else {
