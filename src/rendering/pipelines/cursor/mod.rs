@@ -78,7 +78,7 @@ impl Pipeline {
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
                     format: TARGET_FORMAT,
-                    blend: Some(wgpu::BlendState::REPLACE),
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
             }),
@@ -124,6 +124,9 @@ impl Pipeline {
         self.fragment_push_constants = FragmentPushConstants {
             fg: update_info.bg.into_linear(),
             bg: update_info.fg.into_linear(),
+            size: cell_size,
+            speed: 0.,
+            padding: 0.,
         };
 
         let new_target = cell_size * update_info.position;
@@ -165,6 +168,8 @@ impl Pipeline {
         self.elapsed += delta_seconds;
         let t = self.t().min(1.);
         let current_position = self.start_position.lerp(self.target_position, t);
+        self.fragment_push_constants.speed = 0.;
+        self.fragment_push_constants.size = cell_size;
         let (motion, transform) = if t >= 1.0 {
             (Motion::Still, Mat3::IDENTITY)
         } else {
@@ -177,14 +182,16 @@ impl Pipeline {
             };
             let angle = f32::atan2(direction.x, direction.y);
 
+            let cell_diagonal = cell_size.length();
             let dir = direction * (1. - t);
-            let translate = Vec2::splat(0.5) - dir / cell_size.length() * 4.;
+            let translate = Vec2::splat(0.5) - dir / cell_diagonal * 4.;
             let transform = Mat3::translate(translate)
                 * Mat3::rotate(-angle)
                 * Mat3::scale(Vec2::new(1.0, length * (1. - t) / 2.))
                 * Mat3::rotate(angle)
                 * Mat3::translate(-translate);
 
+            self.fragment_push_constants.speed = (1. - t) * length / cell_diagonal;
             (Motion::Animating, transform)
         };
 
@@ -267,6 +274,9 @@ impl FragmentPushConstants {
 struct FragmentPushConstants {
     fg: [f32; 4],
     bg: [f32; 4],
+    size: Vec2<f32>,
+    speed: f32,
+    padding: f32,
 }
 
 impl VertexPushConstants {
