@@ -354,6 +354,17 @@ impl RenderState {
             highlights_bind_group,
         );
 
+        self.pipelines.lines.render(
+            &mut encoder,
+            self.grids.front_to_back(),
+            &self.targets.monochrome.view,
+            &self.targets.depth.view,
+            highlights_bind_group,
+            target_size,
+            cell_size,
+            settings.underline_offset,
+        );
+
         self.pipelines
             .blend
             .render(&mut encoder, &self.targets.color.view);
@@ -373,17 +384,6 @@ impl RenderState {
             &self.targets.depth.view,
             cell_size,
             target_size,
-        );
-
-        self.pipelines.lines.render(
-            &mut encoder,
-            self.grids.front_to_back(),
-            &self.targets.color.view,
-            &self.targets.depth.view,
-            highlights_bind_group,
-            target_size,
-            cell_size,
-            settings.underline_offset,
         );
 
         self.pipelines
