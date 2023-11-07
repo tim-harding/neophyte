@@ -28,11 +28,9 @@ use ui::{
 };
 use util::{vec2::Vec2, Values};
 use winit::{
-    event::{
-        ElementState, KeyboardInput, ModifiersState, MouseScrollDelta, TouchPhase, VirtualKeyCode,
-        WindowEvent,
-    },
+    event::{MouseScrollDelta, TouchPhase, WindowEvent},
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy},
+    keyboard::{Key, ModifiersState, NamedKey},
     window::{Window, WindowBuilder},
 };
 
@@ -40,7 +38,9 @@ fn main() {
     env_logger::builder().format_timestamp(None).init();
     let (neovim, stdout_handler, stdin_handler) = Neovim::new().unwrap();
     let fonts = Arc::new(FontsHandle::new());
-    let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
+    let event_loop = EventLoopBuilder::<UserEvent>::with_user_event()
+        .build()
+        .unwrap();
     let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
     let ui = Arc::new(RwLock::new(Ui::new()));
     let render_state = pollster::block_on(async {
@@ -73,360 +73,303 @@ fn main() {
     let mut mouse = Mouse::new();
     let mut neovim = Some(neovim);
     let mut modifiers = ModifiersState::default();
-    event_loop.run(move |event, _, control_flow| {
-        use winit::event::Event;
-        *control_flow = ControlFlow::Wait;
-        match event {
-            Event::UserEvent(user_event) => {
-                match user_event {
-                    UserEvent::Exit => {
-                        // Consume the render thread channel to kill the thread
-                        let _ = render_tx.take();
-                        // Consume the last Neovim instance to close the channel
-                        let _ = neovim.take();
+    event_loop.set_control_flow(ControlFlow::Wait);
+    event_loop
+        .run(move |event, window_target| {
+            use winit::event::Event;
+            match event {
+                Event::UserEvent(user_event) => {
+                    match user_event {
+                        UserEvent::Exit => {
+                            // Consume the render thread channel to kill the thread
+                            let _ = render_tx.take();
+                            // Consume the last Neovim instance to close the channel
+                            let _ = neovim.take();
 
-                        // Already terminated since it generated the exit event
-                        stdout_thread.take().unwrap().join().unwrap();
-                        stdin_thread.take().unwrap().join().unwrap();
-                        render_thread.take().unwrap().join().unwrap();
+                            // Already terminated since it generated the exit event
+                            stdout_thread.take().unwrap().join().unwrap();
+                            stdin_thread.take().unwrap().join().unwrap();
+                            render_thread.take().unwrap().join().unwrap();
 
-                        *control_flow = ControlFlow::Exit;
-                    }
+                            window_target.exit();
+                        }
 
-                    UserEvent::ResizeGrid => {
-                        resize_neovim_grid(surface_size, &fonts.read(), neovim.as_ref().unwrap());
+                        UserEvent::ResizeGrid => {
+                            resize_neovim_grid(
+                                surface_size,
+                                &fonts.read(),
+                                neovim.as_ref().unwrap(),
+                            );
+                        }
                     }
                 }
-            }
 
-            Event::WindowEvent {
-                window_id,
-                ref event,
-            } if window_id == window.id() => match event {
-                WindowEvent::ModifiersChanged(new_modifiers) => {
-                    modifiers = *new_modifiers;
-                }
+                Event::WindowEvent {
+                    window_id,
+                    ref event,
+                } if window_id == window.id() => match event {
+                    WindowEvent::ModifiersChanged(new_modifiers) => {
+                        modifiers = new_modifiers.state();
+                    }
 
-                WindowEvent::ReceivedCharacter(c) => {
-                    let mut f = || {
-                        let s = match c {
-                            '<' => "lt".to_string(),
-                            '\\' => "Bslash".to_string(),
-                            '|' => "Bar".to_string(),
-                            _ => {
-                                if !c.is_control()
-                                    && !c.is_whitespace()
-                                    && !c.is_ascii_digit()
-                                    && !c.is_ascii_alphabetic()
-                                {
-                                    format!("{c}")
-                                } else {
-                                    return;
-                                }
+                    WindowEvent::KeyboardInput { event, .. } => match &event.logical_key {
+                        Key::Named(key) => {
+                            let c = || {
+                                Some(match key {
+                                    NamedKey::Enter => "Enter",
+                                    NamedKey::Tab => "Tab",
+                                    NamedKey::Space => "Space",
+                                    NamedKey::ArrowDown => "Down",
+                                    NamedKey::ArrowLeft => "Left",
+                                    NamedKey::ArrowRight => "Right",
+                                    NamedKey::ArrowUp => "Up",
+                                    NamedKey::End => "End",
+                                    NamedKey::Home => "Home",
+                                    NamedKey::PageDown => "PageDown",
+                                    NamedKey::PageUp => "PageUp",
+                                    NamedKey::Backspace => "BS",
+                                    NamedKey::Delete => "Del",
+                                    NamedKey::Escape => "Esc",
+                                    NamedKey::F1 => "F1",
+                                    NamedKey::F2 => "F2",
+                                    NamedKey::F3 => "F3",
+                                    NamedKey::F4 => "F4",
+                                    NamedKey::F5 => "F5",
+                                    NamedKey::F6 => "F6",
+                                    NamedKey::F7 => "F7",
+                                    NamedKey::F8 => "F8",
+                                    NamedKey::F9 => "F9",
+                                    NamedKey::F10 => "F10",
+                                    NamedKey::F11 => "F11",
+                                    NamedKey::F12 => "F12",
+                                    NamedKey::F13 => "F13",
+                                    NamedKey::F14 => "F14",
+                                    NamedKey::F15 => "F15",
+                                    NamedKey::F16 => "F16",
+                                    NamedKey::F17 => "F17",
+                                    NamedKey::F18 => "F18",
+                                    NamedKey::F19 => "F19",
+                                    NamedKey::F20 => "F20",
+                                    NamedKey::F21 => "F21",
+                                    NamedKey::F22 => "F22",
+                                    NamedKey::F23 => "F23",
+                                    NamedKey::F24 => "F24",
+                                    NamedKey::F25 => "F25",
+                                    NamedKey::F26 => "F26",
+                                    NamedKey::F27 => "F27",
+                                    NamedKey::F28 => "F28",
+                                    NamedKey::F29 => "F29",
+                                    NamedKey::F30 => "F30",
+                                    NamedKey::F31 => "F31",
+                                    NamedKey::F32 => "F32",
+                                    NamedKey::F33 => "F33",
+                                    NamedKey::F34 => "F34",
+                                    NamedKey::F35 => "F35",
+                                    _ => return None,
+                                })
+                            };
+
+                            if let Some(c) = c() {
+                                send_keys(c, &mut modifiers, neovim.as_mut().unwrap(), false);
+                            }
+                        }
+                        Key::Character(c) => {
+                            let s = match c.as_str() {
+                                "<" => "Lt",
+                                "\\" => "Bslash",
+                                "|" => "Bar",
+                                _ => c.as_str(),
+                            };
+                            send_keys(s, &mut modifiers, neovim.as_mut().unwrap(), true);
+                        }
+                        Key::Unidentified(_) | Key::Dead(_) => {}
+                    },
+
+                    WindowEvent::CursorMoved { position, .. } => {
+                        let position: Vec2<f64> = (*position).into();
+                        let position: Vec2<i64> = position.cast_as();
+                        let cell_size = fonts.read().cell_size();
+                        let inner = (surface_size / cell_size) * cell_size;
+                        let margin = (surface_size - inner) / 2;
+                        let position = position - margin.cast();
+                        let Ok(position) = position.try_cast::<u64>() else {
+                            return;
+                        };
+                        mouse.position = position;
+                        if let Some(grid) = ui
+                            .read()
+                            .unwrap()
+                            .grid_under_cursor(position, fonts.read().cell_size().cast())
+                        {
+                            neovim.as_ref().unwrap().input_mouse(
+                                mouse.buttons.first().unwrap_or(Button::Move),
+                                // Irrelevant for move
+                                Action::ButtonDrag,
+                                modifiers.into(),
+                                grid.grid,
+                                grid.position.y,
+                                grid.position.x,
+                            );
+                        }
+                    }
+
+                    WindowEvent::MouseInput { state, button, .. } => {
+                        let Ok(button) = (*button).try_into() else {
+                            return;
+                        };
+
+                        let action = (*state).into();
+                        let depressed = match action {
+                            Action::ButtonPress => true,
+                            Action::ButtonRelease => false,
+                            _ => unreachable!(),
+                        };
+                        match button {
+                            Button::Left => mouse.buttons = mouse.buttons.with_left(depressed),
+                            Button::Right => mouse.buttons = mouse.buttons.with_right(depressed),
+                            Button::Middle => mouse.buttons = mouse.buttons.with_middle(depressed),
+                            _ => unreachable!(),
+                        }
+                        if let Some(grid) = ui
+                            .read()
+                            .unwrap()
+                            .grid_under_cursor(mouse.position, fonts.read().cell_size().cast())
+                        {
+                            neovim.as_ref().unwrap().input_mouse(
+                                button,
+                                action,
+                                modifiers.into(),
+                                grid.grid,
+                                grid.position.y,
+                                grid.position.x,
+                            );
+                        }
+                    }
+
+                    WindowEvent::MouseWheel { delta, phase, .. } => {
+                        let reset = matches!(
+                            phase,
+                            TouchPhase::Started | TouchPhase::Ended | TouchPhase::Cancelled
+                        );
+
+                        let (delta, kind) = match delta {
+                            MouseScrollDelta::LineDelta(horizontal, vertical) => {
+                                (Vec2::new(*horizontal, *vertical).cast(), ScrollKind::Lines)
+                            }
+
+                            MouseScrollDelta::PixelDelta(delta) => {
+                                ((*delta).into(), ScrollKind::Pixels)
                             }
                         };
-                        send_keys(&s, &mut modifiers, neovim.as_mut().unwrap(), true);
-                    };
-                    f()
-                }
 
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(virtual_keycode),
-                            ..
-                        },
-                    ..
-                } => {
-                    let c = || {
-                        Some(match virtual_keycode {
-                            VirtualKeyCode::Escape => "Esc",
-                            VirtualKeyCode::F1 => "F1",
-                            VirtualKeyCode::F2 => "F2",
-                            VirtualKeyCode::F3 => "F3",
-                            VirtualKeyCode::F4 => "F4",
-                            VirtualKeyCode::F5 => "F5",
-                            VirtualKeyCode::F6 => "F6",
-                            VirtualKeyCode::F7 => "F7",
-                            VirtualKeyCode::F8 => "F8",
-                            VirtualKeyCode::F9 => "F9",
-                            VirtualKeyCode::F10 => "F10",
-                            VirtualKeyCode::F11 => "F11",
-                            VirtualKeyCode::F12 => "F12",
-                            VirtualKeyCode::Back => "BS",
-                            VirtualKeyCode::Home => "Home",
-                            VirtualKeyCode::Delete => "Del",
-                            VirtualKeyCode::End => "End",
-                            VirtualKeyCode::PageDown => "PageDown",
-                            VirtualKeyCode::PageUp => "PageUp",
-                            VirtualKeyCode::Left => "Left",
-                            VirtualKeyCode::Up => "Up",
-                            VirtualKeyCode::Right => "Right",
-                            VirtualKeyCode::Down => "Down",
-                            VirtualKeyCode::Return => "Enter",
-                            VirtualKeyCode::Space => "Space",
-                            VirtualKeyCode::Numpad0 => "k0",
-                            VirtualKeyCode::Numpad1 => "k1",
-                            VirtualKeyCode::Numpad2 => "k2",
-                            VirtualKeyCode::Numpad3 => "k3",
-                            VirtualKeyCode::Numpad4 => "k4",
-                            VirtualKeyCode::Numpad5 => "k5",
-                            VirtualKeyCode::Numpad6 => "k6",
-                            VirtualKeyCode::Numpad7 => "k7",
-                            VirtualKeyCode::Numpad8 => "k8",
-                            VirtualKeyCode::Numpad9 => "k9",
-                            VirtualKeyCode::NumpadAdd => "kPlus",
-                            VirtualKeyCode::NumpadDivide => "kDivide",
-                            VirtualKeyCode::NumpadDecimal => "kPoint",
-                            VirtualKeyCode::NumpadComma => "kComma",
-                            VirtualKeyCode::NumpadEnter => "kEnter",
-                            VirtualKeyCode::NumpadEquals => "kEqual",
-                            VirtualKeyCode::NumpadMultiply => "kMultiply",
-                            VirtualKeyCode::NumpadSubtract => "kMinus",
-                            VirtualKeyCode::Tab => "Tab",
-                            VirtualKeyCode::Key1 => "1",
-                            VirtualKeyCode::Key2 => "2",
-                            VirtualKeyCode::Key3 => "3",
-                            VirtualKeyCode::Key4 => "4",
-                            VirtualKeyCode::Key5 => "5",
-                            VirtualKeyCode::Key6 => "6",
-                            VirtualKeyCode::Key7 => "7",
-                            VirtualKeyCode::Key8 => "8",
-                            VirtualKeyCode::Key9 => "9",
-                            VirtualKeyCode::Key0 => "0",
-                            VirtualKeyCode::A => "a",
-                            VirtualKeyCode::B => "b",
-                            VirtualKeyCode::C => "c",
-                            VirtualKeyCode::D => "d",
-                            VirtualKeyCode::E => "e",
-                            VirtualKeyCode::F => "f",
-                            VirtualKeyCode::G => "g",
-                            VirtualKeyCode::H => "h",
-                            VirtualKeyCode::I => "i",
-                            VirtualKeyCode::J => "j",
-                            VirtualKeyCode::K => "k",
-                            VirtualKeyCode::L => "l",
-                            VirtualKeyCode::M => "m",
-                            VirtualKeyCode::N => "n",
-                            VirtualKeyCode::O => "o",
-                            VirtualKeyCode::P => "p",
-                            VirtualKeyCode::Q => "q",
-                            VirtualKeyCode::R => "r",
-                            VirtualKeyCode::S => "s",
-                            VirtualKeyCode::T => "t",
-                            VirtualKeyCode::U => "u",
-                            VirtualKeyCode::V => "v",
-                            VirtualKeyCode::W => "w",
-                            VirtualKeyCode::X => "x",
-                            VirtualKeyCode::Y => "y",
-                            VirtualKeyCode::Z => "z",
-                            _ => return None,
-                        })
-                    };
-                    if let Some(c) = c() {
-                        send_keys(c, &mut modifiers, neovim.as_mut().unwrap(), false);
-                    }
-                }
+                        let modifiers = modifiers.into();
 
-                WindowEvent::CursorMoved { position, .. } => {
-                    let position: Vec2<f64> = (*position).into();
-                    let position: Vec2<i64> = position.cast_as();
-                    let cell_size = fonts.read().cell_size();
-                    let inner = (surface_size / cell_size) * cell_size;
-                    let margin = (surface_size - inner) / 2;
-                    let position = position - margin.cast();
-                    let Ok(position) = position.try_cast::<u64>() else {
-                        return;
-                    };
-                    mouse.position = position;
-                    if let Some(grid) = ui
-                        .read()
-                        .unwrap()
-                        .grid_under_cursor(position, fonts.read().cell_size().cast())
-                    {
-                        neovim.as_ref().unwrap().input_mouse(
-                            mouse.buttons.first().unwrap_or(Button::Move),
-                            // Irrelevant for move
-                            Action::ButtonDrag,
-                            modifiers.into(),
-                            grid.grid,
-                            grid.position.y,
-                            grid.position.x,
-                        );
-                    }
-                }
-
-                WindowEvent::MouseInput { state, button, .. } => {
-                    let Ok(button) = (*button).try_into() else {
-                        return;
-                    };
-
-                    let action = (*state).into();
-                    let depressed = match action {
-                        Action::ButtonPress => true,
-                        Action::ButtonRelease => false,
-                        _ => unreachable!(),
-                    };
-                    match button {
-                        Button::Left => mouse.buttons = mouse.buttons.with_left(depressed),
-                        Button::Right => mouse.buttons = mouse.buttons.with_right(depressed),
-                        Button::Middle => mouse.buttons = mouse.buttons.with_middle(depressed),
-                        _ => unreachable!(),
-                    }
-                    if let Some(grid) = ui
-                        .read()
-                        .unwrap()
-                        .grid_under_cursor(mouse.position, fonts.read().cell_size().cast())
-                    {
-                        neovim.as_ref().unwrap().input_mouse(
-                            button,
-                            action,
-                            modifiers.into(),
-                            grid.grid,
-                            grid.position.y,
-                            grid.position.x,
-                        );
-                    }
-                }
-
-                WindowEvent::MouseWheel { delta, phase, .. } => {
-                    let reset = matches!(
-                        phase,
-                        TouchPhase::Started | TouchPhase::Ended | TouchPhase::Cancelled
-                    );
-
-                    let (delta, kind) = match delta {
-                        MouseScrollDelta::LineDelta(horizontal, vertical) => {
-                            (Vec2::new(*horizontal, *vertical).cast(), ScrollKind::Lines)
+                        let delta: Vec2<i64> = delta.cast_as();
+                        if reset {
+                            mouse.scroll = Vec2::default();
                         }
 
-                        MouseScrollDelta::PixelDelta(delta) => {
-                            ((*delta).into(), ScrollKind::Pixels)
+                        let lines = match kind {
+                            ScrollKind::Lines => delta,
+                            ScrollKind::Pixels => {
+                                mouse.scroll += delta;
+                                let cell_size: Vec2<i64> = fonts.read().cell_size().cast();
+                                let lines = mouse.scroll / cell_size;
+                                mouse.scroll -= lines * cell_size;
+                                lines
+                            }
+                        };
+
+                        let Some(grid) = ui
+                            .read()
+                            .unwrap()
+                            .grid_under_cursor(mouse.position, fonts.read().cell_size().cast())
+                        else {
+                            return;
+                        };
+
+                        let action = if lines.y < 0 {
+                            Action::WheelDown
+                        } else {
+                            Action::WheelUp
+                        };
+
+                        for _ in 0..lines.y.abs() {
+                            neovim.as_ref().unwrap().input_mouse(
+                                Button::Wheel,
+                                action,
+                                modifiers,
+                                grid.grid,
+                                grid.position.y,
+                                grid.position.x,
+                            );
                         }
-                    };
 
-                    let modifiers = modifiers.into();
+                        let action = if lines.x < 0 {
+                            Action::WheelRight
+                        } else {
+                            Action::WheelLeft
+                        };
 
-                    let delta: Vec2<i64> = delta.cast_as();
-                    if reset {
-                        mouse.scroll = Vec2::default();
-                    }
-
-                    let lines = match kind {
-                        ScrollKind::Lines => delta,
-                        ScrollKind::Pixels => {
-                            mouse.scroll += delta;
-                            let cell_size: Vec2<i64> = fonts.read().cell_size().cast();
-                            let lines = mouse.scroll / cell_size;
-                            mouse.scroll -= lines * cell_size;
-                            lines
+                        for _ in 0..lines.x.abs() {
+                            neovim.as_ref().unwrap().input_mouse(
+                                Button::Wheel,
+                                action,
+                                modifiers,
+                                grid.grid,
+                                grid.position.y,
+                                grid.position.x,
+                            );
                         }
-                    };
-
-                    let Some(grid) = ui
-                        .read()
-                        .unwrap()
-                        .grid_under_cursor(mouse.position, fonts.read().cell_size().cast())
-                    else {
-                        return;
-                    };
-
-                    let action = if lines.y < 0 {
-                        Action::WheelDown
-                    } else {
-                        Action::WheelUp
-                    };
-
-                    for _ in 0..lines.y.abs() {
-                        neovim.as_ref().unwrap().input_mouse(
-                            Button::Wheel,
-                            action,
-                            modifiers,
-                            grid.grid,
-                            grid.position.y,
-                            grid.position.x,
-                        );
                     }
 
-                    let action = if lines.x < 0 {
-                        Action::WheelRight
-                    } else {
-                        Action::WheelLeft
-                    };
-
-                    for _ in 0..lines.x.abs() {
-                        neovim.as_ref().unwrap().input_mouse(
-                            Button::Wheel,
-                            action,
-                            modifiers,
-                            grid.grid,
-                            grid.position.y,
-                            grid.position.x,
-                        );
+                    WindowEvent::Resized(physical_size) => {
+                        surface_size = (*physical_size).into();
+                        render_tx
+                            .as_ref()
+                            .unwrap()
+                            .send(Message::Resize {
+                                screen_size: surface_size,
+                                cell_size: fonts.read().cell_size(),
+                            })
+                            .unwrap();
+                        resize_neovim_grid(surface_size, &fonts.read(), neovim.as_ref().unwrap());
                     }
-                }
 
-                WindowEvent::Resized(physical_size) => {
-                    surface_size = (*physical_size).into();
-                    render_tx
-                        .as_ref()
-                        .unwrap()
-                        .send(Message::Resize {
-                            screen_size: surface_size,
-                            cell_size: fonts.read().cell_size(),
-                        })
-                        .unwrap();
-                    resize_neovim_grid(surface_size, &fonts.read(), neovim.as_ref().unwrap());
-                }
+                    WindowEvent::CloseRequested => window_target.exit(),
 
-                WindowEvent::ScaleFactorChanged {
-                    new_inner_size,
-                    // TODO: Use the scale factor
-                    scale_factor: _,
-                } => {
-                    surface_size = (**new_inner_size).into();
-                    render_tx
-                        .as_ref()
-                        .unwrap()
-                        .send(Message::Resize {
-                            screen_size: surface_size,
-                            cell_size: fonts.read().cell_size(),
-                        })
-                        .unwrap();
-                    resize_neovim_grid(surface_size, &fonts.read(), neovim.as_ref().unwrap());
-                }
+                    WindowEvent::RedrawRequested => {
+                        let framerate = window
+                            .current_monitor()
+                            .and_then(|monitor| monitor.refresh_rate_millihertz())
+                            .unwrap_or(60_000);
+                        let delta_seconds = 1_000. / framerate as f32;
+                        render_tx
+                            .as_ref()
+                            .unwrap()
+                            .send(Message::Redraw(delta_seconds))
+                            .unwrap();
+                    }
 
-                WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                    _ => {} // TODO: Handle scale factor change
+                },
 
                 _ => {}
-            },
-
-            Event::RedrawRequested(window_id) if window_id == window.id() => {
-                let framerate = window
-                    .current_monitor()
-                    .and_then(|monitor| monitor.refresh_rate_millihertz())
-                    .unwrap_or(60_000);
-                let delta_seconds = 1_000. / framerate as f32;
-                render_tx
-                    .as_ref()
-                    .unwrap()
-                    .send(Message::Redraw(delta_seconds))
-                    .unwrap();
             }
-
-            _ => {}
-        }
-    })
+        })
+        .unwrap();
 }
 
 fn send_keys(c: &str, modifiers: &mut ModifiersState, neovim: &mut Neovim, ignore_shift: bool) {
-    let shift = modifiers.shift() && !ignore_shift;
-    let c = if modifiers.ctrl() || modifiers.alt() || modifiers.logo() || shift {
-        let ctrl = if modifiers.ctrl() { "C" } else { "" };
+    let shift = modifiers.shift_key() && !ignore_shift;
+    let ctrl = modifiers.control_key();
+    let alt = modifiers.alt_key();
+    let logo = modifiers.super_key();
+    let c = if ctrl || alt || logo || shift {
+        let ctrl = if ctrl { "C" } else { "" };
         let shift = if shift { "S" } else { "" };
-        let alt = if modifiers.alt() { "A" } else { "" };
-        let logo = if modifiers.logo() { "D" } else { "" };
+        let alt = if alt { "A" } else { "" };
+        let logo = if logo { "D" } else { "" };
         format!("<{ctrl}{shift}{alt}{logo}-{c}>")
     } else {
         match c.len() {

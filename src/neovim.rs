@@ -9,7 +9,10 @@ use std::{
         Arc, Mutex, RwLock,
     },
 };
-use winit::event::{ElementState, ModifiersState, MouseButton};
+use winit::{
+    event::{ElementState, MouseButton},
+    keyboard::ModifiersState,
+};
 
 #[derive(Debug, Clone)]
 pub struct Neovim {
@@ -173,7 +176,9 @@ impl TryFrom<MouseButton> for Button {
             MouseButton::Left => Ok(Self::Left),
             MouseButton::Right => Ok(Self::Right),
             MouseButton::Middle => Ok(Self::Middle),
-            MouseButton::Other(_) => Err(ButtonFromWinitError),
+            MouseButton::Back | MouseButton::Forward | MouseButton::Other(_) => {
+                Err(ButtonFromWinitError)
+            }
         }
     }
 }
@@ -228,9 +233,10 @@ pub struct Modifiers(u8);
 
 #[rustfmt::skip]
 impl Modifiers {
-    const CTRL:  u8 = 0b001;
-    const SHIFT: u8 = 0b010;
-    const ALT:   u8 = 0b100;
+    const CTRL:  u8 = 0b0001;
+    const SHIFT: u8 = 0b0010;
+    const ALT:   u8 = 0b0100;
+    const LOGO:  u8 = 0b1000;
 }
 
 impl Modifiers {
@@ -261,6 +267,14 @@ impl Modifiers {
     pub fn alt(self) -> bool {
         self.0 & Self::ALT > 0
     }
+
+    pub fn with_logo(self, value: bool) -> Self {
+        Self(self.0 | (Self::LOGO * value as u8))
+    }
+
+    pub fn logo(self) -> bool {
+        self.0 & Self::LOGO > 0
+    }
 }
 
 impl From<Modifiers> for String {
@@ -282,9 +296,10 @@ impl From<Modifiers> for Value {
 impl From<ModifiersState> for Modifiers {
     fn from(state: ModifiersState) -> Self {
         Self::new()
-            .with_ctrl(state.ctrl())
-            .with_shift(state.shift())
-            .with_alt(state.alt())
+            .with_ctrl(state.control_key())
+            .with_shift(state.shift_key())
+            .with_alt(state.alt_key())
+            .with_logo(state.super_key())
     }
 }
 
