@@ -8,7 +8,7 @@ mod util;
 
 use crate::{
     neovim::{Action, Button},
-    rendering::{pipelines::cursor::CursorUpdateInfo, state},
+    rendering::pipelines::cursor::CursorUpdateInfo,
 };
 use event::{Event, OptionSet};
 use neovim::{Neovim, StdoutHandler};
