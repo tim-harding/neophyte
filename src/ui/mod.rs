@@ -129,7 +129,6 @@ impl Ui {
 
     /// Update the UI with the given event
     pub fn process(&mut self, event: Event) {
-        log::info!("{event:?}");
         match event {
             Event::OptionSet(event) => self.options.event(event),
             Event::DefaultColorsSet(event) => {
@@ -208,7 +207,7 @@ impl Ui {
                 width,
                 height,
             }) => {
-                self.show(grid);
+                self.show_normal(grid);
                 self.float_windows_start += 1;
                 *self.grid_mut(grid).unwrap().window_mut() = Window::Normal(NormalWindow {
                     start: Vec2::new(start_col, start_row),
@@ -224,7 +223,7 @@ impl Ui {
                 anchor_col,
                 focusable,
             }) => {
-                self.show(grid);
+                self.show_float(grid);
                 *self.grid_mut(grid).unwrap().window_mut() = Window::Floating(FloatingWindow {
                     anchor,
                     focusable,
@@ -280,7 +279,7 @@ impl Ui {
                 scrolled: _,
                 sep_char: _,
             }) => {
-                self.show(grid);
+                self.show_float(grid);
                 *self.get_or_create_grid(grid).window_mut() = Window::Floating(FloatingWindow {
                     anchor: Anchor::Nw,
                     anchor_grid: 1,
@@ -312,17 +311,25 @@ impl Ui {
     }
 
     /// Move the given grid to the top of the draw order
-    fn show(&mut self, grid: u64) {
-        if let Some(i) = self.draw_order.iter().position(|&r| r == grid) {
-            self.draw_order.remove(i);
-        }
+    fn show_float(&mut self, grid: u64) {
+        self.hide(grid);
         self.draw_order.push(grid);
+    }
+
+    /// Move the given grid to the top of the draw order
+    fn show_normal(&mut self, grid: u64) {
+        self.hide(grid);
+        self.draw_order.insert(self.float_windows_start, grid);
+        self.float_windows_start += 1;
     }
 
     /// Remove the given grid from the draw order
     fn hide(&mut self, grid: u64) {
         if let Some(i) = self.draw_order.iter().position(|&r| r == grid) {
             self.draw_order.remove(i);
+            if i < self.float_windows_start {
+                self.float_windows_start -= 1;
+            }
         }
     }
 
@@ -331,9 +338,7 @@ impl Ui {
         if let Ok(i) = self.grids.binary_search_by(|probe| probe.id.cmp(&grid)) {
             self.grids.remove(i);
         }
-        if let Some(i) = self.draw_order.iter().position(|&r| r == grid) {
-            self.draw_order.remove(i);
-        }
+        self.hide(grid);
         self.deleted_grids.push(grid);
     }
 
