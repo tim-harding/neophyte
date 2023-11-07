@@ -346,11 +346,12 @@ impl Ui {
                 offset,
                 anchor_grid,
             } = grid.window().offset(grid.contents().size);
-            if let Some(anchor_grid) = anchor_grid {
+            let position = if let Some(anchor_grid) = anchor_grid {
                 self.position(anchor_grid) + offset
             } else {
                 offset
-            }
+            };
+            position.map(|x| x.max(0.))
         } else {
             Vec2::default()
         }
