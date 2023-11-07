@@ -8,7 +8,7 @@ mod util;
 
 use crate::{
     neovim::{Action, Button},
-    rendering::pipelines::cursor::CursorUpdateInfo,
+    rendering::{pipelines::cursor::CursorUpdateInfo, state},
 };
 use event::{Event, OptionSet};
 use neovim::{Neovim, StdoutHandler};
@@ -28,7 +28,7 @@ use ui::{
 };
 use util::{vec2::Vec2, Values};
 use winit::{
-    event::{MouseScrollDelta, TouchPhase, WindowEvent},
+    event::{ElementState, MouseScrollDelta, TouchPhase, WindowEvent},
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy},
     keyboard::{Key, ModifiersState, NamedKey},
     window::{Window, WindowBuilder},
@@ -112,78 +112,86 @@ fn main() {
                         modifiers = new_modifiers.state();
                     }
 
-                    WindowEvent::KeyboardInput { event, .. } => match &event.logical_key {
-                        Key::Named(key) => {
-                            let c = || {
-                                Some(match key {
-                                    NamedKey::Enter => "Enter",
-                                    NamedKey::Tab => "Tab",
-                                    NamedKey::Space => "Space",
-                                    NamedKey::ArrowDown => "Down",
-                                    NamedKey::ArrowLeft => "Left",
-                                    NamedKey::ArrowRight => "Right",
-                                    NamedKey::ArrowUp => "Up",
-                                    NamedKey::End => "End",
-                                    NamedKey::Home => "Home",
-                                    NamedKey::PageDown => "PageDown",
-                                    NamedKey::PageUp => "PageUp",
-                                    NamedKey::Backspace => "BS",
-                                    NamedKey::Delete => "Del",
-                                    NamedKey::Escape => "Esc",
-                                    NamedKey::F1 => "F1",
-                                    NamedKey::F2 => "F2",
-                                    NamedKey::F3 => "F3",
-                                    NamedKey::F4 => "F4",
-                                    NamedKey::F5 => "F5",
-                                    NamedKey::F6 => "F6",
-                                    NamedKey::F7 => "F7",
-                                    NamedKey::F8 => "F8",
-                                    NamedKey::F9 => "F9",
-                                    NamedKey::F10 => "F10",
-                                    NamedKey::F11 => "F11",
-                                    NamedKey::F12 => "F12",
-                                    NamedKey::F13 => "F13",
-                                    NamedKey::F14 => "F14",
-                                    NamedKey::F15 => "F15",
-                                    NamedKey::F16 => "F16",
-                                    NamedKey::F17 => "F17",
-                                    NamedKey::F18 => "F18",
-                                    NamedKey::F19 => "F19",
-                                    NamedKey::F20 => "F20",
-                                    NamedKey::F21 => "F21",
-                                    NamedKey::F22 => "F22",
-                                    NamedKey::F23 => "F23",
-                                    NamedKey::F24 => "F24",
-                                    NamedKey::F25 => "F25",
-                                    NamedKey::F26 => "F26",
-                                    NamedKey::F27 => "F27",
-                                    NamedKey::F28 => "F28",
-                                    NamedKey::F29 => "F29",
-                                    NamedKey::F30 => "F30",
-                                    NamedKey::F31 => "F31",
-                                    NamedKey::F32 => "F32",
-                                    NamedKey::F33 => "F33",
-                                    NamedKey::F34 => "F34",
-                                    NamedKey::F35 => "F35",
-                                    _ => return None,
-                                })
-                            };
+                    WindowEvent::KeyboardInput { event, .. } => {
+                        match event.state {
+                            ElementState::Pressed => {}
+                            ElementState::Released => return,
+                        }
+                        match &event.logical_key {
+                            Key::Named(key) => {
+                                let c = || {
+                                    Some(match key {
+                                        NamedKey::Enter => "Enter",
+                                        NamedKey::Tab => "Tab",
+                                        NamedKey::Space => "Space",
+                                        NamedKey::ArrowDown => "Down",
+                                        NamedKey::ArrowLeft => "Left",
+                                        NamedKey::ArrowRight => "Right",
+                                        NamedKey::ArrowUp => "Up",
+                                        NamedKey::End => "End",
+                                        NamedKey::Home => "Home",
+                                        NamedKey::PageDown => "PageDown",
+                                        NamedKey::PageUp => "PageUp",
+                                        NamedKey::Backspace => "BS",
+                                        NamedKey::Delete => "Del",
+                                        NamedKey::Escape => "Esc",
+                                        NamedKey::F1 => "F1",
+                                        NamedKey::F2 => "F2",
+                                        NamedKey::F3 => "F3",
+                                        NamedKey::F4 => "F4",
+                                        NamedKey::F5 => "F5",
+                                        NamedKey::F6 => "F6",
+                                        NamedKey::F7 => "F7",
+                                        NamedKey::F8 => "F8",
+                                        NamedKey::F9 => "F9",
+                                        NamedKey::F10 => "F10",
+                                        NamedKey::F11 => "F11",
+                                        NamedKey::F12 => "F12",
+                                        NamedKey::F13 => "F13",
+                                        NamedKey::F14 => "F14",
+                                        NamedKey::F15 => "F15",
+                                        NamedKey::F16 => "F16",
+                                        NamedKey::F17 => "F17",
+                                        NamedKey::F18 => "F18",
+                                        NamedKey::F19 => "F19",
+                                        NamedKey::F20 => "F20",
+                                        NamedKey::F21 => "F21",
+                                        NamedKey::F22 => "F22",
+                                        NamedKey::F23 => "F23",
+                                        NamedKey::F24 => "F24",
+                                        NamedKey::F25 => "F25",
+                                        NamedKey::F26 => "F26",
+                                        NamedKey::F27 => "F27",
+                                        NamedKey::F28 => "F28",
+                                        NamedKey::F29 => "F29",
+                                        NamedKey::F30 => "F30",
+                                        NamedKey::F31 => "F31",
+                                        NamedKey::F32 => "F32",
+                                        NamedKey::F33 => "F33",
+                                        NamedKey::F34 => "F34",
+                                        NamedKey::F35 => "F35",
+                                        _ => return None,
+                                    })
+                                };
 
-                            if let Some(c) = c() {
-                                send_keys(c, &mut modifiers, neovim.as_mut().unwrap(), false);
+                                if let Some(c) = c() {
+                                    send_keys(c, &mut modifiers, neovim.as_mut().unwrap(), false);
+                                }
                             }
+
+                            Key::Character(c) => {
+                                let s = match c.as_str() {
+                                    "<" => "Lt",
+                                    "\\" => "Bslash",
+                                    "|" => "Bar",
+                                    _ => c.as_str(),
+                                };
+                                send_keys(s, &mut modifiers, neovim.as_mut().unwrap(), true);
+                            }
+
+                            Key::Unidentified(_) | Key::Dead(_) => {}
                         }
-                        Key::Character(c) => {
-                            let s = match c.as_str() {
-                                "<" => "Lt",
-                                "\\" => "Bslash",
-                                "|" => "Bar",
-                                _ => c.as_str(),
-                            };
-                            send_keys(s, &mut modifiers, neovim.as_mut().unwrap(), true);
-                        }
-                        Key::Unidentified(_) | Key::Dead(_) => {}
-                    },
+                    }
 
                     WindowEvent::CursorMoved { position, .. } => {
                         let position: Vec2<f64> = (*position).into();
