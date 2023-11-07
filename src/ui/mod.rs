@@ -66,7 +66,7 @@ impl Default for Ui {
             grids: vec![],
             deleted_grids: vec![],
             draw_order: vec![1],
-            float_windows_start: 0,
+            float_windows_start: 1,
             cursor: Default::default(),
             mouse: false,
             highlights: vec![],
@@ -208,7 +208,6 @@ impl Ui {
                 height,
             }) => {
                 self.show_normal(grid);
-                self.float_windows_start += 1;
                 *self.grid_mut(grid).unwrap().window_mut() = Window::Normal(NormalWindow {
                     start: Vec2::new(start_col, start_row),
                     size: Vec2::new(width, height),
