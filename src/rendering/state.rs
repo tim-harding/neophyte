@@ -156,10 +156,10 @@ impl RenderState {
             self.grids.update(
                 &self.device,
                 &self.queue,
-                &grid,
+                grid,
                 ui.position(grid.id),
                 &ui.highlights,
-                &fonts,
+                fonts,
                 &mut self.font_cache,
                 &mut self.shape_context,
             );

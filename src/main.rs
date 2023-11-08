@@ -452,7 +452,7 @@ fn main() {
 
                     WindowEvent::Resized(physical_size) => {
                         surface_size = (*physical_size).into();
-                        resize_neovim_grid(surface_size, &fonts, &mut neovim);
+                        resize_neovim_grid(surface_size, &fonts, &neovim);
                         render_state.resize(surface_size, fonts.cell_size());
                     }
 
