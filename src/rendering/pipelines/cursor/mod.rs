@@ -1,5 +1,5 @@
 use crate::{
-    event::{mode_info_set::CursorShape, rgb::Rgb},
+    event::mode_info_set::CursorShape,
     rendering::{nearest_sampler, Motion, TARGET_FORMAT},
     ui::Ui,
     util::{mat3::Mat3, vec2::Vec2},
@@ -116,20 +116,43 @@ impl Pipeline {
     pub fn update(
         &mut self,
         device: &wgpu::Device,
-        update_info: CursorUpdateInfo,
+        ui: &Ui,
         cell_size: Vec2<f32>,
         monochrome_target: &wgpu::TextureView,
     ) {
-        self.fill = update_info.fill - 1.;
+        let (fg, bg) = ui
+            .highlight_groups
+            .get("Cursor")
+            .and_then(|hl_id| ui.highlights.get((*hl_id) as usize))
+            .and_then(|hl| {
+                let fg = hl.rgb_attr.foreground?;
+                let bg = hl.rgb_attr.background?;
+                Some((fg, bg))
+            })
+            .unwrap_or((
+                ui.default_colors.rgb_fg.unwrap_or_default(),
+                ui.default_colors.rgb_bg.unwrap_or_default(),
+            ));
+
+        let mode = &ui.modes[ui.current_mode as usize];
+        let fill = mode.cell_percentage.unwrap_or(10) as f32 / 100.0;
+        let fill = match mode.cursor_shape.unwrap_or(CursorShape::Block) {
+            CursorShape::Block => Vec2::new(1.0, 1.0),
+            CursorShape::Horizontal => Vec2::new(1.0, fill),
+            CursorShape::Vertical => Vec2::new(fill, 1.0),
+        };
+        self.fill = fill * cell_size - 1.;
+
+        let position = ui.position(ui.cursor.grid) + ui.cursor.pos.cast_as();
         self.fragment_push_constants = FragmentPushConstants {
-            fg: update_info.bg.into_linear(),
-            bg: update_info.fg.into_linear(),
+            fg: bg.into_linear(),
+            bg: fg.into_linear(),
             size: cell_size,
             speed: 0.,
             padding: 0.,
         };
 
-        let new_target = cell_size * update_info.position;
+        let new_target = cell_size * position.cast_as();
         if new_target != self.target_position {
             let current_position = self.start_position.lerp(self.target_position, self.t());
             self.start_position = current_position;
@@ -283,48 +306,4 @@ struct FragmentPushConstants {
 
 impl VertexPushConstants {
     pub const SIZE: u32 = size_of::<Self>() as u32;
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
-pub struct CursorUpdateInfo {
-    fg: Rgb,
-    bg: Rgb,
-    fill: Vec2<f32>,
-    position: Vec2<f32>,
-}
-
-impl CursorUpdateInfo {
-    pub fn from_ui(ui: &Ui, cell_size: Vec2<f32>) -> Self {
-        let (fg, bg) = ui
-            .highlight_groups
-            .get("Cursor")
-            .and_then(|hl_id| ui.highlights.get((*hl_id) as usize))
-            .and_then(|hl| {
-                let fg = hl.rgb_attr.foreground?;
-                let bg = hl.rgb_attr.background?;
-                Some((fg, bg))
-            })
-            .unwrap_or((
-                ui.default_colors.rgb_fg.unwrap_or_default(),
-                ui.default_colors.rgb_bg.unwrap_or_default(),
-            ));
-
-        let mode = &ui.modes[ui.current_mode as usize];
-        let fill = mode.cell_percentage.unwrap_or(10) as f32 / 100.0;
-        let fill = match mode.cursor_shape.unwrap_or(CursorShape::Block) {
-            CursorShape::Block => Vec2::new(1.0, 1.0),
-            CursorShape::Horizontal => Vec2::new(1.0, fill),
-            CursorShape::Vertical => Vec2::new(fill, 1.0),
-        };
-        let fill = fill * cell_size;
-
-        let position = ui.position(ui.cursor.grid) + ui.cursor.pos.cast_as();
-
-        Self {
-            fg,
-            bg,
-            fill,
-            position: position.cast_as(),
-        }
-    }
 }

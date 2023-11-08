@@ -1,6 +1,6 @@
 use super::grid::Grid;
 use crate::{
-    event::hl_attr_define::Attributes,
+    event::HlAttrDefine,
     text::{cache::FontCache, fonts::Fonts},
     ui::grid::Grid as UiGrid,
     util::vec2::Vec2,
@@ -42,7 +42,7 @@ impl Grids {
         queue: &wgpu::Queue,
         ui_grid: &UiGrid,
         position: Vec2<f64>,
-        highlights: &[Attributes],
+        highlights: &[HlAttrDefine],
         fonts: &Fonts,
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,

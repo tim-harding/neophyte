@@ -1,29 +1,18 @@
 use super::{
     depth_texture::DepthTexture,
     grids::Grids,
-    highlights::{HighlightUpdateInfo, Highlights},
-    pipelines::{
-        blend, cell_fill,
-        cursor::{self, CursorUpdateInfo},
-        emoji, gamma_blit, lines, monochrome,
-    },
+    highlights::Highlights,
+    pipelines::{blend, cell_fill, cursor, emoji, gamma_blit, lines, monochrome},
     texture::Texture,
     Motion, TARGET_FORMAT,
 };
 use crate::{
-    event::hl_attr_define::Attributes,
-    text::{cache::FontCache, fonts::FontsHandle},
-    ui::grid::Grid,
+    text::{cache::FontCache, fonts::Fonts},
+    ui::Ui,
     util::vec2::Vec2,
     Settings,
 };
-use std::{
-    sync::{
-        mpsc::{self, Sender},
-        Arc,
-    },
-    thread,
-};
+use std::sync::Arc;
 use swash::shape::ShapeContext;
 use winit::window::Window;
 
@@ -158,101 +147,32 @@ impl RenderState {
         }
     }
 
-    pub fn run(mut self, fonts: Arc<FontsHandle>) -> (thread::JoinHandle<()>, Sender<Message>) {
-        let (tx, rx) = mpsc::channel();
-        let handle = thread::spawn(move || {
-            let mut highlights: Vec<Attributes> = vec![];
-            let mut delta_seconds = 0.0;
-            let mut settings = Settings::default();
-            let mut wants_redraw = false;
-            loop {
-                loop {
-                    match rx.try_recv() {
-                        Err(e) => match e {
-                            mpsc::TryRecvError::Empty => break,
-                            mpsc::TryRecvError::Disconnected => return,
-                        },
-
-                        Ok(message) => match message {
-                            Message::UpdateGrid { grid, position } => {
-                                self.grids.update(
-                                    &self.device,
-                                    &self.queue,
-                                    &grid,
-                                    position,
-                                    &highlights,
-                                    &fonts.read(),
-                                    &mut self.font_cache,
-                                    &mut self.shape_context,
-                                );
-                            }
-
-                            Message::DeleteGrid(id) => {
-                                self.grids.remove_grid(id);
-                            }
-
-                            Message::UpdateDrawOrder(draw_order) => {
-                                self.grids.set_draw_order(draw_order);
-                            }
-
-                            Message::UpdateCursor(update_info) => {
-                                let cell_size = fonts.read().cell_size().cast_as();
-                                self.pipelines.cursor.update(
-                                    &self.device,
-                                    update_info,
-                                    cell_size,
-                                    &self.targets.monochrome.view,
-                                );
-                            }
-
-                            Message::UpdateHighlights(update_info) => {
-                                self.highlights.update(&update_info, &self.device);
-                                highlights = update_info.highlights;
-                            }
-
-                            Message::Redraw(new_delta_seconds) => {
-                                log::info!("Render thread got redraw request");
-                                delta_seconds = new_delta_seconds;
-                            }
-
-                            Message::UpdateSettings(new_settings) => settings = new_settings,
-
-                            Message::Resize {
-                                screen_size,
-                                cell_size,
-                            } => {
-                                log::info!("Render thread got resize");
-                                self.resize(screen_size, cell_size);
-                            }
-                        },
-                    }
-                    wants_redraw = true;
-                }
-
-                if !wants_redraw {
-                    continue;
-                }
-
-                // TODO: Only necessary if something updated
-                self.update(&fonts);
-
-                let motion = self.render(fonts.read().cell_size(), delta_seconds, settings);
-                log::info!("Redrew UI with result of {motion:?}");
-
-                wants_redraw = matches!(motion, Motion::Animating);
-            }
-        });
-
-        (handle, tx)
-    }
-
-    pub fn update(&mut self, fonts: &FontsHandle) {
-        let (fonts, needs_glyph_cache_reset) = fonts.read_and_take_cache_reset();
-        if needs_glyph_cache_reset {
-            self.clear_glyph_cache();
+    pub fn update(&mut self, ui: &Ui, fonts: &Fonts) {
+        for grid in ui.deleted_grids.iter() {
+            self.grids.remove_grid(*grid);
         }
-        drop(fonts);
 
+        for grid in ui.grids.iter() {
+            self.grids.update(
+                &self.device,
+                &self.queue,
+                &grid,
+                ui.position(grid.id),
+                &ui.highlights,
+                &fonts,
+                &mut self.font_cache,
+                &mut self.shape_context,
+            );
+        }
+
+        self.grids.set_draw_order(ui.draw_order.clone());
+        self.highlights.update(ui, &self.device);
+        self.pipelines.cursor.update(
+            &self.device,
+            ui,
+            fonts.cell_size().cast_as(),
+            &self.targets.monochrome.view,
+        );
         self.pipelines.monochrome.update(
             &self.device,
             &self.queue,
@@ -398,7 +318,7 @@ impl RenderState {
         motion
     }
 
-    fn clear_glyph_cache(&mut self) {
+    pub fn clear_glyph_cache(&mut self) {
         self.font_cache.clear();
         self.pipelines.emoji.clear();
         self.pipelines.monochrome.clear();
@@ -407,23 +327,4 @@ impl RenderState {
     pub fn surface_size(&self) -> Vec2<u32> {
         Vec2::new(self.surface_config.width, self.surface_config.height)
     }
-}
-
-// TODO: Maybe messages for different updates and just send cloned values for
-// simplicity? Then it would be possible to get rid of UI double buffering.
-pub enum Message {
-    UpdateGrid {
-        grid: Grid,
-        position: Vec2<f64>,
-    },
-    DeleteGrid(u64),
-    UpdateDrawOrder(Vec<u64>),
-    UpdateCursor(CursorUpdateInfo),
-    UpdateHighlights(HighlightUpdateInfo),
-    UpdateSettings(Settings),
-    Redraw(f32),
-    Resize {
-        screen_size: Vec2<u32>,
-        cell_size: Vec2<u32>,
-    },
 }

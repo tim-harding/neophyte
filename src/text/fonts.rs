@@ -4,43 +4,6 @@ use crate::{
     util::vec2::Vec2,
 };
 use font_loader::system_fonts::{self, FontPropertyBuilder};
-use std::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
-
-/// A shared handle to fonts with tracking for whether the render thread needs
-/// to reset its glyph cache.
-#[derive(Default, Debug)]
-pub struct FontsHandle {
-    needs_glyph_cache_reset: Mutex<bool>,
-    inner: RwLock<Fonts>,
-}
-
-impl FontsHandle {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Gets a write handle to the fonts and flags that the render thread will
-    /// need to reset its glyph cache
-    pub fn write(&self) -> RwLockWriteGuard<Fonts> {
-        let lock = self.inner.write().unwrap();
-        *self.needs_glyph_cache_reset.lock().unwrap() = true;
-        lock
-    }
-
-    /// Gets a read handle to the fonts
-    pub fn read(&self) -> RwLockReadGuard<Fonts> {
-        self.inner.read().unwrap()
-    }
-
-    /// Get a read handle to the fonts and consume the glyph cache reset flag.
-    pub fn read_and_take_cache_reset(&self) -> (RwLockReadGuard<Fonts>, bool) {
-        let inner_lock = self.inner.read().unwrap();
-        let mut needs_glyph_cache_reset_lock = self.needs_glyph_cache_reset.lock().unwrap();
-        let needs_glyph_cache_reset = *needs_glyph_cache_reset_lock;
-        *needs_glyph_cache_reset_lock = false;
-        (inner_lock, needs_glyph_cache_reset)
-    }
-}
 
 /// Loaded fonts
 #[derive(Debug, Clone)]

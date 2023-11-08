@@ -1,8 +1,4 @@
-use crate::{
-    event::{hl_attr_define::Attributes, rgb::Rgb},
-    ui::Ui,
-    util::srgb,
-};
+use crate::{event::rgb::Rgb, ui::Ui, util::srgb};
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::util::DeviceExt;
 
@@ -35,12 +31,11 @@ impl Highlights {
         }
     }
 
-    pub fn update(&mut self, update_info: &HighlightUpdateInfo, device: &wgpu::Device) {
-        let HighlightUpdateInfo {
-            highlights,
-            fg_default,
-            bg_default,
-        } = update_info;
+    pub fn update(&mut self, ui: &Ui, device: &wgpu::Device) {
+        let fg_default = ui.default_colors.rgb_fg.unwrap_or(Rgb::new(255, 255, 255));
+        let bg_default = ui.default_colors.rgb_bg.unwrap_or(Rgb::new(0, 0, 0));
+        let highlights: Vec<_> = ui.highlights.iter().map(|hl| hl.rgb_attr).collect();
+
         self.clear_color = wgpu::Color {
             r: srgb(bg_default.r()) as f64,
             g: srgb(bg_default.g()) as f64,
@@ -108,25 +103,5 @@ pub struct HighlightInfo {
 impl HighlightInfo {
     pub fn new(fg: [f32; 4], bg: [f32; 4]) -> Self {
         Self { fg, bg }
-    }
-}
-
-pub struct HighlightUpdateInfo {
-    pub highlights: Vec<Attributes>,
-    pub fg_default: Rgb,
-    pub bg_default: Rgb,
-}
-
-impl HighlightUpdateInfo {
-    pub fn from_ui(ui: &Ui) -> Self {
-        let fg_default = ui.default_colors.rgb_fg.unwrap_or(Rgb::new(255, 255, 255));
-        let bg_default = ui.default_colors.rgb_bg.unwrap_or(Rgb::new(0, 0, 0));
-        let highlights: Vec<_> = ui.highlights.iter().map(|hl| hl.rgb_attr).collect();
-
-        Self {
-            highlights,
-            fg_default,
-            bg_default,
-        }
     }
 }

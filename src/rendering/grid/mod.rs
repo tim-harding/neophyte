@@ -3,7 +3,7 @@ mod scrolling_grids;
 
 use self::scrolling_grids::ScrollingGrids;
 use crate::{
-    event::hl_attr_define::Attributes,
+    event::HlAttrDefine,
     text::{
         cache::{CacheValue, FontCache, GlyphKind},
         fonts::{FontStyle, Fonts},
@@ -72,7 +72,7 @@ impl Grid {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         grid_bind_group_layout: &wgpu::BindGroupLayout,
-        highlights: &[Attributes],
+        highlights: &[HlAttrDefine],
         fonts: &Fonts,
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
@@ -176,7 +176,7 @@ impl Grid {
                             );
 
                             if let Some(hl) = highlights.get(glyph.data as usize) {
-                                if hl.underline() {
+                                if hl.rgb_attr.underline() {
                                     self.lines.push(Line {
                                         position: position
                                             + Vec2::new(
@@ -412,11 +412,11 @@ impl Grid {
 fn best_font(
     cluster: &mut CharCluster,
     fonts: &Fonts,
-    highlights: &[Attributes],
+    highlights: &[HlAttrDefine],
 ) -> Option<BestFont> {
     let style = highlights
         .get(cluster.user_data() as usize)
-        .map(|highlight| FontStyle::new(highlight.bold(), highlight.italic()))
+        .map(|highlight| FontStyle::new(highlight.rgb_attr.bold(), highlight.rgb_attr.italic()))
         .unwrap_or_default();
     let mut best_font = None;
     for (i, font_info) in fonts.iter().enumerate() {
