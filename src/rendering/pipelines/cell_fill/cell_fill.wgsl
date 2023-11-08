@@ -1,3 +1,9 @@
+struct BgCell {
+    r: f32,
+    g: f32,
+    b: f32,
+}
+
 struct GridInfo {
     target_size: vec2<u32>,
     cell_size: vec2<u32>,
@@ -14,7 +20,7 @@ struct HighlightInfo {
 @group(0) @binding(0)
 var<storage, read> highlights: array<HighlightInfo>;
 @group(1) @binding(0)
-var<storage, read> grid_cells: array<u32>;
+var<storage, read> grid_cells: array<BgCell>;
 var<push_constant> grid_info: GridInfo;
 
 struct VertexOutput {
@@ -27,8 +33,7 @@ fn vs_main(
     @builtin(vertex_index) in_vertex_index: u32,
 ) -> VertexOutput {
     let grid_index = in_vertex_index / 6u;
-    let highlight_index = grid_cells[grid_index];
-    let hl_info = highlights[highlight_index];
+    let grid_cell = grid_cells[grid_index];
     let pos = vec2<u32>(
         grid_index % grid_info.grid_width, 
         grid_index / grid_info.grid_width
@@ -39,7 +44,7 @@ fn vs_main(
     );
 
     var out: VertexOutput;
-    out.color = hl_info.bg;
+    out.color = vec4<f32>(grid_cell.r, grid_cell.g, grid_cell.b, 1.0);
     out.clip_position = vec4<f32>(
         vec2<f32>(vec2<i32>((pos + tex_coord) * grid_info.cell_size) + grid_info.offset) / 
         vec2<f32>(grid_info.target_size) * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),

@@ -24,7 +24,7 @@ use swash::{
 pub struct Grid {
     monochrome: Vec<MonochromeCell>,
     emoji: Vec<EmojiCell>,
-    cell_fill: Vec<u32>,
+    cell_fill: Vec<BgCell>,
     lines: Vec<Line>,
     buffer: Option<wgpu::Buffer>,
     buffer_capacity: u64,
@@ -74,6 +74,7 @@ impl Grid {
         grid_bind_group_layout: &wgpu::BindGroupLayout,
         highlights: &[HlAttrDefine],
         default_fg: Rgb,
+        default_bg: Rgb,
         fonts: &Fonts,
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
@@ -84,6 +85,7 @@ impl Grid {
         self.size = self.scrolling.size().try_cast().unwrap();
 
         let default_fg = default_fg.into_linear();
+        let default_bg = default_bg.into_linear();
 
         self.monochrome.clear();
         self.emoji.clear();
@@ -151,8 +153,19 @@ impl Grid {
                         // contain an empty glyph. That means we can produce the
                         // cell fill characters during shaping without worrying
                         // too much about whether a glyph cluster spans multiple
-                        // cells. This is something to improve on in the future.
-                        self.cell_fill.push(cluster.data);
+                        // cells. This is something to improve on in the future
+                        // in case some fonts contain actual ligatures.
+                        let bg = highlights[cluster.data as usize]
+                            .rgb_attr
+                            .background
+                            .map(|bg| bg.into_linear())
+                            .unwrap_or(default_bg);
+                        let bg_cell = BgCell {
+                            r: bg[0],
+                            g: bg[1],
+                            b: bg[2],
+                        };
+                        self.cell_fill.push(bg_cell);
 
                         let x = cluster.source.start * cell_size.x;
                         let mut advanced = 0.0f32;
@@ -224,7 +237,17 @@ impl Grid {
                     loop {
                         let range = cluster.range();
                         for _ in range.start..range.end {
-                            self.cell_fill.push(cluster.user_data());
+                            let bg = highlights[cluster.user_data() as usize]
+                                .rgb_attr
+                                .background
+                                .map(|bg| bg.into_linear())
+                                .unwrap_or(default_bg);
+                            let bg_cell = BgCell {
+                                r: bg[0],
+                                g: bg[1],
+                                b: bg[2],
+                            };
+                            self.cell_fill.push(bg_cell);
                         }
 
                         if !parser.next(&mut cluster) {
@@ -489,6 +512,14 @@ pub struct EmojiCell {
     pub x: i32,
     pub y: i32,
     pub glyph_index: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
+pub struct BgCell {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
 }
 
 #[repr(C)]

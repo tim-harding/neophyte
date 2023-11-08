@@ -161,6 +161,7 @@ impl RenderState {
                 ui.position(grid.id),
                 &ui.highlights,
                 ui.default_colors.rgb_fg.unwrap_or(Rgb::WHITE),
+                ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK),
                 fonts,
                 &mut self.font_cache,
                 &mut self.shape_context,
