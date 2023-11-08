@@ -48,6 +48,7 @@ fn main() {
         stdout_handler.start(handler);
     });
 
+    let mut scale_factor = 1.;
     let mut surface_size = render_state.surface_size();
     let mut ui = Ui::new();
     let mut settings = Settings::new();
@@ -164,7 +165,7 @@ fn main() {
                                 let mut args =
                                     Values::new(params.into_iter().next().unwrap()).unwrap();
                                 let height: f32 = args.next().unwrap();
-                                let size = FontSize::Height(height);
+                                let size = FontSize::Height(height * scale_factor);
                                 fonts.set_font_size(size);
                                 resize_neovim_grid(surface_size, &fonts, &neovim);
                             }
@@ -173,7 +174,7 @@ fn main() {
                                 let mut args =
                                     Values::new(params.into_iter().next().unwrap()).unwrap();
                                 let width: f32 = args.next().unwrap();
-                                let size = FontSize::Width(width);
+                                let size = FontSize::Width(width * scale_factor);
                                 fonts.set_font_size(size);
                                 resize_neovim_grid(surface_size, &fonts, &neovim);
                             }
@@ -449,6 +450,15 @@ fn main() {
                         render_state.resize(surface_size, fonts.cell_size());
                     }
 
+                    WindowEvent::ScaleFactorChanged {
+                        scale_factor: new_scale_factor,
+                        ..
+                    } => {
+                        scale_factor = *new_scale_factor as f32;
+                        let new_font_size = FontSize::Height(fonts.metrics().em * scale_factor);
+                        fonts.set_font_size(new_font_size);
+                    }
+
                     WindowEvent::CloseRequested => window_target.exit(),
 
                     WindowEvent::RedrawRequested => {
@@ -470,7 +480,7 @@ fn main() {
                         log::info!("Rendered with result {motion:?}");
                     }
 
-                    _ => {} // TODO: Handle scale factor change
+                    _ => {}
                 },
 
                 _ => {}

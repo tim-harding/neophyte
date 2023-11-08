@@ -19,7 +19,10 @@ pub struct WinFloatPos {
     pub anchor_col: f64,
     /// Whether the window can receive focus
     pub focusable: bool,
-    // TODO: There is an additional undocumented u64 parameter. Investigate.
+    // NOTE: There is an additional undocumented u64 parameter. Based on the
+    // Neovide codebase, this is used to indicate stacking order. I choose to
+    // ignore it unless the documentation is updated. Until then, I assume it is
+    // not intended to be used.
 }
 
 impl Parse for WinFloatPos {
