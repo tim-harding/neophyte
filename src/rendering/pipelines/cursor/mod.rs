@@ -18,6 +18,7 @@ pub struct Pipeline {
     target_position: Vec2<f32>,
     elapsed: f32,
     fill: Vec2<f32>,
+    cursor_size: Vec2<f32>,
 }
 
 impl Pipeline {
@@ -86,7 +87,7 @@ impl Pipeline {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
+                cull_mode: None,
                 polygon_mode: wgpu::PolygonMode::Fill,
                 unclipped_depth: false,
                 conservative: false,
@@ -110,6 +111,7 @@ impl Pipeline {
             elapsed: 1.0,
             fragment_push_constants: FragmentPushConstants::default(),
             fill: Vec2::default(),
+            cursor_size: Vec2::default(),
         }
     }
 
@@ -136,12 +138,12 @@ impl Pipeline {
 
         let mode = &ui.modes[ui.current_mode as usize];
         let fill = mode.cell_percentage.unwrap_or(10) as f32 / 100.0;
-        let fill = match mode.cursor_shape.unwrap_or(CursorShape::Block) {
+        self.fill = match mode.cursor_shape.unwrap_or(CursorShape::Block) {
             CursorShape::Block => Vec2::new(1.0, 1.0),
             CursorShape::Horizontal => Vec2::new(1.0, fill),
             CursorShape::Vertical => Vec2::new(fill, 1.0),
         };
-        self.fill = fill * cell_size - 1.;
+        self.cursor_size = cell_size - 1.;
 
         let position = ui.position(ui.cursor.grid) + ui.cursor.pos.cast_as();
         self.fragment_push_constants = FragmentPushConstants {
@@ -243,8 +245,8 @@ impl Pipeline {
             0,
             cast_slice(&[VertexPushConstants {
                 transform,
-                fill: self.fill / target_size,
-                padding: Vec2::default(),
+                fill: self.fill,
+                cursor_size: self.cursor_size / target_size,
             }]),
         );
         render_pass.set_push_constants(
@@ -286,7 +288,7 @@ fn bind_group(
 struct VertexPushConstants {
     transform: Mat3,
     fill: Vec2<f32>,
-    padding: Vec2<f32>,
+    cursor_size: Vec2<f32>,
 }
 
 impl FragmentPushConstants {
