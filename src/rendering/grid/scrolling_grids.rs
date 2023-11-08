@@ -49,15 +49,15 @@ impl ScrollingGrids {
         let offset = mag * sign;
         let mut cover = Range::until(grid.size.y as i64);
         self.t += offset as f32;
-        let visible_range = Range::until(grid.size.y as i64) + self.t as i64;
         self.scrolling.retain_mut(|part| {
             part.offset -= offset;
             let grid_range = Range::until(part.grid.size.y as i64) + part.offset;
-            let grid_range = grid_range.cover(cover) - part.offset;
+            let covered = grid_range.cover(cover);
             cover = cover.union(grid_range);
+            let grid_range = covered - part.offset;
             part.start = grid_range.start.try_into().unwrap();
             part.end = grid_range.end.try_into().unwrap();
-            !part.is_empty() && grid_range.is_overlapping(visible_range)
+            !part.is_empty()
         });
         self.scrolling.push(GridPart::new(grid));
     }

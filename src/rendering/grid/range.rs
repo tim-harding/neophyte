@@ -24,6 +24,10 @@ impl Range {
         (self.end - self.start) as usize
     }
 
+    pub const fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn union(self, other: Self) -> Self {
         Self {
             start: self.start.min(other.start),
@@ -35,8 +39,8 @@ impl Range {
         Self::new(self.start, self.start)
     }
 
-    pub fn is_overlapping(&self, other: Range) -> bool {
-        self.cover(other) != *self
+    pub fn is_disjoint(&self, other: &Range) -> bool {
+        self.start >= other.end || self.end <= other.start
     }
 
     pub fn cover(self, cover: Self) -> Self {
