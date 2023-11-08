@@ -1,6 +1,6 @@
 use super::grid::Grid;
 use crate::{
-    event::HlAttrDefine,
+    event::{rgb::Rgb, HlAttrDefine},
     text::{cache::FontCache, fonts::Fonts},
     ui::grid::Grid as UiGrid,
     util::vec2::Vec2,
@@ -43,6 +43,7 @@ impl Grids {
         ui_grid: &UiGrid,
         position: Vec2<f64>,
         highlights: &[HlAttrDefine],
+        default_fg: Rgb,
         fonts: &Fonts,
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
@@ -66,6 +67,7 @@ impl Grids {
                 queue,
                 &self.bind_group_layout,
                 highlights,
+                default_fg,
                 fonts,
                 font_cache,
                 shape_context,

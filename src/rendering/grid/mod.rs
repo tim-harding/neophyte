@@ -3,7 +3,7 @@ mod scrolling_grids;
 
 use self::scrolling_grids::ScrollingGrids;
 use crate::{
-    event::HlAttrDefine,
+    event::{rgb::Rgb, HlAttrDefine},
     text::{
         cache::{CacheValue, FontCache, GlyphKind},
         fonts::{FontStyle, Fonts},
@@ -22,8 +22,8 @@ use swash::{
 };
 
 pub struct Grid {
-    monochrome: Vec<Cell>,
-    emoji: Vec<Cell>,
+    monochrome: Vec<MonochromeCell>,
+    emoji: Vec<EmojiCell>,
     cell_fill: Vec<u32>,
     lines: Vec<Line>,
     buffer: Option<wgpu::Buffer>,
@@ -73,6 +73,7 @@ impl Grid {
         queue: &wgpu::Queue,
         grid_bind_group_layout: &wgpu::BindGroupLayout,
         highlights: &[HlAttrDefine],
+        default_fg: Rgb,
         fonts: &Fonts,
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
@@ -81,6 +82,8 @@ impl Grid {
         let metrics_px = metrics.into_pixels();
         let cell_size = metrics_px.cell_size();
         self.size = self.scrolling.size().try_cast().unwrap();
+
+        let default_fg = default_fg.into_linear();
 
         self.monochrome.clear();
         self.emoji.clear();
@@ -175,7 +178,11 @@ impl Grid {
                                     + (cell_line_i as i32 * cell_size.y as i32),
                             );
 
+                            let mut fg = default_fg;
                             if let Some(hl) = highlights.get(glyph.data as usize) {
+                                if let Some(foreground) = hl.rgb_attr.foreground {
+                                    fg = foreground.into_linear();
+                                }
                                 if hl.rgb_attr.underline() {
                                     self.lines.push(Line {
                                         position: position
@@ -196,15 +203,18 @@ impl Grid {
 
                             let position = position + Vec2::new(0, metrics_px.em as i32);
                             match kind {
-                                GlyphKind::Monochrome => self.monochrome.push(Cell {
-                                    position,
+                                GlyphKind::Monochrome => self.monochrome.push(MonochromeCell {
+                                    x: position.x,
+                                    y: position.y,
+                                    r: fg[0],
+                                    g: fg[1],
+                                    b: fg[2],
                                     glyph_index,
-                                    highlight_index: glyph.data,
                                 }),
-                                GlyphKind::Emoji => self.emoji.push(Cell {
-                                    position,
+                                GlyphKind::Emoji => self.emoji.push(EmojiCell {
+                                    x: position.x,
+                                    y: position.y,
                                     glyph_index,
-                                    highlight_index: 0,
                                 }),
                             }
                             advanced += glyph.advance * metrics.scale_factor;
@@ -464,10 +474,21 @@ impl BestFont {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
-pub struct Cell {
-    pub position: Vec2<i32>,
+pub struct MonochromeCell {
+    pub x: i32,
+    pub y: i32,
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
     pub glyph_index: u32,
-    pub highlight_index: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
+pub struct EmojiCell {
+    pub x: i32,
+    pub y: i32,
+    pub glyph_index: u32,
 }
 
 #[repr(C)]

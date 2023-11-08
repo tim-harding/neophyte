@@ -1,7 +1,10 @@
-struct Cell {
-    position: vec2<i32>,
+struct MonochromeCell {
+    x: i32,
+    y: i32,
+    r: f32,
+    g: f32,
+    b: f32,
     glyph_index: u32,
-    highlight_index: u32,
 }
 
 struct GlyphInfo {
@@ -31,7 +34,7 @@ var glyph_sampler: sampler;
 @group(1) @binding(2)
 var<storage, read> glyphs: array<GlyphInfo>;
 @group(2) @binding(0)
-var<storage, read> cells: array<Cell>;
+var<storage, read> cells: array<MonochromeCell>;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
@@ -51,15 +54,15 @@ fn vs_main(
         f32(((in_vertex_index + 5u) % 6u) / 3u),
     );
     let glyph_info = glyphs[grid_cell.glyph_index];
-    let hl_info = highlights[grid_cell.highlight_index];
+    let position = vec2<i32>(grid_cell.x, grid_cell.y);
 
     var out: VertexOutput;
-    out.fg = hl_info.fg;
+    out.fg = vec3<f32>(grid_cell.r, grid_cell.g, grid_cell.b);
     out.tex_index = grid_cell.glyph_index;
     out.tex_coord = tex_coord;
     out.clip_position = vec4<f32>(
         (
-            vec2<f32>(grid_cell.position + constants.offset + glyph_info.offset) + 
+            vec2<f32>(position + constants.offset + glyph_info.offset) + 
             tex_coord * vec2<f32>(glyph_info.size)
         ) / vec2<f32>(constants.target_size) * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
         constants.z, 

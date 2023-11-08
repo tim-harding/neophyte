@@ -7,6 +7,7 @@ use super::{
     Motion, TARGET_FORMAT,
 };
 use crate::{
+    event::rgb::Rgb,
     text::{cache::FontCache, fonts::Fonts},
     ui::Ui,
     util::vec2::Vec2,
@@ -159,6 +160,7 @@ impl RenderState {
                 grid,
                 ui.position(grid.id),
                 &ui.highlights,
+                ui.default_colors.rgb_fg.unwrap_or(Rgb::WHITE),
                 fonts,
                 &mut self.font_cache,
                 &mut self.shape_context,

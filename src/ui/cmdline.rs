@@ -2,7 +2,7 @@ use crate::event::{CmdlineShow, CmdlineSpecialChar, Content};
 
 #[derive(Debug, Clone, Default)]
 pub struct Cmdline {
-    mode: Option<Mode>,
+    pub mode: Option<Mode>,
 }
 
 impl Cmdline {
@@ -122,6 +122,7 @@ pub struct Prompt {
     pub first_char: Option<char>,
     pub prompt: String,
     pub special: Option<Special>,
+    pub indent: u64,
 }
 
 impl From<CmdlineShow> for Prompt {
@@ -132,6 +133,7 @@ impl From<CmdlineShow> for Prompt {
             first_char: value.firstc.chars().next(),
             prompt: value.prompt,
             special: None,
+            indent: value.indent,
         }
     }
 }

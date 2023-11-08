@@ -1,4 +1,4 @@
-mod cmdline;
+pub mod cmdline;
 pub mod grid;
 mod messages;
 pub mod options;
