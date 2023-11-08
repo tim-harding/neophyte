@@ -42,12 +42,10 @@ fn main() {
     });
     neovim.ui_attach();
 
-    let mut stdin_thread = Some(std::thread::spawn(move || stdin_handler.start()));
-    let mut stdout_thread = Some({
-        let handler = NeovimHandler::new(event_loop.create_proxy());
-        thread::spawn(move || {
-            stdout_handler.start(handler);
-        })
+    std::thread::spawn(move || stdin_handler.start());
+    let handler = NeovimHandler::new(event_loop.create_proxy());
+    thread::spawn(move || {
+        stdout_handler.start(handler);
     });
 
     let mut surface_size = render_state.surface_size();
@@ -60,11 +58,6 @@ fn main() {
         .run(move |event, window_target| {
             use winit::event::Event;
             match event {
-                Event::LoopExiting => {
-                    stdout_thread.take().unwrap().join().unwrap();
-                    stdin_thread.take().unwrap().join().unwrap();
-                }
-
                 Event::UserEvent(user_event) => match user_event {
                     UserEvent::Shutdown => window_target.exit(),
 
