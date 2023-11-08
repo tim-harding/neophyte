@@ -30,7 +30,7 @@ use winit::{
 
 fn main() {
     env_logger::builder().format_timestamp(None).init();
-    let (mut neovim, stdout_handler, stdin_handler) = Neovim::new().unwrap();
+    let (neovim, stdout_handler, stdin_handler) = Neovim::new().unwrap();
     let mut fonts = Fonts::new();
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event()
         .build()
@@ -301,7 +301,7 @@ fn main() {
                                 };
 
                                 if let Some(c) = c() {
-                                    send_keys(c, &mut modifiers, &mut neovim, false);
+                                    send_keys(c, &mut modifiers, &neovim, false);
                                 }
                             }
 
@@ -312,7 +312,7 @@ fn main() {
                                     "|" => "Bar",
                                     _ => c.as_str(),
                                 };
-                                send_keys(s, &mut modifiers, &mut neovim, true);
+                                send_keys(s, &mut modifiers, &neovim, true);
                             }
 
                             Key::Unidentified(_) | Key::Dead(_) => {}
@@ -482,7 +482,7 @@ fn main() {
         .unwrap();
 }
 
-fn send_keys(c: &str, modifiers: &mut ModifiersState, neovim: &mut Neovim, ignore_shift: bool) {
+fn send_keys(c: &str, modifiers: &mut ModifiersState, neovim: &Neovim, ignore_shift: bool) {
     let shift = modifiers.shift_key() && !ignore_shift;
     let ctrl = modifiers.control_key();
     let alt = modifiers.alt_key();
