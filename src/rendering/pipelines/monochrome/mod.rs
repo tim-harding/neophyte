@@ -33,7 +33,6 @@ impl Pipeline {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         cached_glyphs: &Cached,
-        highlights_bind_group_layout: &wgpu::BindGroupLayout,
         grid_bind_group_layout: &wgpu::BindGroupLayout,
     ) {
         self.bind_group
@@ -48,11 +47,7 @@ impl Pipeline {
         let glyph_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Monochrome pipeline layout"),
-                bind_group_layouts: &[
-                    highlights_bind_group_layout,
-                    glyph_bind_group_layout,
-                    grid_bind_group_layout,
-                ],
+                bind_group_layouts: &[glyph_bind_group_layout, grid_bind_group_layout],
                 push_constant_ranges: &[wgpu::PushConstantRange {
                     stages: wgpu::ShaderStages::VERTEX,
                     range: 0..GlyphPushConstants::SIZE,
@@ -112,7 +107,6 @@ impl Pipeline {
         depth_target: &wgpu::TextureView,
         target_size: Vec2<u32>,
         cell_size: Vec2<u32>,
-        highlights_bind_group: &wgpu::BindGroup,
     ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Monochrome render pass"),
@@ -140,13 +134,12 @@ impl Pipeline {
             (&self.pipeline, self.bind_group.bind_group())
         {
             render_pass.set_pipeline(pipeline);
-            render_pass.set_bind_group(0, highlights_bind_group, &[]);
-            render_pass.set_bind_group(1, glyph_bind_group, &[]);
+            render_pass.set_bind_group(0, glyph_bind_group, &[]);
             for (z, grid) in grids {
                 let Some(monochrome_bind_group) = &grid.monochrome_bind_group() else {
                     continue;
                 };
-                render_pass.set_bind_group(2, monochrome_bind_group, &[]);
+                render_pass.set_bind_group(1, monochrome_bind_group, &[]);
                 grid.set_scissor(cell_size, target_size, &mut render_pass);
                 GlyphPushConstants {
                     target_size,

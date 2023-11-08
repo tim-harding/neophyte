@@ -12,14 +12,7 @@ struct GridInfo {
     z: f32,
 }
 
-struct HighlightInfo {
-    fg: vec4<f32>,
-    bg: vec4<f32>,
-}
-
 @group(0) @binding(0)
-var<storage, read> highlights: array<HighlightInfo>;
-@group(1) @binding(0)
 var<storage, read> grid_cells: array<BgCell>;
 var<push_constant> grid_info: GridInfo;
 

@@ -15,11 +15,6 @@ struct PushConstants {
     z: f32,
 }
 
-struct HighlightInfo {
-    fg: vec3<f32>,
-    bg: vec3<f32>,
-}
-
 var<push_constant> constants: PushConstants;
 
 @group(0) @binding(0)

@@ -1,7 +1,6 @@
 use super::{
     depth_texture::DepthTexture,
     grids::Grids,
-    highlights::Highlights,
     pipelines::{blend, cell_fill, cursor, emoji, gamma_blit, lines, monochrome},
     texture::Texture,
     Motion, TARGET_FORMAT,
@@ -25,9 +24,9 @@ pub struct RenderState {
     pipelines: Pipelines,
     targets: Targets,
     grids: Grids,
-    highlights: Highlights,
     shape_context: ShapeContext,
     font_cache: FontCache,
+    clear_color: wgpu::Color,
 }
 
 struct Targets {
@@ -102,7 +101,6 @@ impl RenderState {
         };
         surface.configure(&device, &surface_config);
 
-        let highlights = Highlights::new(&device);
         let grids = Grids::new(&device);
 
         let target_size = (surface_size / cell_size) * cell_size;
@@ -118,7 +116,6 @@ impl RenderState {
                 blend: blend::Pipeline::new(&device, &targets.color.view),
                 cell_fill: cell_fill::Pipeline::new(
                     &device,
-                    highlights.layout(),
                     grids.bind_group_layout(),
                     TARGET_FORMAT,
                 ),
@@ -129,26 +126,29 @@ impl RenderState {
                     &targets.color.view,
                 ),
                 monochrome: monochrome::Pipeline::new(&device),
-                lines: lines::Pipeline::new(
-                    &device,
-                    highlights.layout(),
-                    grids.bind_group_layout(),
-                    TARGET_FORMAT,
-                ),
+                lines: lines::Pipeline::new(&device, grids.bind_group_layout(), TARGET_FORMAT),
             },
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
             grids: Grids::new(&device),
             targets,
-            highlights,
             device,
             queue,
             surface,
             surface_config,
+            clear_color: wgpu::Color::BLACK,
         }
     }
 
     pub fn update(&mut self, ui: &Ui, fonts: &Fonts) {
+        let clear_color = ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK).into_linear();
+        self.clear_color = wgpu::Color {
+            r: (clear_color[0] as f64).powf(2.2),
+            g: (clear_color[1] as f64).powf(2.2),
+            b: (clear_color[2] as f64).powf(2.2),
+            a: (clear_color[3] as f64).powf(2.2),
+        };
+
         for grid in ui.deleted_grids.iter() {
             self.grids.remove_grid(*grid);
         }
@@ -169,7 +169,6 @@ impl RenderState {
         }
 
         self.grids.set_draw_order(ui.draw_order.clone());
-        self.highlights.update(ui, &self.device);
         self.pipelines.cursor.update(
             &self.device,
             ui,
@@ -180,7 +179,6 @@ impl RenderState {
             &self.device,
             &self.queue,
             &self.font_cache.monochrome,
-            self.highlights.layout(),
             self.grids.bind_group_layout(),
         );
         self.pipelines.emoji.update(
@@ -238,10 +236,6 @@ impl RenderState {
             }
         };
 
-        let Some(highlights_bind_group) = self.highlights.bind_group() else {
-            return Motion::Still;
-        };
-
         let output_view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -265,9 +259,8 @@ impl RenderState {
             &self.targets.color.view,
             &self.targets.depth.view,
             target_size,
-            highlights_bind_group,
             cell_size,
-            self.highlights.clear_color(),
+            self.clear_color,
         );
 
         self.pipelines.monochrome.render(
@@ -277,7 +270,6 @@ impl RenderState {
             &self.targets.depth.view,
             target_size,
             cell_size,
-            highlights_bind_group,
         );
 
         self.pipelines.lines.render(
@@ -285,7 +277,6 @@ impl RenderState {
             self.grids.front_to_back(),
             &self.targets.monochrome.view,
             &self.targets.depth.view,
-            highlights_bind_group,
             target_size,
             cell_size,
             settings.underline_offset,
@@ -314,7 +305,7 @@ impl RenderState {
 
         self.pipelines
             .gamma_blit
-            .render(&mut encoder, &output_view, self.highlights.clear_color());
+            .render(&mut encoder, &output_view, self.clear_color);
 
         self.queue.submit(std::iter::once(encoder.finish()));
         window.pre_present_notify();

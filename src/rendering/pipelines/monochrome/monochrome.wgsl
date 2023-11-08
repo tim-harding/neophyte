@@ -18,22 +18,15 @@ struct PushConstants {
     z: f32,
 }
 
-struct HighlightInfo {
-    fg: vec3<f32>,
-    bg: vec3<f32>,
-}
-
 var<push_constant> constants: PushConstants;
 
 @group(0) @binding(0)
-var<storage, read> highlights: array<HighlightInfo>;
-@group(1) @binding(0)
 var glyph_textures: binding_array<texture_2d<f32>>;
-@group(1) @binding(1)
+@group(0) @binding(1)
 var glyph_sampler: sampler;
-@group(1) @binding(2)
+@group(0) @binding(2)
 var<storage, read> glyphs: array<GlyphInfo>;
-@group(2) @binding(0)
+@group(1) @binding(0)
 var<storage, read> cells: array<MonochromeCell>;
 
 struct VertexOutput {

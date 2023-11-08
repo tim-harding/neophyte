@@ -196,20 +196,22 @@ impl Grid {
                                 if let Some(foreground) = hl.rgb_attr.foreground {
                                     fg = foreground.into_linear();
                                 }
+                                let line_position = position
+                                    + Vec2::new(
+                                        0,
+                                        (metrics_px.ascent + metrics_px.underline_offset) as i32,
+                                    );
+                                let line_size =
+                                    Vec2::new(metrics_px.width, metrics_px.stroke_size.min(1));
                                 if hl.rgb_attr.underline() {
                                     self.lines.push(Line {
-                                        position: position
-                                            + Vec2::new(
-                                                0,
-                                                (metrics_px.ascent + metrics_px.underline_offset)
-                                                    as i32,
-                                            ),
-                                        size: Vec2::new(
-                                            metrics_px.width,
-                                            metrics_px.stroke_size.min(1),
-                                        ),
-                                        highlight_index: glyph.data,
-                                        padding: 0,
+                                        x: line_position.x,
+                                        y: line_position.y,
+                                        w: line_size.x,
+                                        h: line_size.y,
+                                        r: fg[0],
+                                        g: fg[1],
+                                        b: fg[2],
                                     })
                                 }
                             }
@@ -525,8 +527,11 @@ pub struct BgCell {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
 pub struct Line {
-    pub position: Vec2<i32>,
-    pub size: Vec2<u32>,
-    pub highlight_index: u32,
-    pub padding: u32,
+    pub x: i32,
+    pub y: i32,
+    pub w: u32,
+    pub h: u32,
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
 }
