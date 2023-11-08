@@ -5,7 +5,6 @@ use crate::{
     util::vec2::Vec2,
 };
 
-// TODO: Remove scrolling grids that have exited the viewport
 pub struct ScrollingGrids {
     scrolling: Vec<GridPart>,
     t: f32,
@@ -50,14 +49,16 @@ impl ScrollingGrids {
         let offset = mag * sign;
         let mut cover = Range::until(grid.size.y as i64);
         self.t += offset as f32;
-        for part in self.scrolling.iter_mut() {
+        let visible_range = Range::until(grid.size.y as i64) + self.t as i64;
+        self.scrolling.retain_mut(|part| {
             part.offset -= offset;
             let grid_range = Range::until(part.grid.size.y as i64) + part.offset;
             let grid_range = grid_range.cover(cover) - part.offset;
             cover = cover.union(grid_range);
             part.start = grid_range.start.try_into().unwrap();
             part.end = grid_range.end.try_into().unwrap();
-        }
+            !part.is_empty() && grid_range.is_overlapping(visible_range)
+        });
         self.scrolling.push(GridPart::new(grid));
     }
 
@@ -99,5 +100,9 @@ impl GridPart {
             end: grid.size.y as usize,
             grid,
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.start == self.end
     }
 }

@@ -35,6 +35,10 @@ impl Range {
         Self::new(self.start, self.start)
     }
 
+    pub fn is_overlapping(&self, other: Range) -> bool {
+        self.cover(other) != *self
+    }
+
     pub fn cover(self, cover: Self) -> Self {
         match self.start.cmp(&cover.start) {
             // |...

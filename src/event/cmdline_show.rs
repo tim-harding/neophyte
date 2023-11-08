@@ -2,9 +2,6 @@ use super::message_content::Content;
 use crate::util::{Parse, Values};
 use rmpv::Value;
 
-// TODO: Update the docs. They state the form of the content parameter
-// incorrectly.
-
 /// Triggered when the cmdline is displayed or changed.
 #[derive(Debug, Clone)]
 pub struct CmdlineShow {
