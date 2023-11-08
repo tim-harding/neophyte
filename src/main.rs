@@ -457,8 +457,12 @@ fn main() {
                             .and_then(|monitor| monitor.refresh_rate_millihertz())
                             .unwrap_or(60_000);
                         let delta_seconds = 1_000. / framerate as f32;
-                        let motion =
-                            render_state.render(fonts.cell_size(), delta_seconds, settings);
+                        let motion = render_state.render(
+                            fonts.cell_size(),
+                            delta_seconds,
+                            settings,
+                            &window,
+                        );
                         match motion {
                             Motion::Still => {}
                             Motion::Animating => window.request_redraw(),

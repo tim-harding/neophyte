@@ -219,6 +219,7 @@ impl RenderState {
         cell_size: Vec2<u32>,
         delta_seconds: f32,
         settings: Settings,
+        window: &Window,
     ) -> Motion {
         let output = match self.surface.get_current_texture() {
             Ok(output) => output,
@@ -313,6 +314,7 @@ impl RenderState {
             .render(&mut encoder, &output_view, self.highlights.clear_color());
 
         self.queue.submit(std::iter::once(encoder.finish()));
+        window.pre_present_notify();
         output.present();
 
         motion
