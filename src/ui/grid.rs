@@ -382,6 +382,7 @@ impl<'a> Iterator for OnceOrChars<'a> {
     }
 }
 
+#[derive(Clone)]
 pub struct CellContents<'a> {
     pub highlight: u32,
     pub text: OnceOrChars<'a>,
