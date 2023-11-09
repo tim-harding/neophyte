@@ -144,6 +144,25 @@ impl Grid {
                     }
 
                     shaper.shape_with(|cluster| {
+                        let (fg, bg, is_underlined) =
+                            if let Some(hl) = highlights.get(cluster.data as usize) {
+                                let fg = if let Some(foreground) = hl.rgb_attr.foreground {
+                                    foreground.into_linear()
+                                } else {
+                                    default_fg
+                                };
+
+                                let bg = if let Some(background) = hl.rgb_attr.background {
+                                    background.into_linear()
+                                } else {
+                                    default_bg
+                                };
+
+                                (fg, bg, hl.rgb_attr.underline())
+                            } else {
+                                (default_fg, default_bg, false)
+                            };
+
                         // NOTE: Although some programming fonts are said to
                         // contain ligatures, in practice these are more
                         // commonly implemented as multi-character alternates.
@@ -155,11 +174,6 @@ impl Grid {
                         // too much about whether a glyph cluster spans multiple
                         // cells. This is something to improve on in the future
                         // in case some fonts contain actual ligatures.
-                        let bg = highlights[cluster.data as usize]
-                            .rgb_attr
-                            .background
-                            .map(|bg| bg.into_linear())
-                            .unwrap_or(default_bg);
                         let bg_cell = BgCell {
                             r: bg[0],
                             g: bg[1],
@@ -191,11 +205,7 @@ impl Grid {
                                     + (cell_line_i as i32 * cell_size.y as i32),
                             );
 
-                            let mut fg = default_fg;
-                            if let Some(hl) = highlights.get(glyph.data as usize) {
-                                if let Some(foreground) = hl.rgb_attr.foreground {
-                                    fg = foreground.into_linear();
-                                }
+                            if is_underlined {
                                 let line_position = position
                                     + Vec2::new(
                                         0,
@@ -203,17 +213,15 @@ impl Grid {
                                     );
                                 let line_size =
                                     Vec2::new(metrics_px.width, metrics_px.stroke_size.min(1));
-                                if hl.rgb_attr.underline() {
-                                    self.lines.push(Line {
-                                        x: line_position.x,
-                                        y: line_position.y,
-                                        w: line_size.x,
-                                        h: line_size.y,
-                                        r: fg[0],
-                                        g: fg[1],
-                                        b: fg[2],
-                                    })
-                                }
+                                self.lines.push(Line {
+                                    x: line_position.x,
+                                    y: line_position.y,
+                                    w: line_size.x,
+                                    h: line_size.y,
+                                    r: fg[0],
+                                    g: fg[1],
+                                    b: fg[2],
+                                })
                             }
 
                             let position = position + Vec2::new(0, metrics_px.em as i32);
