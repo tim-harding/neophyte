@@ -5,6 +5,8 @@ use crate::{
     util::vec2::Vec2,
 };
 
+// TODO: Should move scrolling grids and range into a module together
+
 pub struct ScrollingGrids {
     scrolling: Vec<GridPart>,
     t: f32,
@@ -82,6 +84,10 @@ impl ScrollingGrids {
 
     pub fn size(&self) -> Vec2<u64> {
         self.scrolling.last().unwrap().grid.size
+    }
+
+    pub fn offset(&self, cell_height: f32) -> Vec2<i32> {
+        Vec2::new(0, (self.t() * cell_height) as i32)
     }
 }
 

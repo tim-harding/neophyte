@@ -1,4 +1,4 @@
-use super::grid::Grid;
+use super::{grid::Text, scrolling_grids::ScrollingGrids};
 use crate::{
     event::{rgb::Rgb, HlAttrDefine},
     text::{cache::FontCache, fonts::Fonts},
@@ -7,6 +7,21 @@ use crate::{
 };
 use std::collections::HashMap;
 use swash::shape::ShapeContext;
+
+pub struct Grid {
+    pub text: Text,
+    pub scrolling: ScrollingGrids,
+}
+
+impl Grid {
+    pub fn new(text: Text, scrolling: ScrollingGrids) -> Self {
+        Self { text, scrolling }
+    }
+
+    pub fn offset(&self, cell_height: f32) -> Vec2<i32> {
+        self.text.offset() + self.scrolling.offset(cell_height)
+    }
+}
 
 pub struct Grids {
     grids: HashMap<u64, Grid>,
@@ -52,20 +67,28 @@ impl Grids {
         let grid = self
             .grids
             .entry(ui_grid.id)
-            .or_insert(Grid::new(ui_grid.contents().clone()));
+            // TODO: Does scrolling grids really need to be initialized with
+            // contents?
+            .or_insert_with(|| {
+                Grid::new(
+                    Text::new(ui_grid.contents().size.try_cast().unwrap()),
+                    ScrollingGrids::new(ui_grid.contents().clone()),
+                )
+            });
 
         if ui_grid.scroll_delta != 0 {
-            grid.scrolling_mut()
+            grid.scrolling
                 .push(ui_grid.contents().clone(), ui_grid.scroll_delta);
         } else {
-            grid.scrolling_mut()
-                .replace_last(ui_grid.contents().clone());
+            grid.scrolling.replace_last(ui_grid.contents().clone());
         }
 
         if ui_grid.dirty.contents() {
-            grid.update_grid(
+            grid.text.update_contents(
                 device,
                 queue,
+                grid.scrolling.size().try_cast().unwrap(),
+                grid.scrolling.rows(),
                 &self.bind_group_layout,
                 highlights,
                 default_fg,
@@ -77,7 +100,7 @@ impl Grids {
         }
 
         if ui_grid.dirty.window() {
-            grid.update_window(position, fonts.cell_size().cast());
+            grid.text.update_window(position, fonts.cell_size().cast());
         }
     }
 

@@ -1,4 +1,5 @@
 use super::{
+    cmdline_grid::CmdlineGrid,
     depth_texture::DepthTexture,
     grids::Grids,
     pipelines::{blend, cell_fill, cursor, emoji, gamma_blit, lines, monochrome},
@@ -27,6 +28,7 @@ pub struct RenderState {
     shape_context: ShapeContext,
     font_cache: FontCache,
     clear_color: wgpu::Color,
+    cmdline_grid: CmdlineGrid,
 }
 
 struct Targets {
@@ -137,6 +139,7 @@ impl RenderState {
             surface,
             surface_config,
             clear_color: wgpu::Color::BLACK,
+            cmdline_grid: CmdlineGrid::new(),
         }
     }
 
@@ -249,13 +252,13 @@ impl RenderState {
 
         for grid in self.grids.iter_mut() {
             motion |= grid
-                .scrolling_mut()
+                .scrolling
                 .advance(delta_seconds * settings.scroll_speed * cell_size.y as f32);
         }
 
         self.pipelines.cell_fill.render(
             &mut encoder,
-            self.grids.front_to_back(),
+            self.grids.front_to_back().map(|(y, grid)| (y, &grid.text)),
             &self.targets.color.view,
             &self.targets.depth.view,
             target_size,
@@ -265,7 +268,7 @@ impl RenderState {
 
         self.pipelines.monochrome.render(
             &mut encoder,
-            self.grids.front_to_back(),
+            self.grids.front_to_back().map(|(y, grid)| (y, &grid.text)),
             &self.targets.monochrome.view,
             &self.targets.depth.view,
             target_size,
@@ -274,7 +277,7 @@ impl RenderState {
 
         self.pipelines.lines.render(
             &mut encoder,
-            self.grids.front_to_back(),
+            self.grids.front_to_back().map(|(y, grid)| (y, &grid.text)),
             &self.targets.monochrome.view,
             &self.targets.depth.view,
             target_size,
@@ -296,7 +299,7 @@ impl RenderState {
 
         self.pipelines.emoji.render(
             &mut encoder,
-            self.grids.front_to_back(),
+            self.grids.front_to_back().map(|(y, grid)| (y, &grid.text)),
             &self.targets.color.view,
             &self.targets.depth.view,
             cell_size,

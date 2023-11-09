@@ -1,14 +1,10 @@
-mod range;
-mod scrolling_grids;
-
-use self::scrolling_grids::ScrollingGrids;
 use crate::{
     event::{rgb::Rgb, HlAttrDefine},
     text::{
         cache::{CacheValue, FontCache, GlyphKind},
         fonts::{FontStyle, Fonts},
     },
-    ui::grid::GridContents,
+    ui::grid::CellContents,
     util::vec2::Vec2,
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
@@ -21,7 +17,7 @@ use swash::{
     },
 };
 
-pub struct Grid {
+pub struct Text {
     monochrome: Vec<MonochromeCell>,
     emoji: Vec<EmojiCell>,
     cell_fill: Vec<BgCell>,
@@ -34,11 +30,10 @@ pub struct Grid {
     lines_bind_group: Option<wgpu::BindGroup>,
     offset: Vec2<i32>,
     size: Vec2<u32>,
-    scrolling: ScrollingGrids,
 }
 
-impl Grid {
-    pub fn new(grid: GridContents) -> Self {
+impl Text {
+    pub fn new(size: Vec2<u32>) -> Self {
         Self {
             monochrome: vec![],
             emoji: vec![],
@@ -53,24 +48,17 @@ impl Grid {
             // TODO: Should be initialized to grid position. This may be
             // causing the initial Telescope scroll.
             offset: Vec2::default(),
-            size: grid.size.try_cast().unwrap(),
-            scrolling: ScrollingGrids::new(grid),
+            size,
         }
     }
 
-    pub fn scrolling(&self) -> &ScrollingGrids {
-        &self.scrolling
-    }
-
-    pub fn scrolling_mut(&mut self) -> &mut ScrollingGrids {
-        &mut self.scrolling
-    }
-
     #[allow(clippy::too_many_arguments)]
-    pub fn update_grid(
+    pub fn update_contents<'a>(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
+        size: Vec2<u32>,
+        lines: impl Iterator<Item = (i64, impl Iterator<Item = CellContents<'a>> + Clone)> + Clone,
         grid_bind_group_layout: &wgpu::BindGroupLayout,
         highlights: &[HlAttrDefine],
         default_fg: Rgb,
@@ -82,7 +70,7 @@ impl Grid {
         let metrics = fonts.metrics();
         let metrics_px = metrics.into_pixels();
         let cell_size = metrics_px.cell_size();
-        self.size = self.scrolling.size().try_cast().unwrap();
+        self.size = size;
 
         let default_fg = default_fg.into_linear();
         let default_bg = default_bg.into_linear();
@@ -93,7 +81,7 @@ impl Grid {
         self.lines.clear();
 
         let mut cluster = CharCluster::new();
-        for (cell_line_i, cell_line) in self.scrolling.rows() {
+        for (cell_line_i, cell_line) in lines {
             let mut parser = Parser::new(
                 Script::Latin,
                 cell_line.enumerate().flat_map(|(cell_i, cell)| {
@@ -404,11 +392,8 @@ impl Grid {
         self.size
     }
 
-    pub fn offset(&self, cell_height: f32) -> Vec2<i32> {
-        Vec2::new(
-            self.offset.x,
-            self.offset.y + (self.scrolling().t() * cell_height) as i32,
-        )
+    pub fn offset(&self) -> Vec2<i32> {
+        self.offset
     }
 
     pub fn set_scissor(

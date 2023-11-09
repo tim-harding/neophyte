@@ -1,5 +1,5 @@
 use crate::{
-    rendering::{depth_texture::DepthTexture, grid::Grid},
+    rendering::{depth_texture::DepthTexture, grid::Text},
     util::vec2::Vec2,
 };
 use bytemuck::{checked::cast_slice, Pod, Zeroable};
@@ -74,7 +74,7 @@ impl Pipeline {
     pub fn render<'a, 'b>(
         &'a self,
         encoder: &'a mut wgpu::CommandEncoder,
-        grids: impl Iterator<Item = (f32, &'b Grid)>,
+        grids: impl Iterator<Item = (f32, &'b Text)>,
         color_target: &wgpu::TextureView,
         depth_target: &wgpu::TextureView,
         target_size: Vec2<u32>,
@@ -114,7 +114,7 @@ impl Pipeline {
             PushConstants {
                 target_size,
                 cell_size,
-                offset: grid.offset(cell_size.y as f32),
+                offset: grid.offset(),
                 grid_width: grid.size().x,
                 z,
             }
