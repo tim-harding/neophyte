@@ -39,7 +39,8 @@ fn vs_main(
     );
     let affine = info.vertex.transform * vec3<f32>(out.corner, 1.0);
 
-    let fill = out.corner * info.vertex.fill * vec2<f32>(1.0, -1.0) + vec2<f32>(0.0, 1.0);
+    var fill = out.corner * info.vertex.fill;
+    fill.y = fill.y + 1.0 - info.vertex.fill.y;
     out.uv = vec2<f32>(affine.x / affine.z, affine.y / affine.z) + fill * info.vertex.cursor_size;
     out.clip_position = vec4<f32>(
         out.uv
