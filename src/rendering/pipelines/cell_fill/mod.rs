@@ -115,8 +115,8 @@ impl Pipeline {
                 target_size,
                 cell_size,
                 offset,
-                grid_width: grid.size().x,
                 z,
+                padding: 0,
             }
             .set(&mut render_pass);
             render_pass.draw(0..grid.cell_fill_count() * 6, 0..1);
@@ -130,8 +130,8 @@ pub struct PushConstants {
     pub target_size: Vec2<u32>,
     pub cell_size: Vec2<u32>,
     pub offset: Vec2<i32>,
-    pub grid_width: u32,
     pub z: f32,
+    pub padding: u32,
 }
 
 impl PushConstants {

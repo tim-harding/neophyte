@@ -64,7 +64,6 @@ impl Text {
         grid_bind_group_layout: &wgpu::BindGroupLayout,
         highlights: &[HlAttrDefine],
         default_fg: Rgb,
-        default_bg: Rgb,
         fonts: &Fonts,
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
@@ -74,7 +73,6 @@ impl Text {
         let cell_size = metrics_px.cell_size();
 
         let default_fg = default_fg.into_linear();
-        let default_bg = default_bg.into_linear();
 
         self.monochrome.clear();
         self.emoji.clear();
@@ -138,42 +136,42 @@ impl Text {
                     }
 
                     shaper.shape_with(|cluster| {
-                        let (fg, bg, is_underlined) =
+                        let (fg, is_underlined) =
                             if let Some(hl) = highlights.get(cluster.data as usize) {
-                                let fg = if let Some(foreground) = hl.rgb_attr.foreground {
-                                    foreground.into_linear()
+                                let fg = if let Some(fg) = hl.rgb_attr.foreground {
+                                    fg.into_linear()
                                 } else {
                                     default_fg
                                 };
 
-                                let bg = if let Some(background) = hl.rgb_attr.background {
-                                    background.into_linear()
-                                } else {
-                                    default_bg
-                                };
+                                if let Some(bg) = hl.rgb_attr.background {
+                                    let bg = bg.into_linear();
 
-                                (fg, bg, hl.rgb_attr.underline())
+                                    // NOTE: Although some programming fonts are said to
+                                    // contain ligatures, in practice these are more
+                                    // commonly implemented as multi-character alternates.
+                                    // In contrast to genuine OpenType ligatures,
+                                    // multi-character alternates still get a glyph cluster
+                                    // per input char where some of those clusters may
+                                    // contain an empty glyph. That means we can produce the
+                                    // cell fill characters during shaping without worrying
+                                    // too much about whether a glyph cluster spans multiple
+                                    // cells. This is something to improve on in the future
+                                    // in case some fonts contain actual ligatures.
+                                    let bg_cell = BgCell {
+                                        x: cluster.source.start.try_into().unwrap(),
+                                        y: cell_line_i.try_into().unwrap(),
+                                        r: bg[0],
+                                        g: bg[1],
+                                        b: bg[2],
+                                    };
+                                    self.cell_fill.push(bg_cell);
+                                }
+
+                                (fg, hl.rgb_attr.underline())
                             } else {
-                                (default_fg, default_bg, false)
+                                (default_fg, false)
                             };
-
-                        // NOTE: Although some programming fonts are said to
-                        // contain ligatures, in practice these are more
-                        // commonly implemented as multi-character alternates.
-                        // In contrast to genuine OpenType ligatures,
-                        // multi-character alternates still get a glyph cluster
-                        // per input char where some of those clusters may
-                        // contain an empty glyph. That means we can produce the
-                        // cell fill characters during shaping without worrying
-                        // too much about whether a glyph cluster spans multiple
-                        // cells. This is something to improve on in the future
-                        // in case some fonts contain actual ligatures.
-                        let bg_cell = BgCell {
-                            r: bg[0],
-                            g: bg[1],
-                            b: bg[2],
-                        };
-                        self.cell_fill.push(bg_cell);
 
                         let x = cluster.source.start * cell_size.x;
                         let mut advanced = 0.0f32;
@@ -239,19 +237,21 @@ impl Text {
                     });
                 } else {
                     loop {
-                        let range = cluster.range();
-                        for _ in range.start..range.end {
-                            let bg = highlights[cluster.user_data() as usize]
-                                .rgb_attr
-                                .background
-                                .map(|bg| bg.into_linear())
-                                .unwrap_or(default_bg);
-                            let bg_cell = BgCell {
-                                r: bg[0],
-                                g: bg[1],
-                                b: bg[2],
-                            };
-                            self.cell_fill.push(bg_cell);
+                        if let Some(bg) =
+                            highlights[cluster.user_data() as usize].rgb_attr.background
+                        {
+                            let bg = bg.into_linear();
+                            let range = cluster.range();
+                            for i in range.start..range.end {
+                                let bg_cell = BgCell {
+                                    x: (i * cell_size.x).try_into().unwrap(),
+                                    y: cell_line_i.try_into().unwrap(),
+                                    r: bg[0],
+                                    g: bg[1],
+                                    b: bg[2],
+                                };
+                                self.cell_fill.push(bg_cell);
+                            }
                         }
 
                         if !parser.next(&mut cluster) {
@@ -432,7 +432,7 @@ impl Text {
     }
 
     pub fn cell_fill_count(&self) -> u32 {
-        self.size.area()
+        self.cell_fill.len() as u32
     }
 
     pub fn monochrome_count(&self) -> u32 {
@@ -523,6 +523,8 @@ pub struct EmojiCell {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
 pub struct BgCell {
+    pub x: i32,
+    pub y: i32,
     pub r: f32,
     pub g: f32,
     pub b: f32,

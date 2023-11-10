@@ -1,4 +1,6 @@
 struct BgCell {
+    x: i32,
+    y: i32,
     r: f32,
     g: f32,
     b: f32,
@@ -8,7 +10,6 @@ struct GridInfo {
     target_size: vec2<u32>,
     cell_size: vec2<u32>,
     offset: vec2<i32>,
-    grid_width: u32,
     z: f32,
 }
 
@@ -27,9 +28,9 @@ fn vs_main(
 ) -> VertexOutput {
     let grid_index = in_vertex_index / 6u;
     let grid_cell = grid_cells[grid_index];
-    let pos = vec2<u32>(
-        grid_index % grid_info.grid_width, 
-        grid_index / grid_info.grid_width
+    let pos = vec2<i32>(
+        grid_cell.x,
+        grid_cell.y,
     );
     let tex_coord = vec2<u32>(
         in_vertex_index % 2u,
@@ -39,7 +40,7 @@ fn vs_main(
     var out: VertexOutput;
     out.color = vec4<f32>(grid_cell.r, grid_cell.g, grid_cell.b, 1.0);
     out.clip_position = vec4<f32>(
-        vec2<f32>(vec2<i32>((pos + tex_coord) * grid_info.cell_size) + grid_info.offset) / 
+        vec2<f32>(((pos + vec2<i32>(tex_coord)) * vec2<i32>(grid_info.cell_size)) + grid_info.offset) / 
         vec2<f32>(grid_info.target_size) * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
         grid_info.z, 
         1.0

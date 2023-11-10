@@ -160,7 +160,6 @@ impl RenderState {
         }
 
         let fg = ui.default_colors.rgb_fg.unwrap_or(Rgb::WHITE);
-        let bg = ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK);
 
         for grid in ui.grids.iter() {
             self.grids.update(
@@ -170,7 +169,6 @@ impl RenderState {
                 ui.position(grid.id),
                 &ui.highlights,
                 fg,
-                bg,
                 fonts,
                 &mut self.font_cache,
                 &mut self.shape_context,
@@ -184,7 +182,6 @@ impl RenderState {
             &self.text_bind_group_layout.bind_group_layout,
             &ui.highlights,
             fg,
-            bg,
             fonts,
             &mut self.font_cache,
             &mut self.shape_context,
