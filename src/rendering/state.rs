@@ -2,7 +2,7 @@ use super::{
     cmdline_grid::CmdlineGrid,
     depth_texture::DepthTexture,
     grids::Grids,
-    pipelines::{blend, cell_fill, cursor, emoji, gamma_blit, lines, monochrome},
+    pipelines::{blend, cell_fill, cursor, default_fill, emoji, gamma_blit, lines, monochrome},
     text,
     texture::Texture,
     Motion, TARGET_FORMAT,
@@ -28,7 +28,7 @@ pub struct RenderState {
     grids: Grids,
     shape_context: ShapeContext,
     font_cache: FontCache,
-    clear_color: wgpu::Color,
+    clear_color: [f32; 4],
     cmdline_grid: CmdlineGrid,
     text_bind_group_layout: text::bind_group::BindGroup,
 }
@@ -42,6 +42,7 @@ struct Targets {
 struct Pipelines {
     cursor: cursor::Pipeline,
     blend: blend::Pipeline,
+    default_fill: default_fill::Pipeline,
     cell_fill: cell_fill::Pipeline,
     emoji: emoji::Pipeline,
     gamma_blit: gamma_blit::Pipeline,
@@ -119,6 +120,7 @@ impl RenderState {
             pipelines: Pipelines {
                 cursor: cursor::Pipeline::new(&device, &targets.monochrome.view),
                 blend: blend::Pipeline::new(&device, &targets.color.view),
+                default_fill: default_fill::Pipeline::new(&device, TARGET_FORMAT),
                 cell_fill: cell_fill::Pipeline::new(
                     &device,
                     grids.bind_group_layout(),
@@ -141,20 +143,13 @@ impl RenderState {
             queue,
             surface,
             surface_config,
-            clear_color: wgpu::Color::BLACK,
+            clear_color: [0.; 4],
             cmdline_grid: CmdlineGrid::new(),
         }
     }
 
     pub fn update(&mut self, ui: &Ui, fonts: &Fonts) {
-        let clear_color = ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK).into_linear();
-        self.clear_color = wgpu::Color {
-            r: (clear_color[0] as f64).powf(2.2),
-            g: (clear_color[1] as f64).powf(2.2),
-            b: (clear_color[2] as f64).powf(2.2),
-            a: (clear_color[3] as f64).powf(2.2),
-        };
-
+        self.clear_color = ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK).into_linear();
         for grid in ui.deleted_grids.iter() {
             self.grids.remove_grid(*grid);
         }
@@ -278,6 +273,16 @@ impl RenderState {
                 .map(|(z, grid)| (z, grid.offset(cell_size.y as f32), &grid.text))
         };
 
+        self.pipelines.default_fill.render(
+            &mut encoder,
+            grids().map(|(z, _, grid)| (z, grid)),
+            &self.targets.color.view,
+            &self.targets.depth.view,
+            target_size,
+            cell_size,
+            self.clear_color,
+        );
+
         self.pipelines.cell_fill.render(
             &mut encoder,
             grids(),
@@ -285,7 +290,6 @@ impl RenderState {
             &self.targets.depth.view,
             target_size,
             cell_size,
-            self.clear_color,
         );
 
         self.pipelines.monochrome.render(
@@ -328,9 +332,16 @@ impl RenderState {
             target_size,
         );
 
-        self.pipelines
-            .gamma_blit
-            .render(&mut encoder, &output_view, self.clear_color);
+        self.pipelines.gamma_blit.render(
+            &mut encoder,
+            &output_view,
+            wgpu::Color {
+                r: (self.clear_color[0] as f64).powf(2.2),
+                g: (self.clear_color[1] as f64).powf(2.2),
+                b: (self.clear_color[2] as f64).powf(2.2),
+                a: (self.clear_color[3] as f64).powf(2.2),
+            },
+        );
 
         self.queue.submit(std::iter::once(encoder.finish()));
         window.pre_present_notify();
