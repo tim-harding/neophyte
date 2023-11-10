@@ -1,7 +1,7 @@
 use crate::{
     rendering::{
         depth_texture::DepthTexture, glyph_bind_group::GlyphBindGroup,
-        glyph_push_constants::GlyphPushConstants, grid::Text, TARGET_FORMAT,
+        glyph_push_constants::GlyphPushConstants, text::Text, TARGET_FORMAT,
     },
     text::cache::Cached,
     util::vec2::Vec2,
@@ -102,7 +102,7 @@ impl Pipeline {
     pub fn render<'a, 'b>(
         &'a self,
         encoder: &'a mut wgpu::CommandEncoder,
-        grids: impl Iterator<Item = (f32, &'b Text)>,
+        grids: impl Iterator<Item = (f32, Vec2<i32>, &'b Text)>,
         color_target: &wgpu::TextureView,
         depth_target: &wgpu::TextureView,
         target_size: Vec2<u32>,
@@ -135,7 +135,7 @@ impl Pipeline {
         {
             render_pass.set_pipeline(pipeline);
             render_pass.set_bind_group(0, glyph_bind_group, &[]);
-            for (z, grid) in grids {
+            for (z, offset, grid) in grids {
                 let Some(monochrome_bind_group) = &grid.monochrome_bind_group() else {
                     continue;
                 };
@@ -143,7 +143,7 @@ impl Pipeline {
                 grid.set_scissor(cell_size, target_size, &mut render_pass);
                 GlyphPushConstants {
                     target_size,
-                    offset: grid.offset(),
+                    offset,
                     z,
                     padding: 0.0,
                 }

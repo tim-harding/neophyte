@@ -1,19 +1,17 @@
-use swash::shape::ShapeContext;
-
+use super::text::Text;
 use crate::{
     event::{rgb::Rgb, Content, HlAttrDefine},
     text::{cache::FontCache, fonts::Fonts},
     ui::{
         cmdline::{Cmdline, Mode},
-        grid::{CellContents, OnceOrChars},
+        grid::CellContents,
     },
     util::vec2::Vec2,
 };
-
-use super::grid::Text;
+use swash::shape::ShapeContext;
 
 pub struct CmdlineGrid {
-    grid: Text,
+    pub grid: Text,
 }
 
 impl CmdlineGrid {

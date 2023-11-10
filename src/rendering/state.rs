@@ -3,6 +3,7 @@ use super::{
     depth_texture::DepthTexture,
     grids::Grids,
     pipelines::{blend, cell_fill, cursor, emoji, gamma_blit, lines, monochrome},
+    text,
     texture::Texture,
     Motion, TARGET_FORMAT,
 };
@@ -29,6 +30,7 @@ pub struct RenderState {
     font_cache: FontCache,
     clear_color: wgpu::Color,
     cmdline_grid: CmdlineGrid,
+    text_bind_group_layout: text::bind_group::BindGroup,
 }
 
 struct Targets {
@@ -113,6 +115,7 @@ impl RenderState {
         };
 
         Self {
+            text_bind_group_layout: text::bind_group::BindGroup::new(&device),
             pipelines: Pipelines {
                 cursor: cursor::Pipeline::new(&device, &targets.monochrome.view),
                 blend: blend::Pipeline::new(&device, &targets.color.view),
@@ -156,6 +159,9 @@ impl RenderState {
             self.grids.remove_grid(*grid);
         }
 
+        let fg = ui.default_colors.rgb_fg.unwrap_or(Rgb::WHITE);
+        let bg = ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK);
+
         for grid in ui.grids.iter() {
             self.grids.update(
                 &self.device,
@@ -163,13 +169,26 @@ impl RenderState {
                 grid,
                 ui.position(grid.id),
                 &ui.highlights,
-                ui.default_colors.rgb_fg.unwrap_or(Rgb::WHITE),
-                ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK),
+                fg,
+                bg,
                 fonts,
                 &mut self.font_cache,
                 &mut self.shape_context,
             );
         }
+
+        self.cmdline_grid.update(
+            &self.device,
+            &self.queue,
+            &ui.cmdline,
+            &self.text_bind_group_layout.bind_group_layout,
+            &ui.highlights,
+            fg,
+            bg,
+            fonts,
+            &mut self.font_cache,
+            &mut self.shape_context,
+        );
 
         self.grids.set_draw_order(ui.draw_order.clone());
         self.pipelines.cursor.update(
@@ -256,9 +275,15 @@ impl RenderState {
                 .advance(delta_seconds * settings.scroll_speed * cell_size.y as f32);
         }
 
+        let grids = || {
+            self.grids
+                .front_to_back()
+                .map(|(z, grid)| (z, grid.offset(cell_size.y as f32), &grid.text))
+        };
+
         self.pipelines.cell_fill.render(
             &mut encoder,
-            self.grids.front_to_back().map(|(y, grid)| (y, &grid.text)),
+            grids(),
             &self.targets.color.view,
             &self.targets.depth.view,
             target_size,
@@ -268,7 +293,7 @@ impl RenderState {
 
         self.pipelines.monochrome.render(
             &mut encoder,
-            self.grids.front_to_back().map(|(y, grid)| (y, &grid.text)),
+            grids(),
             &self.targets.monochrome.view,
             &self.targets.depth.view,
             target_size,
@@ -277,7 +302,7 @@ impl RenderState {
 
         self.pipelines.lines.render(
             &mut encoder,
-            self.grids.front_to_back().map(|(y, grid)| (y, &grid.text)),
+            grids(),
             &self.targets.monochrome.view,
             &self.targets.depth.view,
             target_size,
@@ -299,7 +324,7 @@ impl RenderState {
 
         self.pipelines.emoji.render(
             &mut encoder,
-            self.grids.front_to_back().map(|(y, grid)| (y, &grid.text)),
+            grids(),
             &self.targets.color.view,
             &self.targets.depth.view,
             cell_size,

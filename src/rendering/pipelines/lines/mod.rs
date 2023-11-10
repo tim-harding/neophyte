@@ -1,5 +1,5 @@
 use crate::{
-    rendering::{depth_texture::DepthTexture, grid::Text},
+    rendering::{depth_texture::DepthTexture, text::Text},
     util::vec2::Vec2,
 };
 use bytemuck::{checked::cast_slice, Pod, Zeroable};
@@ -74,7 +74,7 @@ impl Pipeline {
     pub fn render<'a, 'b>(
         &'a self,
         encoder: &'a mut wgpu::CommandEncoder,
-        grids: impl Iterator<Item = (f32, &'b Text)>,
+        grids: impl Iterator<Item = (f32, Vec2<i32>, &'b Text)>,
         color_target: &wgpu::TextureView,
         depth_target: &wgpu::TextureView,
         target_size: Vec2<u32>,
@@ -104,7 +104,7 @@ impl Pipeline {
         });
 
         render_pass.set_pipeline(&self.pipeline);
-        for (z, grid) in grids {
+        for (z, offset, grid) in grids {
             let Some(lines_bind_group) = &grid.lines_bind_group() else {
                 continue;
             };
@@ -113,7 +113,7 @@ impl Pipeline {
             grid.set_scissor(cell_size, target_size, &mut render_pass);
             PushConstants {
                 target_size,
-                offset: grid.offset() + Vec2::new(0, underline_offset),
+                offset: offset + Vec2::new(0, underline_offset),
                 grid_width: grid.size().x,
                 z,
             }

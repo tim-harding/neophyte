@@ -1,16 +1,16 @@
-use std::ops::{BitOr, BitOrAssign};
-
 mod cmdline_grid;
 mod depth_texture;
 mod glyph_bind_group;
 mod glyph_push_constants;
-mod grid;
 mod grids;
 pub mod pipelines;
 mod range;
 mod scrolling_grids;
 pub mod state;
+mod text;
 mod texture;
+
+use std::ops::{BitOr, BitOrAssign};
 
 pub const TARGET_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 

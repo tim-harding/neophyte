@@ -1,4 +1,4 @@
-use super::{grid::Text, scrolling_grids::ScrollingGrids};
+use super::{scrolling_grids::ScrollingGrids, text::Text};
 use crate::{
     event::{rgb::Rgb, HlAttrDefine},
     text::{cache::FontCache, fonts::Fonts},

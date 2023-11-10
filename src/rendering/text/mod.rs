@@ -1,3 +1,5 @@
+pub mod bind_group;
+
 use crate::{
     event::{rgb::Rgb, HlAttrDefine},
     text::{
