@@ -41,6 +41,7 @@ struct Targets {
 
 struct Pipelines {
     cursor: cursor::Pipeline,
+    cmdline_cursor: cursor::Pipeline,
     blend: blend::Pipeline,
     default_fill: default_fill::Pipeline,
     cell_fill: cell_fill::Pipeline,
@@ -119,6 +120,7 @@ impl RenderState {
             text_bind_group_layout: text::bind_group::BindGroup::new(&device),
             pipelines: Pipelines {
                 cursor: cursor::Pipeline::new(&device, &targets.monochrome.view),
+                cmdline_cursor: cursor::Pipeline::new(&device, &targets.monochrome.view),
                 blend: blend::Pipeline::new(&device, &targets.color.view),
                 default_fill: default_fill::Pipeline::new(&device, TARGET_FORMAT),
                 cell_fill: cell_fill::Pipeline::new(
@@ -188,6 +190,14 @@ impl RenderState {
         self.pipelines.cursor.update(
             &self.device,
             ui,
+            cursor::CursorKind::Normal,
+            fonts.cell_size().cast_as(),
+            &self.targets.monochrome.view,
+        );
+        self.pipelines.cmdline_cursor.update(
+            &self.device,
+            ui,
+            cursor::CursorKind::Cmdline,
             fonts.cell_size().cast_as(),
             &self.targets.monochrome.view,
         );
@@ -330,6 +340,14 @@ impl RenderState {
             .render(&mut encoder, &self.targets.color.view);
 
         motion |= self.pipelines.cursor.render(
+            &mut encoder,
+            &self.targets.color.view,
+            delta_seconds * settings.cursor_speed,
+            target_size.cast_as(),
+            cell_size.cast_as(),
+        );
+
+        motion |= self.pipelines.cmdline_cursor.render(
             &mut encoder,
             &self.targets.color.view,
             delta_seconds * settings.cursor_speed,

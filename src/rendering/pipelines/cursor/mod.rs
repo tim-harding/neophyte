@@ -1,7 +1,7 @@
 use crate::{
     event::mode_info_set::CursorShape,
     rendering::{nearest_sampler, Motion, TARGET_FORMAT},
-    ui::Ui,
+    ui::{cmdline::Mode, Ui},
     util::{mat3::Mat3, vec2::Vec2},
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
@@ -14,6 +14,10 @@ pub struct Pipeline {
     bind_group_layout: wgpu::BindGroupLayout,
     sampler: wgpu::Sampler,
     fragment_push_constants: FragmentPushConstants,
+    display_info: Option<DisplayInfo>,
+}
+
+struct DisplayInfo {
     start_position: Vec2<f32>,
     target_position: Vec2<f32>,
     elapsed: f32,
@@ -106,12 +110,8 @@ impl Pipeline {
             bind_group_layout,
             bind_group,
             sampler,
-            target_position: Vec2::default(),
-            start_position: Vec2::default(),
-            elapsed: 1.0,
             fragment_push_constants: FragmentPushConstants::default(),
-            fill: Vec2::default(),
-            cursor_size: Vec2::default(),
+            display_info: None,
         }
     }
 
@@ -119,6 +119,7 @@ impl Pipeline {
         &mut self,
         device: &wgpu::Device,
         ui: &Ui,
+        kind: CursorKind,
         cell_size: Vec2<f32>,
         monochrome_target: &wgpu::TextureView,
     ) {
@@ -136,16 +137,6 @@ impl Pipeline {
                 ui.default_colors.rgb_bg.unwrap_or_default(),
             ));
 
-        let mode = &ui.modes[ui.current_mode as usize];
-        let fill = mode.cell_percentage.unwrap_or(10) as f32 / 100.0;
-        self.fill = match mode.cursor_shape.unwrap_or(CursorShape::Block) {
-            CursorShape::Block => Vec2::new(1.0, 1.0),
-            CursorShape::Horizontal => Vec2::new(1.0, fill),
-            CursorShape::Vertical => Vec2::new(fill, 1.0),
-        };
-        self.cursor_size = cell_size - 1.;
-
-        let position = ui.position(ui.cursor.grid) + ui.cursor.pos.cast_as();
         self.fragment_push_constants = FragmentPushConstants {
             fg: bg.into_linear(),
             bg: fg.into_linear(),
@@ -154,32 +145,86 @@ impl Pipeline {
             padding: 0.,
         };
 
-        let new_target = cell_size * position.cast_as();
-        if new_target != self.target_position {
-            let current_position = self.start_position.lerp(self.target_position, self.t());
-            self.start_position = current_position;
-            self.elapsed = 0.0;
-        }
-
-        self.target_position = new_target;
         self.bind_group = bind_group(
             device,
             &self.bind_group_layout,
             monochrome_target,
             &self.sampler,
         );
-    }
 
-    fn t(&self) -> f32 {
-        let length = (self.target_position - self.start_position).length();
-        if length < 0.25 {
-            1.0
-        } else {
-            let length = length.sqrt() / 100.;
-            let normal = (self.elapsed / length).min(1.);
-            let t = 1.0 - normal;
-            1.0 - t * t
-        }
+        let position = match kind {
+            CursorKind::Normal => ui
+                .cursor
+                .enabled
+                .then_some(ui.position(ui.cursor.grid) + ui.cursor.pos.cast_as()),
+            CursorKind::Cmdline => ui.cmdline.mode.as_ref().map(|mode| match mode {
+                Mode::Normal { levels } => {
+                    let level = levels.last().unwrap();
+                    let mut pos =
+                        Vec2::new(level.cursor_pos as i64, -(level.content_lines.len() as i64));
+                    for line in level.content_lines.iter() {
+                        pos.y += 1;
+                        let line_len = line
+                            .chunks
+                            .iter()
+                            .fold(0, |acc, chunk| acc + chunk.text_chunk.len());
+                        if line_len < pos.x as usize {
+                            pos.x -= line_len as i64;
+                        } else {
+                            break;
+                        }
+                    }
+                    let base = Vec2::new(0, ui.grids[0].contents().size.y - 1);
+                    pos.cast_as::<f64>() + base.cast_as()
+                }
+
+                Mode::Block {
+                    previous_lines: _,
+                    current_line: _,
+                } => todo!(),
+            }),
+        };
+
+        let position: Option<Vec2<f32>> = position.map(|pos| pos.cast_as());
+
+        let mode = &ui.modes[ui.current_mode as usize];
+        let fill = mode.cell_percentage.unwrap_or(10) as f32 / 100.0;
+        let fill = match mode.cursor_shape.unwrap_or(CursorShape::Block) {
+            CursorShape::Block => Vec2::new(1.0, 1.0),
+            CursorShape::Horizontal => Vec2::new(1.0, fill),
+            CursorShape::Vertical => Vec2::new(fill, 1.0),
+        };
+        let cursor_size = cell_size - 1.;
+
+        self.display_info = match (position, self.display_info.as_ref()) {
+            (None, None) | (None, Some(_)) => None,
+            (Some(position), None) => Some(DisplayInfo {
+                start_position: position,
+                target_position: position,
+                elapsed: 1.0,
+                fill,
+                cursor_size,
+            }),
+            (Some(position), Some(display_info)) => {
+                let new_target = cell_size * position;
+                let (start_position, elapsed) = if new_target != display_info.target_position {
+                    let current_position = display_info
+                        .start_position
+                        .lerp(display_info.target_position, t(&display_info));
+                    (current_position, 0.0)
+                } else {
+                    (display_info.start_position, display_info.elapsed)
+                };
+
+                Some(DisplayInfo {
+                    start_position,
+                    target_position: new_target,
+                    elapsed,
+                    fill,
+                    cursor_size,
+                })
+            }
+        };
     }
 
     pub fn render(
@@ -190,15 +235,21 @@ impl Pipeline {
         target_size: Vec2<f32>,
         cell_size: Vec2<f32>,
     ) -> Motion {
-        self.elapsed += delta_seconds;
-        let t = self.t().min(1.);
-        let current_position = self.start_position.lerp(self.target_position, t);
+        let Some(display_info) = self.display_info.as_mut() else {
+            return Motion::Still;
+        };
+
+        display_info.elapsed += delta_seconds;
+        let t = t(&display_info).min(1.);
+        let current_position = display_info
+            .start_position
+            .lerp(display_info.target_position, t);
         self.fragment_push_constants.speed = 0.;
         self.fragment_push_constants.size = cell_size;
         let (motion, transform) = if t >= 1.0 {
             (Motion::Still, Mat3::IDENTITY)
         } else {
-            let toward = self.target_position - self.start_position;
+            let toward = display_info.target_position - display_info.start_position;
             let length = toward.length();
             let direction = if length < 0.25 {
                 Vec2::new(1.0, 0.0)
@@ -245,8 +296,8 @@ impl Pipeline {
             0,
             cast_slice(&[VertexPushConstants {
                 transform,
-                fill: self.fill,
-                cursor_size: self.cursor_size / target_size,
+                fill: display_info.fill,
+                cursor_size: display_info.cursor_size / target_size,
             }]),
         );
         render_pass.set_push_constants(
@@ -308,4 +359,21 @@ struct FragmentPushConstants {
 
 impl VertexPushConstants {
     pub const SIZE: u32 = size_of::<Self>() as u32;
+}
+
+pub enum CursorKind {
+    Normal,
+    Cmdline,
+}
+
+fn t(display_info: &DisplayInfo) -> f32 {
+    let length = (display_info.target_position - display_info.start_position).length();
+    if length < 0.25 {
+        1.0
+    } else {
+        let length = length.sqrt() / 100.;
+        let normal = (display_info.elapsed / length).min(1.);
+        let t = 1.0 - normal;
+        1.0 - t * t
+    }
 }
