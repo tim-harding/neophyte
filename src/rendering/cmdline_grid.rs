@@ -11,14 +11,18 @@ use crate::{
 use swash::shape::ShapeContext;
 
 pub struct CmdlineGrid {
-    pub grid: Text,
+    pub text: Text,
 }
 
 impl CmdlineGrid {
     pub fn new() -> Self {
         Self {
-            grid: Text::new(Vec2::new(0, 0)),
+            text: Text::new(Vec2::new(0, 0)),
         }
+    }
+
+    pub fn offset(&self) -> Vec2<i32> {
+        self.text.offset()
     }
 
     pub fn update<'a>(
@@ -26,6 +30,8 @@ impl CmdlineGrid {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         cmdline: &Cmdline,
+        position: Vec2<f64>,
+        cell_size: Vec2<f64>,
         grid_bind_group_layout: &wgpu::BindGroupLayout,
         highlights: &[HlAttrDefine],
         default_fg: Rgb,
@@ -40,7 +46,7 @@ impl CmdlineGrid {
                     let prompt = levels.last().unwrap();
                     let mut content_lines = prompt.content_lines.iter();
                     let first_line = content_lines.next().unwrap();
-                    self.grid.update_contents(
+                    self.text.update_contents(
                         device,
                         queue,
                         None,
@@ -71,7 +77,22 @@ impl CmdlineGrid {
                     current_line: _,
                 } => todo!(),
             }
+        } else {
+            self.text.update_contents(
+                device,
+                queue,
+                None,
+                std::iter::empty::<(i64, std::iter::Empty<CellContents>)>(),
+                grid_bind_group_layout,
+                highlights,
+                default_fg,
+                fonts,
+                font_cache,
+                shape_context,
+            )
         }
+
+        self.text.update_window(position, cell_size);
     }
 }
 

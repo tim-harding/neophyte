@@ -136,6 +136,7 @@ impl Text {
                     }
 
                     shaper.shape_with(|cluster| {
+                        line_length += 1;
                         let (fg, is_underlined) =
                             if let Some(hl) = highlights.get(cluster.data as usize) {
                                 let fg = if let Some(fg) = hl.rgb_attr.foreground {
@@ -237,11 +238,12 @@ impl Text {
                     });
                 } else {
                     loop {
+                        let range = cluster.range();
+                        line_length += range.end - range.start;
                         if let Some(bg) =
                             highlights[cluster.user_data() as usize].rgb_attr.background
                         {
                             let bg = bg.into_linear();
-                            let range = cluster.range();
                             for i in range.start..range.end {
                                 let bg_cell = BgCell {
                                     x: (i * cell_size.x).try_into().unwrap(),

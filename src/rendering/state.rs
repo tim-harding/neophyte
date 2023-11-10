@@ -174,6 +174,8 @@ impl RenderState {
             &self.device,
             &self.queue,
             &ui.cmdline,
+            Vec2::new(0., ui.grids[0].contents().size.y as f64 - 1.),
+            fonts.cell_size().cast_as(),
             &self.text_bind_group_layout.bind_group_layout,
             &ui.highlights,
             fg,
@@ -267,10 +269,22 @@ impl RenderState {
                 .advance(delta_seconds * settings.scroll_speed * cell_size.y as f32);
         }
 
+        let grid_count = self.grids.grid_count() as f32;
         let grids = || {
             self.grids
                 .front_to_back()
-                .map(|(z, grid)| (z, grid.offset(cell_size.y as f32), &grid.text))
+                .map(|(z, grid)| {
+                    (
+                        (z as f32 + 1.) / (grid_count + 1.),
+                        grid.offset(cell_size.y as f32),
+                        &grid.text,
+                    )
+                })
+                .chain(std::iter::once((
+                    0.,
+                    self.cmdline_grid.offset(),
+                    &self.cmdline_grid.text,
+                )))
         };
 
         self.pipelines.default_fill.render(

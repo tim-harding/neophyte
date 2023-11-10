@@ -114,13 +114,16 @@ impl Grids {
         &self.bind_group_layout
     }
 
-    pub fn front_to_back(&self) -> impl Iterator<Item = (f32, &Grid)> {
-        let len = self.draw_order.len() as f32;
+    pub fn grid_count(&self) -> usize {
+        self.draw_order.len()
+    }
+
+    pub fn front_to_back(&self) -> impl Iterator<Item = (usize, &Grid)> {
         self.draw_order
             .iter()
             .rev()
             .enumerate()
-            .map(move |(i, &grid_id)| (i as f32 / len, self.grids.get(&grid_id).unwrap()))
+            .map(move |(i, &grid_id)| (i, self.grids.get(&grid_id).unwrap()))
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Grid> {
