@@ -87,7 +87,7 @@ impl Grids {
             grid.text.update_contents(
                 device,
                 queue,
-                grid.scrolling.size().try_cast().unwrap(),
+                Some(grid.scrolling.size().try_cast().unwrap()),
                 grid.scrolling.rows(),
                 &self.bind_group_layout,
                 highlights,

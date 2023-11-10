@@ -59,7 +59,7 @@ impl Text {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        size: Vec2<u32>,
+        size: Option<Vec2<u32>>,
         lines: impl Iterator<Item = (i64, impl Iterator<Item = CellContents<'a>> + Clone)> + Clone,
         grid_bind_group_layout: &wgpu::BindGroupLayout,
         highlights: &[HlAttrDefine],
@@ -72,7 +72,6 @@ impl Text {
         let metrics = fonts.metrics();
         let metrics_px = metrics.into_pixels();
         let cell_size = metrics_px.cell_size();
-        self.size = size;
 
         let default_fg = default_fg.into_linear();
         let default_bg = default_bg.into_linear();
@@ -83,7 +82,12 @@ impl Text {
         self.lines.clear();
 
         let mut cluster = CharCluster::new();
+        self.size = Vec2::new(0, 0);
+        let mut line_length = 0;
         for (cell_line_i, cell_line) in lines {
+            self.size.x = self.size.x.max(line_length);
+            self.size.y += 1;
+            line_length = 0;
             let mut parser = Parser::new(
                 Script::Latin,
                 cell_line.enumerate().flat_map(|(cell_i, cell)| {
@@ -262,6 +266,11 @@ impl Text {
                     }
                 }
             }
+        }
+
+        self.size.x = self.size.x.max(line_length);
+        if let Some(size) = size {
+            self.size = size;
         }
 
         let glyphs = cast_slice(self.monochrome.as_slice());

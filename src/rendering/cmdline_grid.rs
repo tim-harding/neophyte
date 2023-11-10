@@ -44,7 +44,7 @@ impl CmdlineGrid {
                     self.grid.update_contents(
                         device,
                         queue,
-                        Vec2::new(0, 0),
+                        None,
                         std::iter::once(IterVariants::Head(
                             std::iter::once(CellContents {
                                 highlight: 0,
