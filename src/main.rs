@@ -7,12 +7,12 @@ mod ui;
 mod util;
 
 use crate::{
-    neovim::{Action, Button},
+    neovim::{action::Action, button::Button},
     rendering::Motion,
     text::fonts::FontSetting,
 };
 use event::OptionSet;
-use neovim::{Neovim, StdoutHandler};
+use neovim::{stdout_thread::StdoutHandler, Neovim};
 use rendering::state::RenderState;
 use rpc::Notification;
 use std::{sync::Arc, thread};
@@ -214,7 +214,6 @@ fn main() {
                             "neophyte.set_fonts" => {
                                 let args = Values::new(params.into_iter().next().unwrap()).unwrap();
                                 let font_settings = args.map().unwrap();
-                                println!("{font_settings:?}");
                                 let em = fonts.metrics().em;
                                 fonts.set_fonts(font_settings, FontSize::Height(em));
                                 render_state.resize(surface_size, fonts.cell_size());
