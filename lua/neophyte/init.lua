@@ -23,7 +23,7 @@ function M.get_font_width()
   return vim.rpcrequest(1, "neophyte.get_font_width", {})
 end
 
----@param fonts string[]
+---@param fonts string[] | { name: string, features?: { name: string, value: number }[], variations?: { name: string, value: number }[] }[]
 function M.set_fonts(fonts)
   vim.rpcnotify(1, "neophyte.set_fonts", fonts)
 end

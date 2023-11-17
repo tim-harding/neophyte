@@ -9,6 +9,7 @@ mod util;
 use crate::{
     neovim::{Action, Button},
     rendering::Motion,
+    text::fonts::FontSetting,
 };
 use event::OptionSet;
 use neovim::{Neovim, StdoutHandler};
@@ -128,10 +129,16 @@ fn main() {
                                                         ui.process(event::Event::OptionSet(event));
                                                         if updated_fonts {
                                                             fonts.set_fonts(
-                                                                ui.options.guifont.fonts.clone(),
+                                                                ui.options
+                                                                    .guifont
+                                                                    .fonts
+                                                                    .clone()
+                                                                    .into_iter()
+                                                                    .map(|name| {
+                                                                        FontSetting::with_name(name)
+                                                                    })
+                                                                    .collect(),
                                                                 ui.options.guifont.size,
-                                                                vec![],
-                                                                vec![],
                                                             );
                                                             render_state.clear_glyph_cache();
                                                             render_state.resize(
@@ -204,14 +211,11 @@ fn main() {
                             }
 
                             "neophyte.set_fonts" => {
-                                let mut args =
-                                    Values::new(params.into_iter().next().unwrap()).unwrap();
-                                let mut font_names = vec![];
-                                while let Some(font) = args.next() {
-                                    font_names.push(font);
-                                }
+                                let args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                                let font_settings = args.map().unwrap();
+                                println!("{font_settings:?}");
                                 let em = fonts.metrics().em;
-                                fonts.set_fonts(font_names, FontSize::Height(em), vec![], vec![]);
+                                fonts.set_fonts(font_settings, FontSize::Height(em));
                                 render_state.resize(surface_size, fonts.cell_size());
                                 resize_neovim_grid(surface_size, &fonts, &neovim);
                             }

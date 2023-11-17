@@ -1,5 +1,8 @@
 use super::font::{Font, Metrics};
-use crate::{ui::options::FontSize, util::vec2::Vec2};
+use crate::{
+    ui::options::FontSize,
+    util::{vec2::Vec2, MaybeInto, Parse},
+};
 use font_loader::system_fonts::{self, FontPropertyBuilder};
 use swash::Setting;
 
@@ -36,28 +39,17 @@ impl Fonts {
         }
     }
 
-    pub fn set_fonts(
-        &mut self,
-        names: Vec<String>,
-        size: FontSize,
-        features: Vec<Setting<u16>>,
-        variations: Vec<Setting<f32>>,
-    ) {
+    pub fn set_fonts(&mut self, fonts: Vec<FontSetting>, size: FontSize) {
         let mut old = std::mem::take(&mut self.fonts);
-        self.fonts = names
-            .iter()
-            .map(move |name| {
-                if let Some(i) = old.iter().position(|old| &old.name == name) {
+        self.fonts = fonts
+            .into_iter()
+            .map(move |font| {
+                if let Some(i) = old.iter().position(|old| &old.name == &font.name) {
                     let mut existing = old.swap_remove(i);
                     existing.resize(size);
                     existing
                 } else {
-                    FontVariants::with_name(
-                        name.clone(),
-                        size,
-                        features.clone(),
-                        variations.clone(),
-                    )
+                    FontVariants::with_settings(font, size)
                 }
             })
             .collect();
@@ -97,12 +89,12 @@ pub struct FontVariants {
 
 impl FontVariants {
     /// Attempt to load the system font with the given name
-    pub fn with_name(
-        name: String,
-        size: FontSize,
-        features: Vec<Setting<u16>>,
-        variations: Vec<Setting<f32>>,
-    ) -> Self {
+    pub fn with_settings(font_setting: FontSetting, size: FontSize) -> Self {
+        let FontSetting {
+            name,
+            features,
+            variations,
+        } = font_setting;
         let builder = || FontPropertyBuilder::new().family(&name);
         Self {
             regular: get(builder(), size, features.clone(), variations.clone()),
@@ -188,6 +180,74 @@ impl FontStyle {
             (true, false) => Bold,
             (false, true) => Italic,
             (false, false) => Regular,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FontSetting {
+    pub name: String,
+    pub features: Vec<Setting<u16>>,
+    pub variations: Vec<Setting<f32>>,
+}
+
+impl FontSetting {
+    pub fn with_name(name: String) -> Self {
+        Self {
+            name,
+            features: vec![],
+            variations: vec![],
+        }
+    }
+}
+
+impl Parse for FontSetting {
+    fn parse(value: rmpv::Value) -> Option<Self> {
+        match value {
+            rmpv::Value::String(s) => Some(Self::with_name(s.to_string())),
+            rmpv::Value::Map(map) => {
+                let mut name = None;
+                let mut features = vec![];
+                let mut variations = vec![];
+                for (k, v) in map {
+                    match k.as_str()? {
+                        "name" => name = Some(v.maybe_into()?),
+                        "features" => features = v.maybe_into()?,
+                        "variations" => variations = v.maybe_into()?,
+                        _ => {}
+                    }
+                }
+                Some(Self {
+                    name: name?,
+                    features,
+                    variations,
+                })
+            }
+            _ => None,
+        }
+    }
+}
+
+impl<T: Parse + Copy> Parse for Setting<T> {
+    fn parse(value: rmpv::Value) -> Option<Self> {
+        match value {
+            rmpv::Value::Map(map) => {
+                let mut name = None;
+                let mut value = None;
+                for (k, v) in map {
+                    match k.as_str()? {
+                        "name" => name = Some(v.as_str()?.to_string()),
+                        "value" => value = Some(v.maybe_into()?),
+                        _ => {}
+                    }
+                }
+                if let (Some(name), Some(value)) = (name, value) {
+                    Some((name.as_str(), value).into())
+                } else {
+                    None
+                }
+            }
+            _ => None,
         }
     }
 }
