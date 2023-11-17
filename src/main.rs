@@ -16,10 +16,7 @@ use rendering::state::RenderState;
 use rpc::Notification;
 use std::{sync::Arc, thread};
 use text::fonts::Fonts;
-use ui::{
-    options::{FontSize, FontsSetting},
-    Ui,
-};
+use ui::{options::FontSize, Ui};
 use util::{vec2::Vec2, Values};
 use winit::{
     event::{ElementState, MouseScrollDelta, TouchPhase, WindowEvent},
@@ -130,7 +127,12 @@ fn main() {
                                                             matches!(event, OptionSet::Guifont(_));
                                                         ui.process(event::Event::OptionSet(event));
                                                         if updated_fonts {
-                                                            fonts.set_fonts(&ui.options.guifont);
+                                                            fonts.set_fonts(
+                                                                ui.options.guifont.fonts.clone(),
+                                                                ui.options.guifont.size,
+                                                                vec![],
+                                                                vec![],
+                                                            );
                                                             render_state.clear_glyph_cache();
                                                             render_state.resize(
                                                                 surface_size,
@@ -209,10 +211,7 @@ fn main() {
                                     font_names.push(font);
                                 }
                                 let em = fonts.metrics().em;
-                                fonts.set_fonts(&FontsSetting {
-                                    fonts: font_names,
-                                    size: FontSize::Height(em),
-                                });
+                                fonts.set_fonts(font_names, FontSize::Height(em), vec![], vec![]);
                                 render_state.resize(surface_size, fonts.cell_size());
                                 resize_neovim_grid(surface_size, &fonts, &neovim);
                             }
@@ -519,7 +518,6 @@ fn send_keys(c: &str, modifiers: &mut ModifiersState, neovim: &Neovim, ignore_sh
 fn resize_neovim_grid(surface_size: Vec2<u32>, fonts: &Fonts, neovim: &Neovim) {
     let size = surface_size / fonts.cell_size();
     let size: Vec2<u64> = size.cast();
-    println!("Resize {surface_size:?}, {size:?}");
     neovim.ui_try_resize_grid(1, size.x, size.y);
 }
 

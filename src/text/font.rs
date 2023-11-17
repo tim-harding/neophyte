@@ -1,6 +1,6 @@
 use crate::{ui::options::FontSize, util::vec2::Vec2};
 use std::{fs, io, path::Path, sync::Arc};
-use swash::{proxy::CharmapProxy, CacheKey, Charmap, FontRef};
+use swash::{proxy::CharmapProxy, CacheKey, Charmap, FontRef, Setting};
 
 /// Wrapper over a Swash font
 #[derive(Debug, Clone)]
@@ -10,6 +10,8 @@ pub struct Font {
     offset: u32,
     key: CacheKey,
     metrics: Metrics,
+    features: Vec<Setting<u16>>,
+    variations: Vec<Setting<f32>>,
 }
 
 impl Font {
@@ -18,13 +20,21 @@ impl Font {
         path: impl AsRef<Path>,
         index: usize,
         size: FontSize,
+        features: Vec<Setting<u16>>,
+        variations: Vec<Setting<f32>>,
     ) -> Result<Self, FontFromFileError> {
         let data = fs::read(path)?;
-        Self::from_bytes(data, index, size).ok_or(FontFromFileError::Font)
+        Self::from_bytes(data, index, size, features, variations).ok_or(FontFromFileError::Font)
     }
 
     /// Create a font from the given TTF or OTF font data
-    pub fn from_bytes(data: Vec<u8>, index: usize, size: FontSize) -> Option<Self> {
+    pub fn from_bytes(
+        data: Vec<u8>,
+        index: usize,
+        size: FontSize,
+        features: Vec<Setting<u16>>,
+        variations: Vec<Setting<f32>>,
+    ) -> Option<Self> {
         let font = FontRef::from_index(&data, index)?;
         Some(Self {
             offset: font.offset,
@@ -32,7 +42,17 @@ impl Font {
             charmap: font.charmap().proxy(),
             key: font.key,
             data: Arc::new(data),
+            features,
+            variations,
         })
+    }
+
+    pub fn features(&self) -> &[Setting<u16>] {
+        self.features.as_slice()
+    }
+
+    pub fn variations(&self) -> &[Setting<f32>] {
+        self.variations.as_slice()
     }
 
     /// Cached Swash charmap

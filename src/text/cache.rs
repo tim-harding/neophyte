@@ -4,7 +4,7 @@ use bytemuck::{Pod, Zeroable};
 use std::collections::{hash_map::Entry, HashMap};
 use swash::{
     scale::{image::Content, Render, ScaleContext, Source, StrikeWith},
-    FontRef, GlyphId,
+    FontRef, GlyphId, Setting,
 };
 
 /// A cache of font glyphs
@@ -38,6 +38,7 @@ impl FontCache {
     pub fn get(
         &mut self,
         font: FontRef,
+        variations: &[Setting<f32>],
         size: f32,
         glyph_id: GlyphId,
         style: FontStyle,
@@ -56,6 +57,7 @@ impl FontCache {
                     .builder(font)
                     .size(size)
                     .hint(true)
+                    .variations(variations.into_iter().cloned())
                     .build();
                 match Render::new(&[
                     Source::ColorOutline(0),

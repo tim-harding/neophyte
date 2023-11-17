@@ -1,9 +1,7 @@
 use super::font::{Font, Metrics};
-use crate::{
-    ui::options::{FontSize, FontsSetting},
-    util::vec2::Vec2,
-};
+use crate::{ui::options::FontSize, util::vec2::Vec2};
 use font_loader::system_fonts::{self, FontPropertyBuilder};
+use swash::Setting;
 
 /// Loaded fonts
 #[derive(Debug, Clone)]
@@ -22,7 +20,13 @@ impl Fonts {
     pub fn new() -> Self {
         Self {
             fonts: vec![],
-            fallback: get(FontPropertyBuilder::new().monospace(), FontSize::default()).unwrap(),
+            fallback: get(
+                FontPropertyBuilder::new().monospace(),
+                FontSize::default(),
+                vec![],
+                vec![],
+            )
+            .unwrap(),
         }
     }
 
@@ -32,18 +36,28 @@ impl Fonts {
         }
     }
 
-    pub fn set_fonts(&mut self, setting: &FontsSetting) {
+    pub fn set_fonts(
+        &mut self,
+        names: Vec<String>,
+        size: FontSize,
+        features: Vec<Setting<u16>>,
+        variations: Vec<Setting<f32>>,
+    ) {
         let mut old = std::mem::take(&mut self.fonts);
-        self.fonts = setting
-            .fonts
+        self.fonts = names
             .iter()
-            .map(|name| {
+            .map(move |name| {
                 if let Some(i) = old.iter().position(|old| &old.name == name) {
                     let mut existing = old.swap_remove(i);
-                    existing.resize(setting.size);
+                    existing.resize(size);
                     existing
                 } else {
-                    FontVariants::with_name(name.clone(), setting.size)
+                    FontVariants::with_name(
+                        name.clone(),
+                        size,
+                        features.clone(),
+                        variations.clone(),
+                    )
                 }
             })
             .collect();
@@ -83,13 +97,23 @@ pub struct FontVariants {
 
 impl FontVariants {
     /// Attempt to load the system font with the given name
-    pub fn with_name(name: String, size: FontSize) -> Self {
+    pub fn with_name(
+        name: String,
+        size: FontSize,
+        features: Vec<Setting<u16>>,
+        variations: Vec<Setting<f32>>,
+    ) -> Self {
         let builder = || FontPropertyBuilder::new().family(&name);
         Self {
-            regular: get(builder(), size),
-            bold: get(builder().bold(), size),
-            italic: get(builder().italic(), size),
-            bold_italic: get(builder().bold().italic(), size),
+            regular: get(builder(), size, features.clone(), variations.clone()),
+            bold: get(builder().bold(), size, features.clone(), variations.clone()),
+            italic: get(
+                builder().italic(),
+                size,
+                features.clone(),
+                variations.clone(),
+            ),
+            bold_italic: get(builder().bold().italic(), size, features, variations),
             name,
         }
     }
@@ -136,9 +160,15 @@ impl FontVariants {
     }
 }
 
-fn get(builder: FontPropertyBuilder, size: FontSize) -> Option<Font> {
-    system_fonts::get(&builder.build())
-        .and_then(|(data, index)| Font::from_bytes(data, index as usize, size))
+fn get(
+    builder: FontPropertyBuilder,
+    size: FontSize,
+    features: Vec<Setting<u16>>,
+    variations: Vec<Setting<f32>>,
+) -> Option<Font> {
+    system_fonts::get(&builder.build()).and_then(|(data, index)| {
+        Font::from_bytes(data, index as usize, size, features, variations)
+    })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
