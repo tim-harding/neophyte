@@ -23,13 +23,7 @@ impl Fonts {
     pub fn new() -> Self {
         Self {
             fonts: vec![],
-            fallback: get(
-                FontPropertyBuilder::new().monospace(),
-                FontSize::default(),
-                vec![],
-                vec![],
-            )
-            .unwrap(),
+            fallback: get(FontPropertyBuilder::new().monospace(), FontSize::default()).unwrap(),
         }
     }
 
@@ -44,7 +38,7 @@ impl Fonts {
         self.fonts = fonts
             .into_iter()
             .map(move |font| {
-                if let Some(i) = old.iter().position(|old| &old.name == &font.name) {
+                if let Some(i) = old.iter().position(|old| &old.setting == &font) {
                     let mut existing = old.swap_remove(i);
                     existing.resize(size);
                     existing
@@ -76,7 +70,7 @@ impl Fonts {
 #[derive(Clone, Debug)]
 pub struct FontVariants {
     /// The font name
-    pub name: String,
+    pub setting: FontSetting,
     /// If regular variant of the font, if available
     pub regular: Option<Font>,
     /// If bold variant of the font, if available
@@ -89,24 +83,14 @@ pub struct FontVariants {
 
 impl FontVariants {
     /// Attempt to load the system font with the given name
-    pub fn with_settings(font_setting: FontSetting, size: FontSize) -> Self {
-        let FontSetting {
-            name,
-            features,
-            variations,
-        } = font_setting;
-        let builder = || FontPropertyBuilder::new().family(&name);
+    pub fn with_settings(setting: FontSetting, size: FontSize) -> Self {
+        let builder = || FontPropertyBuilder::new().family(&setting.name);
         Self {
-            regular: get(builder(), size, features.clone(), variations.clone()),
-            bold: get(builder().bold(), size, features.clone(), variations.clone()),
-            italic: get(
-                builder().italic(),
-                size,
-                features.clone(),
-                variations.clone(),
-            ),
-            bold_italic: get(builder().bold().italic(), size, features, variations),
-            name,
+            regular: get(builder(), size),
+            bold: get(builder().bold(), size),
+            italic: get(builder().italic(), size),
+            bold_italic: get(builder().bold().italic(), size),
+            setting,
         }
     }
 
@@ -152,15 +136,9 @@ impl FontVariants {
     }
 }
 
-fn get(
-    builder: FontPropertyBuilder,
-    size: FontSize,
-    features: Vec<Setting<u16>>,
-    variations: Vec<Setting<f32>>,
-) -> Option<Font> {
-    system_fonts::get(&builder.build()).and_then(|(data, index)| {
-        Font::from_bytes(data, index as usize, size, features, variations)
-    })
+fn get(builder: FontPropertyBuilder, size: FontSize) -> Option<Font> {
+    system_fonts::get(&builder.build())
+        .and_then(|(data, index)| Font::from_bytes(data, index as usize, size))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]

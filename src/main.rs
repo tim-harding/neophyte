@@ -68,7 +68,8 @@ fn main() {
                         } = request;
                         match method.as_str() {
                             "neophyte.get_fonts" => {
-                                let names = fonts.iter().map(|font| font.name.clone()).collect();
+                                let names =
+                                    fonts.iter().map(|font| font.setting.name.clone()).collect();
                                 neovim.send_response(rpc::Response::result(msgid, names));
                             }
 

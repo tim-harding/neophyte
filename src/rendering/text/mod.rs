@@ -107,8 +107,8 @@ impl Text {
                     let font = font_info.style(current_font_unwrapped.style).unwrap();
                     let mut shaper = shape_context
                         .builder(font.as_ref())
-                        .features(font.features().into_iter().cloned())
-                        .variations(font.variations().into_iter().cloned())
+                        .features(font_info.setting.features.iter().cloned())
+                        .variations(font_info.setting.variations.iter().cloned())
                         .script(Script::Arabic)
                         .build();
                     shaper.add_cluster(&cluster);
@@ -181,7 +181,7 @@ impl Text {
                         for glyph in cluster.glyphs {
                             let CacheValue { index, kind } = match font_cache.get(
                                 font.as_ref(),
-                                font.variations(),
+                                font_info.setting.variations.as_slice(),
                                 metrics.em,
                                 glyph.id,
                                 current_font_unwrapped.style,
