@@ -130,8 +130,12 @@ fn main() {
                                                             matches!(event, OptionSet::Guifont(_));
                                                         ui.process(event::Event::OptionSet(event));
                                                         if updated_fonts {
-                                                            render_state.clear_glyph_cache();
                                                             fonts.set_fonts(&ui.options.guifont);
+                                                            render_state.clear_glyph_cache();
+                                                            render_state.resize(
+                                                                surface_size,
+                                                                fonts.cell_size(),
+                                                            );
                                                             resize_neovim_grid(
                                                                 surface_size,
                                                                 &fonts,
@@ -167,6 +171,7 @@ fn main() {
                                 let height: f32 = args.next().unwrap();
                                 let size = FontSize::Height(height * scale_factor);
                                 fonts.set_font_size(size);
+                                render_state.resize(surface_size, fonts.cell_size());
                                 resize_neovim_grid(surface_size, &fonts, &neovim);
                             }
 
@@ -176,6 +181,7 @@ fn main() {
                                 let width: f32 = args.next().unwrap();
                                 let size = FontSize::Width(width * scale_factor);
                                 fonts.set_font_size(size);
+                                render_state.resize(surface_size, fonts.cell_size());
                                 resize_neovim_grid(surface_size, &fonts, &neovim);
                             }
 
@@ -207,6 +213,7 @@ fn main() {
                                     fonts: font_names,
                                     size: FontSize::Height(em),
                                 });
+                                render_state.resize(surface_size, fonts.cell_size());
                                 resize_neovim_grid(surface_size, &fonts, &neovim);
                             }
 
@@ -512,6 +519,7 @@ fn send_keys(c: &str, modifiers: &mut ModifiersState, neovim: &Neovim, ignore_sh
 fn resize_neovim_grid(surface_size: Vec2<u32>, fonts: &Fonts, neovim: &Neovim) {
     let size = surface_size / fonts.cell_size();
     let size: Vec2<u64> = size.cast();
+    println!("Resize {surface_size:?}, {size:?}");
     neovim.ui_try_resize_grid(1, size.x, size.y);
 }
 

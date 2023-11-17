@@ -161,6 +161,7 @@ impl Ui {
                 width,
                 height,
             }) => {
+                println!("Resized: {grid}, {width}, {height}");
                 self.get_or_create_grid(grid)
                     .contents_mut()
                     .resize(Vec2::new(width, height));
