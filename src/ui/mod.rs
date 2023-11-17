@@ -236,7 +236,9 @@ impl Ui {
             Event::WinHide(WinHide { grid }) => self.hide(grid),
             Event::WinClose(WinClose { grid }) => {
                 self.hide(grid);
-                *self.grid_mut(grid).unwrap().window_mut() = Window::None;
+                if let Some(grid) = self.grid_mut(grid) {
+                    *grid.window_mut() = Window::None;
+                }
             }
             Event::WinViewport(WinViewport {
                 grid,
