@@ -206,7 +206,7 @@ impl Parse for FontSetting {
     }
 }
 
-impl<T: Parse + Copy> Parse for Setting<T> {
+impl<T: Parse + Copy + SettingDefault> Parse for Setting<T> {
     fn parse(value: rmpv::Value) -> Option<Self> {
         match value {
             rmpv::Value::Map(map) => {
@@ -225,7 +225,24 @@ impl<T: Parse + Copy> Parse for Setting<T> {
                     None
                 }
             }
+            rmpv::Value::String(s) => Some((s.as_str()?, T::setting_default()).into()),
             _ => None,
         }
+    }
+}
+
+trait SettingDefault {
+    fn setting_default() -> Self;
+}
+
+impl SettingDefault for u16 {
+    fn setting_default() -> Self {
+        1
+    }
+}
+
+impl SettingDefault for f32 {
+    fn setting_default() -> Self {
+        0.
     }
 }
