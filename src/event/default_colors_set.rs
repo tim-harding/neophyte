@@ -24,8 +24,8 @@ impl Parse for DefaultColorsSet {
             rgb_fg: parse_maybe_u32(iter.next()?)?.map(Rgb::from),
             rgb_bg: parse_maybe_u32(iter.next()?)?.map(Rgb::from),
             rgb_sp: parse_maybe_u32(iter.next()?)?.map(Rgb::from),
-            cterm_fg: parse_maybe_u32(iter.next()?)?.map(|v| v as u8),
-            cterm_bg: parse_maybe_u32(iter.next()?)?.map(|v| v as u8),
+            cterm_fg: parse_maybe_u32(iter.next()?)?.and_then(|v| u8::try_from(v).ok()),
+            cterm_bg: parse_maybe_u32(iter.next()?)?.and_then(|v| u8::try_from(v).ok()),
         })
     }
 }

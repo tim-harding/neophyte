@@ -125,7 +125,7 @@ impl Attributes {
 
     fn maybe_set(&mut self, value: Value, mask: u16) -> Option<()> {
         let b = bool::parse(value)?;
-        self.packed |= b as u16 * mask;
+        self.packed |= u16::from(b) * mask;
         Some(())
     }
 }
@@ -149,9 +149,9 @@ impl Parse for Attributes {
                 "underdotted" => out.maybe_set(v, Self::UNDERDOTTED)?,
                 "underdashed" => out.maybe_set(v, Self::UNDERDASHED)?,
                 "blend" => {
-                    let blend = u8::parse(v)?;
+                    let blend = u16::parse(v)?;
                     out.packed &= !Self::BLEND_MASK;
-                    out.packed |= (blend as u16) << Self::BLEND_TRAILING;
+                    out.packed |= blend << Self::BLEND_TRAILING;
                 }
                 _ => {} // Ignore undocumented attributes
             }

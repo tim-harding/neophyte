@@ -27,6 +27,7 @@ fn linear(c: u8) -> f32 {
 
 impl From<u32> for Rgb {
     fn from(value: u32) -> Self {
+        #[allow(clippy::cast_possible_truncation)]
         Self::new((value >> 16) as u8, (value >> 8) as u8, value as u8)
     }
 }
