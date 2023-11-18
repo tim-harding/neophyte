@@ -182,7 +182,7 @@ impl FontSetting {
 impl Parse for FontSetting {
     fn parse(value: rmpv::Value) -> Option<Self> {
         match value {
-            rmpv::Value::String(s) => Some(Self::with_name(s.to_string())),
+            rmpv::Value::String(s) => Some(Self::with_name(s.into_str()?)),
             rmpv::Value::Map(map) => {
                 let mut name = None;
                 let mut features = vec![];
@@ -210,11 +210,11 @@ impl<T: Parse + Copy + SettingDefault> Parse for Setting<T> {
     fn parse(value: rmpv::Value) -> Option<Self> {
         match value {
             rmpv::Value::Map(map) => {
-                let mut name = None;
+                let mut name: Option<String> = None;
                 let mut value = None;
                 for (k, v) in map {
                     match k.as_str()? {
-                        "name" => name = Some(v.as_str()?.to_string()),
+                        "name" => name = Some(v.maybe_into()?),
                         "value" => value = Some(v.maybe_into()?),
                         _ => {}
                     }

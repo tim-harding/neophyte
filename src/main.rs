@@ -214,6 +214,7 @@ fn main() {
                             "neophyte.set_fonts" => {
                                 let args = Values::new(params.into_iter().next().unwrap()).unwrap();
                                 let font_settings = args.map().unwrap();
+                                println!("{font_settings:?}");
                                 let em = fonts.metrics().em;
                                 fonts.set_fonts(font_settings, FontSize::Height(em));
                                 render_state.resize(surface_size, fonts.cell_size());
