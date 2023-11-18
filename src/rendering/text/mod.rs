@@ -150,7 +150,7 @@ impl Text {
                                 if let Some(bg) = hl.rgb_attr.background {
                                     let bg = bg.into_linear();
 
-                                    // NOTE: Although some programming fonts are said to
+                                    // Although some programming fonts are said to
                                     // contain ligatures, in practice these are more
                                     // commonly implemented as multi-character alternates.
                                     // In contrast to genuine OpenType ligatures,
@@ -162,7 +162,6 @@ impl Text {
                                     // cells. This is something to improve on in the future
                                     // in case some fonts contain actual ligatures.
                                     let bg_cell = BgCell {
-                                        // TODO: Type size consistency
                                         x: cluster.source.start.try_into().unwrap(),
                                         y: cell_line_i,
                                         r: bg[0],
@@ -249,9 +248,7 @@ impl Text {
                             let bg = bg.into_linear();
                             for i in range.start..range.end {
                                 let bg_cell = BgCell {
-                                    // TODO: Type size consistency
                                     x: (i * cell_size.x).try_into().unwrap(),
-                                    // TODO: Type size consistency
                                     y: cell_line_i,
                                     r: bg[0],
                                     g: bg[1],
@@ -422,7 +419,6 @@ impl Text {
         target_size: Vec2<u32>,
         render_pass: &mut wgpu::RenderPass,
     ) {
-        // TODO: Type size consistency
         let target_size: Vec2<i32> = target_size.try_cast().unwrap();
         let minmax = |size| {
             Vec2::combine(
@@ -432,12 +428,10 @@ impl Text {
             )
         };
         let size = cell_size * self.size();
-        // TODO: Type size consistency
         let size = size.try_cast().unwrap();
         let size = self.offset + size;
         let size = minmax(size);
         let size = size - self.offset;
-        // TODO: Type size consistency
         let size = minmax(size).try_cast().unwrap();
         let offset = minmax(self.offset).try_cast().unwrap_or_default();
         render_pass.set_scissor_rect(offset.x, offset.y, size.x, size.y);

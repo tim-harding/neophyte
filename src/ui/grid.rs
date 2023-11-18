@@ -312,7 +312,6 @@ impl Overflow {
             self.buffer.drain(prev_len..);
             position
         } else {
-            // TODO: Type size consistency
             self.buffer[prev_len] = len.try_into().unwrap(); // Create meta
             prev_len
         }
