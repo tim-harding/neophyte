@@ -1,128 +1,81 @@
-use crate::event::{
-    option_set::{Ambiwidth, Showtabline},
-    OptionSet,
-};
+impl From<String> for GuiFont {
+    fn from(option: String) -> Self {
+        let mut out = GuiFont::default();
+        let mut state = ParseState::Normal;
+        let mut current = String::new();
+        for c in option.chars() {
+            match state {
+                ParseState::Normal => {
+                    if c.is_whitespace() && current.is_empty() {
+                        continue;
+                    }
 
-#[derive(Debug, Default, Clone)]
-pub struct Options {
-    /// Enable shaping
-    pub arabicshape: bool,
-    /// What to do with characters with East Asian Width Class Ambiguous
-    pub ambiwidth: Ambiwidth,
-    /// Emoji characters are considered to be full width
-    pub emoji: bool,
-    /// Fonts to use with fallbacks
-    pub guifont: FontsSetting,
-    /// Fonts to use for double-width characters with fallbacks
-    pub guifontwide: FontsSetting,
-    /// Number of pixel lines inserted between characters
-    pub linespace: u64,
-    /// Window focus follows mouse pointer
-    pub mousefocus: bool,
-    /// mouse move events are available for mapping
-    pub mousemoveevent: bool,
-    /// Enables pseudo-transparency for the popup-menu. Valid values are in the
-    /// range of 0 for fully opaque popupmenu (disabled) to 100 for fully
-    /// transparent background
-    pub pumblend: u64,
-    /// When the line with tab page labels will be displayed
-    pub showtabline: Showtabline,
-}
-
-impl Options {
-    pub fn event(&mut self, event: OptionSet) {
-        match event {
-            OptionSet::Arabicshape(value) => self.arabicshape = value,
-            OptionSet::Ambiwidth(value) => self.ambiwidth = value,
-            OptionSet::Emoji(value) => self.emoji = value,
-            OptionSet::Guifont(value) => self.guifont = fonts_from_option(value),
-            OptionSet::Guifontwide(value) => self.guifontwide = fonts_from_option(value),
-            OptionSet::Linespace(value) => self.linespace = value,
-            OptionSet::Mousefocus(value) => self.mousefocus = value,
-            OptionSet::Mousemoveevent(value) => self.mousemoveevent = value,
-            OptionSet::Pumblend(value) => self.pumblend = value,
-            OptionSet::Showtabline(value) => self.showtabline = value,
-            _ => {}
-        }
-    }
-}
-
-fn fonts_from_option(option: String) -> FontsSetting {
-    let mut out = FontsSetting::default();
-    let mut state = ParseState::Normal;
-    let mut current = String::new();
-    for c in option.chars() {
-        match state {
-            ParseState::Normal => {
-                if c.is_whitespace() && current.is_empty() {
-                    continue;
+                    match c {
+                        '\\' => state = ParseState::Escape,
+                        ',' => {
+                            out.fonts.push(current);
+                            current = String::default();
+                            state = ParseState::Normal;
+                        }
+                        '_' => current.push(' '),
+                        ':' => state = ParseState::OptionStart,
+                        _ => current.push(c),
+                    }
                 }
 
-                match c {
-                    '\\' => state = ParseState::Escape,
+                ParseState::Escape => current.push(c),
+
+                ParseState::OptionStart => {
+                    state = match c {
+                        'w' | 'W' => ParseState::OptionSize(0, SizeKind::Width),
+                        'h' | 'H' => ParseState::OptionSize(0, SizeKind::Height),
+                        _ => ParseState::OptionUnknown,
+                    };
+                }
+
+                ParseState::OptionSize(size, kind) => match c {
+                    '0'..='9' => {
+                        let size = size * 10 + c as u32 - '0' as u32;
+                        state = ParseState::OptionSize(size, kind);
+                    }
+                    ',' => {
+                        out.fonts.push(current);
+                        out.size = FontSize::new(size as f32, kind);
+                        current = String::default();
+                        state = ParseState::Normal;
+                    }
+                    ':' => {
+                        out.size = FontSize::new(size as f32, kind);
+                        state = ParseState::OptionStart;
+                    }
+                    _ => {
+                        log::warn!("Bad font height option");
+                        break;
+                    }
+                },
+
+                ParseState::OptionUnknown => match c {
                     ',' => {
                         out.fonts.push(current);
                         current = String::default();
                         state = ParseState::Normal;
                     }
-                    '_' => current.push(' '),
                     ':' => state = ParseState::OptionStart,
-                    _ => current.push(c),
-                }
+                    _ => {}
+                },
             }
-
-            ParseState::Escape => current.push(c),
-
-            ParseState::OptionStart => {
-                state = match c {
-                    'w' | 'W' => ParseState::OptionSize(0, SizeKind::Width),
-                    'h' | 'H' => ParseState::OptionSize(0, SizeKind::Height),
-                    _ => ParseState::OptionUnknown,
-                };
-            }
-
-            ParseState::OptionSize(size, kind) => match c {
-                '0'..='9' => {
-                    let size = size * 10 + c as u32 - '0' as u32;
-                    state = ParseState::OptionSize(size, kind);
-                }
-                ',' => {
-                    out.fonts.push(current);
-                    out.size = FontSize::new(size as f32, kind);
-                    current = String::default();
-                    state = ParseState::Normal;
-                }
-                ':' => {
-                    out.size = FontSize::new(size as f32, kind);
-                    state = ParseState::OptionStart;
-                }
-                _ => {
-                    log::warn!("Bad font height option");
-                    break;
-                }
-            },
-
-            ParseState::OptionUnknown => match c {
-                ',' => {
-                    out.fonts.push(current);
-                    current = String::default();
-                    state = ParseState::Normal;
-                }
-                ':' => state = ParseState::OptionStart,
-                _ => {}
-            },
         }
-    }
 
-    if !current.is_empty() {
-        out.fonts.push(current);
-    }
+        if !current.is_empty() {
+            out.fonts.push(current);
+        }
 
-    out
+        out
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct FontsSetting {
+pub struct GuiFont {
     pub fonts: Vec<String>,
     pub size: FontSize,
 }

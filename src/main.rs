@@ -11,14 +11,16 @@ use crate::{
     rendering::Motion,
     text::fonts::FontSetting,
 };
-use event::OptionSet;
 use neovim::{stdout_thread::StdoutHandler, Neovim};
 use rendering::state::RenderState;
 use rmpv::Value;
 use rpc::Notification;
 use std::thread;
 use text::fonts::Fonts;
-use ui::{options::FontSize, Ui};
+use ui::{
+    options::{FontSize, GuiFont},
+    Ui,
+};
 use util::{vec2::Vec2, Values};
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
@@ -194,12 +196,11 @@ impl EventHandler {
     }
 
     fn handle_redraw_notification(&mut self, params: Vec<Value>) {
-        let mut flushed = false;
         for param in params {
             match event::Event::try_parse(param.clone()) {
                 Ok(events) => {
                     for event in events.iter().cloned() {
-                        flushed |= self.handle_redraw_event(event);
+                        self.ui.process(event);
                     }
                 }
 
@@ -212,49 +213,24 @@ impl EventHandler {
             }
         }
 
-        if flushed {
+        if self.ui.did_flush {
+            if let Some(guifont_update) = self.ui.guifont_update.take() {
+                let GuiFont { fonts, size } = guifont_update;
+                self.fonts.set_fonts(
+                    fonts
+                        .into_iter()
+                        .map(|name| FontSetting::with_name(name))
+                        .collect(),
+                    size,
+                );
+                self.render_state.clear_glyph_cache();
+                self.render_state
+                    .resize(self.surface_size, self.fonts.cell_size());
+                resize_neovim_grid(self.surface_size, &self.fonts, &self.neovim);
+            }
             self.render_state.update(&self.ui, &self.fonts);
             self.ui.clear_dirty();
             self.window.request_redraw();
-        }
-    }
-
-    // TODO: Handle guifont changes and flushes in UI and simplify this code
-    fn handle_redraw_event(&mut self, event: event::Event) -> bool {
-        log::info!("{event:?}");
-        match event {
-            event::Event::Flush => {
-                self.ui.process(event::Event::Flush);
-                true
-            }
-
-            event::Event::OptionSet(event) => {
-                let updated_fonts = matches!(event, OptionSet::Guifont(_));
-                self.ui.process(event::Event::OptionSet(event));
-                if updated_fonts {
-                    self.fonts.set_fonts(
-                        self.ui
-                            .options
-                            .guifont
-                            .fonts
-                            .clone()
-                            .into_iter()
-                            .map(|name| FontSetting::with_name(name))
-                            .collect(),
-                        self.ui.options.guifont.size,
-                    );
-                    self.render_state.clear_glyph_cache();
-                    self.render_state
-                        .resize(self.surface_size, self.fonts.cell_size());
-                    resize_neovim_grid(self.surface_size, &self.fonts, &self.neovim);
-                }
-                false
-            }
-
-            event => {
-                self.ui.process(event);
-                false
-            }
         }
     }
 
@@ -693,18 +669,18 @@ impl NeovimHandler {
     }
 }
 
+// Explicitly ignoring errors here because if we close the app through Neophyte
+// instead of Neovim, the main thread will have already dropped the event loop.
 impl StdoutHandler for NeovimHandler {
     fn handle_notification(&mut self, notification: rpc::Notification) {
-        self.proxy
-            .send_event(UserEvent::Notification(notification))
-            .unwrap();
+        let _ = self.proxy.send_event(UserEvent::Notification(notification));
     }
 
     fn handle_request(&mut self, request: rpc::Request) {
-        self.proxy.send_event(UserEvent::Request(request)).unwrap();
+        let _ = self.proxy.send_event(UserEvent::Request(request));
     }
 
     fn handle_shutdown(&mut self) {
-        self.proxy.send_event(UserEvent::Shutdown).unwrap();
+        let _ = self.proxy.send_event(UserEvent::Shutdown);
     }
 }

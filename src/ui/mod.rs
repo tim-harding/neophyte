@@ -6,15 +6,15 @@ pub mod packed_char;
 pub mod window;
 
 use self::{
-    cmdline::Cmdline, grid::Grid, messages::Messages, options::Options, window::WindowOffset,
+    cmdline::Cmdline, grid::Grid, messages::Messages, options::GuiFont, window::WindowOffset,
 };
 use crate::{
     event::{
         mode_info_set::ModeInfo, Anchor, CmdlineBlockAppend, CmdlineBlockShow, CmdlinePos,
         DefaultColorsSet, Event, GridClear, GridCursorGoto, GridDestroy, GridLine, GridResize,
         GridScroll, HlAttrDefine, HlGroupSet, ModeChange, ModeInfoSet, MsgHistoryShow, MsgRuler,
-        MsgSetPos, MsgShowcmd, MsgShowmode, PopupmenuSelect, PopupmenuShow, TablineUpdate,
-        WinClose, WinExternalPos, WinFloatPos, WinHide, WinPos, WinViewport,
+        MsgSetPos, MsgShowcmd, MsgShowmode, OptionSet, PopupmenuSelect, PopupmenuShow,
+        TablineUpdate, WinClose, WinExternalPos, WinFloatPos, WinHide, WinPos, WinViewport,
     },
     ui::window::{FloatingWindow, NormalWindow, Window},
     util::vec2::Vec2,
@@ -47,7 +47,7 @@ pub struct Ui {
     /// Information about Vim modes, indexed by ID
     pub modes: Vec<ModeInfo>,
     /// UI options set by the option_set event
-    pub options: Options,
+    pub guifont_update: Option<GuiFont>,
     /// Default highlight colors
     pub default_colors: DefaultColorsSet,
     /// Manages ext_hlstate events
@@ -58,6 +58,8 @@ pub struct Ui {
     pub popupmenu: Option<PopupmenuShow>,
     /// Manages ext_tabline events
     pub tabline: Option<TablineUpdate>,
+    /// Did we receive a flush event?
+    pub did_flush: bool,
 }
 
 impl Default for Ui {
@@ -74,12 +76,13 @@ impl Default for Ui {
             did_highlights_change: false,
             current_mode: 0,
             modes: vec![],
-            options: Default::default(),
+            guifont_update: None,
             default_colors: Default::default(),
             messages: Default::default(),
             cmdline: Default::default(),
             popupmenu: None,
             tabline: None,
+            did_flush: false,
         }
     }
 }
@@ -122,6 +125,8 @@ impl Ui {
     pub fn clear_dirty(&mut self) {
         self.did_highlights_change = false;
         self.deleted_grids.clear();
+        self.did_flush = false;
+        self.guifont_update = None;
         for grid in self.grids.iter_mut() {
             grid.clear_dirty();
         }
@@ -130,7 +135,10 @@ impl Ui {
     /// Update the UI with the given event
     pub fn process(&mut self, event: Event) {
         match event {
-            Event::OptionSet(event) => self.options.event(event),
+            Event::OptionSet(event) => match event {
+                OptionSet::Guifont(s) if !s.is_empty() => self.guifont_update = Some(s.into()),
+                _ => {}
+            },
             Event::DefaultColorsSet(event) => {
                 self.did_highlights_change = true;
                 self.default_colors = event;
@@ -300,7 +308,7 @@ impl Ui {
             Event::MouseOff => self.mouse = false,
             Event::BusyStart => self.cursor.enabled = false,
             Event::BusyStop => self.cursor.enabled = true,
-            Event::Flush => {}
+            Event::Flush => self.did_flush = true,
 
             Event::Suspend
             | Event::SetTitle(_)
