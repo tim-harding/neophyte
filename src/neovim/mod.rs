@@ -91,7 +91,7 @@ impl Neovim {
             "rgb",
             "ext_linegrid",
             "ext_multigrid",
-            "ext_cmdline",
+            // "ext_cmdline",
             // "ext_popupmenu",
             // "ext_tabline",
             // "ext_wildmenu",
