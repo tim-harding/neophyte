@@ -9,10 +9,10 @@ use super::{
 };
 use crate::{
     event::rgb::Rgb,
+    event_handler::settings::Settings,
     text::{cache::FontCache, fonts::Fonts},
     ui::Ui,
     util::vec2::Vec2,
-    Settings,
 };
 use swash::shape::ShapeContext;
 use winit::window::Window;
