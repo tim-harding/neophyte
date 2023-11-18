@@ -17,6 +17,7 @@ pub struct Pipeline {
     display_info: Option<DisplayInfo>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 struct DisplayInfo {
     start_position: Vec2<f32>,
     target_position: Vec2<f32>,
@@ -199,13 +200,16 @@ impl Pipeline {
 
         self.display_info = match (position, self.display_info.as_ref()) {
             (None, None) | (None, Some(_)) => None,
-            (Some(position), None) => Some(DisplayInfo {
-                start_position: position,
-                target_position: position,
-                elapsed: 1.0,
-                fill,
-                cursor_size,
-            }),
+            (Some(position), None) => {
+                let position = position * cell_size;
+                Some(DisplayInfo {
+                    start_position: position,
+                    target_position: position,
+                    elapsed: 1.0,
+                    fill,
+                    cursor_size,
+                })
+            }
             (Some(position), Some(display_info)) => {
                 let new_target = cell_size * position;
                 let (start_position, elapsed) = if new_target != display_info.target_position {
