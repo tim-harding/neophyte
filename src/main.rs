@@ -14,6 +14,7 @@ use crate::{
 use event::OptionSet;
 use neovim::{stdout_thread::StdoutHandler, Neovim};
 use rendering::state::RenderState;
+use rmpv::Value;
 use rpc::Notification;
 use std::thread;
 use text::fonts::Fonts;
@@ -134,65 +135,7 @@ impl EventHandler {
     fn notification(&mut self, notification: Notification) {
         let Notification { method, params } = notification;
         match method.as_str() {
-            "redraw" => {
-                let mut flushed = false;
-                for param in params {
-                    match event::Event::try_parse(param.clone()) {
-                        Ok(events) => {
-                            for event in events.iter().cloned() {
-                                log::info!("{event:?}");
-                                match event {
-                                    event::Event::Flush => {
-                                        flushed = true;
-                                        self.ui.process(event::Event::Flush);
-                                    }
-
-                                    event::Event::OptionSet(event) => {
-                                        let updated_fonts = matches!(event, OptionSet::Guifont(_));
-                                        self.ui.process(event::Event::OptionSet(event));
-                                        if updated_fonts {
-                                            self.fonts.set_fonts(
-                                                self.ui
-                                                    .options
-                                                    .guifont
-                                                    .fonts
-                                                    .clone()
-                                                    .into_iter()
-                                                    .map(|name| FontSetting::with_name(name))
-                                                    .collect(),
-                                                self.ui.options.guifont.size,
-                                            );
-                                            self.render_state.clear_glyph_cache();
-                                            self.render_state
-                                                .resize(self.surface_size, self.fonts.cell_size());
-                                            resize_neovim_grid(
-                                                self.surface_size,
-                                                &self.fonts,
-                                                &self.neovim,
-                                            );
-                                        }
-                                    }
-
-                                    event => self.ui.process(event),
-                                }
-                            }
-                        }
-
-                        Err(e) => match e {
-                            event::Error::UnknownEvent(name) => {
-                                log::error!("Unknown event: {name}\n{param:#?}");
-                            }
-                            _ => log::error!("{e}"),
-                        },
-                    }
-                }
-
-                if flushed {
-                    self.render_state.update(&self.ui, &self.fonts);
-                    self.ui.clear_dirty();
-                    self.window.request_redraw();
-                }
-            }
+            "redraw" => self.handle_redraw_notification(params),
 
             "neophyte.set_font_height" => {
                 let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
@@ -247,6 +190,71 @@ impl EventHandler {
             }
 
             _ => log::error!("Unrecognized notification: {method}"),
+        }
+    }
+
+    fn handle_redraw_notification(&mut self, params: Vec<Value>) {
+        let mut flushed = false;
+        for param in params {
+            match event::Event::try_parse(param.clone()) {
+                Ok(events) => {
+                    for event in events.iter().cloned() {
+                        flushed |= self.handle_redraw_event(event);
+                    }
+                }
+
+                Err(e) => match e {
+                    event::Error::UnknownEvent(name) => {
+                        log::error!("Unknown event: {name}\n{param:#?}");
+                    }
+                    _ => log::error!("{e}"),
+                },
+            }
+        }
+
+        if flushed {
+            self.render_state.update(&self.ui, &self.fonts);
+            self.ui.clear_dirty();
+            self.window.request_redraw();
+        }
+    }
+
+    // TODO: Handle guifont changes and flushes in UI and simplify this code
+    fn handle_redraw_event(&mut self, event: event::Event) -> bool {
+        log::info!("{event:?}");
+        match event {
+            event::Event::Flush => {
+                self.ui.process(event::Event::Flush);
+                true
+            }
+
+            event::Event::OptionSet(event) => {
+                let updated_fonts = matches!(event, OptionSet::Guifont(_));
+                self.ui.process(event::Event::OptionSet(event));
+                if updated_fonts {
+                    self.fonts.set_fonts(
+                        self.ui
+                            .options
+                            .guifont
+                            .fonts
+                            .clone()
+                            .into_iter()
+                            .map(|name| FontSetting::with_name(name))
+                            .collect(),
+                        self.ui.options.guifont.size,
+                    );
+                    self.render_state.clear_glyph_cache();
+                    self.render_state
+                        .resize(self.surface_size, self.fonts.cell_size());
+                    resize_neovim_grid(self.surface_size, &self.fonts, &self.neovim);
+                }
+                false
+            }
+
+            event => {
+                self.ui.process(event);
+                false
+            }
         }
     }
 
@@ -309,56 +317,57 @@ impl EventHandler {
         match &event.logical_key {
             Key::Named(key) => {
                 let c = || {
+                    use NamedKey::*;
                     Some(match key {
-                        NamedKey::Enter => "Enter",
-                        NamedKey::Tab => "Tab",
-                        NamedKey::Space => "Space",
-                        NamedKey::ArrowDown => "Down",
-                        NamedKey::ArrowLeft => "Left",
-                        NamedKey::ArrowRight => "Right",
-                        NamedKey::ArrowUp => "Up",
-                        NamedKey::End => "End",
-                        NamedKey::Home => "Home",
-                        NamedKey::PageDown => "PageDown",
-                        NamedKey::PageUp => "PageUp",
-                        NamedKey::Backspace => "BS",
-                        NamedKey::Delete => "Del",
-                        NamedKey::Escape => "Esc",
-                        NamedKey::F1 => "F1",
-                        NamedKey::F2 => "F2",
-                        NamedKey::F3 => "F3",
-                        NamedKey::F4 => "F4",
-                        NamedKey::F5 => "F5",
-                        NamedKey::F6 => "F6",
-                        NamedKey::F7 => "F7",
-                        NamedKey::F8 => "F8",
-                        NamedKey::F9 => "F9",
-                        NamedKey::F10 => "F10",
-                        NamedKey::F11 => "F11",
-                        NamedKey::F12 => "F12",
-                        NamedKey::F13 => "F13",
-                        NamedKey::F14 => "F14",
-                        NamedKey::F15 => "F15",
-                        NamedKey::F16 => "F16",
-                        NamedKey::F17 => "F17",
-                        NamedKey::F18 => "F18",
-                        NamedKey::F19 => "F19",
-                        NamedKey::F20 => "F20",
-                        NamedKey::F21 => "F21",
-                        NamedKey::F22 => "F22",
-                        NamedKey::F23 => "F23",
-                        NamedKey::F24 => "F24",
-                        NamedKey::F25 => "F25",
-                        NamedKey::F26 => "F26",
-                        NamedKey::F27 => "F27",
-                        NamedKey::F28 => "F28",
-                        NamedKey::F29 => "F29",
-                        NamedKey::F30 => "F30",
-                        NamedKey::F31 => "F31",
-                        NamedKey::F32 => "F32",
-                        NamedKey::F33 => "F33",
-                        NamedKey::F34 => "F34",
-                        NamedKey::F35 => "F35",
+                        Enter => "Enter",
+                        Tab => "Tab",
+                        Space => "Space",
+                        ArrowDown => "Down",
+                        ArrowLeft => "Left",
+                        ArrowRight => "Right",
+                        ArrowUp => "Up",
+                        End => "End",
+                        Home => "Home",
+                        PageDown => "PageDown",
+                        PageUp => "PageUp",
+                        Backspace => "BS",
+                        Delete => "Del",
+                        Escape => "Esc",
+                        F1 => "F1",
+                        F2 => "F2",
+                        F3 => "F3",
+                        F4 => "F4",
+                        F5 => "F5",
+                        F6 => "F6",
+                        F7 => "F7",
+                        F8 => "F8",
+                        F9 => "F9",
+                        F10 => "F10",
+                        F11 => "F11",
+                        F12 => "F12",
+                        F13 => "F13",
+                        F14 => "F14",
+                        F15 => "F15",
+                        F16 => "F16",
+                        F17 => "F17",
+                        F18 => "F18",
+                        F19 => "F19",
+                        F20 => "F20",
+                        F21 => "F21",
+                        F22 => "F22",
+                        F23 => "F23",
+                        F24 => "F24",
+                        F25 => "F25",
+                        F26 => "F26",
+                        F27 => "F27",
+                        F28 => "F28",
+                        F29 => "F29",
+                        F30 => "F30",
+                        F31 => "F31",
+                        F32 => "F32",
+                        F33 => "F33",
+                        F34 => "F34",
+                        F35 => "F35",
                         _ => return None,
                     })
                 };
