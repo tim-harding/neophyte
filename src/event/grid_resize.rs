@@ -7,9 +7,9 @@ pub struct GridResize {
     /// The grid to resize
     pub grid: u32,
     /// The new width
-    pub width: u32,
+    pub width: u16,
     /// The new height
-    pub height: u32,
+    pub height: u16,
 }
 
 impl Parse for GridResize {

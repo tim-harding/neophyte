@@ -21,15 +21,17 @@ use crate::{
 };
 use std::{collections::HashMap, fmt::Debug};
 
+pub type HlId = u32;
+
 /// Manages updates to the UI state from UI events
 #[derive(Clone)]
 pub struct Ui {
     /// UI grids, ordered by ID
     pub grids: Vec<Grid>,
     /// Grids that have been deleted since the last flush
-    pub deleted_grids: Vec<u32>,
+    pub deleted_grids: Vec<grid::Id>,
     /// The order in which grids should be drawn, ordered from bottom to top
-    pub draw_order: Vec<u32>,
+    pub draw_order: Vec<grid::Id>,
     /// The index into self.draw_order at which floating windows begin
     pub float_windows_start: usize,
     /// Cursor information
@@ -40,7 +42,7 @@ pub struct Ui {
     // TODO: Only store the rgb_attr part
     pub highlights: Vec<HlAttrDefine>,
     /// A lookup from highlight names to highlight IDs
-    pub highlight_groups: HashMap<String, u32>,
+    pub highlight_groups: HashMap<String, HlId>,
     /// Whether the highlights changed since the last flush
     pub did_highlights_change: bool,
     /// The ID of the current mode
@@ -434,9 +436,9 @@ pub struct GridUnderCursor {
 #[derive(Debug, Copy, Clone)]
 pub struct CursorInfo {
     /// The position of the cursor in grid cells
-    pub pos: Vec2<u32>,
+    pub pos: Vec2<u16>,
     /// The grid the cursor is on
-    pub grid: u32,
+    pub grid: grid::Id,
     /// Whether the cursor should be rendered
     pub enabled: bool,
     /// Whether the UI should set the cursor style

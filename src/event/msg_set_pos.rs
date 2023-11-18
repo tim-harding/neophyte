@@ -9,7 +9,7 @@ pub struct MsgSetPos {
     /// The grid to display on the default grid
     pub grid: u32,
     /// The row of the default grid the messages will be displayed on
-    pub row: u32,
+    pub row: u16,
     /// Whether the message area has been scrolled to cover other grids.
     pub scrolled: bool,
     /// The Builtin TUI draws a full line filled with sep_char and MsgSeparator

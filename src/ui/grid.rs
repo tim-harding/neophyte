@@ -3,6 +3,7 @@
 use super::{
     packed_char::{PackedChar, U22},
     window::{Window, WindowOffset},
+    HlId,
 };
 use crate::{
     event::{grid_line, hl_attr_define::Attributes, Anchor, GridScroll, HlAttrDefine},
@@ -100,7 +101,7 @@ impl Grid {
 #[derive(Default, Clone)]
 pub struct GridContents {
     /// Grid dimensions
-    pub size: Vec2<u32>,
+    pub size: Vec2<u16>,
     /// Grid cells in rows then columns
     buffer: Vec<Cell>,
     /// Contains cell contents for cells that require more than one char of
@@ -112,7 +113,7 @@ pub struct GridContents {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Cell {
     pub text: PackedChar,
-    pub highlight: u32,
+    pub highlight: HlId,
 }
 
 impl GridContents {
@@ -121,7 +122,7 @@ impl GridContents {
     }
 
     /// Resize the grid to the new dimensions
-    pub fn resize(&mut self, size: Vec2<u32>) {
+    pub fn resize(&mut self, size: Vec2<u16>) {
         let mut old = std::mem::take(&mut self.buffer);
         self.buffer = vec![Cell::default(); size.area() as usize];
         for (new, old) in self
@@ -137,7 +138,7 @@ impl GridContents {
     }
 
     /// Apply a grid_scroll event
-    pub fn scroll(&mut self, top: u32, bot: u32, left: u32, right: u32, rows: i32) {
+    pub fn scroll(&mut self, top: u16, bot: u16, left: u16, right: u16, rows: i32) {
         let left = left as usize;
         let right = right as usize;
         let size: Vec2<usize> = self.size.cast_as();
@@ -173,7 +174,7 @@ impl GridContents {
     }
 
     /// Apply a grid_line event
-    pub fn grid_line(&mut self, row: u32, col_start: u32, cells: Vec<grid_line::Cell>) {
+    pub fn grid_line(&mut self, row: u16, col_start: u16, cells: Vec<grid_line::Cell>) {
         let w = self.size.x as usize;
         let start = row as usize * w;
         let end = start + w;

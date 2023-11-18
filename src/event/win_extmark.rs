@@ -14,9 +14,9 @@ pub struct WinExtmark {
     /// Extmark ID
     pub mark_id: u32,
     /// Row the extmark is on
-    pub row: u32,
+    pub row: u16,
     /// Column the extmark is on
-    pub col: u32,
+    pub col: u16,
 }
 
 impl Parse for WinExtmark {

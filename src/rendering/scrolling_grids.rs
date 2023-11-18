@@ -82,7 +82,7 @@ impl ScrollingGrids {
         })
     }
 
-    pub fn size(&self) -> Vec2<u32> {
+    pub fn size(&self) -> Vec2<u16> {
         self.scrolling.last().unwrap().grid.size
     }
 

@@ -42,13 +42,13 @@ pub struct GridScroll {
     /// The grid to scroll
     pub grid: u32,
     /// Top border of the scroll region
-    pub top: u32,
+    pub top: u16,
     /// Bottom border of the scroll region, exclusive
-    pub bot: u32,
+    pub bot: u16,
     /// Left border of the scroll region
-    pub left: u32,
+    pub left: u16,
     /// Right border of the scroll region, exclusive
-    pub right: u32,
+    pub right: u16,
     /// The number of rows to scroll by. Positive moves the region up, negative
     /// moves it down.
     pub rows: i32,

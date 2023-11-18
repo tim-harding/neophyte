@@ -11,13 +11,13 @@ pub struct WinPos {
     /// The window containing the grid
     pub win: Window,
     /// Top boundary
-    pub start_row: u32,
+    pub start_row: u16,
     /// Lefthand boundary
-    pub start_col: u32,
+    pub start_col: u16,
     /// New grid width
-    pub width: u32,
+    pub width: u16,
     /// New grid height
-    pub height: u32,
+    pub height: u16,
 }
 
 impl Parse for WinPos {

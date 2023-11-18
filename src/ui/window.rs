@@ -1,5 +1,7 @@
 use crate::{event::Anchor, util::vec2::Vec2};
 
+use super::grid;
+
 #[derive(Debug, Copy, Clone, Default)]
 pub enum Window {
     #[default]
@@ -10,7 +12,7 @@ pub enum Window {
 }
 
 impl Window {
-    pub fn offset(&self, grid_size: Vec2<u32>) -> WindowOffset {
+    pub fn offset(&self, grid_size: Vec2<u16>) -> WindowOffset {
         match &self {
             Window::None => Default::default(),
             Window::External => Default::default(),
@@ -38,19 +40,19 @@ impl Window {
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct WindowOffset {
     pub offset: Vec2<f32>,
-    pub anchor_grid: Option<u32>,
+    pub anchor_grid: Option<grid::Id>,
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct FloatingWindow {
     pub anchor: Anchor,
-    pub anchor_grid: u32,
+    pub anchor_grid: grid::Id,
     pub anchor_pos: Vec2<f32>,
     pub focusable: bool,
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct NormalWindow {
-    pub start: Vec2<u32>,
-    pub size: Vec2<u32>,
+    pub start: Vec2<u16>,
+    pub size: Vec2<u16>,
 }

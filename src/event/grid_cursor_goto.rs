@@ -7,9 +7,9 @@ pub struct GridCursorGoto {
     /// The current grid
     pub grid: u32,
     /// The cursor position row
-    pub row: u32,
+    pub row: u16,
     /// The cursor position column
-    pub column: u32,
+    pub column: u16,
 }
 
 impl Parse for GridCursorGoto {

@@ -7,9 +7,9 @@ pub struct GridLine {
     /// The grid to draw on
     pub grid: u32,
     /// The row to draw
-    pub row: u32,
+    pub row: u16,
     /// The column to start drawing on
-    pub col_start: u32,
+    pub col_start: u16,
     /// The cells to draw
     pub cells: Vec<Cell>,
     // NOTE: There is supposedly a wrap argument that is supposed to go here but
