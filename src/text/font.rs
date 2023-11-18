@@ -1,11 +1,11 @@
 use crate::{ui::options::FontSize, util::vec2::Vec2};
-use std::{fs, io, path::Path, sync::Arc};
+use std::{fs, io, path::Path};
 use swash::{proxy::CharmapProxy, CacheKey, Charmap, FontRef};
 
 /// Wrapper over a Swash font
 #[derive(Debug, Clone)]
 pub struct Font {
-    data: Arc<Vec<u8>>,
+    data: Vec<u8>,
     charmap: CharmapProxy,
     offset: u32,
     key: CacheKey,
@@ -31,7 +31,7 @@ impl Font {
             metrics: Metrics::new(font, size),
             charmap: font.charmap().proxy(),
             key: font.key,
-            data: Arc::new(data),
+            data,
         })
     }
 
