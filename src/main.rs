@@ -15,489 +15,545 @@ use event::OptionSet;
 use neovim::{stdout_thread::StdoutHandler, Neovim};
 use rendering::state::RenderState;
 use rpc::Notification;
-use std::{sync::Arc, thread};
+use std::thread;
 use text::fonts::Fonts;
 use ui::{options::FontSize, Ui};
 use util::{vec2::Vec2, Values};
 use winit::{
-    event::{ElementState, MouseScrollDelta, TouchPhase, WindowEvent},
-    event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy},
+    event::{ElementState, Event, MouseScrollDelta, TouchPhase, WindowEvent},
+    event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy, EventLoopWindowTarget},
     keyboard::{Key, ModifiersState, NamedKey},
-    window::WindowBuilder,
+    window::{Window, WindowBuilder},
 };
+
+// TODO: Maybe rearranging the drop order will improve close time?
 
 fn main() {
     env_logger::builder().format_timestamp(None).init();
-    let (neovim, stdout_handler, stdin_handler) = Neovim::new().unwrap();
-    let mut fonts = Fonts::new();
+
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event()
         .build()
         .unwrap();
-    let window = Arc::new(WindowBuilder::new().build(&event_loop).unwrap());
-    let mut render_state = pollster::block_on(async {
-        let cell_size = fonts.cell_size();
-        RenderState::new(window.clone(), cell_size).await
-    });
-    neovim.ui_attach();
+    let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-    std::thread::spawn(move || stdin_handler.start());
+    let (neovim, stdout_handler, stdin_handler) = Neovim::new().unwrap();
+    neovim.ui_attach();
+    let stdin_thread = std::thread::spawn(move || stdin_handler.start());
     let handler = NeovimHandler::new(event_loop.create_proxy());
-    thread::spawn(move || {
+    let stdout_thread = thread::spawn(move || {
         stdout_handler.start(handler);
     });
 
-    let mut scale_factor = 1.;
-    let mut surface_size = render_state.surface_size();
-    let mut ui = Ui::new();
-    let mut settings = Settings::new();
-    let mut mouse = Mouse::new();
-    let mut modifiers = ModifiersState::default();
+    let fonts = Fonts::new();
+    let render_state = pollster::block_on(async {
+        let cell_size = fonts.cell_size();
+        RenderState::new(&window, cell_size).await
+    });
+    let mut handler = EventHandler::new(fonts, neovim, render_state, window);
     event_loop.set_control_flow(ControlFlow::Wait);
     event_loop
         .run(move |event, window_target| {
-            use winit::event::Event;
-            match event {
-                Event::UserEvent(user_event) => match user_event {
-                    UserEvent::Shutdown => window_target.exit(),
+            handler.handle(event, window_target);
+        })
+        .expect("Failed to start render loop");
 
-                    UserEvent::Request(request) => {
-                        let rpc::Request {
-                            msgid,
-                            method,
-                            params,
-                        } = request;
-                        match method.as_str() {
-                            "neophyte.get_fonts" => {
-                                let names =
-                                    fonts.iter().map(|font| font.setting.name.clone()).collect();
-                                neovim.send_response(rpc::Response::result(msgid, names));
-                            }
+    stdout_thread
+        .join()
+        .expect("Failed to join Neovim stdout thread");
+    stdin_thread
+        .join()
+        .expect("Failed to join Neovim stdin thread");
+}
 
-                            "neophyte.get_cursor_speed" => {
-                                let cursor_speed = settings.cursor_speed;
-                                neovim.send_response(rpc::Response::result(
-                                    msgid,
-                                    cursor_speed.into(),
-                                ));
-                            }
+struct EventHandler {
+    scale_factor: f32,
+    surface_size: Vec2<u32>,
+    ui: Ui,
+    settings: Settings,
+    mouse: Mouse,
+    modifiers: ModifiersState,
+    fonts: Fonts,
+    neovim: Neovim,
+    render_state: RenderState,
+    window: Window,
+}
 
-                            "neophyte.get_scroll_speed" => {
-                                let scroll_speed = settings.scroll_speed;
-                                neovim.send_response(rpc::Response::result(
-                                    msgid,
-                                    scroll_speed.into(),
-                                ));
-                            }
+impl EventHandler {
+    pub fn new(fonts: Fonts, neovim: Neovim, render_state: RenderState, window: Window) -> Self {
+        Self {
+            scale_factor: 1.,
+            surface_size: render_state.surface_size(),
+            ui: Ui::new(),
+            settings: Settings::new(),
+            mouse: Mouse::new(),
+            modifiers: ModifiersState::default(),
+            fonts,
+            neovim,
+            render_state,
+            window,
+        }
+    }
 
-                            "neophyte.get_font_width" => {
-                                let width = fonts.metrics().width;
-                                neovim.send_response(rpc::Response::result(msgid, width.into()));
-                            }
+    pub fn handle(
+        &mut self,
+        event: Event<UserEvent>,
+        window_target: &EventLoopWindowTarget<UserEvent>,
+    ) {
+        match event {
+            Event::UserEvent(user_event) => match user_event {
+                UserEvent::Shutdown => window_target.exit(),
 
-                            "neophyte.get_font_height" => {
-                                let width = fonts.metrics().em;
-                                neovim.send_response(rpc::Response::result(msgid, width.into()));
-                            }
-
-                            "neophyte.get_underline_offset" => {
-                                let offset = settings.underline_offset;
-                                neovim.send_response(rpc::Response::result(msgid, offset.into()));
-                            }
-
-                            _ => log::error!("Unknown request: {}, {:?}", method, params),
+                UserEvent::Request(request) => {
+                    let rpc::Request {
+                        msgid,
+                        method,
+                        params,
+                    } = request;
+                    match method.as_str() {
+                        "neophyte.get_fonts" => {
+                            let names = self
+                                .fonts
+                                .iter()
+                                .map(|font| font.setting.name.clone())
+                                .collect();
+                            self.neovim
+                                .send_response(rpc::Response::result(msgid, names));
                         }
+
+                        "neophyte.get_cursor_speed" => {
+                            let cursor_speed = self.settings.cursor_speed;
+                            self.neovim
+                                .send_response(rpc::Response::result(msgid, cursor_speed.into()));
+                        }
+
+                        "neophyte.get_scroll_speed" => {
+                            let scroll_speed = self.settings.scroll_speed;
+                            self.neovim
+                                .send_response(rpc::Response::result(msgid, scroll_speed.into()));
+                        }
+
+                        "neophyte.get_font_width" => {
+                            let width = self.fonts.metrics().width;
+                            self.neovim
+                                .send_response(rpc::Response::result(msgid, width.into()));
+                        }
+
+                        "neophyte.get_font_height" => {
+                            let width = self.fonts.metrics().em;
+                            self.neovim
+                                .send_response(rpc::Response::result(msgid, width.into()));
+                        }
+
+                        "neophyte.get_underline_offset" => {
+                            let offset = self.settings.underline_offset;
+                            self.neovim
+                                .send_response(rpc::Response::result(msgid, offset.into()));
+                        }
+
+                        _ => log::error!("Unknown request: {}, {:?}", method, params),
                     }
+                }
 
-                    UserEvent::Notification(notification) => {
-                        let Notification { method, params } = notification;
-                        match method.as_str() {
-                            "redraw" => {
-                                let mut flushed = false;
-                                for param in params {
-                                    match event::Event::try_parse(param.clone()) {
-                                        Ok(events) => {
-                                            for event in events.iter().cloned() {
-                                                log::info!("{event:?}");
-                                                match event {
-                                                    event::Event::Flush => {
-                                                        flushed = true;
-                                                        ui.process(event::Event::Flush);
-                                                    }
-
-                                                    event::Event::OptionSet(event) => {
-                                                        let updated_fonts =
-                                                            matches!(event, OptionSet::Guifont(_));
-                                                        ui.process(event::Event::OptionSet(event));
-                                                        if updated_fonts {
-                                                            fonts.set_fonts(
-                                                                ui.options
-                                                                    .guifont
-                                                                    .fonts
-                                                                    .clone()
-                                                                    .into_iter()
-                                                                    .map(|name| {
-                                                                        FontSetting::with_name(name)
-                                                                    })
-                                                                    .collect(),
-                                                                ui.options.guifont.size,
-                                                            );
-                                                            render_state.clear_glyph_cache();
-                                                            render_state.resize(
-                                                                surface_size,
-                                                                fonts.cell_size(),
-                                                            );
-                                                            resize_neovim_grid(
-                                                                surface_size,
-                                                                &fonts,
-                                                                &neovim,
-                                                            );
-                                                        }
-                                                    }
-
-                                                    event => ui.process(event),
+                UserEvent::Notification(notification) => {
+                    let Notification { method, params } = notification;
+                    match method.as_str() {
+                        "redraw" => {
+                            let mut flushed = false;
+                            for param in params {
+                                match event::Event::try_parse(param.clone()) {
+                                    Ok(events) => {
+                                        for event in events.iter().cloned() {
+                                            log::info!("{event:?}");
+                                            match event {
+                                                event::Event::Flush => {
+                                                    flushed = true;
+                                                    self.ui.process(event::Event::Flush);
                                                 }
+
+                                                event::Event::OptionSet(event) => {
+                                                    let updated_fonts =
+                                                        matches!(event, OptionSet::Guifont(_));
+                                                    self.ui.process(event::Event::OptionSet(event));
+                                                    if updated_fonts {
+                                                        self.fonts.set_fonts(
+                                                            self.ui
+                                                                .options
+                                                                .guifont
+                                                                .fonts
+                                                                .clone()
+                                                                .into_iter()
+                                                                .map(|name| {
+                                                                    FontSetting::with_name(name)
+                                                                })
+                                                                .collect(),
+                                                            self.ui.options.guifont.size,
+                                                        );
+                                                        self.render_state.clear_glyph_cache();
+                                                        self.render_state.resize(
+                                                            self.surface_size,
+                                                            self.fonts.cell_size(),
+                                                        );
+                                                        resize_neovim_grid(
+                                                            self.surface_size,
+                                                            &self.fonts,
+                                                            &self.neovim,
+                                                        );
+                                                    }
+                                                }
+
+                                                event => self.ui.process(event),
                                             }
                                         }
-
-                                        Err(e) => match e {
-                                            event::Error::UnknownEvent(name) => {
-                                                log::error!("Unknown event: {name}\n{param:#?}");
-                                            }
-                                            _ => log::error!("{e}"),
-                                        },
                                     }
-                                }
 
-                                if flushed {
-                                    render_state.update(&ui, &fonts);
-                                    ui.clear_dirty();
-                                    window.request_redraw();
-                                }
-                            }
-
-                            "neophyte.set_font_height" => {
-                                let mut args =
-                                    Values::new(params.into_iter().next().unwrap()).unwrap();
-                                let height: f32 = args.next().unwrap();
-                                let size = FontSize::Height(height * scale_factor);
-                                fonts.set_font_size(size);
-                                render_state.resize(surface_size, fonts.cell_size());
-                                resize_neovim_grid(surface_size, &fonts, &neovim);
-                            }
-
-                            "neophyte.set_font_width" => {
-                                let mut args =
-                                    Values::new(params.into_iter().next().unwrap()).unwrap();
-                                let width: f32 = args.next().unwrap();
-                                let size = FontSize::Width(width * scale_factor);
-                                fonts.set_font_size(size);
-                                render_state.resize(surface_size, fonts.cell_size());
-                                resize_neovim_grid(surface_size, &fonts, &neovim);
-                            }
-
-                            "neophyte.set_cursor_speed" => {
-                                let mut args =
-                                    Values::new(params.into_iter().next().unwrap()).unwrap();
-                                let speed: f32 = args.next().unwrap();
-                                settings.cursor_speed = speed;
-                                window.request_redraw();
-                            }
-
-                            "neophyte.set_scroll_speed" => {
-                                let mut args =
-                                    Values::new(params.into_iter().next().unwrap()).unwrap();
-                                let speed: f32 = args.next().unwrap();
-                                settings.scroll_speed = speed;
-                                window.request_redraw();
-                            }
-
-                            "neophyte.set_fonts" => {
-                                let args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                                let font_settings = args.map().unwrap();
-                                println!("{font_settings:?}");
-                                let em = fonts.metrics().em;
-                                fonts.set_fonts(font_settings, FontSize::Height(em));
-                                render_state.resize(surface_size, fonts.cell_size());
-                                resize_neovim_grid(surface_size, &fonts, &neovim);
-                            }
-
-                            "neophyte.set_underline_offset" => {
-                                let mut args =
-                                    Values::new(params.into_iter().next().unwrap()).unwrap();
-                                let offset: f32 = args.next().unwrap();
-                                let offset: i32 = offset as i32;
-                                settings.underline_offset = offset;
-                                window.request_redraw();
-                            }
-
-                            _ => log::error!("Unrecognized notification: {method}"),
-                        }
-                    }
-                },
-
-                Event::WindowEvent {
-                    window_id,
-                    ref event,
-                } if window_id == window.id() => match event {
-                    WindowEvent::ModifiersChanged(new_modifiers) => {
-                        modifiers = new_modifiers.state();
-                    }
-
-                    WindowEvent::KeyboardInput { event, .. } => {
-                        match event.state {
-                            ElementState::Pressed => {}
-                            ElementState::Released => return,
-                        }
-                        match &event.logical_key {
-                            Key::Named(key) => {
-                                let c = || {
-                                    Some(match key {
-                                        NamedKey::Enter => "Enter",
-                                        NamedKey::Tab => "Tab",
-                                        NamedKey::Space => "Space",
-                                        NamedKey::ArrowDown => "Down",
-                                        NamedKey::ArrowLeft => "Left",
-                                        NamedKey::ArrowRight => "Right",
-                                        NamedKey::ArrowUp => "Up",
-                                        NamedKey::End => "End",
-                                        NamedKey::Home => "Home",
-                                        NamedKey::PageDown => "PageDown",
-                                        NamedKey::PageUp => "PageUp",
-                                        NamedKey::Backspace => "BS",
-                                        NamedKey::Delete => "Del",
-                                        NamedKey::Escape => "Esc",
-                                        NamedKey::F1 => "F1",
-                                        NamedKey::F2 => "F2",
-                                        NamedKey::F3 => "F3",
-                                        NamedKey::F4 => "F4",
-                                        NamedKey::F5 => "F5",
-                                        NamedKey::F6 => "F6",
-                                        NamedKey::F7 => "F7",
-                                        NamedKey::F8 => "F8",
-                                        NamedKey::F9 => "F9",
-                                        NamedKey::F10 => "F10",
-                                        NamedKey::F11 => "F11",
-                                        NamedKey::F12 => "F12",
-                                        NamedKey::F13 => "F13",
-                                        NamedKey::F14 => "F14",
-                                        NamedKey::F15 => "F15",
-                                        NamedKey::F16 => "F16",
-                                        NamedKey::F17 => "F17",
-                                        NamedKey::F18 => "F18",
-                                        NamedKey::F19 => "F19",
-                                        NamedKey::F20 => "F20",
-                                        NamedKey::F21 => "F21",
-                                        NamedKey::F22 => "F22",
-                                        NamedKey::F23 => "F23",
-                                        NamedKey::F24 => "F24",
-                                        NamedKey::F25 => "F25",
-                                        NamedKey::F26 => "F26",
-                                        NamedKey::F27 => "F27",
-                                        NamedKey::F28 => "F28",
-                                        NamedKey::F29 => "F29",
-                                        NamedKey::F30 => "F30",
-                                        NamedKey::F31 => "F31",
-                                        NamedKey::F32 => "F32",
-                                        NamedKey::F33 => "F33",
-                                        NamedKey::F34 => "F34",
-                                        NamedKey::F35 => "F35",
-                                        _ => return None,
-                                    })
-                                };
-
-                                if let Some(c) = c() {
-                                    send_keys(c, &mut modifiers, &neovim, false);
+                                    Err(e) => match e {
+                                        event::Error::UnknownEvent(name) => {
+                                            log::error!("Unknown event: {name}\n{param:#?}");
+                                        }
+                                        _ => log::error!("{e}"),
+                                    },
                                 }
                             }
 
-                            Key::Character(c) => {
-                                let s = match c.as_str() {
-                                    "<" => "Lt",
-                                    "\\" => "Bslash",
-                                    "|" => "Bar",
-                                    _ => c.as_str(),
-                                };
-                                send_keys(s, &mut modifiers, &neovim, true);
+                            if flushed {
+                                self.render_state.update(&self.ui, &self.fonts);
+                                self.ui.clear_dirty();
+                                self.window.request_redraw();
                             }
-
-                            Key::Unidentified(_) | Key::Dead(_) => {}
                         }
+
+                        "neophyte.set_font_height" => {
+                            let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                            let height: f32 = args.next().unwrap();
+                            let size = FontSize::Height(height * self.scale_factor);
+                            self.fonts.set_font_size(size);
+                            self.render_state
+                                .resize(self.surface_size, self.fonts.cell_size());
+                            resize_neovim_grid(self.surface_size, &self.fonts, &self.neovim);
+                        }
+
+                        "neophyte.set_font_width" => {
+                            let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                            let width: f32 = args.next().unwrap();
+                            let size = FontSize::Width(width * self.scale_factor);
+                            self.fonts.set_font_size(size);
+                            self.render_state
+                                .resize(self.surface_size, self.fonts.cell_size());
+                            resize_neovim_grid(self.surface_size, &self.fonts, &self.neovim);
+                        }
+
+                        "neophyte.set_cursor_speed" => {
+                            let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                            let speed: f32 = args.next().unwrap();
+                            self.settings.cursor_speed = speed;
+                            self.window.request_redraw();
+                        }
+
+                        "neophyte.set_scroll_speed" => {
+                            let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                            let speed: f32 = args.next().unwrap();
+                            self.settings.scroll_speed = speed;
+                            self.window.request_redraw();
+                        }
+
+                        "neophyte.set_fonts" => {
+                            let args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                            let font_settings = args.map().unwrap();
+                            let em = self.fonts.metrics().em;
+                            self.fonts.set_fonts(font_settings, FontSize::Height(em));
+                            self.render_state
+                                .resize(self.surface_size, self.fonts.cell_size());
+                            resize_neovim_grid(self.surface_size, &self.fonts, &self.neovim);
+                        }
+
+                        "neophyte.set_underline_offset" => {
+                            let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
+                            let offset: f32 = args.next().unwrap();
+                            let offset: i32 = offset as i32;
+                            self.settings.underline_offset = offset;
+                            self.window.request_redraw();
+                        }
+
+                        _ => log::error!("Unrecognized notification: {method}"),
                     }
+                }
+            },
 
-                    WindowEvent::CursorMoved { position, .. } => {
-                        let position: Vec2<f64> = (*position).into();
-                        let position: Vec2<i64> = position.cast_as();
-                        let cell_size = fonts.cell_size();
-                        let inner = (surface_size / cell_size) * cell_size;
-                        let margin = (surface_size - inner) / 2;
-                        let position = position - margin.cast();
-                        let Ok(position) = position.try_cast::<u64>() else {
-                            return;
-                        };
-                        mouse.position = position;
-                        if let Some(grid) = ui.grid_under_cursor(position, fonts.cell_size().cast())
-                        {
-                            neovim.input_mouse(
-                                mouse.buttons.first().unwrap_or(Button::Move),
-                                // Irrelevant for move
-                                Action::ButtonDrag,
-                                modifiers.into(),
-                                grid.grid,
-                                grid.position.y,
-                                grid.position.x,
-                            );
-                        }
+            Event::WindowEvent {
+                window_id,
+                ref event,
+            } if window_id == self.window.id() => match event {
+                WindowEvent::ModifiersChanged(new_modifiers) => {
+                    self.modifiers = new_modifiers.state();
+                }
+
+                WindowEvent::KeyboardInput { event, .. } => {
+                    match event.state {
+                        ElementState::Pressed => {}
+                        ElementState::Released => return,
                     }
+                    match &event.logical_key {
+                        Key::Named(key) => {
+                            let c = || {
+                                Some(match key {
+                                    NamedKey::Enter => "Enter",
+                                    NamedKey::Tab => "Tab",
+                                    NamedKey::Space => "Space",
+                                    NamedKey::ArrowDown => "Down",
+                                    NamedKey::ArrowLeft => "Left",
+                                    NamedKey::ArrowRight => "Right",
+                                    NamedKey::ArrowUp => "Up",
+                                    NamedKey::End => "End",
+                                    NamedKey::Home => "Home",
+                                    NamedKey::PageDown => "PageDown",
+                                    NamedKey::PageUp => "PageUp",
+                                    NamedKey::Backspace => "BS",
+                                    NamedKey::Delete => "Del",
+                                    NamedKey::Escape => "Esc",
+                                    NamedKey::F1 => "F1",
+                                    NamedKey::F2 => "F2",
+                                    NamedKey::F3 => "F3",
+                                    NamedKey::F4 => "F4",
+                                    NamedKey::F5 => "F5",
+                                    NamedKey::F6 => "F6",
+                                    NamedKey::F7 => "F7",
+                                    NamedKey::F8 => "F8",
+                                    NamedKey::F9 => "F9",
+                                    NamedKey::F10 => "F10",
+                                    NamedKey::F11 => "F11",
+                                    NamedKey::F12 => "F12",
+                                    NamedKey::F13 => "F13",
+                                    NamedKey::F14 => "F14",
+                                    NamedKey::F15 => "F15",
+                                    NamedKey::F16 => "F16",
+                                    NamedKey::F17 => "F17",
+                                    NamedKey::F18 => "F18",
+                                    NamedKey::F19 => "F19",
+                                    NamedKey::F20 => "F20",
+                                    NamedKey::F21 => "F21",
+                                    NamedKey::F22 => "F22",
+                                    NamedKey::F23 => "F23",
+                                    NamedKey::F24 => "F24",
+                                    NamedKey::F25 => "F25",
+                                    NamedKey::F26 => "F26",
+                                    NamedKey::F27 => "F27",
+                                    NamedKey::F28 => "F28",
+                                    NamedKey::F29 => "F29",
+                                    NamedKey::F30 => "F30",
+                                    NamedKey::F31 => "F31",
+                                    NamedKey::F32 => "F32",
+                                    NamedKey::F33 => "F33",
+                                    NamedKey::F34 => "F34",
+                                    NamedKey::F35 => "F35",
+                                    _ => return None,
+                                })
+                            };
 
-                    WindowEvent::MouseInput { state, button, .. } => {
-                        let Ok(button) = (*button).try_into() else {
-                            return;
-                        };
+                            if let Some(c) = c() {
+                                send_keys(c, &mut self.modifiers, &self.neovim, false);
+                            }
+                        }
 
-                        let action = (*state).into();
-                        let depressed = match action {
-                            Action::ButtonPress => true,
-                            Action::ButtonRelease => false,
-                            _ => unreachable!(),
-                        };
-                        match button {
-                            Button::Left => mouse.buttons = mouse.buttons.with_left(depressed),
-                            Button::Right => mouse.buttons = mouse.buttons.with_right(depressed),
-                            Button::Middle => mouse.buttons = mouse.buttons.with_middle(depressed),
-                            _ => unreachable!(),
+                        Key::Character(c) => {
+                            let s = match c.as_str() {
+                                "<" => "Lt",
+                                "\\" => "Bslash",
+                                "|" => "Bar",
+                                _ => c.as_str(),
+                            };
+                            send_keys(s, &mut self.modifiers, &self.neovim, true);
                         }
-                        if let Some(grid) =
-                            ui.grid_under_cursor(mouse.position, fonts.cell_size().cast())
-                        {
-                            neovim.input_mouse(
-                                button,
-                                action,
-                                modifiers.into(),
-                                grid.grid,
-                                grid.position.y,
-                                grid.position.x,
-                            );
-                        }
+
+                        Key::Unidentified(_) | Key::Dead(_) => {}
                     }
+                }
 
-                    WindowEvent::MouseWheel { delta, phase, .. } => {
-                        let reset = matches!(
-                            phase,
-                            TouchPhase::Started | TouchPhase::Ended | TouchPhase::Cancelled
+                WindowEvent::CursorMoved { position, .. } => {
+                    let position: Vec2<f64> = (*position).into();
+                    let position: Vec2<i64> = position.cast_as();
+                    let cell_size = self.fonts.cell_size();
+                    let inner = (self.surface_size / cell_size) * cell_size;
+                    let margin = (self.surface_size - inner) / 2;
+                    let position = position - margin.cast();
+                    let Ok(position) = position.try_cast::<u64>() else {
+                        return;
+                    };
+                    self.mouse.position = position;
+                    if let Some(grid) = self
+                        .ui
+                        .grid_under_cursor(position, self.fonts.cell_size().cast())
+                    {
+                        self.neovim.input_mouse(
+                            self.mouse.buttons.first().unwrap_or(Button::Move),
+                            // Irrelevant for move
+                            Action::ButtonDrag,
+                            self.modifiers.into(),
+                            grid.grid,
+                            grid.position.y,
+                            grid.position.x,
                         );
-
-                        let (delta, kind) = match delta {
-                            MouseScrollDelta::LineDelta(horizontal, vertical) => {
-                                (Vec2::new(*horizontal, *vertical).cast(), ScrollKind::Lines)
-                            }
-
-                            MouseScrollDelta::PixelDelta(delta) => {
-                                ((*delta).into(), ScrollKind::Pixels)
-                            }
-                        };
-
-                        let modifiers = modifiers.into();
-
-                        let delta: Vec2<i64> = delta.cast_as();
-                        if reset {
-                            mouse.scroll = Vec2::default();
-                        }
-
-                        let lines = match kind {
-                            ScrollKind::Lines => delta,
-                            ScrollKind::Pixels => {
-                                mouse.scroll += delta;
-                                let cell_size: Vec2<i64> = fonts.cell_size().cast();
-                                let lines = mouse.scroll / cell_size;
-                                mouse.scroll -= lines * cell_size;
-                                lines
-                            }
-                        };
-
-                        let Some(grid) =
-                            ui.grid_under_cursor(mouse.position, fonts.cell_size().cast())
-                        else {
-                            return;
-                        };
-
-                        let action = if lines.y < 0 {
-                            Action::WheelDown
-                        } else {
-                            Action::WheelUp
-                        };
-
-                        for _ in 0..lines.y.abs() {
-                            neovim.input_mouse(
-                                Button::Wheel,
-                                action,
-                                modifiers,
-                                grid.grid,
-                                grid.position.y,
-                                grid.position.x,
-                            );
-                        }
-
-                        let action = if lines.x < 0 {
-                            Action::WheelRight
-                        } else {
-                            Action::WheelLeft
-                        };
-
-                        for _ in 0..lines.x.abs() {
-                            neovim.input_mouse(
-                                Button::Wheel,
-                                action,
-                                modifiers,
-                                grid.grid,
-                                grid.position.y,
-                                grid.position.x,
-                            );
-                        }
                     }
+                }
 
-                    WindowEvent::Resized(physical_size) => {
-                        surface_size = (*physical_size).into();
-                        resize_neovim_grid(surface_size, &fonts, &neovim);
-                        render_state.resize(surface_size, fonts.cell_size());
+                WindowEvent::MouseInput { state, button, .. } => {
+                    let Ok(button) = (*button).try_into() else {
+                        return;
+                    };
+
+                    let action = (*state).into();
+                    let depressed = match action {
+                        Action::ButtonPress => true,
+                        Action::ButtonRelease => false,
+                        _ => unreachable!(),
+                    };
+                    match button {
+                        Button::Left => {
+                            self.mouse.buttons = self.mouse.buttons.with_left(depressed)
+                        }
+                        Button::Right => {
+                            self.mouse.buttons = self.mouse.buttons.with_right(depressed)
+                        }
+                        Button::Middle => {
+                            self.mouse.buttons = self.mouse.buttons.with_middle(depressed)
+                        }
+                        _ => unreachable!(),
                     }
-
-                    WindowEvent::ScaleFactorChanged {
-                        scale_factor: new_scale_factor,
-                        ..
-                    } => {
-                        scale_factor = *new_scale_factor as f32;
-                        let new_font_size = FontSize::Height(fonts.metrics().em * scale_factor);
-                        fonts.set_font_size(new_font_size);
-                    }
-
-                    WindowEvent::CloseRequested => window_target.exit(),
-
-                    WindowEvent::RedrawRequested => {
-                        let framerate = window
-                            .current_monitor()
-                            .and_then(|monitor| monitor.refresh_rate_millihertz())
-                            .unwrap_or(60_000);
-                        let delta_seconds = 1_000. / framerate as f32;
-                        let motion = render_state.render(
-                            fonts.cell_size(),
-                            delta_seconds,
-                            settings,
-                            &window,
+                    if let Some(grid) = self
+                        .ui
+                        .grid_under_cursor(self.mouse.position, self.fonts.cell_size().cast())
+                    {
+                        self.neovim.input_mouse(
+                            button,
+                            action,
+                            self.modifiers.into(),
+                            grid.grid,
+                            grid.position.y,
+                            grid.position.x,
                         );
-                        match motion {
-                            Motion::Still => {}
-                            Motion::Animating => window.request_redraw(),
+                    }
+                }
+
+                WindowEvent::MouseWheel { delta, phase, .. } => {
+                    let reset = matches!(
+                        phase,
+                        TouchPhase::Started | TouchPhase::Ended | TouchPhase::Cancelled
+                    );
+
+                    let (delta, kind) = match delta {
+                        MouseScrollDelta::LineDelta(horizontal, vertical) => {
+                            (Vec2::new(*horizontal, *vertical).cast(), ScrollKind::Lines)
                         }
-                        log::info!("Rendered with result {motion:?}");
+
+                        MouseScrollDelta::PixelDelta(delta) => {
+                            ((*delta).into(), ScrollKind::Pixels)
+                        }
+                    };
+
+                    let modifiers = self.modifiers.into();
+
+                    let delta: Vec2<i64> = delta.cast_as();
+                    if reset {
+                        self.mouse.scroll = Vec2::default();
                     }
 
-                    _ => {}
-                },
+                    let lines = match kind {
+                        ScrollKind::Lines => delta,
+                        ScrollKind::Pixels => {
+                            self.mouse.scroll += delta;
+                            let cell_size: Vec2<i64> = self.fonts.cell_size().cast();
+                            let lines = self.mouse.scroll / cell_size;
+                            self.mouse.scroll -= lines * cell_size;
+                            lines
+                        }
+                    };
+
+                    let Some(grid) = self
+                        .ui
+                        .grid_under_cursor(self.mouse.position, self.fonts.cell_size().cast())
+                    else {
+                        return;
+                    };
+
+                    let action = if lines.y < 0 {
+                        Action::WheelDown
+                    } else {
+                        Action::WheelUp
+                    };
+
+                    for _ in 0..lines.y.abs() {
+                        self.neovim.input_mouse(
+                            Button::Wheel,
+                            action,
+                            modifiers,
+                            grid.grid,
+                            grid.position.y,
+                            grid.position.x,
+                        );
+                    }
+
+                    let action = if lines.x < 0 {
+                        Action::WheelRight
+                    } else {
+                        Action::WheelLeft
+                    };
+
+                    for _ in 0..lines.x.abs() {
+                        self.neovim.input_mouse(
+                            Button::Wheel,
+                            action,
+                            modifiers,
+                            grid.grid,
+                            grid.position.y,
+                            grid.position.x,
+                        );
+                    }
+                }
+
+                WindowEvent::Resized(physical_size) => {
+                    self.surface_size = (*physical_size).into();
+                    resize_neovim_grid(self.surface_size, &self.fonts, &self.neovim);
+                    self.render_state
+                        .resize(self.surface_size, self.fonts.cell_size());
+                }
+
+                WindowEvent::ScaleFactorChanged {
+                    scale_factor: new_scale_factor,
+                    ..
+                } => {
+                    self.scale_factor = *new_scale_factor as f32;
+                    let new_font_size =
+                        FontSize::Height(self.fonts.metrics().em * self.scale_factor);
+                    self.fonts.set_font_size(new_font_size);
+                }
+
+                WindowEvent::CloseRequested => window_target.exit(),
+
+                WindowEvent::RedrawRequested => {
+                    let framerate = self
+                        .window
+                        .current_monitor()
+                        .and_then(|monitor| monitor.refresh_rate_millihertz())
+                        .unwrap_or(60_000);
+                    let delta_seconds = 1_000. / framerate as f32;
+                    let motion = self.render_state.render(
+                        self.fonts.cell_size(),
+                        delta_seconds,
+                        self.settings,
+                        &self.window,
+                    );
+                    match motion {
+                        Motion::Still => {}
+                        Motion::Animating => self.window.request_redraw(),
+                    }
+                    log::info!("Rendered with result {motion:?}");
+                }
 
                 _ => {}
-            }
-        })
-        .unwrap();
+            },
+
+            _ => {}
+        }
+    }
 }
 
 fn send_keys(c: &str, modifiers: &mut ModifiersState, neovim: &Neovim, ignore_shift: bool) {

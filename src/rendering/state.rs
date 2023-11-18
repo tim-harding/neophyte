@@ -14,7 +14,6 @@ use crate::{
     util::vec2::Vec2,
     Settings,
 };
-use std::sync::Arc;
 use swash::shape::ShapeContext;
 use winit::window::Window;
 
@@ -52,7 +51,7 @@ struct Pipelines {
 }
 
 impl RenderState {
-    pub async fn new(window: Arc<Window>, cell_size: Vec2<u32>) -> Self {
+    pub async fn new(window: &Window, cell_size: Vec2<u32>) -> Self {
         let surface_size: Vec2<u32> = window.inner_size().into();
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -62,7 +61,7 @@ impl RenderState {
             gles_minor_version: wgpu::Gles3MinorVersion::Automatic,
         });
 
-        let surface = unsafe { instance.create_surface(window.as_ref()) }.unwrap();
+        let surface = unsafe { instance.create_surface(window) }.unwrap();
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
