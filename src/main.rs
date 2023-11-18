@@ -50,12 +50,7 @@ fn main() {
         stdout_handler.start(handler);
     });
 
-    let fonts = Fonts::new();
-    let render_state = pollster::block_on(async {
-        let cell_size = fonts.cell_size();
-        RenderState::new(&window, cell_size).await
-    });
-    let mut handler = EventHandler::new(fonts, neovim, render_state, window);
+    let mut handler = EventHandler::new(neovim, window);
     event_loop.set_control_flow(ControlFlow::Wait);
     event_loop
         .run(move |event, window_target| {
@@ -85,7 +80,12 @@ struct EventHandler {
 }
 
 impl EventHandler {
-    pub fn new(fonts: Fonts, neovim: Neovim, render_state: RenderState, window: Window) -> Self {
+    pub fn new(neovim: Neovim, window: Window) -> Self {
+        let fonts = Fonts::new();
+        let render_state = pollster::block_on(async {
+            let cell_size = fonts.cell_size();
+            RenderState::new(&window, cell_size).await
+        });
         Self {
             scale_factor: 1.,
             surface_size: render_state.surface_size(),
