@@ -164,8 +164,7 @@ impl Text {
                                     let bg_cell = BgCell {
                                         // TODO: Type size consistency
                                         x: cluster.source.start.try_into().unwrap(),
-                                        // TODO: Type size consistency
-                                        y: cell_line_i.try_into().unwrap(),
+                                        y: cell_line_i,
                                         r: bg[0],
                                         g: bg[1],
                                         b: bg[2],
@@ -199,8 +198,7 @@ impl Text {
                             let position = Vec2::new(glyph.x, glyph.y) * metrics.scale_factor;
                             let position = Vec2::new(
                                 position.x.round() as i32 + x as i32 + advanced.round() as i32,
-                                position.y.round() as i32
-                                    + (cell_line_i * cell_size.y as i32),
+                                position.y.round() as i32 + (cell_line_i * cell_size.y as i32),
                             );
 
                             if is_underlined {
@@ -254,7 +252,7 @@ impl Text {
                                     // TODO: Type size consistency
                                     x: (i * cell_size.x).try_into().unwrap(),
                                     // TODO: Type size consistency
-                                    y: cell_line_i.try_into().unwrap(),
+                                    y: cell_line_i,
                                     r: bg[0],
                                     g: bg[1],
                                     b: bg[2],

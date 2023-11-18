@@ -25,7 +25,8 @@ impl CmdlineGrid {
         self.text.offset()
     }
 
-    pub fn update<'a>(
+    #[allow(clippy::too_many_arguments)]
+    pub fn update(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -100,8 +101,7 @@ impl CmdlineGrid {
 fn iter_line(content: &Content) -> impl Iterator<Item = CellContents> + Clone {
     content.chunks.iter().flat_map(|chunk| {
         chunk.text_chunk.chars().map(|c| CellContents {
-            // TODO: Type size consistency
-            highlight: chunk.attr_id.try_into().unwrap(),
+            highlight: chunk.attr_id,
             text: c.into(),
         })
     })

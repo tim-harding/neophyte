@@ -39,7 +39,7 @@ impl Fonts {
         self.fonts = fonts
             .into_iter()
             .map(move |font| {
-                if let Some(i) = old.iter().position(|old| &old.setting == &font) {
+                if let Some(i) = old.iter().position(|old| old.setting == font) {
                     let mut existing = old.swap_remove(i);
                     existing.resize(size);
                     existing

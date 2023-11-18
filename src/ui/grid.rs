@@ -198,8 +198,7 @@ impl GridContents {
             };
             let cell = Cell {
                 text: packed,
-                // TODO: Type size consistency
-                highlight: highlight.try_into().unwrap(),
+                highlight,
             };
 
             for _ in 0..repeat {
