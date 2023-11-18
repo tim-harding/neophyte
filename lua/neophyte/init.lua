@@ -1,7 +1,70 @@
 local M = {}
 
 -- Doc comments reference:
--- https://github.com/LuaLS/lua-language-server/wiki/Annotations
+-- https://luals.github.io/wiki/annotations/
+
+---@class FontFeatureFull
+---@field name string The font feature name, such as 'liga', 'calt', or 'ordn'.
+---@field value integer The font feature value, usually 0 to disable a feature or 1 to enable it. The string shorthand of FontFeature is available to set a feature to 1.
+
+---@alias FontFeature string | FontFeatureFull
+
+---@class FontVariation
+---@field name string The font variation name, such as 'wght', 'wdgh', or 'slnt'.
+---@field value number The font variation value.
+
+---@class FontFull
+---@field name string The font name. If you don't need features or variations, consider using the string shorthand of Font.
+---@field features? FontFeature[]
+---@field variations? FontVariation[]
+
+---@alias Font string | FontFull
+
+---@alias FontSizeKind "width" | "height"
+
+---@class FontSize
+---@field kind FontSizeKind
+---@field size number
+
+---@class Config
+---@field fonts? Font[]
+---@field font_size? FontSize
+---@field underline_offset? number
+---@field cursor_speed? number
+---@field scroll_speed? number
+
+---@param config Config
+function M.setup(config)
+  if config.fonts ~= nil then
+    M.set_fonts(config.fonts)
+  end
+
+  if config.font_size ~= nil then
+    local font_size = config.font_size
+    assert(font_size)
+    local kind = font_size.kind
+    assert(kind)
+    local size = font_size.size
+    assert(size)
+    if kind == 'width' then
+      M.set_font_width(size)
+    elseif kind == 'height' then
+      M.set_font_height(size)
+    end
+  end
+
+  if config.underline_offset ~= nil then
+    M.set_underline_offset(config.underline_offset)
+  end
+
+  if config.cursor_speed ~= nil then
+    M.set_cursor_speed(config.cursor_speed)
+  end
+
+  if config.scroll_speed ~= nil then
+    M.set_scroll_speed(config.scroll_speed)
+  end
+end
 
 ---@param height number
 function M.set_font_height(height)
@@ -23,7 +86,7 @@ function M.get_font_width()
   return vim.rpcrequest(1, "neophyte.get_font_width", {})
 end
 
----@param fonts string[] | { name: string, features?: string[] | { name: string, value: number }[], variations?: string[] | { name: string, value: number }[] }[]
+---@param fonts Font[]
 function M.set_fonts(fonts)
   vim.rpcnotify(1, "neophyte.set_fonts", fonts)
 end
