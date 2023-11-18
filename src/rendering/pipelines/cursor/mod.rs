@@ -160,6 +160,7 @@ impl Pipeline {
                 .then_some(ui.position(ui.cursor.grid) + ui.cursor.pos.cast_as()),
             CursorKind::Cmdline => ui.cmdline.mode.as_ref().map(|mode| match mode {
                 Mode::Normal { levels } => {
+                    // We guarantee at least one level if the mode is Some
                     let level = levels.last().unwrap();
                     let mut pos =
                         Vec2::new(level.cursor_pos as i64, -(level.content_lines.len() as i64));

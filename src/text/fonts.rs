@@ -23,7 +23,8 @@ impl Fonts {
     pub fn new() -> Self {
         Self {
             fonts: vec![],
-            fallback: get(FontPropertyBuilder::new().monospace(), FontSize::default()).unwrap(),
+            fallback: get(FontPropertyBuilder::new().monospace(), FontSize::default())
+                .expect("Failed to find a fallback monospace font"),
         }
     }
 

@@ -60,6 +60,7 @@ impl GlyphBindGroup {
 
         self.next_glyph_to_upload = self.textures.len();
         let views: Vec<_> = self.textures.iter().map(|texture| &texture.view).collect();
+        // Okay to unwrap because we only reach here if we got at least one glyph to upload
         let tex_count = Some(NonZeroU32::new(self.textures.len() as u32).unwrap());
 
         let font_info_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {

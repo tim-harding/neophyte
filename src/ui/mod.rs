@@ -101,22 +101,26 @@ impl Ui {
     /// Grid with the given ID
     pub fn grid_mut(&mut self, id: u64) -> Option<&mut Grid> {
         self.grid_index(id)
-            .map(|i| self.grids.get_mut(i).unwrap())
+            .map(|i| self.grids.get_mut(i))
             .ok()
+            .flatten()
     }
 
     /// Grid with the given ID
     pub fn grid(&self, id: u64) -> Option<&Grid> {
-        self.grid_index(id).map(|i| self.grids.get(i).unwrap()).ok()
+        self.grid_index(id)
+            .map(|i| self.grids.get(i))
+            .ok()
+            .flatten()
     }
 
     /// Get the grid with the given ID or create it if it does not exist
     fn get_or_create_grid(&mut self, id: u64) -> &mut Grid {
         match self.grid_index(id) {
-            Ok(i) => self.grids.get_mut(i).unwrap(),
+            Ok(i) => &mut self.grids[i],
             Err(i) => {
                 self.grids.insert(i, Grid::new(id));
-                self.grids.get_mut(i).unwrap()
+                &mut self.grids[i]
             }
         }
     }
@@ -173,9 +177,11 @@ impl Ui {
                     .contents_mut()
                     .resize(Vec2::new(width, height));
             }
-            Event::GridClear(GridClear { grid }) => {
-                self.grid_mut(grid).unwrap().contents_mut().clear()
-            }
+            Event::GridClear(GridClear { grid }) => self
+                .grid_mut(grid)
+                .expect("Tried to clear nonexistent grid")
+                .contents_mut()
+                .clear(),
             Event::GridDestroy(GridDestroy { grid }) => self.delete_grid(grid),
             Event::GridCursorGoto(GridCursorGoto { grid, row, column }) => {
                 self.cursor.pos = Vec2::new(column, row);
@@ -191,7 +197,7 @@ impl Ui {
                 cols: _,
             }) => {
                 self.grid_mut(grid)
-                    .unwrap()
+                    .expect("Tried to scroll nonexistent grid")
                     .contents_mut()
                     .scroll(top, bot, left, right, rows);
             }
@@ -202,7 +208,7 @@ impl Ui {
                 cells,
             }) => {
                 self.grid_mut(grid)
-                    .unwrap()
+                    .expect("Tried to update a line of a nonexistent grid")
                     .contents_mut()
                     .grid_line(row, col_start, cells);
             }
@@ -216,7 +222,10 @@ impl Ui {
                 height,
             }) => {
                 self.show_normal(grid);
-                *self.grid_mut(grid).unwrap().window_mut() = Window::Normal(NormalWindow {
+                *self
+                    .grid_mut(grid)
+                    .expect("Tried to update the position of a nonexistent grid")
+                    .window_mut() = Window::Normal(NormalWindow {
                     start: Vec2::new(start_col, start_row),
                     size: Vec2::new(width, height),
                 });
@@ -231,7 +240,10 @@ impl Ui {
                 focusable,
             }) => {
                 self.show_float(grid);
-                *self.grid_mut(grid).unwrap().window_mut() = Window::Floating(FloatingWindow {
+                *self
+                    .grid_mut(grid)
+                    .expect("Tried to update the position of a nonexistent grid")
+                    .window_mut() = Window::Floating(FloatingWindow {
                     anchor,
                     focusable,
                     anchor_grid,
@@ -239,11 +251,17 @@ impl Ui {
                 });
             }
             Event::WinExternalPos(WinExternalPos { grid, win: _ }) => {
-                *self.grid_mut(grid).unwrap().window_mut() = Window::External;
+                *self
+                    .grid_mut(grid)
+                    .expect("Tried to update the position of a nonexistent grid")
+                    .window_mut() = Window::External;
             }
             Event::WinHide(WinHide { grid }) => self.hide(grid),
             Event::WinClose(WinClose { grid }) => {
                 self.hide(grid);
+                // It seems like we shouldn't be able to receive this event
+                // when a grid doesn't exist, but I have had this happen when
+                // opening DAP UI.
                 if let Some(grid) = self.grid_mut(grid) {
                     *grid.window_mut() = Window::None;
                 }
@@ -258,7 +276,9 @@ impl Ui {
                 curcol: _,
                 line_count: _,
             }) => {
-                self.grid_mut(grid).unwrap().scroll_delta = scroll_delta;
+                self.grid_mut(grid)
+                    .expect("Tried to update the viewport of a nonexistent grid")
+                    .scroll_delta = scroll_delta;
             }
             Event::WinExtmark(_) => {}
 

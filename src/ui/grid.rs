@@ -138,7 +138,7 @@ impl GridContents {
     pub fn scroll(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64) {
         let left = left as usize;
         let right = right as usize;
-        let size = self.size.try_cast::<usize>().unwrap();
+        let size: Vec2<usize> = self.size.cast_as();
         let dst_top = top as i64 - rows;
         let dst_bot = bot as i64 - rows;
         if rows > 0 {
@@ -196,6 +196,7 @@ impl GridContents {
             };
             let cell = Cell {
                 text: packed,
+                // TODO: Type size consistency
                 highlight: highlight.try_into().unwrap(),
             };
 
@@ -263,6 +264,7 @@ impl Debug for GridContents {
     }
 }
 
+// TODO: This type is unnecessary extra complexity
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 struct Overflow {
     buffer: Vec<u32>,
@@ -308,6 +310,7 @@ impl Overflow {
             self.buffer.drain(prev_len..);
             position
         } else {
+            // TODO: Type size consistency
             self.buffer[prev_len] = len.try_into().unwrap(); // Create meta
             prev_len
         }

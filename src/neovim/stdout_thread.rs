@@ -54,7 +54,9 @@ impl StdoutThread {
             match msg {
                 Message::Request(request) => {
                     log::info!("RPC Request: {}, {:?}", request.method, request.params);
-                    self.incoming.write().unwrap().push_request(request.msgid);
+                    if let Ok(mut incoming) = self.incoming.write() {
+                        incoming.push_request(request.msgid);
+                    }
                     handler.handle_request(request);
                 }
 

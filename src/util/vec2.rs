@@ -405,6 +405,8 @@ macro_rules! as_impls {
         as_impl!($t, i32);
         as_impl!($t, i64);
         as_impl!($t, i128);
+        as_impl!($t, isize);
+        as_impl!($t, usize);
         as_impl!($t, f32);
         as_impl!($t, f64);
     };
@@ -420,5 +422,7 @@ as_impls!(i16);
 as_impls!(i32);
 as_impls!(i64);
 as_impls!(i128);
+as_impls!(isize);
+as_impls!(usize);
 as_impls!(f32);
 as_impls!(f64);

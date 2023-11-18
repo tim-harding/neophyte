@@ -70,6 +70,7 @@ impl Grids {
             // contents?
             .or_insert_with(|| {
                 Grid::new(
+                    // TODO: Uniform type sizes
                     Text::new(ui_grid.contents().size.try_cast().unwrap()),
                     ScrollingGrids::new(ui_grid.contents().clone()),
                 )
@@ -86,6 +87,7 @@ impl Grids {
             grid.text.update_contents(
                 device,
                 queue,
+                // TODO: Uniform type sizes
                 Some(grid.scrolling.size().try_cast().unwrap()),
                 grid.scrolling.rows(),
                 &self.bind_group_layout,

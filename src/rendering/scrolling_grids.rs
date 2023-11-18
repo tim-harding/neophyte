@@ -47,6 +47,7 @@ impl ScrollingGrids {
 
     pub fn push(&mut self, grid: GridContents, offset: i64) {
         let sign = if offset.is_positive() { 1 } else { -1 };
+        // TODO: Type size consistency
         let mag = offset.abs().min(grid.size.y.try_into().unwrap());
         let offset = mag * sign;
         let mut cover = Range::until(grid.size.y as i64);
@@ -57,7 +58,9 @@ impl ScrollingGrids {
             let covered = grid_range.cover(cover);
             cover = cover.union(grid_range);
             let grid_range = covered - part.offset;
+            // TODO: Type size consistency
             part.start = grid_range.start.try_into().unwrap();
+            // TODO: Type size consistency
             part.end = grid_range.end.try_into().unwrap();
             !part.is_empty()
         });

@@ -61,7 +61,8 @@ impl RenderState {
             gles_minor_version: wgpu::Gles3MinorVersion::Automatic,
         });
 
-        let surface = unsafe { instance.create_surface(window) }.unwrap();
+        let surface =
+            unsafe { instance.create_surface(window) }.expect("Failed to create graphics surface");
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -70,7 +71,7 @@ impl RenderState {
                 force_fallback_adapter: false,
             })
             .await
-            .unwrap();
+            .expect("Failed to get a graphics adapter");
 
         let (device, queue) = adapter
         .request_device(
@@ -85,7 +86,7 @@ impl RenderState {
             None,
         )
         .await
-        .unwrap();
+        .expect("Failed to get a graphics device");
 
         let surface_caps = surface.get_capabilities(&adapter);
         let surface_config = wgpu::SurfaceConfiguration {

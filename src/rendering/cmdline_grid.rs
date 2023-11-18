@@ -43,6 +43,7 @@ impl CmdlineGrid {
             match mode {
                 Mode::Normal { levels } => {
                     // TODO: Handle multiple levels
+                    // TODO: Guarantee at least one level at the type level
                     let prompt = levels.last().unwrap();
                     let mut content_lines = prompt.content_lines.iter();
                     let first_line = content_lines.next().unwrap();
@@ -99,6 +100,7 @@ impl CmdlineGrid {
 fn iter_line(content: &Content) -> impl Iterator<Item = CellContents> + Clone {
     content.chunks.iter().flat_map(|chunk| {
         chunk.text_chunk.chars().map(|c| CellContents {
+            // TODO: Type size consistency
             highlight: chunk.attr_id.try_into().unwrap(),
             text: c.into(),
         })

@@ -14,14 +14,14 @@ use rmpv::Value;
 use std::{
     io::{self, ErrorKind},
     process::{Command, Stdio},
-    sync::{mpsc, Arc, Mutex, RwLock},
+    sync::{mpsc, Arc, RwLock},
 };
 
 #[derive(Debug, Clone)]
 pub struct Neovim {
     tx: mpsc::Sender<rpc::Message>,
     incoming: Arc<RwLock<Incoming>>,
-    next_msgid: Arc<Mutex<u64>>,
+    next_msgid: u64,
 }
 
 impl Neovim {
@@ -57,18 +57,12 @@ impl Neovim {
     pub fn send_response(&self, response: rpc::Response) {
         self.incoming
             .write()
-            .unwrap()
+            .expect("The Neovim stdin thread closed unexpectedly")
             .push_response(response, &self.tx);
     }
 
-    fn call(&self, method: &str, args: Vec<Value>) -> u64 {
-        let msgid = {
-            let mut lock = self.next_msgid.lock().unwrap();
-            let msgid = *lock;
-            *lock += 1;
-            msgid
-        };
-
+    fn call(&mut self, method: &str, args: Vec<Value>) -> u64 {
+        let msgid = self.next_msgid;
         let req = Request {
             msgid,
             method: method.to_owned(),
@@ -82,23 +76,13 @@ impl Neovim {
             }
         }
 
+        self.next_msgid += 1;
         msgid
     }
 
     // TODO: Proper public API
-    pub fn ui_attach(&self) {
-        let extensions = [
-            "rgb",
-            "ext_linegrid",
-            "ext_multigrid",
-            // "ext_cmdline",
-            // "ext_popupmenu",
-            // "ext_tabline",
-            // "ext_wildmenu",
-            // "ext_hlstate",
-            // "ext_termcolors",
-            // "ext_messages",
-        ];
+    pub fn ui_attach(&mut self) {
+        let extensions = ["rgb", "ext_linegrid", "ext_multigrid"];
         let extensions = Value::Map(
             extensions
                 .into_iter()
@@ -109,13 +93,13 @@ impl Neovim {
         self.call("nvim_ui_attach", attach_args);
     }
 
-    pub fn input(&self, input: String) {
+    pub fn input(&mut self, input: String) {
         let args = vec![input.into()];
         self.call("nvim_input", args);
     }
 
     pub fn input_mouse(
-        &self,
+        &mut self,
         button: Button,
         action: Action,
         modifiers: Modifiers,
@@ -134,7 +118,7 @@ impl Neovim {
         self.call("nvim_input_mouse", args);
     }
 
-    pub fn ui_try_resize_grid(&self, grid: u64, width: u64, height: u64) {
+    pub fn ui_try_resize_grid(&mut self, grid: u64, width: u64, height: u64) {
         let args: Vec<_> = [grid, width, height]
             .into_iter()
             .map(|n| n.into())
