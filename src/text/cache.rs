@@ -57,7 +57,7 @@ impl FontCache {
                     .builder(font)
                     .size(size)
                     .hint(true)
-                    .variations(variations.into_iter().cloned())
+                    .variations(variations.iter().cloned())
                     .build();
                 match Render::new(&[
                     Source::ColorOutline(0),

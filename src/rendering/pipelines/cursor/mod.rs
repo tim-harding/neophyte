@@ -216,7 +216,7 @@ impl Pipeline {
                 let (start_position, elapsed) = if new_target != display_info.target_position {
                     let current_position = display_info
                         .start_position
-                        .lerp(display_info.target_position, t(&display_info));
+                        .lerp(display_info.target_position, t(display_info));
                     (current_position, 0.0)
                 } else {
                     (display_info.start_position, display_info.elapsed)
@@ -246,7 +246,7 @@ impl Pipeline {
         };
 
         display_info.elapsed += delta_seconds;
-        let t = t(&display_info).min(1.);
+        let t = t(display_info).min(1.);
         let current_position = display_info
             .start_position
             .lerp(display_info.target_position, t);

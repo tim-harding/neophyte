@@ -177,7 +177,7 @@ impl EventHandler {
                 self.fonts.set_fonts(
                     fonts
                         .into_iter()
-                        .map(|name| FontSetting::with_name(name))
+                        .map(FontSetting::with_name)
                         .collect(),
                     size,
                 );

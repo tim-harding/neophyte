@@ -200,7 +200,7 @@ impl Text {
                             let position = Vec2::new(
                                 position.x.round() as i32 + x as i32 + advanced.round() as i32,
                                 position.y.round() as i32
-                                    + (cell_line_i as i32 * cell_size.y as i32),
+                                    + (cell_line_i * cell_size.y as i32),
                             );
 
                             if is_underlined {
