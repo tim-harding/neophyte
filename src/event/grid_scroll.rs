@@ -40,20 +40,20 @@ use rmpv::Value;
 #[derive(Debug, Clone, Copy)]
 pub struct GridScroll {
     /// The grid to scroll
-    pub grid: u64,
+    pub grid: u32,
     /// Top border of the scroll region
-    pub top: u64,
+    pub top: u32,
     /// Bottom border of the scroll region, exclusive
-    pub bot: u64,
+    pub bot: u32,
     /// Left border of the scroll region
-    pub left: u64,
+    pub left: u32,
     /// Right border of the scroll region, exclusive
-    pub right: u64,
+    pub right: u32,
     /// The number of rows to scroll by. Positive moves the region up, negative
     /// moves it down.
-    pub rows: i64,
+    pub rows: i32,
     /// Always zero in this version of Neovim. Reserved for future use.
-    pub cols: i64,
+    pub cols: i32,
 }
 
 impl Parse for GridScroll {

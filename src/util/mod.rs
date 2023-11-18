@@ -29,9 +29,9 @@ pub fn parse_map(value: Value) -> Option<Vec<(Value, Value)>> {
 
 /// Used for positive integer values where -1 is a sentinel. The sentinel is
 /// represented by None.
-pub fn parse_maybe_u64(value: Value) -> Option<Option<u64>> {
+pub fn parse_maybe_u32(value: Value) -> Option<Option<u32>> {
     match value {
-        Value::Integer(i) => Some(i.as_u64()),
+        Value::Integer(i) => Some(i.as_u64().and_then(|i| i.try_into().ok())),
         _ => None,
     }
 }

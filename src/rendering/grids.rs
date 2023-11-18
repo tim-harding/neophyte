@@ -2,7 +2,7 @@ use super::{scrolling_grids::ScrollingGrids, text::Text};
 use crate::{
     event::{rgb::Rgb, HlAttrDefine},
     text::{cache::FontCache, fonts::Fonts},
-    ui::grid::Grid as UiGrid,
+    ui::{self, grid::Grid as UiGrid},
     util::vec2::Vec2,
 };
 use std::collections::HashMap;
@@ -24,8 +24,8 @@ impl Grid {
 }
 
 pub struct Grids {
-    grids: HashMap<u64, Grid>,
-    draw_order: Vec<u64>,
+    grids: HashMap<ui::grid::Id, Grid>,
+    draw_order: Vec<ui::grid::Id>,
     bind_group_layout: wgpu::BindGroupLayout,
 }
 
@@ -56,7 +56,7 @@ impl Grids {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         ui_grid: &UiGrid,
-        position: Vec2<f64>,
+        position: Vec2<f32>,
         highlights: &[HlAttrDefine],
         default_fg: Rgb,
         fonts: &Fonts,
@@ -100,15 +100,16 @@ impl Grids {
         }
 
         if ui_grid.dirty.window() {
-            grid.text.update_window(position, fonts.cell_size().cast());
+            grid.text
+                .update_window(position, fonts.cell_size().cast_as());
         }
     }
 
-    pub fn remove_grid(&mut self, id: u64) {
+    pub fn remove_grid(&mut self, id: ui::grid::Id) {
         self.grids.remove(&id);
     }
 
-    pub fn set_draw_order(&mut self, draw_order: Vec<u64>) {
+    pub fn set_draw_order(&mut self, draw_order: Vec<ui::grid::Id>) {
         self.draw_order = draw_order;
     }
 

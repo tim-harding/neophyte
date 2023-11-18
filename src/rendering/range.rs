@@ -5,17 +5,17 @@ use std::{
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Range {
-    pub start: i64,
-    pub end: i64,
+    pub start: i32,
+    pub end: i32,
 }
 
 impl Range {
-    pub fn new(start: i64, end: i64) -> Self {
+    pub fn new(start: i32, end: i32) -> Self {
         assert!(end >= start);
         Self { start, end }
     }
 
-    pub fn until(end: i64) -> Self {
+    pub fn until(end: i32) -> Self {
         Self::new(0, end)
     }
 
@@ -123,18 +123,18 @@ impl Range {
     }
 }
 
-impl Add<i64> for Range {
+impl Add<i32> for Range {
     type Output = Self;
 
-    fn add(self, rhs: i64) -> Self::Output {
+    fn add(self, rhs: i32) -> Self::Output {
         Self::new(self.start + rhs, self.end + rhs)
     }
 }
 
-impl Sub<i64> for Range {
+impl Sub<i32> for Range {
     type Output = Self;
 
-    fn sub(self, rhs: i64) -> Self::Output {
+    fn sub(self, rhs: i32) -> Self::Output {
         Self::new(self.start - rhs, self.end - rhs)
     }
 }

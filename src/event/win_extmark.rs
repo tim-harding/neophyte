@@ -6,17 +6,17 @@ use rmpv::Value;
 #[derive(Debug, Clone)]
 pub struct WinExtmark {
     /// The grid containing the extmark
-    pub grid: u64,
+    pub grid: u32,
     /// The window containing the extmark
     pub win: Window,
     /// Namespace ID
-    pub ns_id: u64,
+    pub ns_id: u32,
     /// Extmark ID
-    pub mark_id: u64,
+    pub mark_id: u32,
     /// Row the extmark is on
-    pub row: u64,
+    pub row: u32,
     /// Column the extmark is on
-    pub col: u64,
+    pub col: u32,
 }
 
 impl Parse for WinExtmark {

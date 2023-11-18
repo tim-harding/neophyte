@@ -31,17 +31,17 @@ pub struct ModeInfo {
     /// The cursor shape
     pub cursor_shape: Option<CursorShape>,
     /// Cell percentage occupied by the cursor
-    pub cell_percentage: Option<u64>,
+    pub cell_percentage: Option<u32>,
     /// Milliseconds delay before the cursor starts blinking
-    pub blinkwait: Option<u64>,
+    pub blinkwait: Option<u32>,
     /// Milliseconds that the cursor is shown when blinking
-    pub blinkon: Option<u64>,
+    pub blinkon: Option<u32>,
     /// Milliseconds that the cursor is hidden when blinking
-    pub blinkoff: Option<u64>,
+    pub blinkoff: Option<u32>,
     /// Cursor attribute ID defined by an hl_attr_define event
-    pub attr_id: Option<u64>,
+    pub attr_id: Option<u32>,
     /// Cursor attribute ID when langmap is active
-    pub attr_id_lm: Option<u64>,
+    pub attr_id_lm: Option<u32>,
     /// Options not enumerated in the UI documentation
     pub other: Vec<(String, Value)>,
 }

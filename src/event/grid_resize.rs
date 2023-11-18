@@ -5,11 +5,11 @@ use rmpv::Value;
 #[derive(Debug, Clone, Copy)]
 pub struct GridResize {
     /// The grid to resize
-    pub grid: u64,
+    pub grid: u32,
     /// The new width
-    pub width: u64,
+    pub width: u32,
     /// The new height
-    pub height: u64,
+    pub height: u32,
 }
 
 impl Parse for GridResize {

@@ -22,13 +22,13 @@ pub enum OptionSet {
     /// See https://neovim.io/doc/user/options.html#'guifontwide'
     Guifontwide(String),
     /// See https://neovim.io/doc/user/options.html#'linespace'
-    Linespace(u64),
+    Linespace(u32),
     /// See https://neovim.io/doc/user/options.html#'mousefocus'
     Mousefocus(bool),
     /// See https://neovim.io/doc/user/options.html#'mousemoveevent'
     Mousemoveevent(bool),
     /// See https://neovim.io/doc/user/options.html#'pumblend'
-    Pumblend(u64),
+    Pumblend(u32),
     /// See https://neovim.io/doc/user/options.html#'showtabline'
     Showtabline(Showtabline),
     /// See https://neovim.io/doc/user/options.html#'termguicolors'
@@ -52,11 +52,11 @@ pub enum OptionSet {
     /// Sets the name of the default terminal type
     TermName(String),
     /// Sets the number of supported colors t_Co
-    TermColors(u64),
+    TermColors(u32),
     /// Sets the default value of background
-    TermBackground(u64),
+    TermBackground(u32),
     /// Read buffer 1 from this fd as if it were stdin --. Only from --embed UI on startup.
-    StdinFd(u64),
+    StdinFd(u32),
     /// Tells if stdin is a TTY
     StdinTty(bool),
     /// Tells if stdout is a TTY
@@ -136,7 +136,7 @@ pub enum Showtabline {
 
 impl Parse for Showtabline {
     fn parse(value: Value) -> Option<Self> {
-        Some(match u64::parse(value)? {
+        Some(match u32::parse(value)? {
             0 => Self::Never,
             1 => Self::Sometimes,
             2 => Self::Always,

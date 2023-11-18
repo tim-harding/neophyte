@@ -4,8 +4,8 @@ use rmpv::Value;
 /// Change the cursor position in the cmdline.
 #[derive(Debug, Clone, Copy)]
 pub struct CmdlinePos {
-    pub pos: u64,
-    pub level: u64,
+    pub pos: u32,
+    pub level: u32,
 }
 
 impl Parse for CmdlinePos {

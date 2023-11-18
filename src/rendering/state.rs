@@ -176,7 +176,7 @@ impl RenderState {
             &self.device,
             &self.queue,
             &ui.cmdline,
-            Vec2::new(0., ui.grids[0].contents().size.y as f64 - 1.),
+            Vec2::new(0., ui.grids[0].contents().size.y as f32 - 1.),
             fonts.cell_size().cast_as(),
             &self.text_bind_group_layout.bind_group_layout,
             &ui.highlights,

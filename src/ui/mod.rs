@@ -27,9 +27,9 @@ pub struct Ui {
     /// UI grids, ordered by ID
     pub grids: Vec<Grid>,
     /// Grids that have been deleted since the last flush
-    pub deleted_grids: Vec<u64>,
+    pub deleted_grids: Vec<u32>,
     /// The order in which grids should be drawn, ordered from bottom to top
-    pub draw_order: Vec<u64>,
+    pub draw_order: Vec<u32>,
     /// The index into self.draw_order at which floating windows begin
     pub float_windows_start: usize,
     /// Cursor information
@@ -37,13 +37,14 @@ pub struct Ui {
     /// Whether the mouse is enabled
     pub mouse: bool,
     /// UI highlights, indexed by their ID
+    // TODO: Only store the rgb_attr part
     pub highlights: Vec<HlAttrDefine>,
     /// A lookup from highlight names to highlight IDs
-    pub highlight_groups: HashMap<String, u64>,
+    pub highlight_groups: HashMap<String, u32>,
     /// Whether the highlights changed since the last flush
     pub did_highlights_change: bool,
     /// The ID of the current mode
-    pub current_mode: u64,
+    pub current_mode: u32,
     /// Information about Vim modes, indexed by ID
     pub modes: Vec<ModeInfo>,
     /// UI options set by the option_set event
@@ -94,12 +95,12 @@ impl Ui {
 
     /// Index of the grid with the given id, or else the index where the
     /// grid should be inserted
-    pub fn grid_index(&self, id: u64) -> Result<usize, usize> {
+    pub fn grid_index(&self, id: grid::Id) -> Result<usize, usize> {
         self.grids.binary_search_by(|probe| probe.id.cmp(&id))
     }
 
     /// Grid with the given ID
-    pub fn grid_mut(&mut self, id: u64) -> Option<&mut Grid> {
+    pub fn grid_mut(&mut self, id: grid::Id) -> Option<&mut Grid> {
         self.grid_index(id)
             .map(|i| self.grids.get_mut(i))
             .ok()
@@ -107,7 +108,7 @@ impl Ui {
     }
 
     /// Grid with the given ID
-    pub fn grid(&self, id: u64) -> Option<&Grid> {
+    pub fn grid(&self, id: grid::Id) -> Option<&Grid> {
         self.grid_index(id)
             .map(|i| self.grids.get(i))
             .ok()
@@ -115,7 +116,7 @@ impl Ui {
     }
 
     /// Get the grid with the given ID or create it if it does not exist
-    fn get_or_create_grid(&mut self, id: u64) -> &mut Grid {
+    fn get_or_create_grid(&mut self, id: grid::Id) -> &mut Grid {
         match self.grid_index(id) {
             Ok(i) => &mut self.grids[i],
             Err(i) => {
@@ -312,7 +313,7 @@ impl Ui {
                 *self.get_or_create_grid(grid).window_mut() = Window::Floating(FloatingWindow {
                     anchor: Anchor::Nw,
                     anchor_grid: 1,
-                    anchor_pos: Vec2::new(0.0, row as f64),
+                    anchor_pos: Vec2::new(0.0, row as f32),
                     focusable: false,
                 });
             }
@@ -340,20 +341,20 @@ impl Ui {
     }
 
     /// Move the given grid to the top of the draw order
-    fn show_float(&mut self, grid: u64) {
+    fn show_float(&mut self, grid: grid::Id) {
         self.hide(grid);
         self.draw_order.push(grid);
     }
 
     /// Move the given grid to the top of the draw order
-    fn show_normal(&mut self, grid: u64) {
+    fn show_normal(&mut self, grid: grid::Id) {
         self.hide(grid);
         self.draw_order.insert(self.float_windows_start, grid);
         self.float_windows_start += 1;
     }
 
     /// Remove the given grid from the draw order
-    fn hide(&mut self, grid: u64) {
+    fn hide(&mut self, grid: grid::Id) {
         if let Some(i) = self.draw_order.iter().position(|&r| r == grid) {
             self.draw_order.remove(i);
             if i < self.float_windows_start {
@@ -363,7 +364,7 @@ impl Ui {
     }
 
     /// Delete the given grid
-    fn delete_grid(&mut self, grid: u64) {
+    fn delete_grid(&mut self, grid: grid::Id) {
         if let Ok(i) = self.grids.binary_search_by(|probe| probe.id.cmp(&grid)) {
             self.grids.remove(i);
         }
@@ -373,7 +374,7 @@ impl Ui {
 
     /// Get the position of the grid, accounting for anchor grids and other
     /// windowing details
-    pub fn position(&self, grid: u64) -> Vec2<f64> {
+    pub fn position(&self, grid: grid::Id) -> Vec2<f32> {
         if let Ok(index) = self.grid_index(grid) {
             let grid = &self.grids[index];
             let WindowOffset {
@@ -395,15 +396,15 @@ impl Ui {
     /// windowing details
     pub fn grid_under_cursor(
         &self,
-        cursor: Vec2<u64>,
-        cell_size: Vec2<u64>,
+        cursor: Vec2<u32>,
+        cell_size: Vec2<u32>,
     ) -> Option<GridUnderCursor> {
         // TODO: Can this be derived from CursorInfo instead?
-        let cursor: Vec2<f64> = cursor.cast_as();
-        let cell_size: Vec2<f64> = cell_size.cast_as();
+        let cursor: Vec2<f32> = cursor.cast_as();
+        let cell_size: Vec2<f32> = cell_size.cast_as();
         for &grid_id in self.draw_order.iter().rev() {
             let grid = self.grid(grid_id).unwrap();
-            let size: Vec2<f64> = grid.contents().size.cast_as();
+            let size: Vec2<f32> = grid.contents().size.cast_as();
             let start = self.position(grid_id) * cell_size;
             let end = start + size * cell_size;
             if cursor.x > start.x && cursor.y > start.y && cursor.x < end.x && cursor.y < end.y {
@@ -425,17 +426,17 @@ impl Ui {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GridUnderCursor {
     /// The ID of the grid
-    pub grid: u64,
+    pub grid: grid::Id,
     /// The position of the cursor in grid cells relative to the grid
-    pub position: Vec2<u64>,
+    pub position: Vec2<u32>,
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct CursorInfo {
     /// The position of the cursor in grid cells
-    pub pos: Vec2<u64>,
+    pub pos: Vec2<u32>,
     /// The grid the cursor is on
-    pub grid: u64,
+    pub grid: u32,
     /// Whether the cursor should be rendered
     pub enabled: bool,
     /// Whether the UI should set the cursor style

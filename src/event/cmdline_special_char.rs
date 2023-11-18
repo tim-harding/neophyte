@@ -11,7 +11,7 @@ pub struct CmdlineSpecialChar {
     /// at the cursor.
     pub shift: bool,
     /// Distinguishes different command lines active at the same time.
-    pub level: u64,
+    pub level: u32,
 }
 
 impl Parse for CmdlineSpecialChar {

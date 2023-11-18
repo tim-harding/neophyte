@@ -10,7 +10,7 @@ pub enum Window {
 }
 
 impl Window {
-    pub fn offset(&self, grid_size: Vec2<u64>) -> WindowOffset {
+    pub fn offset(&self, grid_size: Vec2<u32>) -> WindowOffset {
         match &self {
             Window::None => Default::default(),
             Window::External => Default::default(),
@@ -37,20 +37,20 @@ impl Window {
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct WindowOffset {
-    pub offset: Vec2<f64>,
-    pub anchor_grid: Option<u64>,
+    pub offset: Vec2<f32>,
+    pub anchor_grid: Option<u32>,
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct FloatingWindow {
     pub anchor: Anchor,
-    pub anchor_grid: u64,
-    pub anchor_pos: Vec2<f64>,
+    pub anchor_grid: u32,
+    pub anchor_pos: Vec2<f32>,
     pub focusable: bool,
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct NormalWindow {
-    pub start: Vec2<u64>,
-    pub size: Vec2<u64>,
+    pub start: Vec2<u32>,
+    pub size: Vec2<u32>,
 }

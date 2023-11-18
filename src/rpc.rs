@@ -1,9 +1,6 @@
 use crate::util::{Parse, Values};
 use rmpv::{decode::read_value, encode::write_value, Value};
-use std::{
-    io::{self, Read, Write},
-    process::{ChildStdin, ChildStdout},
-};
+use std::io::{self, Read, Write};
 
 macro_rules! value_vec {
     ($($e:expr), *) => {{

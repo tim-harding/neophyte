@@ -7,17 +7,17 @@ use rmpv::Value;
 #[derive(Debug, Clone)]
 pub struct WinPos {
     /// The grid to update
-    pub grid: u64,
+    pub grid: u32,
     /// The window containing the grid
     pub win: Window,
     /// Top boundary
-    pub start_row: u64,
+    pub start_row: u32,
     /// Lefthand boundary
-    pub start_col: u64,
+    pub start_col: u32,
     /// New grid width
-    pub width: u64,
+    pub width: u32,
     /// New grid height
-    pub height: u64,
+    pub height: u32,
 }
 
 impl Parse for WinPos {

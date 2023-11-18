@@ -7,7 +7,7 @@ pub struct ModeChange {
     /// The current mode
     pub mode: String,
     /// An index into the array emitted in the mode_info_set event
-    pub mode_idx: u64,
+    pub mode_idx: u32,
 }
 
 impl Parse for ModeChange {

@@ -60,7 +60,7 @@ impl Text {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         size: Option<Vec2<u32>>,
-        lines: impl Iterator<Item = (i64, impl Iterator<Item = CellContents<'a>> + Clone)> + Clone,
+        lines: impl Iterator<Item = (i32, impl Iterator<Item = CellContents<'a>> + Clone)> + Clone,
         grid_bind_group_layout: &wgpu::BindGroupLayout,
         highlights: &[HlAttrDefine],
         default_fg: Rgb,
@@ -389,7 +389,7 @@ impl Text {
         });
     }
 
-    pub fn update_window(&mut self, position: Vec2<f64>, cell_size: Vec2<f64>) {
+    pub fn update_window(&mut self, position: Vec2<f32>, cell_size: Vec2<f32>) {
         let offset = position * cell_size;
         self.offset = Vec2::new(offset.x as i32, offset.y as i32);
     }

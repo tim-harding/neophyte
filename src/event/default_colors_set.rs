@@ -1,5 +1,5 @@
 use super::rgb::Rgb;
-use crate::util::{parse_maybe_u64, Parse, Values};
+use crate::util::{parse_maybe_u32, Parse, Values};
 use rmpv::Value;
 
 /// Sets the default foreground, background, and special colors.
@@ -21,11 +21,11 @@ impl Parse for DefaultColorsSet {
     fn parse(value: Value) -> Option<Self> {
         let mut iter = Values::new(value)?;
         Some(Self {
-            rgb_fg: parse_maybe_u64(iter.next()?)?.map(Rgb::from),
-            rgb_bg: parse_maybe_u64(iter.next()?)?.map(Rgb::from),
-            rgb_sp: parse_maybe_u64(iter.next()?)?.map(Rgb::from),
-            cterm_fg: parse_maybe_u64(iter.next()?)?.map(|v| v as u8),
-            cterm_bg: parse_maybe_u64(iter.next()?)?.map(|v| v as u8),
+            rgb_fg: parse_maybe_u32(iter.next()?)?.map(Rgb::from),
+            rgb_bg: parse_maybe_u32(iter.next()?)?.map(Rgb::from),
+            rgb_sp: parse_maybe_u32(iter.next()?)?.map(Rgb::from),
+            cterm_fg: parse_maybe_u32(iter.next()?)?.map(|v| v as u8),
+            cterm_bg: parse_maybe_u32(iter.next()?)?.map(|v| v as u8),
         })
     }
 }

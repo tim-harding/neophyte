@@ -4,7 +4,7 @@ use rmpv::Value;
 /// Clear a grid
 #[derive(Debug, Clone)]
 pub struct GridClear {
-    pub grid: u64,
+    pub grid: u32,
 }
 
 impl Parse for GridClear {

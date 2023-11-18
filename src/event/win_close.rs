@@ -4,7 +4,7 @@ use rmpv::Value;
 /// Stop displaying the window. The window can be shown again later.
 #[derive(Debug, Clone)]
 pub struct WinClose {
-    pub grid: u64,
+    pub grid: u32,
 }
 
 impl Parse for WinClose {

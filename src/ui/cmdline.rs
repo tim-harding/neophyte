@@ -68,7 +68,7 @@ impl Cmdline {
         }
     }
 
-    pub fn set_cursor_pos(&mut self, pos: u64) {
+    pub fn set_cursor_pos(&mut self, pos: u32) {
         match &mut self.mode {
             Some(Mode::Normal { levels }) => {
                 if let Some(level) = levels.last_mut() {
@@ -118,11 +118,11 @@ pub enum Mode {
 #[derive(Debug, Clone, Default)]
 pub struct Prompt {
     pub content_lines: Vec<Content>,
-    pub cursor_pos: u64,
+    pub cursor_pos: u32,
     pub first_char: Option<char>,
     pub prompt: String,
     pub special: Option<Special>,
-    pub indent: u64,
+    pub indent: u32,
 }
 
 impl From<CmdlineShow> for Prompt {

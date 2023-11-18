@@ -5,11 +5,11 @@ use rmpv::Value;
 #[derive(Debug, Clone)]
 pub struct GridLine {
     /// The grid to draw on
-    pub grid: u64,
+    pub grid: u32,
     /// The row to draw
-    pub row: u64,
+    pub row: u32,
     /// The column to start drawing on
-    pub col_start: u64,
+    pub col_start: u32,
     /// The cells to draw
     pub cells: Vec<Cell>,
     // NOTE: There is supposedly a wrap argument that is supposed to go here but
@@ -35,9 +35,9 @@ pub struct Cell {
     pub text: String,
     /// The highlight to apply to the text from a previous hl_attr_define event.
     /// If not present, use the most recent hl_id from the grid_line event.
-    pub hl_id: Option<u64>,
+    pub hl_id: Option<u32>,
     /// How many times to repeat the text, including the first time.
-    pub repeat: Option<u64>,
+    pub repeat: Option<u32>,
 }
 
 impl Parse for Cell {

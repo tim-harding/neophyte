@@ -6,7 +6,7 @@ use std::fmt::{self, Debug, Formatter};
 /// Add a highlight with id to the highlight table
 #[derive(Debug, Clone, Default)]
 pub struct HlAttrDefine {
-    pub id: u64,
+    pub id: u32,
     /// Highlights in RGB format
     pub rgb_attr: Attributes,
     /// Highlights in terminal 256-color codes
@@ -190,7 +190,7 @@ pub struct Info {
     /// Name of the
     pub hi_name: Option<String>,
     /// Unique numeric id representing this item.
-    pub id: Option<u64>,
+    pub id: Option<u32>,
 }
 
 impl Parse for Info {

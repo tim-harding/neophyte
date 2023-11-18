@@ -7,9 +7,9 @@ use rmpv::Value;
 #[derive(Debug, Clone)]
 pub struct MsgSetPos {
     /// The grid to display on the default grid
-    pub grid: u64,
+    pub grid: u32,
     /// The row of the default grid the messages will be displayed on
-    pub row: u64,
+    pub row: u32,
     /// Whether the message area has been scrolled to cover other grids.
     pub scrolled: bool,
     /// The Builtin TUI draws a full line filled with sep_char and MsgSeparator

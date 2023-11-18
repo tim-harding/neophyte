@@ -6,20 +6,20 @@ use rmpv::Value;
 #[derive(Debug, Clone)]
 pub struct WinFloatPos {
     /// The grid to display in the window
-    pub grid: u64,
+    pub grid: u32,
     /// The window to display
     pub win: Window,
     /// Which corner of the float to place at the anchor position
     pub anchor: Anchor,
     /// The grid to display the window over
-    pub anchor_grid: u64,
+    pub anchor_grid: u32,
     /// The row of the anchor grid at which to display the window
-    pub anchor_row: f64,
+    pub anchor_row: f32,
     /// The column of the anchor grid at which to display the window
-    pub anchor_col: f64,
+    pub anchor_col: f32,
     /// Whether the window can receive focus
     pub focusable: bool,
-    // NOTE: There is an additional undocumented u64 parameter. Based on the
+    // NOTE: There is an additional undocumented u32 parameter. Based on the
     // Neovide codebase, this is used to indicate stacking order. I choose to
     // ignore it unless the documentation is updated. Until then, I assume it is
     // not intended to be used.

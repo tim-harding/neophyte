@@ -30,8 +30,8 @@ impl CmdlineGrid {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         cmdline: &Cmdline,
-        position: Vec2<f64>,
-        cell_size: Vec2<f64>,
+        position: Vec2<f32>,
+        cell_size: Vec2<f32>,
         grid_bind_group_layout: &wgpu::BindGroupLayout,
         highlights: &[HlAttrDefine],
         default_fg: Rgb,
@@ -64,7 +64,7 @@ impl CmdlineGrid {
                         ))
                         .chain(content_lines.map(|line| IterVariants::Tail(iter_line(line))))
                         .enumerate()
-                        .map(|(i, line)| (i as i64, line)),
+                        .map(|(i, line)| (i as i32, line)),
                         grid_bind_group_layout,
                         highlights,
                         default_fg,
@@ -83,7 +83,7 @@ impl CmdlineGrid {
                 device,
                 queue,
                 None,
-                std::iter::empty::<(i64, std::iter::Empty<CellContents>)>(),
+                std::iter::empty::<(i32, std::iter::Empty<CellContents>)>(),
                 grid_bind_group_layout,
                 highlights,
                 default_fg,

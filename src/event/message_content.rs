@@ -20,7 +20,7 @@ impl Parse for Content {
 #[derive(Debug, Clone)]
 pub struct ContentChunk {
     /// The ID of the highlight to apply
-    pub attr_id: u64,
+    pub attr_id: u32,
     /// The text
     pub text_chunk: String,
 }

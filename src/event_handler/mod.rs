@@ -329,7 +329,7 @@ impl EventHandler {
         let inner = (self.surface_size / cell_size) * cell_size;
         let margin = (self.surface_size - inner) / 2;
         let position = position - margin.cast();
-        let Ok(position) = position.try_cast::<u64>() else {
+        let Ok(position) = position.try_cast::<u32>() else {
             return;
         };
         self.mouse.position = position;
@@ -397,7 +397,7 @@ impl EventHandler {
 
         let modifiers = self.modifiers.into();
 
-        let delta: Vec2<i64> = delta.cast_as();
+        let delta: Vec2<i32> = delta.cast_as();
         if reset {
             self.mouse.scroll = Vec2::default();
         }
@@ -406,7 +406,7 @@ impl EventHandler {
             ScrollKind::Lines => delta,
             ScrollKind::Pixels => {
                 self.mouse.scroll += delta;
-                let cell_size: Vec2<i64> = self.fonts.cell_size().cast();
+                let cell_size: Vec2<i32> = self.fonts.cell_size().try_cast().unwrap();
                 let lines = self.mouse.scroll / cell_size;
                 self.mouse.scroll -= lines * cell_size;
                 lines
@@ -510,7 +510,6 @@ impl EventHandler {
 
     fn resize_neovim_grid(&mut self) {
         let size = self.surface_size / self.fonts.cell_size();
-        let size: Vec2<u64> = size.cast();
         self.neovim.ui_try_resize_grid(1, size.x, size.y);
     }
 
@@ -524,8 +523,8 @@ impl EventHandler {
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 struct Mouse {
-    position: Vec2<u64>,
-    scroll: Vec2<i64>,
+    position: Vec2<u32>,
+    scroll: Vec2<i32>,
     buttons: Buttons,
 }
 

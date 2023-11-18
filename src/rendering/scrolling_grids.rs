@@ -45,22 +45,19 @@ impl ScrollingGrids {
         }
     }
 
-    pub fn push(&mut self, grid: GridContents, offset: i64) {
+    pub fn push(&mut self, grid: GridContents, offset: i32) {
         let sign = if offset.is_positive() { 1 } else { -1 };
-        // TODO: Type size consistency
         let mag = offset.abs().min(grid.size.y.try_into().unwrap());
         let offset = mag * sign;
-        let mut cover = Range::until(grid.size.y as i64);
+        let mut cover = Range::until(grid.size.y.try_into().unwrap());
         self.t += offset as f32;
         self.scrolling.retain_mut(|part| {
             part.offset -= offset;
-            let grid_range = Range::until(part.grid.size.y as i64) + part.offset;
+            let grid_range = Range::until(part.grid.size.y.try_into().unwrap()) + part.offset;
             let covered = grid_range.cover(cover);
             cover = cover.union(grid_range);
             let grid_range = covered - part.offset;
-            // TODO: Type size consistency
             part.start = grid_range.start.try_into().unwrap();
-            // TODO: Type size consistency
             part.end = grid_range.end.try_into().unwrap();
             !part.is_empty()
         });
@@ -73,7 +70,7 @@ impl ScrollingGrids {
 
     pub fn rows<'a, 'b: 'a>(
         &'a self,
-    ) -> impl Iterator<Item = (i64, impl Iterator<Item = CellContents<'a>> + '_ + Clone)> + '_ + Clone
+    ) -> impl Iterator<Item = (i32, impl Iterator<Item = CellContents<'a>> + '_ + Clone)> + '_ + Clone
     {
         self.scrolling.iter().rev().flat_map(|part| {
             part.grid
@@ -81,11 +78,11 @@ impl ScrollingGrids {
                 .enumerate()
                 .skip(part.start)
                 .take(part.end - part.start)
-                .map(|(i, cells)| (i as i64 + part.offset, cells))
+                .map(|(i, cells)| (i as i32 + part.offset, cells))
         })
     }
 
-    pub fn size(&self) -> Vec2<u64> {
+    pub fn size(&self) -> Vec2<u32> {
         self.scrolling.last().unwrap().grid.size
     }
 
@@ -96,7 +93,7 @@ impl ScrollingGrids {
 
 struct GridPart {
     grid: GridContents,
-    offset: i64,
+    offset: i32,
     start: usize,
     end: usize,
 }

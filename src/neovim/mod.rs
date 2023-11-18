@@ -103,9 +103,9 @@ impl Neovim {
         button: Button,
         action: Action,
         modifiers: Modifiers,
-        grid: u64,
-        row: u64,
-        col: u64,
+        grid: u32,
+        row: u32,
+        col: u32,
     ) {
         let args = vec![
             button.into(),
@@ -118,7 +118,7 @@ impl Neovim {
         self.call("nvim_input_mouse", args);
     }
 
-    pub fn ui_try_resize_grid(&mut self, grid: u64, width: u64, height: u64) {
+    pub fn ui_try_resize_grid(&mut self, grid: u32, width: u32, height: u32) {
         let args: Vec<_> = [grid, width, height]
             .into_iter()
             .map(|n| n.into())

@@ -5,11 +5,11 @@ use rmpv::Value;
 #[derive(Clone, Copy, Debug)]
 pub struct GridCursorGoto {
     /// The current grid
-    pub grid: u64,
+    pub grid: u32,
     /// The cursor position row
-    pub row: u64,
+    pub row: u32,
     /// The cursor position column
-    pub column: u64,
+    pub column: u32,
 }
 
 impl Parse for GridCursorGoto {

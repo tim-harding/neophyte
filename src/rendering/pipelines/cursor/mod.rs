@@ -178,7 +178,7 @@ impl Pipeline {
                     }
                     pos.x += level.prompt.len() as i64 + 1;
                     let base = Vec2::new(0, ui.grids[0].contents().size.y - 1);
-                    pos.cast_as::<f64>() + base.cast_as()
+                    pos.cast_as::<f32>() + base.cast_as()
                 }
 
                 Mode::Block {

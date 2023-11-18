@@ -7,26 +7,26 @@ use rmpv::Value;
 #[derive(Debug, Clone)]
 pub struct WinViewport {
     /// The grid to update
-    pub grid: u64,
+    pub grid: u32,
     /// The window to update
     pub win: Window,
     /// The first line of the grid to display
-    pub topline: u64,
+    pub topline: u32,
     /// One past the last line of the grid to display. If there are filler lines
     /// past the end, this is One more than the line count of the buffer.
-    pub botline: u64,
+    pub botline: u32,
     /// The line the cursor is on
-    pub curline: u64,
+    pub curline: u32,
     /// The column the cursor is on
-    pub curcol: u64,
+    pub curcol: u32,
     /// The line count of the buffer
-    pub line_count: u64,
+    pub line_count: u32,
     /// how much the top line of a window moved since win_viewport was last
     /// emitted. It is intended to be used to implement smooth scrolling. For
     /// this purpose it only counts "virtual" or "displayed" lines, so folds
     /// only count as one line. When scrolling more than a full screen it is an
     /// approximate value.
-    pub scroll_delta: i64,
+    pub scroll_delta: i32,
 }
 
 impl Parse for WinViewport {

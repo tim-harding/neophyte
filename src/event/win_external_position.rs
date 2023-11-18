@@ -7,7 +7,7 @@ use rmpv::Value;
 #[derive(Debug, Clone)]
 pub struct WinExternalPos {
     /// The grid to display in the window
-    pub grid: u64,
+    pub grid: u32,
     /// The window to display
     pub win: Window,
 }

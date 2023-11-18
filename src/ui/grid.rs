@@ -21,10 +21,12 @@ use std::{
     vec::IntoIter,
 };
 
+pub type Id = u32;
+
 #[derive(Debug, Default, Clone)]
 pub struct Grid {
-    pub id: u64,
-    pub scroll_delta: i64,
+    pub id: Id,
+    pub scroll_delta: i32,
     pub dirty: DirtyFlags,
     window: Window,
     contents: GridContents,
@@ -62,7 +64,7 @@ impl DirtyFlags {
 }
 
 impl Grid {
-    pub fn new(id: u64) -> Self {
+    pub fn new(id: Id) -> Self {
         Self {
             id,
             ..Default::default()
@@ -98,7 +100,7 @@ impl Grid {
 #[derive(Default, Clone)]
 pub struct GridContents {
     /// Grid dimensions
-    pub size: Vec2<u64>,
+    pub size: Vec2<u32>,
     /// Grid cells in rows then columns
     buffer: Vec<Cell>,
     /// Contains cell contents for cells that require more than one char of
@@ -119,7 +121,7 @@ impl GridContents {
     }
 
     /// Resize the grid to the new dimensions
-    pub fn resize(&mut self, size: Vec2<u64>) {
+    pub fn resize(&mut self, size: Vec2<u32>) {
         let mut old = std::mem::take(&mut self.buffer);
         self.buffer = vec![Cell::default(); size.area() as usize];
         for (new, old) in self
@@ -135,12 +137,12 @@ impl GridContents {
     }
 
     /// Apply a grid_scroll event
-    pub fn scroll(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64) {
+    pub fn scroll(&mut self, top: u32, bot: u32, left: u32, right: u32, rows: i32) {
         let left = left as usize;
         let right = right as usize;
         let size: Vec2<usize> = self.size.cast_as();
-        let dst_top = top as i64 - rows;
-        let dst_bot = bot as i64 - rows;
+        let dst_top = top as i32 - rows;
+        let dst_bot = bot as i32 - rows;
         if rows > 0 {
             // Move a region up
             let rows = rows as usize;
@@ -157,8 +159,8 @@ impl GridContents {
         } else {
             // Move a region down
             let rows = (-rows) as usize;
-            let dst_top = dst_top.min(size.y as i64) as usize;
-            let dst_bot = dst_bot.min(size.y as i64) as usize;
+            let dst_top = dst_top.min(size.y as i32) as usize;
+            let dst_bot = dst_bot.min(size.y as i32) as usize;
             for dst_y in (dst_top..dst_bot).rev() {
                 let src_y = dst_y - rows;
                 let (src, dst) = self.buffer.split_at_mut(dst_y * size.x);
@@ -171,7 +173,7 @@ impl GridContents {
     }
 
     /// Apply a grid_line event
-    pub fn grid_line(&mut self, row: u64, col_start: u64, cells: Vec<grid_line::Cell>) {
+    pub fn grid_line(&mut self, row: u32, col_start: u32, cells: Vec<grid_line::Cell>) {
         let w = self.size.x as usize;
         let start = row as usize * w;
         let end = start + w;

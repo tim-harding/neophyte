@@ -1,4 +1,4 @@
-use crate::util::{parse_maybe_u64, Parse, Values};
+use crate::util::{parse_maybe_u32, Parse, Values};
 use rmpv::Value;
 
 /// Show popupmenu completion
@@ -7,13 +7,13 @@ pub struct PopupmenuShow {
     /// The completion items to show
     pub items: Vec<Item>,
     /// The initially-selected item, if present
-    pub selected: Option<u64>,
+    pub selected: Option<u32>,
     /// The anchor position row
-    pub row: u64,
+    pub row: u32,
     /// The anchor position col
-    pub col: u64,
+    pub col: u32,
     /// The grid for the anchor position, unless the cmdline is externalized
-    pub grid: Option<u64>,
+    pub grid: Option<u32>,
 }
 
 impl Parse for PopupmenuShow {
@@ -21,10 +21,10 @@ impl Parse for PopupmenuShow {
         let mut iter = Values::new(value)?;
         Some(Self {
             items: iter.next()?,
-            selected: parse_maybe_u64(iter.next()?)?,
+            selected: parse_maybe_u32(iter.next()?)?,
             row: iter.next()?,
             col: iter.next()?,
-            grid: parse_maybe_u64(iter.next()?)?,
+            grid: parse_maybe_u32(iter.next()?)?,
         })
     }
 }

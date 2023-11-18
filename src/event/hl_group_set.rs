@@ -10,7 +10,7 @@ pub struct HlGroupSet {
     /// The highlight group name
     pub name: String,
     /// The highlight attributes to apply
-    pub hl_id: u64,
+    pub hl_id: u32,
 }
 
 impl Parse for HlGroupSet {
