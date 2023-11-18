@@ -39,15 +39,17 @@ fn main() {
 
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event()
         .build()
-        .unwrap();
-    let window = WindowBuilder::new().build(&event_loop).unwrap();
+        .expect("Failed to create event loop");
+    let window = WindowBuilder::new()
+        .build(&event_loop)
+        .expect("Failed to create window");
 
-    let (neovim, stdout_handler, stdin_handler) = Neovim::new().unwrap();
+    let (neovim, stdout_handler, stdin_handler) = Neovim::new().expect("Failed to start Neovim");
     neovim.ui_attach();
     let stdin_thread = std::thread::spawn(move || stdin_handler.start());
-    let handler = NeovimHandler::new(event_loop.create_proxy());
+    let proxy = event_loop.create_proxy();
     let stdout_thread = thread::spawn(move || {
-        stdout_handler.start(handler);
+        stdout_handler.start(NeovimHandler::new(proxy));
     });
 
     let mut handler = EventHandler::new(neovim, window);
@@ -135,64 +137,62 @@ impl EventHandler {
     }
 
     fn notification(&mut self, notification: Notification) {
-        let Notification { method, params } = notification;
-        match method.as_str() {
-            "redraw" => self.handle_redraw_notification(params),
+        let inner = || {
+            let Notification { method, params } = notification;
+            match method.as_str() {
+                "redraw" => self.handle_redraw_notification(params),
 
-            "neophyte.set_font_height" => {
-                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                let height: f32 = args.next().unwrap();
-                let size = FontSize::Height(height * self.scale_factor);
-                self.fonts.set_font_size(size);
-                self.render_state
-                    .resize(self.surface_size, self.fonts.cell_size());
-                resize_neovim_grid(self.surface_size, &self.fonts, &self.neovim);
+                "neophyte.set_font_height" => {
+                    let mut args = Values::new(params.into_iter().next()?)?;
+                    let height: f32 = args.next()?;
+                    let size = FontSize::Height(height * self.scale_factor);
+                    self.fonts.set_font_size(size);
+                    self.finish_font_change();
+                }
+
+                "neophyte.set_font_width" => {
+                    let mut args = Values::new(params.into_iter().next()?)?;
+                    let width: f32 = args.next()?;
+                    let size = FontSize::Width(width * self.scale_factor);
+                    self.fonts.set_font_size(size);
+                    self.finish_font_change();
+                }
+
+                "neophyte.set_cursor_speed" => {
+                    let mut args = Values::new(params.into_iter().next()?)?;
+                    let speed: f32 = args.next()?;
+                    self.settings.cursor_speed = speed;
+                    self.window.request_redraw();
+                }
+
+                "neophyte.set_scroll_speed" => {
+                    let mut args = Values::new(params.into_iter().next()?)?;
+                    let speed: f32 = args.next()?;
+                    self.settings.scroll_speed = speed;
+                    self.window.request_redraw();
+                }
+
+                "neophyte.set_fonts" => {
+                    let args = Values::new(params.into_iter().next()?)?;
+                    let font_settings = args.map()?;
+                    let em = self.fonts.metrics().em;
+                    self.fonts.set_fonts(font_settings, FontSize::Height(em));
+                    self.finish_font_change();
+                }
+
+                "neophyte.set_underline_offset" => {
+                    let mut args = Values::new(params.into_iter().next()?)?;
+                    let offset: f32 = args.next()?;
+                    let offset: i32 = offset as i32;
+                    self.settings.underline_offset = offset;
+                    self.window.request_redraw();
+                }
+
+                _ => log::error!("Unrecognized notification: {method}"),
             }
-
-            "neophyte.set_font_width" => {
-                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                let width: f32 = args.next().unwrap();
-                let size = FontSize::Width(width * self.scale_factor);
-                self.fonts.set_font_size(size);
-                self.render_state
-                    .resize(self.surface_size, self.fonts.cell_size());
-                resize_neovim_grid(self.surface_size, &self.fonts, &self.neovim);
-            }
-
-            "neophyte.set_cursor_speed" => {
-                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                let speed: f32 = args.next().unwrap();
-                self.settings.cursor_speed = speed;
-                self.window.request_redraw();
-            }
-
-            "neophyte.set_scroll_speed" => {
-                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                let speed: f32 = args.next().unwrap();
-                self.settings.scroll_speed = speed;
-                self.window.request_redraw();
-            }
-
-            "neophyte.set_fonts" => {
-                let args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                let font_settings = args.map().unwrap();
-                let em = self.fonts.metrics().em;
-                self.fonts.set_fonts(font_settings, FontSize::Height(em));
-                self.render_state
-                    .resize(self.surface_size, self.fonts.cell_size());
-                resize_neovim_grid(self.surface_size, &self.fonts, &self.neovim);
-            }
-
-            "neophyte.set_underline_offset" => {
-                let mut args = Values::new(params.into_iter().next().unwrap()).unwrap();
-                let offset: f32 = args.next().unwrap();
-                let offset: i32 = offset as i32;
-                self.settings.underline_offset = offset;
-                self.window.request_redraw();
-            }
-
-            _ => log::error!("Unrecognized notification: {method}"),
-        }
+            Some(())
+        };
+        let _ = inner();
     }
 
     fn handle_redraw_notification(&mut self, params: Vec<Value>) {
@@ -223,10 +223,7 @@ impl EventHandler {
                         .collect(),
                     size,
                 );
-                self.render_state.clear_glyph_cache();
-                self.render_state
-                    .resize(self.surface_size, self.fonts.cell_size());
-                resize_neovim_grid(self.surface_size, &self.fonts, &self.neovim);
+                self.finish_font_change();
             }
             self.render_state.update(&self.ui, &self.fonts);
             self.ui.clear_dirty();
@@ -349,7 +346,7 @@ impl EventHandler {
                 };
 
                 if let Some(c) = c() {
-                    send_keys(c, &mut self.modifiers, &self.neovim, false);
+                    self.send_keys(c, false);
                 }
             }
 
@@ -360,7 +357,7 @@ impl EventHandler {
                     "|" => "Bar",
                     _ => c.as_str(),
                 };
-                send_keys(s, &mut self.modifiers, &self.neovim, true);
+                self.send_keys(s, true);
             }
 
             Key::Unidentified(_) | Key::Dead(_) => {}
@@ -502,7 +499,7 @@ impl EventHandler {
 
     fn resize(&mut self, physical_size: PhysicalSize<u32>) {
         self.surface_size = physical_size.into();
-        resize_neovim_grid(self.surface_size, &self.fonts, &self.neovim);
+        self.resize_neovim_grid();
         self.render_state
             .resize(self.surface_size, self.fonts.cell_size());
     }
@@ -532,32 +529,39 @@ impl EventHandler {
         }
         log::info!("Rendered with result {motion:?}");
     }
-}
 
-fn send_keys(c: &str, modifiers: &mut ModifiersState, neovim: &Neovim, ignore_shift: bool) {
-    let shift = modifiers.shift_key() && !ignore_shift;
-    let ctrl = modifiers.control_key();
-    let alt = modifiers.alt_key();
-    let logo = modifiers.super_key();
-    let c = if ctrl || alt || logo || shift {
-        let ctrl = if ctrl { "C" } else { "" };
-        let shift = if shift { "S" } else { "" };
-        let alt = if alt { "A" } else { "" };
-        let logo = if logo { "D" } else { "" };
-        format!("<{ctrl}{shift}{alt}{logo}-{c}>")
-    } else {
-        match c.len() {
-            1 => c.to_string(),
-            _ => format!("<{c}>"),
-        }
-    };
-    neovim.input(c);
-}
+    fn send_keys(&mut self, c: &str, ignore_shift: bool) {
+        let shift = self.modifiers.shift_key() && !ignore_shift;
+        let ctrl = self.modifiers.control_key();
+        let alt = self.modifiers.alt_key();
+        let logo = self.modifiers.super_key();
+        let c = if ctrl || alt || logo || shift {
+            let ctrl = if ctrl { "C" } else { "" };
+            let shift = if shift { "S" } else { "" };
+            let alt = if alt { "A" } else { "" };
+            let logo = if logo { "D" } else { "" };
+            format!("<{ctrl}{shift}{alt}{logo}-{c}>")
+        } else {
+            match c.len() {
+                1 => c.to_string(),
+                _ => format!("<{c}>"),
+            }
+        };
+        self.neovim.input(c);
+    }
 
-fn resize_neovim_grid(surface_size: Vec2<u32>, fonts: &Fonts, neovim: &Neovim) {
-    let size = surface_size / fonts.cell_size();
-    let size: Vec2<u64> = size.cast();
-    neovim.ui_try_resize_grid(1, size.x, size.y);
+    fn resize_neovim_grid(&mut self) {
+        let size = self.surface_size / self.fonts.cell_size();
+        let size: Vec2<u64> = size.cast();
+        self.neovim.ui_try_resize_grid(1, size.x, size.y);
+    }
+
+    fn finish_font_change(&mut self) {
+        self.render_state.clear_glyph_cache();
+        self.render_state
+            .resize(self.surface_size, self.fonts.cell_size());
+        self.resize_neovim_grid();
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
