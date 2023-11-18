@@ -1,7 +1,7 @@
 use crate::util::{Parse, Values};
 use rmpv::{decode::read_value, encode::write_value, Value};
 use std::{
-    io::{self, Write},
+    io::{self, Read, Write},
     process::{ChildStdin, ChildStdout},
 };
 
@@ -147,7 +147,7 @@ impl From<Notification> for Value {
     }
 }
 
-pub fn decode(reader: &mut ChildStdout) -> Result<Message, DecodeError> {
+pub fn decode(reader: &mut impl Read) -> Result<Message, DecodeError> {
     Message::parse(read_value(reader)?).ok_or(DecodeError::Parse)
 }
 
@@ -159,7 +159,7 @@ pub enum DecodeError {
     Parse,
 }
 
-pub fn encode(writer: &mut ChildStdin, msg: Message) -> Result<(), EncodeError> {
+pub fn encode(writer: &mut impl Write, msg: Message) -> Result<(), EncodeError> {
     let value = msg.into();
     write_value(writer, &value)?;
     writer.flush()?;

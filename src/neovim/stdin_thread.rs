@@ -1,5 +1,5 @@
 use crate::rpc::{encode, Message};
-use std::{process::ChildStdin, sync::mpsc::Receiver};
+use std::{io::BufWriter, process::ChildStdin, sync::mpsc::Receiver};
 
 pub struct StdinThread {
     rx: Receiver<Message>,
@@ -12,7 +12,8 @@ impl StdinThread {
     }
 
     pub fn start(self) {
-        let Self { rx, mut stdin } = self;
+        let Self { rx, stdin } = self;
+        let mut stdin = BufWriter::new(stdin);
         while let Ok(msg) = rx.recv() {
             match encode(&mut stdin, msg) {
                 Ok(_) => {}
