@@ -2,31 +2,141 @@
 
 ![Crates.io](https://img.shields.io/crates/d/neophyte)
 
-Neophyte is a Neovim GUI rendered with WebGPU. It offers several niceties over
-the default terminal-based UI:
+Neophyte is a Neovim GUI rendered with WebGPU and written in Rust. 
+It offers several niceties over the default terminal-based UI:
 
 - Text shaping and rasterization by [Swash](https://github.com/dfrg/swash),
   providing high-quality font rendering features such as ligatures, fallback
   fonts, and emoji
 - Smooth scrolling
 - Cursor animations
-- Unnecessarily low input latency
+- Pixel-level window positioning
 
-This project is complete enough to use as a primary editor. For a more mature
-option, try [Neovide](https://github.com/neovide/neovide).
+## Installation
+
+Either grab a binary from the
+[releases](https://github.com/tim-harding/neophyte/releases/latest) or install
+with the [Rust toolchain](https://www.rust-lang.org/tools/install):
+
+```bash
+cargo install neophyte
+```
 
 ## Configuration
 
-### Fonts
+### Scripting
 
-By default, Neophyte will use the first monospaced font it finds on the system.
-This will likely be quite ugly. Custom fonts can be specified with the
-[guifont](https://neovim.io/doc/user/options.html#'guifont') option. Height and
-width specifiers are supported, though they can only be applied globally, not to
-individual fonts. The width option may give better results with respect to
-overlap between Powerline symbols. For example, here is Lua code to use Cascadia
-Code at eleven pixels wide with nerd font and emoji fallbacks:
+Neophyte is scriptable with Lua. The API is LuaLS type-annotated for
+discoverability. 
 
-```lua 
-vim.opt.guifont = "Cascadia Code PL:w11, Symbols Nerd Font, Noto Color Emoji"
+```lua
+-- lazy.nvim example:
+{
+  'tim-harding/neophyte',
+  event = 'VeryLazy',
+  opts = {
+    -- Same as neophyte.setup({ ... })
+  },
+}
+
+-- API usage example:
+local neophyte = require('neophyte')
+neophyte.setup({
+  fonts = {
+    {
+      name = 'Cascadia Code PL',
+      features = {
+        {
+          name = 'calt',
+          value = 1,
+        },
+        -- Shorthand to set a feature to 1
+        'ss01', 
+        'ss02',
+      },
+    },
+    -- Fallback fonts 
+    {
+      name = 'Monaspace Argon Var',
+      -- Variable font axes
+      variations = {
+        {
+          name = 'slnt',
+          value = -11,
+        },
+      },
+    },
+    -- Shorthand for no features or variations
+    'Symbols Nerd Font',
+    'Noto Color Emoji',
+  },
+  font_size = {
+    kind = 'width', -- 'width' | 'height'
+    size = 10,
+  },
+  -- Multipliers of the base animation speed.
+  -- To disable animations, set these to large values like 1000.
+  cursor_speed = 2,
+  scroll_speed = 2,
+  -- Increase or decrease the distance from the baseline for underlines.
+  underline_offset = 1,
+})
+
+-- Alternatively, the guifont option is supported:
+vim.opt.guifont = "Cascadia Code PL:w10, Symbols Nerd Font, Noto Color Emoji"
+
+-- There are also freestanding functions to set these options as desired. 
+-- Below is a keymap for increasing and decreasing the font size:
+
+-- Increase font size
+vim.keymap.set('n', '<c-+>', function()
+  neophyte.set_font_width(neophyte.get_font_width() + 1)
+end, { silent = true, remap = false })
+
+-- Decrease font size
+vim.keymap.set('n', '<c-->', function()
+  neophyte.set_font_width(neophyte.get_font_width() - 1)
+end, { silent = true, remap = false })
+```
+
+### Noice
+
+I recommend using Neophyte with [Noice](https://github.com/folke/noice.nvim) for
+best results, unless you choose to disable cursor animations. This is because
+Noice externalizes several UI features such that Neovim cedes responsibility
+for rendering them, namely the cmdline and messages. Without this, the cursor
+tends to jump around in a way that is jarring when combined with animations.
+Eventually we may support externalizing these UI elements without a plugin
+(this is already partially implemented), but in the meantime, Noice is the
+best option. If you want to try Noice without opting in to popup notifications
+or the popup cmdline, you can try these settings:
+
+```lua
+-- lazy.nvim
+{
+  'folke/noice.nvim',
+  event = 'VeryLazy',
+  opts = {
+    presets = {
+      bottom_search = true,
+      command_palette = true,
+      long_message_to_split = true,
+    },
+    lsp = {
+      message = {
+        view = 'mini',
+      },
+    },
+    messages = {
+      view = 'mini',
+      view_search = false,
+    },
+    cmdline = {
+      view = 'cmdline',
+    },
+  },
+  dependencies = {
+    "MunifTanjim/nui.nvim",
+  },
+}
 ```
