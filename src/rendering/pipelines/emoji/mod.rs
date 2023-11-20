@@ -1,7 +1,7 @@
 use crate::{
     rendering::{
-        depth_texture::DepthTexture, glyph_bind_group::GlyphBindGroup,
-        glyph_push_constants::GlyphPushConstants, text::Text, TARGET_FORMAT,
+        glyph_bind_group::GlyphBindGroup, glyph_push_constants::GlyphPushConstants, text::Text,
+        texture::Texture,
     },
     text::cache::Cached,
     util::vec2::Vec2,
@@ -67,7 +67,7 @@ impl Pipeline {
                 module: &self.shader,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: TARGET_FORMAT,
+                    format: Texture::LINEAR_FORMAT,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -82,7 +82,7 @@ impl Pipeline {
                 conservative: false,
             },
             depth_stencil: Some(wgpu::DepthStencilState {
-                format: DepthTexture::FORMAT,
+                format: Texture::DEPTH_FORMAT,
                 depth_write_enabled: false,
                 depth_compare: wgpu::CompareFunction::LessEqual,
                 stencil: wgpu::StencilState::default(),

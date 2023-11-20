@@ -1,5 +1,4 @@
 mod cmdline_grid;
-mod depth_texture;
 mod glyph_bind_group;
 mod glyph_push_constants;
 mod grids;
@@ -11,8 +10,6 @@ mod text;
 mod texture;
 
 use std::ops::{BitOr, BitOrAssign};
-
-pub const TARGET_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 
 pub fn nearest_sampler(device: &wgpu::Device) -> wgpu::Sampler {
     device.create_sampler(&wgpu::SamplerDescriptor {

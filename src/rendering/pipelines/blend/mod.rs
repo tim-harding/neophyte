@@ -1,4 +1,4 @@
-use crate::rendering::{nearest_sampler, TARGET_FORMAT};
+use crate::rendering::{nearest_sampler, texture::Texture};
 use wgpu::include_wgsl;
 
 pub struct Pipeline {
@@ -97,7 +97,7 @@ fn pipeline(
             module: shader,
             entry_point: "fs_main",
             targets: &[Some(wgpu::ColorTargetState {
-                format: TARGET_FORMAT,
+                format: Texture::LINEAR_FORMAT,
                 blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
                 write_mask: wgpu::ColorWrites::ALL,
             })],

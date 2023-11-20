@@ -1,6 +1,6 @@
 use crate::{
     event::mode_info_set::CursorShape,
-    rendering::{nearest_sampler, Motion, TARGET_FORMAT},
+    rendering::{nearest_sampler, texture::Texture, Motion},
     ui::{cmdline::Mode, Ui},
     util::{mat3::Mat3, vec2::Vec2},
 };
@@ -83,7 +83,7 @@ impl Pipeline {
                 module: &shader,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: TARGET_FORMAT,
+                    format: Texture::LINEAR_FORMAT,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],

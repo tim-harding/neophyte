@@ -82,7 +82,7 @@ impl Neovim {
 
     // TODO: Proper public API
     pub fn ui_attach(&mut self) {
-        let extensions = ["rgb", "ext_linegrid", "ext_multigrid"];
+        let extensions = ["ext_linegrid", "ext_multigrid", "ext_hlstate"];
         let extensions = Value::Map(
             extensions
                 .into_iter()

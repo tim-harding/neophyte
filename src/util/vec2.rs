@@ -379,6 +379,16 @@ where
     }
 }
 
+impl From<Vec2<u32>> for wgpu::Extent3d {
+    fn from(value: Vec2<u32>) -> Self {
+        Self {
+            width: value.x,
+            height: value.y,
+            depth_or_array_layers: 1,
+        }
+    }
+}
+
 pub trait As<T> {
     fn r#as(self) -> T;
 }

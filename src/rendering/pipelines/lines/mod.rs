@@ -1,5 +1,5 @@
 use crate::{
-    rendering::{depth_texture::DepthTexture, text::Text},
+    rendering::{text::Text, texture::Texture},
     util::vec2::Vec2,
 };
 use bytemuck::{checked::cast_slice, Pod, Zeroable};
@@ -53,7 +53,7 @@ impl Pipeline {
                 conservative: false,
             },
             depth_stencil: Some(wgpu::DepthStencilState {
-                format: DepthTexture::FORMAT,
+                format: Texture::DEPTH_FORMAT,
                 depth_write_enabled: false,
                 depth_compare: wgpu::CompareFunction::LessEqual,
                 stencil: wgpu::StencilState::default(),

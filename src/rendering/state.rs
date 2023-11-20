@@ -1,11 +1,10 @@
 use super::{
     cmdline_grid::CmdlineGrid,
-    depth_texture::DepthTexture,
     grids::Grids,
     pipelines::{blend, cell_fill, cursor, default_fill, emoji, gamma_blit, lines, monochrome},
     text,
     texture::Texture,
-    Motion, TARGET_FORMAT,
+    Motion,
 };
 use crate::{
     event::rgb::Rgb,
@@ -35,7 +34,58 @@ pub struct RenderState {
 struct Targets {
     monochrome: Texture,
     color: Texture,
-    depth: DepthTexture,
+    png: Texture,
+    png_staging: wgpu::Buffer,
+    depth: Texture,
+}
+
+impl Targets {
+    pub fn new(device: &wgpu::Device, size: Vec2<u32>) -> Self {
+        Self {
+            monochrome: Texture::target(
+                &device,
+                &Texture::descriptor(
+                    "Monochrome texture",
+                    size.into(),
+                    Texture::LINEAR_FORMAT,
+                    Texture::ATTACHMENT_AND_BINDING,
+                ),
+            ),
+            color: Texture::target(
+                &device,
+                &Texture::descriptor(
+                    "Monochrome texture",
+                    size.into(),
+                    Texture::LINEAR_FORMAT,
+                    Texture::ATTACHMENT_AND_BINDING,
+                ),
+            ),
+            png: Texture::target(
+                &device,
+                &Texture::descriptor(
+                    "Monochrome texture",
+                    size.into(),
+                    Texture::SRGB_FORMAT,
+                    wgpu::TextureUsages::RENDER_ATTACHMENT,
+                ),
+            ),
+            png_staging: device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("PNG staging buffer"),
+                size: size.area() as u64 * 4,
+                usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            }),
+            depth: Texture::target(
+                &device,
+                &Texture::descriptor(
+                    "Depth texture",
+                    size.into(),
+                    Texture::DEPTH_FORMAT,
+                    wgpu::TextureUsages::RENDER_ATTACHMENT,
+                ),
+            ),
+        }
+    }
 }
 
 struct Pipelines {
@@ -109,12 +159,8 @@ impl RenderState {
 
         let grids = Grids::new(&device);
 
-        let target_size = (surface_size / cell_size) * cell_size;
-        let targets = Targets {
-            monochrome: Texture::target(&device, target_size, TARGET_FORMAT),
-            color: Texture::target(&device, target_size, TARGET_FORMAT),
-            depth: DepthTexture::new(&device, target_size),
-        };
+        let target_size: Vec2<u32> = (surface_size / cell_size) * cell_size;
+        let targets = Targets::new(&device, target_size);
 
         Self {
             text_bind_group_layout: text::bind_group::BindGroup::new(&device),
@@ -122,11 +168,11 @@ impl RenderState {
                 cursor: cursor::Pipeline::new(&device, &targets.monochrome.view),
                 cmdline_cursor: cursor::Pipeline::new(&device, &targets.monochrome.view),
                 blend: blend::Pipeline::new(&device, &targets.color.view),
-                default_fill: default_fill::Pipeline::new(&device, TARGET_FORMAT),
+                default_fill: default_fill::Pipeline::new(&device, Texture::LINEAR_FORMAT),
                 cell_fill: cell_fill::Pipeline::new(
                     &device,
                     grids.bind_group_layout(),
-                    TARGET_FORMAT,
+                    Texture::LINEAR_FORMAT,
                 ),
                 emoji: emoji::Pipeline::new(&device),
                 gamma_blit: gamma_blit::Pipeline::new(
@@ -135,7 +181,11 @@ impl RenderState {
                     &targets.color.view,
                 ),
                 monochrome: monochrome::Pipeline::new(&device),
-                lines: lines::Pipeline::new(&device, grids.bind_group_layout(), TARGET_FORMAT),
+                lines: lines::Pipeline::new(
+                    &device,
+                    grids.bind_group_layout(),
+                    Texture::LINEAR_FORMAT,
+                ),
             },
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
@@ -227,10 +277,8 @@ impl RenderState {
         self.surface_config.height = new_size.y;
         self.surface.configure(&self.device, &self.surface_config);
 
-        let target_size = (new_size / cell_size) * cell_size;
-        self.targets.monochrome = Texture::target(&self.device, target_size, TARGET_FORMAT);
-        self.targets.color = Texture::target(&self.device, target_size, TARGET_FORMAT);
-        self.targets.depth = DepthTexture::new(&self.device, target_size);
+        let target_size: Vec2<u32> = (new_size / cell_size) * cell_size;
+        self.targets = Targets::new(&self.device, target_size);
 
         self.pipelines.gamma_blit.update(
             &self.device,
@@ -375,7 +423,23 @@ impl RenderState {
             },
         );
 
+        // self.pipelines.gamma_blit.render(
+        //     &mut encoder,
+        //     &self.targets.png.view,
+        //     wgpu::Color {
+        //         r: (self.clear_color[0] as f64).powf(2.2),
+        //         g: (self.clear_color[1] as f64).powf(2.2),
+        //         b: (self.clear_color[2] as f64).powf(2.2),
+        //         a: (self.clear_color[3] as f64).powf(2.2),
+        //     },
+        // );
+        //
         self.queue.submit(std::iter::once(encoder.finish()));
+
+        // TODO: Move to thread or set up an event loop
+        // self.device.poll(wgpu::Maintain::Wait);
+        // pollster::block_on(async {});
+
         window.pre_present_notify();
         output.present();
 
