@@ -66,7 +66,7 @@ impl Targets {
                     "Monochrome texture",
                     size.into(),
                     Texture::SRGB_FORMAT,
-                    wgpu::TextureUsages::RENDER_ATTACHMENT,
+                    Texture::ATTACHMENT_AND_BINDING,
                 ),
             ),
             png_staging: device.create_buffer(&wgpu::BufferDescriptor {
@@ -95,7 +95,8 @@ struct Pipelines {
     default_fill: default_fill::Pipeline,
     cell_fill: cell_fill::Pipeline,
     emoji: emoji::Pipeline,
-    gamma_blit: gamma_blit::Pipeline,
+    gamma_blit_final: gamma_blit::Pipeline,
+    gamma_blit_png: gamma_blit::Pipeline,
     monochrome: monochrome::Pipeline,
     lines: lines::Pipeline,
 }
@@ -175,10 +176,15 @@ impl RenderState {
                     Texture::LINEAR_FORMAT,
                 ),
                 emoji: emoji::Pipeline::new(&device),
-                gamma_blit: gamma_blit::Pipeline::new(
+                gamma_blit_final: gamma_blit::Pipeline::new(
                     &device,
                     surface_config.format,
                     &targets.color.view,
+                ),
+                gamma_blit_png: gamma_blit::Pipeline::new(
+                    &device,
+                    Texture::SRGB_FORMAT,
+                    &targets.png.view,
                 ),
                 monochrome: monochrome::Pipeline::new(&device),
                 lines: lines::Pipeline::new(
@@ -280,9 +286,16 @@ impl RenderState {
         let target_size: Vec2<u32> = (new_size / cell_size) * cell_size;
         self.targets = Targets::new(&self.device, target_size);
 
-        self.pipelines.gamma_blit.update(
+        self.pipelines.gamma_blit_final.update(
             &self.device,
             self.surface_config.format,
+            &self.targets.color.view,
+            target_size,
+            new_size,
+        );
+        self.pipelines.gamma_blit_png.update(
+            &self.device,
+            Texture::SRGB_FORMAT,
             &self.targets.color.view,
             target_size,
             new_size,
@@ -412,7 +425,7 @@ impl RenderState {
             target_size,
         );
 
-        self.pipelines.gamma_blit.render(
+        self.pipelines.gamma_blit_final.render(
             &mut encoder,
             &output_view,
             wgpu::Color {
@@ -423,17 +436,17 @@ impl RenderState {
             },
         );
 
-        // self.pipelines.gamma_blit.render(
-        //     &mut encoder,
-        //     &self.targets.png.view,
-        //     wgpu::Color {
-        //         r: (self.clear_color[0] as f64).powf(2.2),
-        //         g: (self.clear_color[1] as f64).powf(2.2),
-        //         b: (self.clear_color[2] as f64).powf(2.2),
-        //         a: (self.clear_color[3] as f64).powf(2.2),
-        //     },
-        // );
-        //
+        self.pipelines.gamma_blit_png.render(
+            &mut encoder,
+            &self.targets.png.view,
+            wgpu::Color {
+                r: (self.clear_color[0] as f64).powf(2.2),
+                g: (self.clear_color[1] as f64).powf(2.2),
+                b: (self.clear_color[2] as f64).powf(2.2),
+                a: (self.clear_color[3] as f64).powf(2.2),
+            },
+        );
+
         self.queue.submit(std::iter::once(encoder.finish()));
 
         // TODO: Move to thread or set up an event loop

@@ -175,10 +175,7 @@ impl EventHandler {
             if let Some(guifont_update) = self.ui.guifont_update.take() {
                 let GuiFont { fonts, size } = guifont_update;
                 self.fonts.set_fonts(
-                    fonts
-                        .into_iter()
-                        .map(FontSetting::with_name)
-                        .collect(),
+                    fonts.into_iter().map(FontSetting::with_name).collect(),
                     size,
                 );
                 self.finish_font_change();
