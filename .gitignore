@@ -2,3 +2,9 @@
 *.txt
 *.mm_profdata
 *.json
+*.folded
+*.perf
+*.data
+*.old
+*.svg
+cachegrind.out.*
