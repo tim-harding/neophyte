@@ -7,4 +7,5 @@
 *.data
 *.old
 *.svg
+**/*.png
 cachegrind.out.*

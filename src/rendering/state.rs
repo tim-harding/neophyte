@@ -1,3 +1,5 @@
+use std::{fs::File, io::BufWriter};
+
 use super::{
     cmdline_grid::CmdlineGrid,
     grids::Grids,
@@ -13,6 +15,7 @@ use crate::{
     ui::Ui,
     util::vec2::Vec2,
 };
+use bytemuck::cast_slice;
 use swash::shape::ShapeContext;
 use winit::window::Window;
 
@@ -29,18 +32,19 @@ pub struct RenderState {
     clear_color: [f32; 4],
     cmdline_grid: CmdlineGrid,
     text_bind_group_layout: text::bind_group::BindGroup,
+    png_count: usize,
 }
 
 struct Targets {
     monochrome: Texture,
     color: Texture,
     png: Texture,
-    png_staging: wgpu::Buffer,
     depth: Texture,
 }
 
 impl Targets {
     pub fn new(device: &wgpu::Device, size: Vec2<u32>) -> Self {
+        let png_size = Vec2::new(((size.x + 63) / 64) * 64, size.y);
         Self {
             monochrome: Texture::target(
                 &device,
@@ -64,17 +68,11 @@ impl Targets {
                 &device,
                 &Texture::descriptor(
                     "Monochrome texture",
-                    size.into(),
+                    png_size.into(),
                     Texture::SRGB_FORMAT,
-                    Texture::ATTACHMENT_AND_BINDING,
+                    Texture::ATTACHMENT_AND_BINDING | wgpu::TextureUsages::COPY_SRC,
                 ),
             ),
-            png_staging: device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("PNG staging buffer"),
-                size: size.area() as u64 * 4,
-                usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            }),
             depth: Texture::target(
                 &device,
                 &Texture::descriptor(
@@ -164,6 +162,7 @@ impl RenderState {
         let targets = Targets::new(&device, target_size);
 
         Self {
+            png_count: 0,
             text_bind_group_layout: text::bind_group::BindGroup::new(&device),
             pipelines: Pipelines {
                 cursor: cursor::Pipeline::new(&device, &targets.monochrome.view),
@@ -184,7 +183,7 @@ impl RenderState {
                 gamma_blit_png: gamma_blit::Pipeline::new(
                     &device,
                     Texture::SRGB_FORMAT,
-                    &targets.png.view,
+                    &targets.color.view,
                 ),
                 monochrome: monochrome::Pipeline::new(&device),
                 lines: lines::Pipeline::new(
@@ -447,15 +446,62 @@ impl RenderState {
             },
         );
 
-        self.queue.submit(std::iter::once(encoder.finish()));
+        let png_size = Vec2::new(((target_size.x + 63) / 64) * 64, target_size.y);
+        println!("{png_size:?}, {target_size:?}");
+        // TODO: I'm not sure how to cache this buffer without lifetime issues
+        let png_staging = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("PNG staging buffer"),
+            size: png_size.x as u64 * target_size.y as u64 * 4,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
 
-        // TODO: Move to thread or set up an event loop
-        // self.device.poll(wgpu::Maintain::Wait);
-        // pollster::block_on(async {});
+        encoder.copy_texture_to_buffer(
+            wgpu::ImageCopyTexture {
+                texture: &self.targets.png.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::ImageCopyBuffer {
+                buffer: &png_staging,
+                layout: wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(png_size.x * 4),
+                    rows_per_image: Some(target_size.y),
+                },
+            },
+            png_size.into(),
+        );
+
+        let submission = self.queue.submit(std::iter::once(encoder.finish()));
+
+        let buffer_slice = png_staging.slice(..);
+        buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+            println!("Map async");
+            result.unwrap();
+        });
+
+        self.device
+            .poll(wgpu::MaintainBase::WaitForSubmissionIndex(submission));
+        println!("Polled");
+        let png_number = self.png_count;
+        self.png_count += 1;
+        let data = buffer_slice.get_mapped_range();
+        let file = File::create(format!("render/out_{png_number}.png")).unwrap();
+        let ref mut w = BufWriter::new(file);
+        let mut w = png::Encoder::new(w, png_size.x, target_size.y);
+        w.set_color(png::ColorType::Rgba);
+        w.set_depth(png::BitDepth::Eight);
+        w.set_source_gamma(png::ScaledFloat::from_scaled(45455));
+        let mut w = w.write_header().unwrap();
+        // println!("{:?}", data.as_ref());
+        w.write_image_data(cast_slice(&data)).unwrap();
+        drop(data);
+        png_staging.unmap();
 
         window.pre_present_notify();
         output.present();
-
         motion
     }
 
