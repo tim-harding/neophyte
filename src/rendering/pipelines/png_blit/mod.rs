@@ -1,4 +1,5 @@
-use crate::rendering::nearest_sampler;
+use crate::rendering::{nearest_sampler, texture::Texture};
+use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
 
 pub struct Pipeline {
@@ -6,12 +7,17 @@ pub struct Pipeline {
     pipeline_layout: wgpu::PipelineLayout,
     shader: wgpu::ShaderModule,
     sampler: wgpu::Sampler,
+    push_constants: PushConstants,
     pub bind_group: wgpu::BindGroup,
     pub pipeline: wgpu::RenderPipeline,
 }
 
 impl Pipeline {
-    pub fn new(device: &wgpu::Device, src_tex: &wgpu::TextureView) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        src_tex: &wgpu::TextureView,
+        src_over_dst_width: f32,
+    ) -> Self {
         let sampler = nearest_sampler(device);
         let shader = device.create_shader_module(include_wgsl!("png_blit.wgsl"));
 
@@ -40,32 +46,32 @@ impl Pipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
+            push_constant_ranges: &[wgpu::PushConstantRange {
+                stages: wgpu::ShaderStages::VERTEX,
+                range: 0..PushConstants::SIZE,
+            }],
         });
 
         Self {
-            pipeline: pipeline(
-                device,
-                &pipeline_layout,
-                &shader,
-                wgpu::TextureFormat::Rgba8Unorm,
-            ),
+            pipeline: pipeline(device, &pipeline_layout, &shader),
             bind_group: bind_group(device, &bind_group_layout, &sampler, src_tex),
             bind_group_layout,
             pipeline_layout,
             shader,
             sampler,
+            push_constants: PushConstants { src_over_dst_width },
         }
     }
 
-    pub fn update(&mut self, device: &wgpu::Device, src_tex: &wgpu::TextureView) {
+    pub fn update(
+        &mut self,
+        device: &wgpu::Device,
+        src_tex: &wgpu::TextureView,
+        src_over_dst_width: f32,
+    ) {
         self.bind_group = bind_group(device, &self.bind_group_layout, &self.sampler, src_tex);
-        self.pipeline = pipeline(
-            device,
-            &self.pipeline_layout,
-            &self.shader,
-            wgpu::TextureFormat::Rgba8Unorm,
-        );
+        self.pipeline = pipeline(device, &self.pipeline_layout, &self.shader);
+        self.push_constants = PushConstants { src_over_dst_width }
     }
 
     pub fn render(
@@ -90,6 +96,11 @@ impl Pipeline {
         });
 
         render_pass.set_pipeline(&self.pipeline);
+        render_pass.set_push_constants(
+            wgpu::ShaderStages::VERTEX,
+            0,
+            cast_slice(&[self.push_constants]),
+        );
         render_pass.set_bind_group(0, &self.bind_group, &[]);
         render_pass.draw(0..6, 0..1);
     }
@@ -99,7 +110,6 @@ fn pipeline(
     device: &wgpu::Device,
     pipeline_layout: &wgpu::PipelineLayout,
     shader: &wgpu::ShaderModule,
-    dst_format: wgpu::TextureFormat,
 ) -> wgpu::RenderPipeline {
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: None,
@@ -113,7 +123,7 @@ fn pipeline(
             module: shader,
             entry_point: "fs_main",
             targets: &[Some(wgpu::ColorTargetState {
-                format: dst_format,
+                format: Texture::SRGB_FORMAT,
                 blend: Some(wgpu::BlendState::REPLACE),
                 write_mask: wgpu::ColorWrites::ALL,
             })],
@@ -157,4 +167,14 @@ fn bind_group(
             },
         ],
     })
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
+struct PushConstants {
+    src_over_dst_width: f32,
+}
+
+impl PushConstants {
+    pub const SIZE: u32 = std::mem::size_of::<Self>() as u32;
 }

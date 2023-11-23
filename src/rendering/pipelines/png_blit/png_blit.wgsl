@@ -1,7 +1,12 @@
+struct Constants {
+    src_over_dst_width: f32,
+}
+
 @group(0) @binding(0)
 var tex: texture_2d<f32>;
 @group(0) @binding(1)
 var tex_sampler: sampler;
+var<push_constant> constants: Constants;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
@@ -22,6 +27,7 @@ fn vs_main(
         0.0,
         1.0
     );
+    out.uv.x = out.uv.x * constants.src_over_dst_width;
     return out;
 }
 

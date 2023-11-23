@@ -191,7 +191,11 @@ impl RenderState {
                     surface_config.format,
                     &targets.color.view,
                 ),
-                gamma_blit_png: png_blit::Pipeline::new(&device, &targets.color.view),
+                gamma_blit_png: png_blit::Pipeline::new(
+                    &device,
+                    &targets.color.view,
+                    target_size.x as f32 / targets.png_size.x as f32,
+                ),
                 monochrome: monochrome::Pipeline::new(&device),
                 lines: lines::Pipeline::new(
                     &device,
@@ -299,9 +303,11 @@ impl RenderState {
             target_size,
             new_size,
         );
-        self.pipelines
-            .gamma_blit_png
-            .update(&self.device, &self.targets.color.view);
+        self.pipelines.gamma_blit_png.update(
+            &self.device,
+            &self.targets.color.view,
+            self.targets.png_size.x as f32 / target_size.x as f32,
+        );
     }
 
     pub fn render(
