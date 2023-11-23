@@ -38,8 +38,9 @@ pub struct RenderState {
 struct Targets {
     monochrome: Texture,
     color: Texture,
-    png: Texture,
     depth: Texture,
+    png: Texture,
+    png_staging: wgpu::Buffer,
     png_size: Vec2<u32>,
 }
 
@@ -65,15 +66,6 @@ impl Targets {
                     Texture::ATTACHMENT_AND_BINDING,
                 ),
             ),
-            png: Texture::target(
-                &device,
-                &Texture::descriptor(
-                    "Monochrome texture",
-                    png_size.into(),
-                    Texture::SRGB_FORMAT,
-                    Texture::ATTACHMENT_AND_BINDING | wgpu::TextureUsages::COPY_SRC,
-                ),
-            ),
             depth: Texture::target(
                 &device,
                 &Texture::descriptor(
@@ -83,6 +75,21 @@ impl Targets {
                     wgpu::TextureUsages::RENDER_ATTACHMENT,
                 ),
             ),
+            png: Texture::target(
+                &device,
+                &Texture::descriptor(
+                    "Monochrome texture",
+                    png_size.into(),
+                    Texture::SRGB_FORMAT,
+                    Texture::ATTACHMENT_AND_BINDING | wgpu::TextureUsages::COPY_SRC,
+                ),
+            ),
+            png_staging: device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("PNG staging buffer"),
+                size: png_size.area() as u64 * 4,
+                usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            }),
             png_size,
         }
     }
@@ -448,14 +455,6 @@ impl RenderState {
             },
         );
 
-        // TODO: I'm not sure how to cache this buffer without lifetime issues
-        let png_staging = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("PNG staging buffer"),
-            size: self.targets.png_size.area() as u64 * 4,
-            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
         encoder.copy_texture_to_buffer(
             wgpu::ImageCopyTexture {
                 texture: &self.targets.png.texture,
@@ -464,7 +463,7 @@ impl RenderState {
                 aspect: wgpu::TextureAspect::All,
             },
             wgpu::ImageCopyBuffer {
-                buffer: &png_staging,
+                buffer: &self.targets.png_staging,
                 layout: wgpu::ImageDataLayout {
                     offset: 0,
                     bytes_per_row: Some(self.targets.png_size.x * 4),
@@ -476,7 +475,7 @@ impl RenderState {
 
         let submission = self.queue.submit(std::iter::once(encoder.finish()));
 
-        let buffer_slice = png_staging.slice(..);
+        let buffer_slice = self.targets.png_staging.slice(..);
         buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
             result.unwrap();
         });
@@ -495,7 +494,7 @@ impl RenderState {
         let mut w = w.write_header().unwrap();
         w.write_image_data(cast_slice(&data)).unwrap();
         drop(data);
-        png_staging.unmap();
+        self.targets.png_staging.unmap();
 
         window.pre_present_notify();
         output.present();
