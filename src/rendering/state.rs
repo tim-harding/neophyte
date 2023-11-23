@@ -40,6 +40,7 @@ struct Targets {
     color: Texture,
     png: Texture,
     depth: Texture,
+    png_size: Vec2<u32>,
 }
 
 impl Targets {
@@ -82,6 +83,7 @@ impl Targets {
                     wgpu::TextureUsages::RENDER_ATTACHMENT,
                 ),
             ),
+            png_size,
         }
     }
 }
@@ -446,12 +448,10 @@ impl RenderState {
             },
         );
 
-        let png_size = Vec2::new(((target_size.x + 63) / 64) * 64, target_size.y);
-        println!("{png_size:?}, {target_size:?}");
         // TODO: I'm not sure how to cache this buffer without lifetime issues
         let png_staging = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("PNG staging buffer"),
-            size: png_size.x as u64 * target_size.y as u64 * 4,
+            size: self.targets.png_size.area() as u64 * 4,
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -467,35 +467,32 @@ impl RenderState {
                 buffer: &png_staging,
                 layout: wgpu::ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(png_size.x * 4),
-                    rows_per_image: Some(target_size.y),
+                    bytes_per_row: Some(self.targets.png_size.x * 4),
+                    rows_per_image: Some(self.targets.png_size.y),
                 },
             },
-            png_size.into(),
+            self.targets.png_size.into(),
         );
 
         let submission = self.queue.submit(std::iter::once(encoder.finish()));
 
         let buffer_slice = png_staging.slice(..);
         buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-            println!("Map async");
             result.unwrap();
         });
 
         self.device
             .poll(wgpu::MaintainBase::WaitForSubmissionIndex(submission));
-        println!("Polled");
         let png_number = self.png_count;
         self.png_count += 1;
         let data = buffer_slice.get_mapped_range();
         let file = File::create(format!("render/out_{png_number}.png")).unwrap();
         let ref mut w = BufWriter::new(file);
-        let mut w = png::Encoder::new(w, png_size.x, target_size.y);
+        let mut w = png::Encoder::new(w, self.targets.png_size.x, self.targets.png_size.y);
         w.set_color(png::ColorType::Rgba);
         w.set_depth(png::BitDepth::Eight);
-        w.set_source_gamma(png::ScaledFloat::from_scaled(45455));
+        w.set_source_gamma(png::ScaledFloat::new(1.0));
         let mut w = w.write_header().unwrap();
-        // println!("{:?}", data.as_ref());
         w.write_image_data(cast_slice(&data)).unwrap();
         drop(data);
         png_staging.unmap();

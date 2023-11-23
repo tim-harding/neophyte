@@ -5,11 +5,38 @@ use swash::{proxy::CharmapProxy, CacheKey, Charmap, FontRef};
 /// Wrapper over a Swash font
 #[derive(Debug, Clone)]
 pub struct Font {
-    data: Vec<u8>,
+    data: Data,
     charmap: CharmapProxy,
     offset: u32,
     key: CacheKey,
     metrics: Metrics,
+}
+
+#[derive(Debug, Clone)]
+pub enum Data {
+    Vec(Vec<u8>),
+    Array(&'static [u8]),
+}
+
+impl Data {
+    pub fn as_ref(&self) -> &[u8] {
+        match self {
+            Data::Vec(v) => v.as_ref(),
+            Data::Array(a) => a,
+        }
+    }
+}
+
+impl From<Vec<u8>> for Data {
+    fn from(value: Vec<u8>) -> Self {
+        Self::Vec(value)
+    }
+}
+
+impl From<&'static [u8]> for Data {
+    fn from(value: &'static [u8]) -> Self {
+        Self::Array(value)
+    }
 }
 
 impl Font {
@@ -24,8 +51,9 @@ impl Font {
     }
 
     /// Create a font from the given TTF or OTF font data
-    pub fn from_bytes(data: Vec<u8>, index: usize, size: FontSize) -> Option<Self> {
-        let font = FontRef::from_index(&data, index)?;
+    pub fn from_bytes(data: impl Into<Data>, index: usize, size: FontSize) -> Option<Self> {
+        let data = data.into();
+        let font = FontRef::from_index(data.as_ref(), index)?;
         Some(Self {
             offset: font.offset,
             metrics: Metrics::new(font, size),
@@ -45,7 +73,7 @@ impl Font {
         // Unlike the FontRef constructors, this does not construct a new key,
         // enabling performance optimizations and caching mechanisms
         FontRef {
-            data: &self.data,
+            data: self.data.as_ref(),
             offset: self.offset,
             key: self.key,
         }

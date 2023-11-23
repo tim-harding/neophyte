@@ -103,7 +103,7 @@ impl Text {
             let mut is_parser_empty = false;
             while !is_parser_empty {
                 if let Some(current_font_unwrapped) = next_font {
-                    let font_info = fonts.iter().nth(current_font_unwrapped.index).unwrap();
+                    let font_info = fonts.families().nth(current_font_unwrapped.index).unwrap();
                     let font = font_info.style(current_font_unwrapped.style).unwrap();
                     let mut shaper = shape_context
                         .builder(font.as_ref())
@@ -464,7 +464,7 @@ fn best_font(
         .map(|highlight| FontStyle::new(highlight.rgb_attr.bold(), highlight.rgb_attr.italic()))
         .unwrap_or_default();
     let mut best_font = None;
-    for (i, font_info) in fonts.iter().enumerate() {
+    for (i, font_info) in fonts.families().enumerate() {
         if let Some(font) = &font_info.style(style) {
             match cluster.map(|c| font.charmap().map(c)) {
                 Status::Discard => {}

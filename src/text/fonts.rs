@@ -9,8 +9,8 @@ use swash::Setting;
 /// Loaded fonts
 #[derive(Debug, Clone)]
 pub struct Fonts {
-    fonts: Vec<FontVariants>,
-    fallback: Font,
+    fonts: Vec<FontFamily>,
+    fallback: FontFamily,
 }
 
 impl Default for Fonts {
@@ -23,8 +23,41 @@ impl Fonts {
     pub fn new() -> Self {
         Self {
             fonts: vec![],
-            fallback: get(FontPropertyBuilder::new().monospace(), FontSize::default())
-                .expect("Failed to find a fallback monospace font"),
+            fallback: FontFamily {
+                setting: FontSetting::with_name("Roboto Mono".to_string()),
+                regular: Some(
+                    Font::from_bytes(
+                        include_bytes!("RobotoMono-Regular.ttf").as_slice(),
+                        0,
+                        FontSize::default(),
+                    )
+                    .unwrap(),
+                ),
+                bold: Some(
+                    Font::from_bytes(
+                        include_bytes!("RobotoMono-Bold.ttf").as_slice(),
+                        0,
+                        FontSize::default(),
+                    )
+                    .unwrap(),
+                ),
+                bold_italic: Some(
+                    Font::from_bytes(
+                        include_bytes!("RobotoMono-BoldItalic.ttf").as_slice(),
+                        0,
+                        FontSize::default(),
+                    )
+                    .unwrap(),
+                ),
+                italic: Some(
+                    Font::from_bytes(
+                        include_bytes!("RobotoMono-Italic.ttf").as_slice(),
+                        0,
+                        FontSize::default(),
+                    )
+                    .unwrap(),
+                ),
+            },
         }
     }
 
@@ -44,22 +77,25 @@ impl Fonts {
                     existing.resize(size);
                     existing
                 } else {
-                    FontVariants::with_settings(font, size)
+                    FontFamily::with_settings(font, size)
                 }
             })
             .collect();
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &FontVariants> {
-        self.fonts.iter()
+    pub fn families(&self) -> impl Iterator<Item = &FontFamily> {
+        self.fonts.iter().chain(std::iter::once(&self.fallback))
+    }
+
+    pub fn fonts(&self) -> impl Iterator<Item = (&Font, FontStyle)> {
+        self.families().flat_map(|font| font.iter())
     }
 
     /// Get the metrics for the first loaded font
     pub fn metrics(&self) -> Metrics {
-        self.fonts
-            .iter()
+        self.families()
             .find_map(|variants| variants.metrics())
-            .unwrap_or(self.fallback.metrics())
+            .unwrap()
     }
 
     /// Get the cell size of the first loaded font
@@ -69,7 +105,7 @@ impl Fonts {
 }
 
 #[derive(Clone, Debug)]
-pub struct FontVariants {
+pub struct FontFamily {
     /// The font name
     pub setting: FontSetting,
     /// If regular variant of the font, if available
@@ -82,7 +118,7 @@ pub struct FontVariants {
     pub bold_italic: Option<Font>,
 }
 
-impl FontVariants {
+impl FontFamily {
     /// Attempt to load the system font with the given name
     pub fn with_settings(setting: FontSetting, size: FontSize) -> Self {
         let builder = || FontPropertyBuilder::new().family(&setting.name);
@@ -107,20 +143,21 @@ impl FontVariants {
 
     /// Recalculate the font metrics for the loaded variants
     pub fn resize(&mut self, size: FontSize) {
-        for font in self.iter_mut() {
+        for (font, _) in self.iter_mut() {
             font.resize(size);
         }
     }
 
     /// An iterator over the loaded variants
-    pub fn iter(&self) -> impl Iterator<Item = &Font> {
+    pub fn iter(&self) -> impl Iterator<Item = (&Font, FontStyle)> {
         [&self.regular, &self.bold, &self.italic, &self.bold_italic]
             .into_iter()
-            .filter_map(|font| font.as_ref())
+            .zip(STYLES.into_iter())
+            .filter_map(|(font, style)| font.as_ref().map(|font| (font, style)))
     }
 
     /// An iterator over the loaded variants
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Font> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&mut Font, FontStyle)> {
         [
             &mut self.regular,
             &mut self.bold,
@@ -128,14 +165,22 @@ impl FontVariants {
             &mut self.bold_italic,
         ]
         .into_iter()
-        .filter_map(|font| font.as_mut())
+        .zip(STYLES.into_iter())
+        .filter_map(|(font, style)| font.as_mut().map(|font| (font, style)))
     }
 
     /// Metrics for the first loaded variant
     pub fn metrics(&self) -> Option<Metrics> {
-        self.iter().map(|font| font.metrics()).next()
+        self.iter().map(|font| font.0.metrics()).next()
     }
 }
+
+const STYLES: [FontStyle; 4] = [
+    FontStyle::Regular,
+    FontStyle::Bold,
+    FontStyle::Italic,
+    FontStyle::BoldItalic,
+];
 
 fn get(builder: FontPropertyBuilder, size: FontSize) -> Option<Font> {
     system_fonts::get(&builder.build())

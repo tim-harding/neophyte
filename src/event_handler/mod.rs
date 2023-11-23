@@ -196,8 +196,8 @@ impl EventHandler {
             "neophyte.get_fonts" => {
                 let names = self
                     .fonts
-                    .iter()
-                    .map(|font| font.setting.name.clone())
+                    .families()
+                    .map(|family| family.setting.name.clone())
                     .collect();
                 self.neovim
                     .send_response(rpc::Response::result(msgid, names));
