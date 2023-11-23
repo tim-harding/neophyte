@@ -3,7 +3,9 @@ use std::{fs::File, io::BufWriter};
 use super::{
     cmdline_grid::CmdlineGrid,
     grids::Grids,
-    pipelines::{blend, cell_fill, cursor, default_fill, emoji, gamma_blit, lines, monochrome},
+    pipelines::{
+        blend, cell_fill, cursor, default_fill, emoji, gamma_blit, lines, monochrome, png_blit,
+    },
     text,
     texture::Texture,
     Motion,
@@ -103,7 +105,7 @@ struct Pipelines {
     cell_fill: cell_fill::Pipeline,
     emoji: emoji::Pipeline,
     gamma_blit_final: gamma_blit::Pipeline,
-    gamma_blit_png: gamma_blit::Pipeline,
+    gamma_blit_png: png_blit::Pipeline,
     monochrome: monochrome::Pipeline,
     lines: lines::Pipeline,
 }
@@ -189,11 +191,7 @@ impl RenderState {
                     surface_config.format,
                     &targets.color.view,
                 ),
-                gamma_blit_png: gamma_blit::Pipeline::new(
-                    &device,
-                    Texture::SRGB_FORMAT,
-                    &targets.color.view,
-                ),
+                gamma_blit_png: png_blit::Pipeline::new(&device, &targets.color.view),
                 monochrome: monochrome::Pipeline::new(&device),
                 lines: lines::Pipeline::new(
                     &device,
@@ -301,13 +299,9 @@ impl RenderState {
             target_size,
             new_size,
         );
-        self.pipelines.gamma_blit_png.update(
-            &self.device,
-            Texture::SRGB_FORMAT,
-            &self.targets.color.view,
-            target_size,
-            target_size,
-        );
+        self.pipelines
+            .gamma_blit_png
+            .update(&self.device, &self.targets.color.view);
     }
 
     pub fn render(
@@ -490,7 +484,7 @@ impl RenderState {
         let mut w = png::Encoder::new(w, self.targets.png_size.x, self.targets.png_size.y);
         w.set_color(png::ColorType::Rgba);
         w.set_depth(png::BitDepth::Eight);
-        w.set_source_gamma(png::ScaledFloat::new(1.0));
+        w.set_srgb(png::SrgbRenderingIntent::Perceptual);
         let mut w = w.write_header().unwrap();
         w.write_image_data(cast_slice(&data)).unwrap();
         drop(data);

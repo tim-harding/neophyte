@@ -6,3 +6,5 @@ pub mod emoji;
 pub mod gamma_blit;
 pub mod lines;
 pub mod monochrome;
+pub mod png_blit;
+
