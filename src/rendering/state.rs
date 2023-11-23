@@ -306,7 +306,7 @@ impl RenderState {
             Texture::SRGB_FORMAT,
             &self.targets.color.view,
             target_size,
-            new_size,
+            target_size,
         );
     }
 
