@@ -126,4 +126,14 @@ function M.get_scroll_speed()
   return vim.rpcrequest(1, "neophyte.get_scroll_speed", {})
 end
 
+---@param width integer
+---@param height integer
+function M.set_render_size(width, height)
+  vim.rpcnotify(1, "neophyte.set_render_size", { width, height })
+end
+
+function M.unset_render_size()
+  vim.rpcnotify(1, "neophyte.unset_render_size", {})
+end
+
 return M

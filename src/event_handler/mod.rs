@@ -83,7 +83,7 @@ impl EventHandler {
                 WindowEvent::CursorMoved { position, .. } => self.cursor_moved(*position),
                 WindowEvent::MouseInput { state, button, .. } => self.mouse_input(*state, *button),
                 WindowEvent::MouseWheel { delta, phase, .. } => self.mouse_wheel(*delta, *phase),
-                WindowEvent::Resized(physical_size) => self.resize(*physical_size),
+                WindowEvent::Resized(physical_size) => self.resized(*physical_size),
                 WindowEvent::ScaleFactorChanged { scale_factor, .. } => self.rescale(*scale_factor),
                 WindowEvent::CloseRequested => window_target.exit(),
                 WindowEvent::RedrawRequested => self.redraw(),
@@ -144,6 +144,19 @@ impl EventHandler {
                     let offset: i32 = offset as i32;
                     self.settings.underline_offset = offset;
                     self.window.request_redraw();
+                }
+
+                "neophyte.set_render_size" => {
+                    let mut args = Values::new(params.into_iter().next()?)?;
+                    let width = args.next()?;
+                    let height = args.next()?;
+                    self.settings.render_size = Some(Vec2::new(width, height));
+                    self.resize();
+                }
+
+                "neophyte.unset_render_size" => {
+                    self.settings.render_size = None;
+                    self.resize();
                 }
 
                 _ => log::error!("Unrecognized notification: {method}"),
@@ -452,11 +465,9 @@ impl EventHandler {
         }
     }
 
-    fn resize(&mut self, physical_size: PhysicalSize<u32>) {
+    fn resized(&mut self, physical_size: PhysicalSize<u32>) {
         self.surface_size = physical_size.into();
-        self.resize_neovim_grid();
-        self.render_state
-            .resize(self.surface_size, self.fonts.cell_size());
+        self.resize();
     }
 
     fn rescale(&mut self, new_scale_factor: f64) {
@@ -505,16 +516,29 @@ impl EventHandler {
         self.neovim.input(c);
     }
 
+    fn finish_font_change(&mut self) {
+        self.render_state.clear_glyph_cache();
+        self.resize();
+    }
+
+    fn resize(&mut self) {
+        let render_size = self.render_size();
+        self.resize_neovim_grid();
+        self.render_state
+            .resize(render_size, self.fonts.cell_size());
+    }
+
     fn resize_neovim_grid(&mut self) {
-        let size = self.surface_size / self.fonts.cell_size();
+        let size = self.render_size() / self.fonts.cell_size();
         self.neovim.ui_try_resize_grid(1, size.x, size.y);
     }
 
-    fn finish_font_change(&mut self) {
-        self.render_state.clear_glyph_cache();
-        self.render_state
-            .resize(self.surface_size, self.fonts.cell_size());
-        self.resize_neovim_grid();
+    fn render_size(&mut self) -> Vec2<u32> {
+        if let Some(size) = self.settings.render_size {
+            size
+        } else {
+            self.surface_size
+        }
     }
 }
 
