@@ -136,4 +136,9 @@ function M.unset_render_size()
   vim.rpcnotify(1, "neophyte.unset_render_size", {})
 end
 
+---@return integer
+function M.get_render_size()
+  return vim.rpcrequest(1, "neophyte.get_render_size", {})
+end
+
 return M

@@ -246,6 +246,14 @@ impl EventHandler {
                     .send_response(rpc::Response::result(msgid, offset.into()));
             }
 
+            "neophyte.get_render_size" => {
+                let render_size = self.render_size();
+                self.neovim.send_response(rpc::Response::result(
+                    msgid,
+                    Value::Array(vec![render_size.x.into(), render_size.y.into()]),
+                ));
+            }
+
             _ => log::error!("Unknown request: {}, {:?}", method, params),
         }
     }
