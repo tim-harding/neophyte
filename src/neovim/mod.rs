@@ -80,10 +80,6 @@ impl Neovim {
         msgid
     }
 
-    pub fn exec_lua(&mut self, lua: String, args: Vec<Value>) {
-        self.call("nvim_exec_lua", vec![lua.into(), args.into()]);
-    }
-
     // TODO: Proper public API
     pub fn ui_attach(&mut self) {
         let extensions = ["ext_linegrid", "ext_multigrid", "ext_hlstate"];

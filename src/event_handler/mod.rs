@@ -1,8 +1,6 @@
 mod buttons;
 pub mod settings;
 
-use std::time::Instant;
-
 use self::{buttons::Buttons, settings::Settings};
 use crate::{
     event,
@@ -39,6 +37,7 @@ pub struct EventHandler {
     neovim: Neovim,
     render_state: RenderState,
     window: Window,
+    frame_number: u32,
 }
 
 impl EventHandler {
@@ -50,6 +49,7 @@ impl EventHandler {
         });
         Self {
             scale_factor: 1.,
+            frame_number: 0,
             surface_size: render_state.surface_size(),
             ui: Ui::new(),
             settings: Settings::new(),
@@ -164,7 +164,8 @@ impl EventHandler {
                 "neophyte.start_render" => {
                     let mut args = Values::new(params.into_iter().next()?)?;
                     let path: String = args.next()?;
-                    self.settings.render_target = Some((path.into(), Instant::now()));
+                    self.settings.render_target = Some(path.into());
+                    self.frame_number = 0;
                 }
 
                 "neophyte.end_render" => {
@@ -511,16 +512,16 @@ impl EventHandler {
             delta_seconds,
             &self.settings,
             &self.window,
+            self.frame_number,
         );
-        match motion {
-            Motion::Still => {}
-            Motion::Animating => self.window.request_redraw(),
+        let needs_redraw = match motion {
+            Motion::Still => self.settings.render_target.is_some(),
+            Motion::Animating => true,
+        };
+        if needs_redraw {
+            self.window.request_redraw();
         }
-        let motion_str: &str = motion.into();
-        self.neovim.exec_lua(
-            "local args = ...\npcall(function() require('neophyte').animation_frame_finished(args) end)".to_string(),
-            vec![motion_str.into()],
-        );
+        self.frame_number = self.frame_number.saturating_add(1);
         log::info!("Rendered with result {motion:?}");
     }
 

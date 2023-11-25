@@ -1,6 +1,5 @@
-use std::{path::PathBuf, time::Instant};
-
 use crate::util::vec2::Vec2;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Settings {
@@ -13,7 +12,7 @@ pub struct Settings {
     /// The size of the render surface, or None to use the default
     pub render_size: Option<Vec2<u32>>,
     /// The directory to save frames to, or None if not rendering
-    pub render_target: Option<(PathBuf, Instant)>,
+    pub render_target: Option<PathBuf>,
 }
 
 impl Settings {

@@ -170,16 +170,4 @@ function M.end_render()
   vim.rpcnotify(1, "neophyte.end_render", {})
 end
 
----This function is called whenever Neophyte renders a frame. The parameter indicates whether or not Neophyte has more frames to render in an animation.
----@type nil | fun(motion: motion)
-M.animation_callback = nil
-
----Neophyte calls this function after a frame finishes rendering
----@param motion motion
-function M.animation_frame_finished(motion)
-  if M.animation_callback ~= nil then
-    M.animation_callback(motion)
-  end
-end
-
 return M

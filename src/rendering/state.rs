@@ -317,6 +317,7 @@ impl RenderState {
         delta_seconds: f32,
         settings: &Settings,
         window: &Window,
+        frame_number: u32,
     ) -> Motion {
         let output = match self.surface.get_current_texture() {
             Ok(output) => output,
@@ -478,9 +479,8 @@ impl RenderState {
 
         let submission = self.queue.submit(std::iter::once(encoder.finish()));
 
-        if let Some((dir, start_time)) = settings.render_target.as_ref() {
+        if let Some(dir) = settings.render_target.as_ref() {
             let cb = || -> Result<(), SavePngError> {
-                let elapsed = start_time.elapsed().as_micros();
                 let buffer_slice = self.targets.png_staging.slice(..);
                 buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
                     result.unwrap();
@@ -489,7 +489,7 @@ impl RenderState {
                 self.device
                     .poll(wgpu::MaintainBase::WaitForSubmissionIndex(submission));
                 let data = buffer_slice.get_mapped_range();
-                let file_name = format!("{elapsed:?}us.png");
+                let file_name = format!("{frame_number:0>6}.png");
                 let file = File::create(dir.join(file_name))?;
                 let ref mut w = BufWriter::new(file);
                 let mut w = png::Encoder::new(w, self.targets.png_size.x, self.targets.png_size.y);
@@ -499,13 +499,13 @@ impl RenderState {
                 let mut w = w.write_header()?;
                 w.write_image_data(cast_slice(&data))?;
                 drop(data);
-                self.targets.png_staging.unmap();
                 Ok(())
             };
             match cb() {
                 Ok(_) => {}
                 Err(e) => log::error!("{e}"),
             }
+            self.targets.png_staging.unmap();
         }
 
         window.pre_present_notify();
