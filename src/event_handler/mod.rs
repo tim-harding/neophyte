@@ -241,13 +241,13 @@ impl EventHandler {
             }
 
             "neophyte.get_font_width" => {
-                let width = self.fonts.metrics().width;
+                let width = self.fonts.metrics().width / self.scale_factor;
                 self.neovim
                     .send_response(rpc::Response::result(msgid, width.into()));
             }
 
             "neophyte.get_font_height" => {
-                let width = self.fonts.metrics().em;
+                let width = self.fonts.metrics().em / self.scale_factor;
                 self.neovim
                     .send_response(rpc::Response::result(msgid, width.into()));
             }
