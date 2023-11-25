@@ -513,6 +513,11 @@ impl EventHandler {
             Motion::Still => {}
             Motion::Animating => self.window.request_redraw(),
         }
+        let motion_str: &str = motion.into();
+        self.neovim.exec_lua(
+            "local args = ...\npcall(function() require('neophyte').animation_frame_finished(args) end)".to_string(),
+            vec![motion_str.into()],
+        );
         log::info!("Rendered with result {motion:?}");
     }
 

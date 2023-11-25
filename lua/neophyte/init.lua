@@ -150,4 +150,16 @@ function M.end_render()
   vim.rpcnotify(1, "neophyte.end_render", {})
 end
 
+---@alias motion "still" | "animating"
+
+---@type nil | fun(motion: motion)
+M.animation_callback = nil
+
+---@param motion motion
+function M.animation_frame_finished(motion)
+  if M.animation_callback ~= nil then
+    M.animation_callback(motion)
+  end
+end
+
 return M

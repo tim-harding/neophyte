@@ -31,6 +31,15 @@ pub enum Motion {
     Animating,
 }
 
+impl From<Motion> for &str {
+    fn from(value: Motion) -> Self {
+        match value {
+            Motion::Still => "still",
+            Motion::Animating => "animating",
+        }
+    }
+}
+
 impl BitOr for Motion {
     type Output = Self;
 
