@@ -1,6 +1,8 @@
 mod buttons;
 pub mod settings;
 
+use std::time::Instant;
+
 use self::{buttons::Buttons, settings::Settings};
 use crate::{
     event,
@@ -157,6 +159,16 @@ impl EventHandler {
                 "neophyte.unset_render_size" => {
                     self.settings.render_size = None;
                     self.resize();
+                }
+
+                "neophyte.start_render" => {
+                    let mut args = Values::new(params.into_iter().next()?)?;
+                    let path: String = args.next()?;
+                    self.settings.render_target = Some((path.into(), Instant::now()));
+                }
+
+                "neophyte.end_render" => {
+                    self.settings.render_target = None;
                 }
 
                 _ => log::error!("Unrecognized notification: {method}"),
@@ -494,7 +506,7 @@ impl EventHandler {
         let motion = self.render_state.render(
             self.fonts.cell_size(),
             delta_seconds,
-            self.settings,
+            &self.settings,
             &self.window,
         );
         match motion {

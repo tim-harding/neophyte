@@ -141,4 +141,13 @@ function M.get_render_size()
   return vim.rpcrequest(1, "neophyte.get_render_size", {})
 end
 
+---@param directory string
+function M.start_render(directory)
+  vim.rpcnotify(1, "neophyte.start_render", { directory })
+end
+
+function M.end_render()
+  vim.rpcnotify(1, "neophyte.end_render", {})
+end
+
 return M

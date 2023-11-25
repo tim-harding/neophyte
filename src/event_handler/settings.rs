@@ -1,6 +1,8 @@
+use std::{path::PathBuf, time::Instant};
+
 use crate::util::vec2::Vec2;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Settings {
     /// Multiplier of the default cursor speed
     pub cursor_speed: f32,
@@ -10,6 +12,8 @@ pub struct Settings {
     pub underline_offset: i32,
     /// The size of the render surface, or None to use the default
     pub render_size: Option<Vec2<u32>>,
+    /// The directory to save frames to, or None if not rendering
+    pub render_target: Option<(PathBuf, Instant)>,
 }
 
 impl Settings {
@@ -25,6 +29,7 @@ impl Default for Settings {
             scroll_speed: 1.,
             underline_offset: 2,
             render_size: None,
+            render_target: None,
         }
     }
 }

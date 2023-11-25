@@ -1,4 +1,7 @@
-use std::{fs::File, io::BufWriter};
+use std::{
+    fs::File,
+    io::{self, BufWriter},
+};
 
 use super::{
     cmdline_grid::CmdlineGrid,
@@ -20,22 +23,6 @@ use crate::{
 use bytemuck::cast_slice;
 use swash::shape::ShapeContext;
 use winit::window::Window;
-
-pub struct RenderState {
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    surface: wgpu::Surface,
-    surface_config: wgpu::SurfaceConfiguration,
-    pipelines: Pipelines,
-    targets: Targets,
-    grids: Grids,
-    shape_context: ShapeContext,
-    font_cache: FontCache,
-    clear_color: [f32; 4],
-    cmdline_grid: CmdlineGrid,
-    text_bind_group_layout: text::bind_group::BindGroup,
-    png_count: usize,
-}
 
 struct Targets {
     monochrome: Texture,
@@ -110,6 +97,21 @@ struct Pipelines {
     lines: lines::Pipeline,
 }
 
+pub struct RenderState {
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    surface: wgpu::Surface,
+    surface_config: wgpu::SurfaceConfiguration,
+    pipelines: Pipelines,
+    targets: Targets,
+    grids: Grids,
+    shape_context: ShapeContext,
+    font_cache: FontCache,
+    clear_color: [f32; 4],
+    cmdline_grid: CmdlineGrid,
+    text_bind_group_layout: text::bind_group::BindGroup,
+}
+
 impl RenderState {
     pub async fn new(window: &Window, cell_size: Vec2<u32>) -> Self {
         let surface_size: Vec2<u32> = window.inner_size().into();
@@ -173,7 +175,6 @@ impl RenderState {
         let targets = Targets::new(&device, target_size);
 
         Self {
-            png_count: 0,
             text_bind_group_layout: text::bind_group::BindGroup::new(&device),
             pipelines: Pipelines {
                 cursor: cursor::Pipeline::new(&device, &targets.monochrome.view),
@@ -314,7 +315,7 @@ impl RenderState {
         &mut self,
         cell_size: Vec2<u32>,
         delta_seconds: f32,
-        settings: Settings,
+        settings: &Settings,
         window: &Window,
     ) -> Motion {
         let output = match self.surface.get_current_texture() {
@@ -444,16 +445,18 @@ impl RenderState {
             },
         );
 
-        self.pipelines.gamma_blit_png.render(
-            &mut encoder,
-            &self.targets.png.view,
-            wgpu::Color {
-                r: (self.clear_color[0] as f64).powf(2.2),
-                g: (self.clear_color[1] as f64).powf(2.2),
-                b: (self.clear_color[2] as f64).powf(2.2),
-                a: (self.clear_color[3] as f64).powf(2.2),
-            },
-        );
+        if settings.render_target.is_some() {
+            self.pipelines.gamma_blit_png.render(
+                &mut encoder,
+                &self.targets.png.view,
+                wgpu::Color {
+                    r: (self.clear_color[0] as f64).powf(2.2),
+                    g: (self.clear_color[1] as f64).powf(2.2),
+                    b: (self.clear_color[2] as f64).powf(2.2),
+                    a: (self.clear_color[3] as f64).powf(2.2),
+                },
+            );
+        }
 
         encoder.copy_texture_to_buffer(
             wgpu::ImageCopyTexture {
@@ -475,26 +478,35 @@ impl RenderState {
 
         let submission = self.queue.submit(std::iter::once(encoder.finish()));
 
-        let buffer_slice = self.targets.png_staging.slice(..);
-        buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-            result.unwrap();
-        });
+        if let Some((dir, start_time)) = settings.render_target.as_ref() {
+            let cb = || -> Result<(), SavePngError> {
+                let elapsed = start_time.elapsed().as_micros();
+                let buffer_slice = self.targets.png_staging.slice(..);
+                buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+                    result.unwrap();
+                });
 
-        self.device
-            .poll(wgpu::MaintainBase::WaitForSubmissionIndex(submission));
-        let png_number = self.png_count;
-        self.png_count += 1;
-        let data = buffer_slice.get_mapped_range();
-        let file = File::create(format!("render/out_{png_number}.png")).unwrap();
-        let ref mut w = BufWriter::new(file);
-        let mut w = png::Encoder::new(w, self.targets.png_size.x, self.targets.png_size.y);
-        w.set_color(png::ColorType::Rgba);
-        w.set_depth(png::BitDepth::Eight);
-        w.set_srgb(png::SrgbRenderingIntent::Perceptual);
-        let mut w = w.write_header().unwrap();
-        w.write_image_data(cast_slice(&data)).unwrap();
-        drop(data);
-        self.targets.png_staging.unmap();
+                self.device
+                    .poll(wgpu::MaintainBase::WaitForSubmissionIndex(submission));
+                let data = buffer_slice.get_mapped_range();
+                let file_name = format!("{elapsed:?}us.png");
+                let file = File::create(dir.join(file_name))?;
+                let ref mut w = BufWriter::new(file);
+                let mut w = png::Encoder::new(w, self.targets.png_size.x, self.targets.png_size.y);
+                w.set_color(png::ColorType::Rgba);
+                w.set_depth(png::BitDepth::Eight);
+                w.set_srgb(png::SrgbRenderingIntent::Perceptual);
+                let mut w = w.write_header()?;
+                w.write_image_data(cast_slice(&data))?;
+                drop(data);
+                self.targets.png_staging.unmap();
+                Ok(())
+            };
+            match cb() {
+                Ok(_) => {}
+                Err(e) => log::error!("{e}"),
+            }
+        }
 
         window.pre_present_notify();
         output.present();
@@ -510,4 +522,12 @@ impl RenderState {
     pub fn surface_size(&self) -> Vec2<u32> {
         Vec2::new(self.surface_config.width, self.surface_config.height)
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+enum SavePngError {
+    #[error("{0}")]
+    Io(#[from] io::Error),
+    #[error("{0}")]
+    Png(#[from] png::EncodingError),
 }
