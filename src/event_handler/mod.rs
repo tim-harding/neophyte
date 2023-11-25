@@ -262,7 +262,10 @@ impl EventHandler {
                 let render_size = self.render_size();
                 self.neovim.send_response(rpc::Response::result(
                     msgid,
-                    Value::Array(vec![render_size.x.into(), render_size.y.into()]),
+                    Value::Map(vec![
+                        ("width".into(), render_size.x.into()),
+                        ("height".into(), render_size.y.into()),
+                    ]),
                 ));
             }
 
