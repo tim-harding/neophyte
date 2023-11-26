@@ -47,13 +47,13 @@ impl ScrollingGrids {
 
     pub fn push(&mut self, grid: GridContents, offset: i32) {
         let sign = if offset.is_positive() { 1 } else { -1 };
-        let mag = offset.abs().min(grid.size.y.try_into().unwrap());
+        let mag = offset.abs().min(grid.size.y.into());
         let offset = mag * sign;
-        let mut cover = Range::until(grid.size.y.try_into().unwrap());
+        let mut cover = Range::until(grid.size.y.into());
         self.t += offset as f32;
         self.scrolling.retain_mut(|part| {
             part.offset -= offset;
-            let grid_range = Range::until(part.grid.size.y.try_into().unwrap()) + part.offset;
+            let grid_range = Range::until(part.grid.size.y.into()) + part.offset;
             let covered = grid_range.cover(cover);
             cover = cover.union(grid_range);
             let grid_range = covered - part.offset;

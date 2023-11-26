@@ -38,7 +38,7 @@ impl Targets {
         let png_size = Vec2::new(((size.x + 63) / 64) * 64, size.y);
         Self {
             monochrome: Texture::target(
-                &device,
+                device,
                 &Texture::descriptor(
                     "Monochrome texture",
                     size.into(),
@@ -47,7 +47,7 @@ impl Targets {
                 ),
             ),
             color: Texture::target(
-                &device,
+                device,
                 &Texture::descriptor(
                     "Monochrome texture",
                     size.into(),
@@ -56,7 +56,7 @@ impl Targets {
                 ),
             ),
             depth: Texture::target(
-                &device,
+                device,
                 &Texture::descriptor(
                     "Depth texture",
                     size.into(),
@@ -65,7 +65,7 @@ impl Targets {
                 ),
             ),
             png: Texture::target(
-                &device,
+                device,
                 &Texture::descriptor(
                     "Monochrome texture",
                     png_size.into(),
@@ -491,7 +491,7 @@ impl RenderState {
                 let data = buffer_slice.get_mapped_range();
                 let file_name = format!("{frame_number:0>6}.png");
                 let file = File::create(dir.join(file_name))?;
-                let ref mut w = BufWriter::new(file);
+                let w = &mut BufWriter::new(file);
                 let mut w = png::Encoder::new(w, self.targets.png_size.x, self.targets.png_size.y);
                 w.set_color(png::ColorType::Rgba);
                 w.set_depth(png::BitDepth::Eight);

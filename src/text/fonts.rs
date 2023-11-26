@@ -157,7 +157,7 @@ impl FontFamily {
     pub fn iter(&self) -> impl Iterator<Item = (&Font, FontStyle)> {
         [&self.regular, &self.bold, &self.italic, &self.bold_italic]
             .into_iter()
-            .zip(STYLES.into_iter())
+            .zip(STYLES)
             .filter_map(|(font, style)| font.as_ref().map(|font| (font, style)))
     }
 
@@ -170,7 +170,7 @@ impl FontFamily {
             &mut self.bold_italic,
         ]
         .into_iter()
-        .zip(STYLES.into_iter())
+        .zip(STYLES)
         .filter_map(|(font, style)| font.as_mut().map(|font| (font, style)))
     }
 

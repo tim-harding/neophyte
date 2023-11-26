@@ -18,8 +18,8 @@ pub enum Data {
     Array(&'static [u8]),
 }
 
-impl Data {
-    pub fn as_ref(&self) -> &[u8] {
+impl AsRef<[u8]> for Data {
+    fn as_ref(&self) -> &[u8] {
         match self {
             Data::Vec(v) => v.as_ref(),
             Data::Array(a) => a,
