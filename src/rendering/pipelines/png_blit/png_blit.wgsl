@@ -23,7 +23,7 @@ fn vs_main(
         f32(((in_vertex_index + 5u) % 6u) / 3u),
     );
     out.clip_position = vec4<f32>(
-        out.uv * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),        
+        out.uv * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
         0.0,
         1.0
     );
@@ -39,5 +39,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         in.uv,
         0.0
     );
-    return sample;
+    let gamma = vec4<f32>(2.2, 2.2, 2.2, 2.2);
+    return pow(sample, gamma);
 }

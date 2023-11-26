@@ -92,7 +92,7 @@ struct Pipelines {
     cell_fill: cell_fill::Pipeline,
     emoji: emoji::Pipeline,
     gamma_blit_final: gamma_blit::Pipeline,
-    gamma_blit_png: png_blit::Pipeline,
+    blit_png: png_blit::Pipeline,
     monochrome: monochrome::Pipeline,
     lines: lines::Pipeline,
 }
@@ -192,7 +192,7 @@ impl RenderState {
                     surface_config.format,
                     &targets.color.view,
                 ),
-                gamma_blit_png: png_blit::Pipeline::new(
+                blit_png: png_blit::Pipeline::new(
                     &device,
                     &targets.color.view,
                     target_size.x as f32 / targets.png_size.x as f32,
@@ -304,7 +304,7 @@ impl RenderState {
             target_size,
             new_size,
         );
-        self.pipelines.gamma_blit_png.update(
+        self.pipelines.blit_png.update(
             &self.device,
             &self.targets.color.view,
             self.targets.png_size.x as f32 / target_size.x as f32,
@@ -447,7 +447,7 @@ impl RenderState {
         );
 
         if settings.render_target.is_some() {
-            self.pipelines.gamma_blit_png.render(
+            self.pipelines.blit_png.render(
                 &mut encoder,
                 &self.targets.png.view,
                 wgpu::Color {
