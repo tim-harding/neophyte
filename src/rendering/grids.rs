@@ -57,7 +57,7 @@ impl Grids {
         queue: &wgpu::Queue,
         ui_grid: &UiGrid,
         position: Vec2<f32>,
-        highlights: &[Attributes],
+        highlights: &[Option<Attributes>],
         default_fg: Rgb,
         fonts: &Fonts,
         font_cache: &mut FontCache,

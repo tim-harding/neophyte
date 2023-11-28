@@ -62,7 +62,7 @@ impl Text {
         size: Option<Vec2<u32>>,
         lines: impl Iterator<Item = (i32, impl Iterator<Item = CellContents<'a>> + Clone)> + Clone,
         grid_bind_group_layout: &wgpu::BindGroupLayout,
-        highlights: &[Attributes],
+        highlights: &[Option<Attributes>],
         default_fg: Rgb,
         fonts: &Fonts,
         font_cache: &mut FontCache,
@@ -72,7 +72,7 @@ impl Text {
         let metrics_px = metrics.into_pixels();
         let cell_size = metrics_px.cell_size();
 
-        let default_fg = default_fg.into_linear();
+        let default_fg = default_fg.into_srgb();
 
         self.monochrome.clear();
         self.emoji.clear();
@@ -139,42 +139,44 @@ impl Text {
 
                     shaper.shape_with(|cluster| {
                         line_length += 1;
-                        let (fg, is_underlined) =
-                            if let Some(hl) = highlights.get(cluster.data as usize) {
-                                let fg = if let Some(fg) = hl.foreground {
-                                    fg.into_linear()
-                                } else {
-                                    default_fg
-                                };
-
-                                if let Some(bg) = hl.background {
-                                    let bg = bg.into_linear();
-
-                                    // Although some programming fonts are said to
-                                    // contain ligatures, in practice these are more
-                                    // commonly implemented as multi-character alternates.
-                                    // In contrast to genuine OpenType ligatures,
-                                    // multi-character alternates still get a glyph cluster
-                                    // per input char where some of those clusters may
-                                    // contain an empty glyph. That means we can produce the
-                                    // cell fill characters during shaping without worrying
-                                    // too much about whether a glyph cluster spans multiple
-                                    // cells. This is something to improve on in the future
-                                    // in case some fonts contain actual ligatures.
-                                    let bg_cell = BgCell {
-                                        x: cluster.source.start.try_into().unwrap(),
-                                        y: cell_line_i,
-                                        r: bg[0],
-                                        g: bg[1],
-                                        b: bg[2],
-                                    };
-                                    self.cell_fill.push(bg_cell);
-                                }
-
-                                (fg, hl.underline())
+                        let (fg, is_underlined) = if let Some(hl) = highlights
+                            .get(cluster.data as usize)
+                            .and_then(|hl| (*hl).as_ref())
+                        {
+                            let fg = if let Some(fg) = hl.foreground {
+                                fg.into_srgb()
                             } else {
-                                (default_fg, false)
+                                default_fg
                             };
+
+                            if let Some(bg) = hl.background {
+                                let bg = bg.into_srgb();
+
+                                // Although some programming fonts are said to
+                                // contain ligatures, in practice these are more
+                                // commonly implemented as multi-character alternates.
+                                // In contrast to genuine OpenType ligatures,
+                                // multi-character alternates still get a glyph cluster
+                                // per input char where some of those clusters may
+                                // contain an empty glyph. That means we can produce the
+                                // cell fill characters during shaping without worrying
+                                // too much about whether a glyph cluster spans multiple
+                                // cells. This is something to improve on in the future
+                                // in case some fonts contain actual ligatures.
+                                let bg_cell = BgCell {
+                                    x: cluster.source.start.try_into().unwrap(),
+                                    y: cell_line_i,
+                                    r: bg[0],
+                                    g: bg[1],
+                                    b: bg[2],
+                                };
+                                self.cell_fill.push(bg_cell);
+                            }
+
+                            (fg, hl.underline())
+                        } else {
+                            (default_fg, false)
+                        };
 
                         let x = cluster.source.start * cell_size.x;
                         let mut advanced = 0.0f32;
@@ -242,8 +244,10 @@ impl Text {
                     loop {
                         let range = cluster.range();
                         line_length += range.end - range.start;
-                        if let Some(bg) = highlights[cluster.user_data() as usize].background {
-                            let bg = bg.into_linear();
+                        if let Some(bg) =
+                            highlights[cluster.user_data() as usize].and_then(|hl| hl.background)
+                        {
+                            let bg = bg.into_srgb();
                             for i in range.start..range.end {
                                 let bg_cell = BgCell {
                                     x: (i * cell_size.x).try_into().unwrap(),
@@ -455,10 +459,11 @@ impl Text {
 fn best_font(
     cluster: &mut CharCluster,
     fonts: &Fonts,
-    highlights: &[Attributes],
+    highlights: &[Option<Attributes>],
 ) -> Option<BestFont> {
     let style = highlights
         .get(cluster.user_data() as usize)
+        .and_then(|hl| (*hl).as_ref())
         .map(|highlight| FontStyle::new(highlight.bold(), highlight.italic()))
         .unwrap_or_default();
     let mut best_font = None;

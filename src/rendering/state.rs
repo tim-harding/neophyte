@@ -218,7 +218,7 @@ impl RenderState {
     }
 
     pub fn update(&mut self, ui: &Ui, fonts: &Fonts) {
-        self.clear_color = ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK).into_linear();
+        self.clear_color = ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK).into_srgb();
         for grid in ui.deleted_grids.iter() {
             self.grids.remove_grid(*grid);
         }

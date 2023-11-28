@@ -128,6 +128,7 @@ impl Pipeline {
             .highlight_groups
             .get("Cursor")
             .and_then(|hl_id| ui.highlights.get((*hl_id) as usize))
+            .and_then(|hl| (*hl).as_ref())
             .and_then(|hl| {
                 let fg = hl.foreground?;
                 let bg = hl.background?;
@@ -139,8 +140,8 @@ impl Pipeline {
             ));
 
         self.fragment_push_constants = FragmentPushConstants {
-            fg: bg.into_linear(),
-            bg: fg.into_linear(),
+            fg: bg.into_srgb(),
+            bg: fg.into_srgb(),
             size: cell_size,
             speed: 0.,
             padding: 0.,

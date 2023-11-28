@@ -16,8 +16,12 @@ impl Rgb {
         Self { r, g, b }
     }
 
-    pub fn into_linear(self) -> [f32; 4] {
+    pub fn into_srgb(self) -> [f32; 4] {
         [linear(self.r), linear(self.g), linear(self.b), 1.0]
+    }
+
+    pub fn into_srgb_alpha(self, alpha: f32) -> [f32; 4] {
+        [linear(self.r), linear(self.g), linear(self.b), alpha]
     }
 }
 

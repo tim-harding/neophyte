@@ -41,7 +41,7 @@ pub struct Ui {
     pub mouse: bool,
     /// UI highlights, indexed by their ID
     // TODO: Only store the rgb_attr part
-    pub highlights: Vec<Attributes>,
+    pub highlights: Vec<Option<Attributes>>,
     /// A lookup from highlight names to highlight IDs
     pub highlight_groups: HashMap<String, HlId>,
     /// Whether the highlights changed since the last flush
@@ -52,6 +52,7 @@ pub struct Ui {
     pub modes: Vec<ModeInfo>,
     /// UI options set by the option_set event
     pub guifont_update: Option<GuiFont>,
+    pub blend: f32,
     /// Default highlight colors
     pub default_colors: DefaultColorsSet,
     /// Manages ext_hlstate events
@@ -87,6 +88,7 @@ impl Default for Ui {
             popupmenu: None,
             tabline: None,
             did_flush: false,
+            blend: 1.0,
         }
     }
 }
@@ -155,9 +157,9 @@ impl Ui {
                 self.did_highlights_change = true;
                 let i = event.id as usize;
                 if i > self.highlights.len() {
-                    self.highlights.resize(i * 2, Attributes::default());
+                    self.highlights.resize(i * 2, None);
                 }
-                self.highlights.insert(i, event.rgb_attr);
+                self.highlights.insert(i, Some(event.rgb_attr));
             }
             Event::HlGroupSet(HlGroupSet { name, hl_id }) => {
                 self.did_highlights_change = true;

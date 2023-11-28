@@ -34,7 +34,7 @@ impl CmdlineGrid {
         position: Vec2<f32>,
         cell_size: Vec2<f32>,
         grid_bind_group_layout: &wgpu::BindGroupLayout,
-        highlights: &[Attributes],
+        highlights: &[Option<Attributes>],
         default_fg: Rgb,
         fonts: &Fonts,
         font_cache: &mut FontCache,
