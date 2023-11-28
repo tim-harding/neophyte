@@ -1,6 +1,6 @@
 use super::{scrolling_grids::ScrollingGrids, text::Text};
 use crate::{
-    event::{rgb::Rgb, HlAttrDefine},
+    event::{hl_attr_define::Attributes, rgb::Rgb},
     text::{cache::FontCache, fonts::Fonts},
     ui::{self, grid::Grid as UiGrid},
     util::vec2::Vec2,
@@ -57,7 +57,7 @@ impl Grids {
         queue: &wgpu::Queue,
         ui_grid: &UiGrid,
         position: Vec2<f32>,
-        highlights: &[HlAttrDefine],
+        highlights: &[Attributes],
         default_fg: Rgb,
         fonts: &Fonts,
         font_cache: &mut FontCache,

@@ -129,8 +129,8 @@ impl Pipeline {
             .get("Cursor")
             .and_then(|hl_id| ui.highlights.get((*hl_id) as usize))
             .and_then(|hl| {
-                let fg = hl.rgb_attr.foreground?;
-                let bg = hl.rgb_attr.background?;
+                let fg = hl.foreground?;
+                let bg = hl.background?;
                 Some((fg, bg))
             })
             .unwrap_or((

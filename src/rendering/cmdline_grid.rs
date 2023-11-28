@@ -1,6 +1,6 @@
 use super::text::Text;
 use crate::{
-    event::{rgb::Rgb, Content, HlAttrDefine},
+    event::{hl_attr_define::Attributes, rgb::Rgb, Content},
     text::{cache::FontCache, fonts::Fonts},
     ui::{
         cmdline::{Cmdline, Mode},
@@ -34,7 +34,7 @@ impl CmdlineGrid {
         position: Vec2<f32>,
         cell_size: Vec2<f32>,
         grid_bind_group_layout: &wgpu::BindGroupLayout,
-        highlights: &[HlAttrDefine],
+        highlights: &[Attributes],
         default_fg: Rgb,
         fonts: &Fonts,
         font_cache: &mut FontCache,

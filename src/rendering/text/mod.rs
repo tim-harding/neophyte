@@ -1,7 +1,7 @@
 pub mod bind_group;
 
 use crate::{
-    event::{rgb::Rgb, HlAttrDefine},
+    event::{hl_attr_define::Attributes, rgb::Rgb},
     text::{
         cache::{CacheValue, FontCache, GlyphKind},
         fonts::{FontStyle, Fonts},
@@ -62,7 +62,7 @@ impl Text {
         size: Option<Vec2<u32>>,
         lines: impl Iterator<Item = (i32, impl Iterator<Item = CellContents<'a>> + Clone)> + Clone,
         grid_bind_group_layout: &wgpu::BindGroupLayout,
-        highlights: &[HlAttrDefine],
+        highlights: &[Attributes],
         default_fg: Rgb,
         fonts: &Fonts,
         font_cache: &mut FontCache,
@@ -141,13 +141,13 @@ impl Text {
                         line_length += 1;
                         let (fg, is_underlined) =
                             if let Some(hl) = highlights.get(cluster.data as usize) {
-                                let fg = if let Some(fg) = hl.rgb_attr.foreground {
+                                let fg = if let Some(fg) = hl.foreground {
                                     fg.into_linear()
                                 } else {
                                     default_fg
                                 };
 
-                                if let Some(bg) = hl.rgb_attr.background {
+                                if let Some(bg) = hl.background {
                                     let bg = bg.into_linear();
 
                                     // Although some programming fonts are said to
@@ -171,7 +171,7 @@ impl Text {
                                     self.cell_fill.push(bg_cell);
                                 }
 
-                                (fg, hl.rgb_attr.underline())
+                                (fg, hl.underline())
                             } else {
                                 (default_fg, false)
                             };
@@ -242,9 +242,7 @@ impl Text {
                     loop {
                         let range = cluster.range();
                         line_length += range.end - range.start;
-                        if let Some(bg) =
-                            highlights[cluster.user_data() as usize].rgb_attr.background
-                        {
+                        if let Some(bg) = highlights[cluster.user_data() as usize].background {
                             let bg = bg.into_linear();
                             for i in range.start..range.end {
                                 let bg_cell = BgCell {
@@ -457,11 +455,11 @@ impl Text {
 fn best_font(
     cluster: &mut CharCluster,
     fonts: &Fonts,
-    highlights: &[HlAttrDefine],
+    highlights: &[Attributes],
 ) -> Option<BestFont> {
     let style = highlights
         .get(cluster.user_data() as usize)
-        .map(|highlight| FontStyle::new(highlight.rgb_attr.bold(), highlight.rgb_attr.italic()))
+        .map(|highlight| FontStyle::new(highlight.bold(), highlight.italic()))
         .unwrap_or_default();
     let mut best_font = None;
     for (i, font_info) in fonts.families().enumerate() {

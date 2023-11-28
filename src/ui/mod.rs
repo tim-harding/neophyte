@@ -10,11 +10,12 @@ use self::{
 };
 use crate::{
     event::{
-        mode_info_set::ModeInfo, Anchor, CmdlineBlockAppend, CmdlineBlockShow, CmdlinePos,
-        DefaultColorsSet, Event, GridClear, GridCursorGoto, GridDestroy, GridLine, GridResize,
-        GridScroll, HlAttrDefine, HlGroupSet, ModeChange, ModeInfoSet, MsgHistoryShow, MsgRuler,
-        MsgSetPos, MsgShowcmd, MsgShowmode, OptionSet, PopupmenuSelect, PopupmenuShow,
-        TablineUpdate, WinClose, WinExternalPos, WinFloatPos, WinHide, WinPos, WinViewport,
+        hl_attr_define::Attributes, mode_info_set::ModeInfo, Anchor, CmdlineBlockAppend,
+        CmdlineBlockShow, CmdlinePos, DefaultColorsSet, Event, GridClear, GridCursorGoto,
+        GridDestroy, GridLine, GridResize, GridScroll, HlGroupSet, ModeChange, ModeInfoSet,
+        MsgHistoryShow, MsgRuler, MsgSetPos, MsgShowcmd, MsgShowmode, OptionSet, PopupmenuSelect,
+        PopupmenuShow, TablineUpdate, WinClose, WinExternalPos, WinFloatPos, WinHide, WinPos,
+        WinViewport,
     },
     ui::window::{FloatingWindow, NormalWindow, Window},
     util::vec2::Vec2,
@@ -40,7 +41,7 @@ pub struct Ui {
     pub mouse: bool,
     /// UI highlights, indexed by their ID
     // TODO: Only store the rgb_attr part
-    pub highlights: Vec<HlAttrDefine>,
+    pub highlights: Vec<Attributes>,
     /// A lookup from highlight names to highlight IDs
     pub highlight_groups: HashMap<String, HlId>,
     /// Whether the highlights changed since the last flush
@@ -154,9 +155,9 @@ impl Ui {
                 self.did_highlights_change = true;
                 let i = event.id as usize;
                 if i > self.highlights.len() {
-                    self.highlights.resize(i * 2, HlAttrDefine::default());
+                    self.highlights.resize(i * 2, Attributes::default());
                 }
-                self.highlights.insert(i, event);
+                self.highlights.insert(i, event.rgb_attr);
             }
             Event::HlGroupSet(HlGroupSet { name, hl_id }) => {
                 self.did_highlights_change = true;
