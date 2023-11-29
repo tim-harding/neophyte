@@ -3,6 +3,7 @@ struct GridInfo {
     r: f32,
     g: f32,
     b: f32,
+    a: f32,
 }
 
 var<push_constant> info: GridInfo;
@@ -22,7 +23,7 @@ fn vs_main(
     );
 
     var out: VertexOutput;
-    out.color = vec4<f32>(info.r, info.g, info.b, 1.0);
+    out.color = vec4<f32>(info.r, info.g, info.b, info.a);
     out.clip_position = vec4<f32>(
         vec2<f32>(tex_coord) * vec2<f32>(2.0, 2.0) - vec2<f32>(1.0, 1.0),
         info.z, 

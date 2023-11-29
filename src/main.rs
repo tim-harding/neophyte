@@ -31,6 +31,7 @@ fn main() {
         .build()
         .expect("Failed to create event loop");
     let window = WindowBuilder::new()
+        .with_transparent(true)
         .build(&event_loop)
         .expect("Failed to create window");
 

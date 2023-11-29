@@ -1,5 +1,5 @@
 use crate::{
-    event::mode_info_set::CursorShape,
+    event::{mode_info_set::CursorShape, rgb::Rgb},
     rendering::{nearest_sampler, texture::Texture, Motion},
     ui::{cmdline::Mode, Ui},
     util::{mat3::Mat3, vec2::Vec2},
@@ -124,24 +124,30 @@ impl Pipeline {
         cell_size: Vec2<f32>,
         monochrome_target: &wgpu::TextureView,
     ) {
-        let (fg, bg) = ui
-            .highlight_groups
-            .get("Cursor")
+        let cursor_hl = ui.highlight_groups.get("Cursor");
+        let (fg, bg) = cursor_hl
             .and_then(|hl_id| ui.highlights.get((*hl_id) as usize))
             .and_then(|hl| (*hl).as_ref())
             .and_then(|hl| {
                 let fg = hl.foreground?;
                 let bg = hl.background?;
-                Some((fg, bg))
+                let blend = hl.blend();
+                Some((fg.into_srgb(blend), bg.into_srgb(blend)))
             })
             .unwrap_or((
-                ui.default_colors.rgb_fg.unwrap_or_default(),
-                ui.default_colors.rgb_bg.unwrap_or_default(),
+                ui.default_colors
+                    .rgb_fg
+                    .unwrap_or(Rgb::WHITE)
+                    .into_srgb(1.0),
+                ui.default_colors
+                    .rgb_bg
+                    .unwrap_or(Rgb::BLACK)
+                    .into_srgb(1.0),
             ));
 
         self.fragment_push_constants = FragmentPushConstants {
-            fg: bg.into_srgb(),
-            bg: fg.into_srgb(),
+            fg,
+            bg,
             size: cell_size,
             speed: 0.,
             padding: 0.,

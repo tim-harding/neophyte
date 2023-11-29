@@ -13,6 +13,8 @@ pub struct Settings {
     pub render_size: Option<Vec2<u32>>,
     /// The directory to save frames to, or None if not rendering
     pub render_target: Option<PathBuf>,
+    /// Overrides the background from Neovim's DefaultColorsSet event
+    pub bg_override: Option<[f32; 4]>,
 }
 
 impl Settings {
@@ -29,6 +31,7 @@ impl Default for Settings {
             underline_offset: 2,
             render_size: None,
             render_target: None,
+            bg_override: None,
         }
     }
 }

@@ -164,7 +164,8 @@ impl RenderState {
             present_mode: wgpu::PresentMode::AutoVsync,
             // TODO: Set premultiplied and update clear color and cell fill with
             // alpha appropriately
-            alpha_mode: surface_caps.alpha_modes[0],
+            // alpha_mode: surface_caps.alpha_modes[0],
+            alpha_mode: wgpu::CompositeAlphaMode::PreMultiplied,
             view_formats: vec![],
         };
         surface.configure(&device, &surface_config);
@@ -217,8 +218,9 @@ impl RenderState {
         }
     }
 
-    pub fn update(&mut self, ui: &Ui, fonts: &Fonts) {
-        self.clear_color = ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK).into_srgb();
+    pub fn update(&mut self, ui: &Ui, fonts: &Fonts, bg_override: Option<[f32; 4]>) {
+        self.clear_color =
+            bg_override.unwrap_or(ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK).into_srgb(1.));
         for grid in ui.deleted_grids.iter() {
             self.grids.remove_grid(*grid);
         }
@@ -439,9 +441,9 @@ impl RenderState {
             &mut encoder,
             &output_view,
             wgpu::Color {
-                r: (self.clear_color[0] as f64).powf(2.2),
-                g: (self.clear_color[1] as f64).powf(2.2),
-                b: (self.clear_color[2] as f64).powf(2.2),
+                r: ((self.clear_color[0] * self.clear_color[3]) as f64).powf(2.2),
+                g: ((self.clear_color[1] * self.clear_color[3]) as f64).powf(2.2),
+                b: ((self.clear_color[2] * self.clear_color[3]) as f64).powf(2.2),
                 a: (self.clear_color[3] as f64).powf(2.2),
             },
         );

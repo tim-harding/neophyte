@@ -4,6 +4,7 @@ struct BgCell {
     r: f32,
     g: f32,
     b: f32,
+    a: f32,
 }
 
 struct GridInfo {
@@ -38,7 +39,7 @@ fn vs_main(
     );
 
     var out: VertexOutput;
-    out.color = vec4<f32>(grid_cell.r, grid_cell.g, grid_cell.b, 1.0);
+    out.color = vec4<f32>(grid_cell.r, grid_cell.g, grid_cell.b, grid_cell.a);
     out.clip_position = vec4<f32>(
         vec2<f32>(((pos + vec2<i32>(tex_coord)) * vec2<i32>(grid_info.cell_size)) + grid_info.offset) / 
         vec2<f32>(grid_info.target_size) * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),

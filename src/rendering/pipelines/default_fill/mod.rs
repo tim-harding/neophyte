@@ -113,6 +113,7 @@ impl Pipeline {
                 r: clear_color[0],
                 g: clear_color[1],
                 b: clear_color[2],
+                a: clear_color[3],
             }
             .set(&mut render_pass);
             render_pass.draw(0..6, 0..1);
@@ -127,6 +128,7 @@ pub struct PushConstants {
     r: f32,
     g: f32,
     b: f32,
+    a: f32,
 }
 
 impl PushConstants {

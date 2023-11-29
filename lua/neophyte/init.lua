@@ -26,12 +26,19 @@ local M = {}
 ---@field kind FontSizeKind
 ---@field size number
 
+---@class Color
+---@field r number
+---@field g number
+---@field b number
+---@field a number
+
 ---@class Config
 ---@field fonts? Font[]
 ---@field font_size? FontSize
 ---@field underline_offset? number
 ---@field cursor_speed? number
 ---@field scroll_speed? number
+---@field bg_override? Color
 
 ---@alias motion "still" | "animating"
 
@@ -66,6 +73,12 @@ function M.setup(config)
 
   if config.scroll_speed ~= nil then
     M.set_scroll_speed(config.scroll_speed)
+  end
+
+  if config.bg_override ~= nil then
+    local bg = config.bg_override
+    assert(bg)
+    M.set_bg_override(bg.r, bg.g, bg.b, bg.a)
   end
 end
 
@@ -168,6 +181,14 @@ end
 ---Stops rendering the directory set by start_render.
 function M.end_render()
   vim.rpcnotify(1, "neophyte.end_render", {})
+end
+
+---@param r number The red channel in 0-255
+---@param g number The green channel in 0-255
+---@param b number The blue channel in 0-255
+---@param a number The alpha channel in 0-255
+function M.set_bg_override(r, g, b, a)
+  vim.rpcnotify(1, "neophyte.set_bg_override", { r, g, b, a })
 end
 
 return M

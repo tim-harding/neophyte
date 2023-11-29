@@ -72,7 +72,7 @@ impl Text {
         let metrics_px = metrics.into_pixels();
         let cell_size = metrics_px.cell_size();
 
-        let default_fg = default_fg.into_srgb();
+        let default_fg = default_fg.into_srgb(1.);
 
         self.monochrome.clear();
         self.emoji.clear();
@@ -143,14 +143,15 @@ impl Text {
                             .get(cluster.data as usize)
                             .and_then(|hl| (*hl).as_ref())
                         {
+                            let blend = hl.blend();
                             let fg = if let Some(fg) = hl.foreground {
-                                fg.into_srgb()
+                                fg.into_srgb(blend)
                             } else {
                                 default_fg
                             };
 
                             if let Some(bg) = hl.background {
-                                let bg = bg.into_srgb();
+                                let bg = bg.into_srgb(blend);
 
                                 // Although some programming fonts are said to
                                 // contain ligatures, in practice these are more
@@ -169,6 +170,7 @@ impl Text {
                                     r: bg[0],
                                     g: bg[1],
                                     b: bg[2],
+                                    a: bg[3],
                                 };
                                 self.cell_fill.push(bg_cell);
                             }
@@ -244,19 +246,20 @@ impl Text {
                     loop {
                         let range = cluster.range();
                         line_length += range.end - range.start;
-                        if let Some(bg) =
-                            highlights[cluster.user_data() as usize].and_then(|hl| hl.background)
-                        {
-                            let bg = bg.into_srgb();
-                            for i in range.start..range.end {
-                                let bg_cell = BgCell {
-                                    x: (i * cell_size.x).try_into().unwrap(),
-                                    y: cell_line_i,
-                                    r: bg[0],
-                                    g: bg[1],
-                                    b: bg[2],
-                                };
-                                self.cell_fill.push(bg_cell);
+                        if let Some(hl) = highlights[cluster.user_data() as usize] {
+                            if let Some(bg) = hl.background {
+                                let bg = bg.into_srgb(hl.blend());
+                                for i in range.start..range.end {
+                                    let bg_cell = BgCell {
+                                        x: (i * cell_size.x).try_into().unwrap(),
+                                        y: cell_line_i,
+                                        r: bg[0],
+                                        g: bg[1],
+                                        b: bg[2],
+                                        a: bg[3],
+                                    };
+                                    self.cell_fill.push(bg_cell);
+                                }
                             }
                         }
 
@@ -537,6 +540,7 @@ pub struct BgCell {
     pub r: f32,
     pub g: f32,
     pub b: f32,
+    pub a: f32,
 }
 
 #[repr(C)]

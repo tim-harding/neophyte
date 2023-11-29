@@ -3,7 +3,7 @@ pub mod settings;
 
 use self::{buttons::Buttons, settings::Settings};
 use crate::{
-    event,
+    event::{self, rgb::Rgb},
     neovim::{action::Action, button::Button, Neovim},
     rendering::{state::RenderState, Motion},
     rpc::{self, Notification},
@@ -172,6 +172,16 @@ impl EventHandler {
                     self.settings.render_target = None;
                 }
 
+                "neophyte.set_bg_override" => {
+                    let mut args = Values::new(params.into_iter().next()?)?;
+                    let r = args.next()?;
+                    let g = args.next()?;
+                    let b = args.next()?;
+                    let a: u8 = args.next()?;
+                    let rgba = Rgb::new(r, g, b).into_srgb(a as f32 / 255.);
+                    self.settings.bg_override = Some(rgba);
+                }
+
                 _ => log::error!("Unrecognized notification: {method}"),
             }
             Some(())
@@ -206,7 +216,8 @@ impl EventHandler {
                 );
                 self.finish_font_change();
             }
-            self.render_state.update(&self.ui, &self.fonts);
+            self.render_state
+                .update(&self.ui, &self.fonts, self.settings.bg_override);
             self.ui.clear_dirty();
             self.window.request_redraw();
         }
