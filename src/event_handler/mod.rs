@@ -551,20 +551,28 @@ impl EventHandler {
             &self.window,
             self.frame_number,
         );
+
+        let is_rendering = self.settings.render_target.is_some();
+        let poll_next_frame = || {
+            window_target.set_control_flow(ControlFlow::Poll);
+            self.window.request_redraw();
+        };
         match motion {
             Motion::Still => {
-                if self.settings.render_target.is_some() {
-                    window_target.set_control_flow(ControlFlow::Poll);
-                    self.window.request_redraw();
+                if is_rendering {
+                    poll_next_frame();
                 }
             }
             Motion::Animating => {
-                window_target.set_control_flow(ControlFlow::Poll);
-                self.window.request_redraw();
+                poll_next_frame();
             }
             Motion::DelayMs(ms) => {
-                let until = Instant::now() + Duration::from_millis(ms as u64);
-                window_target.set_control_flow(ControlFlow::WaitUntil(until));
+                if is_rendering {
+                    poll_next_frame()
+                } else {
+                    let until = Instant::now() + Duration::from_millis(ms as u64);
+                    window_target.set_control_flow(ControlFlow::WaitUntil(until));
+                }
             }
         }
         self.frame_number = self.frame_number.saturating_add(1);
