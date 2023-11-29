@@ -132,7 +132,7 @@ impl Pipeline {
                 let fg = hl.foreground?;
                 let bg = hl.background?;
                 let blend = hl.blend();
-                Some((fg.into_srgb(blend), bg.into_srgb(blend)))
+                Some((bg.into_srgb(blend), fg.into_srgb(blend)))
             })
             .unwrap_or((
                 ui.default_colors
