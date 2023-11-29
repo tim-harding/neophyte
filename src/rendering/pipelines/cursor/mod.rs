@@ -1,5 +1,8 @@
 use crate::{
-    event::{mode_info_set::CursorShape, rgb::Rgb},
+    event::{
+        mode_info_set::{CursorShape, ModeInfo},
+        rgb::Rgb,
+    },
     rendering::{nearest_sampler, texture::Texture, Motion},
     ui::{cmdline::Mode, Ui},
     util::{mat3::Mat3, vec2::Vec2},
@@ -15,15 +18,6 @@ pub struct Pipeline {
     sampler: wgpu::Sampler,
     fragment_push_constants: FragmentPushConstants,
     display_info: Option<DisplayInfo>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct DisplayInfo {
-    start_position: Vec2<f32>,
-    target_position: Vec2<f32>,
-    elapsed: f32,
-    fill: Vec2<f32>,
-    cursor_size: Vec2<f32>,
 }
 
 impl Pipeline {
@@ -216,6 +210,8 @@ impl Pipeline {
                     elapsed: 0.0,
                     fill,
                     cursor_size,
+                    blink_rate: BlinkRate::from_mode_info(mode),
+                    blink_state: BlinkState::Wait,
                 })
             }
             (Some(position), Some(display_info)) => {
@@ -229,12 +225,15 @@ impl Pipeline {
                     (display_info.start_position, display_info.elapsed)
                 };
 
+                let blink_rate = BlinkRate::from_mode_info(mode);
                 Some(DisplayInfo {
                     start_position,
                     target_position: new_target,
                     elapsed,
                     fill,
                     cursor_size,
+                    blink_rate,
+                    blink_state: BlinkState::Wait,
                 })
             }
         };
@@ -289,38 +288,60 @@ impl Pipeline {
             * Mat3::translate(current_position)
             * transform;
 
-        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Cursor render pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: color_target,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
+        let (motion, show) = if let Some(blink_rate) = display_info.blink_rate {
+            let blink_state = display_info
+                .blink_rate
+                .map(|blink_rate| {
+                    display_info
+                        .blink_state
+                        .next(blink_rate, display_info.elapsed)
+                })
+                .unwrap_or(BlinkState::Wait);
+            let ms = match blink_state {
+                BlinkState::On(_) => blink_rate.on,
+                BlinkState::Off(_) => blink_rate.off,
+                BlinkState::Wait => blink_rate.wait,
+            };
+            display_info.blink_state = blink_state;
+            (motion.soonest(Motion::DelayMs(ms)), blink_state.visible())
+        } else {
+            (motion, display_info.blink_state.visible())
+        };
 
-        render_pass.set_pipeline(&self.pipeline);
-        render_pass.set_push_constants(
-            wgpu::ShaderStages::VERTEX,
-            0,
-            cast_slice(&[VertexPushConstants {
-                transform,
-                fill: display_info.fill,
-                cursor_size: display_info.cursor_size / target_size,
-            }]),
-        );
-        render_pass.set_push_constants(
-            wgpu::ShaderStages::FRAGMENT,
-            VertexPushConstants::SIZE,
-            cast_slice(&[self.fragment_push_constants]),
-        );
-        render_pass.set_bind_group(0, &self.bind_group, &[]);
-        render_pass.draw(0..6, 0..1);
+        if show {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Cursor render pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: color_target,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+
+            render_pass.set_pipeline(&self.pipeline);
+            render_pass.set_push_constants(
+                wgpu::ShaderStages::VERTEX,
+                0,
+                cast_slice(&[VertexPushConstants {
+                    transform,
+                    fill: display_info.fill,
+                    cursor_size: display_info.cursor_size / target_size,
+                }]),
+            );
+            render_pass.set_push_constants(
+                wgpu::ShaderStages::FRAGMENT,
+                VertexPushConstants::SIZE,
+                cast_slice(&[self.fragment_push_constants]),
+            );
+            render_pass.set_bind_group(0, &self.bind_group, &[]);
+            render_pass.draw(0..6, 0..1);
+        }
 
         motion
     }
@@ -346,6 +367,17 @@ fn bind_group(
             },
         ],
     })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct DisplayInfo {
+    start_position: Vec2<f32>,
+    target_position: Vec2<f32>,
+    elapsed: f32,
+    fill: Vec2<f32>,
+    cursor_size: Vec2<f32>,
+    blink_rate: Option<BlinkRate>,
+    blink_state: BlinkState,
 }
 
 #[repr(C)]
@@ -390,4 +422,49 @@ fn t(display_info: &DisplayInfo) -> f32 {
         let t = 1.0 - normal;
         1.0 - t * t
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct BlinkRate {
+    on: u32,
+    off: u32,
+    wait: u32,
+}
+
+impl BlinkRate {
+    pub fn from_mode_info(mode: &ModeInfo) -> Option<Self> {
+        match (mode.blinkon, mode.blinkoff, mode.blinkwait) {
+            (Some(on), Some(off), Some(wait)) if on > 0 && off > 0 && wait > 0 => {
+                Some(Self { on, off, wait })
+            }
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default)]
+enum BlinkState {
+    On(f32),
+    Off(f32),
+    #[default]
+    Wait,
+}
+
+impl BlinkState {
+    pub fn next(self, rate: BlinkRate, elapsed: f32) -> Self {
+        match self {
+            BlinkState::On(start) if elapsed > start + sec(rate.on) => Self::Off(elapsed),
+            BlinkState::Off(start) if elapsed > start + sec(rate.off) => Self::On(elapsed),
+            BlinkState::Wait if elapsed > sec(rate.wait) => Self::Off(elapsed),
+            _ => self,
+        }
+    }
+
+    pub fn visible(&self) -> bool {
+        matches!(self, BlinkState::On(_) | BlinkState::Wait)
+    }
+}
+
+fn sec(ms: u32) -> f32 {
+    ms as f32 / 1_000.
 }

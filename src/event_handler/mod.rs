@@ -78,6 +78,19 @@ impl EventHandler {
                 UserEvent::Notification(notification) => self.notification(notification),
             },
 
+            Event::NewEvents(cause) => match cause {
+                StartCause::ResumeTimeReached {
+                    start: _,
+                    requested_resume: _,
+                } => self.window.request_redraw(),
+                StartCause::WaitCancelled {
+                    start: _,
+                    requested_resume: _,
+                }
+                | StartCause::Poll
+                | StartCause::Init => {}
+            },
+
             Event::WindowEvent {
                 window_id,
                 ref event,
@@ -550,7 +563,7 @@ impl EventHandler {
                 self.window.request_redraw();
             }
             Motion::DelayMs(ms) => {
-                let until = Instant::now() + Duration::from_millis(ms);
+                let until = Instant::now() + Duration::from_millis(ms as u64);
                 window_target.set_control_flow(ControlFlow::WaitUntil(until));
             }
         }

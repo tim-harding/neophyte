@@ -27,7 +27,7 @@ pub enum Motion {
     #[default]
     Still,
     Animating,
-    DelayMs(u64),
+    DelayMs(u32),
 }
 
 impl Motion {
