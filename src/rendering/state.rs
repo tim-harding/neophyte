@@ -113,7 +113,7 @@ pub struct RenderState {
 }
 
 impl RenderState {
-    pub async fn new(window: &Window, cell_size: Vec2<u32>) -> Self {
+    pub async fn new(window: &Window, cell_size: Vec2<u32>, transparent: bool) -> Self {
         let surface_size: Vec2<u32> = window.inner_size().into();
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -151,6 +151,17 @@ impl RenderState {
         .expect("Failed to get a graphics device");
 
         let surface_caps = surface.get_capabilities(&adapter);
+
+        let alpha_mode = if transparent
+            && surface_caps
+                .alpha_modes
+                .contains(&wgpu::CompositeAlphaMode::PreMultiplied)
+        {
+            wgpu::CompositeAlphaMode::PreMultiplied
+        } else {
+            surface_caps.alpha_modes[0]
+        };
+
         let surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_caps
@@ -162,10 +173,7 @@ impl RenderState {
             width: surface_size.x,
             height: surface_size.y,
             present_mode: wgpu::PresentMode::AutoVsync,
-            // TODO: Set premultiplied and update clear color and cell fill with
-            // alpha appropriately
-            // alpha_mode: surface_caps.alpha_modes[0],
-            alpha_mode: wgpu::CompositeAlphaMode::PreMultiplied,
+            alpha_mode,
             view_formats: vec![],
         };
         surface.configure(&device, &surface_config);

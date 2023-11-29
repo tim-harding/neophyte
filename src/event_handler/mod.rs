@@ -41,11 +41,11 @@ pub struct EventHandler {
 }
 
 impl EventHandler {
-    pub fn new(neovim: Neovim, window: Window) -> Self {
+    pub fn new(neovim: Neovim, window: Window, transparent: bool) -> Self {
         let fonts = Fonts::new();
         let render_state = pollster::block_on(async {
             let cell_size = fonts.cell_size();
-            RenderState::new(&window, cell_size).await
+            RenderState::new(&window, cell_size, transparent).await
         });
         Self {
             scale_factor: 1.,

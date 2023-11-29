@@ -27,11 +27,12 @@ use winit::{
 fn main() {
     env_logger::builder().format_timestamp(None).init();
 
+    let transparent = std::env::args().any(|arg| arg == "--transparent");
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event()
         .build()
         .expect("Failed to create event loop");
     let window = WindowBuilder::new()
-        .with_transparent(true)
+        .with_transparent(transparent)
         .build(&event_loop)
         .expect("Failed to create window");
 
@@ -44,7 +45,7 @@ fn main() {
         stdout_handler.start(NeovimHandler::new(proxy));
     });
 
-    let mut handler = EventHandler::new(neovim, window);
+    let mut handler = EventHandler::new(neovim, window, transparent);
     event_loop.set_control_flow(ControlFlow::Wait);
     event_loop
         .run(move |event, window_target| {
