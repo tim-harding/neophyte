@@ -15,11 +15,15 @@ pub struct Settings {
     pub render_target: Option<PathBuf>,
     /// Overrides the background from Neovim's DefaultColorsSet event
     pub bg_override: Option<[f32; 4]>,
+    pub transparent: bool,
 }
 
 impl Settings {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(transparent: bool) -> Self {
+        Self {
+            transparent,
+            ..Self::default()
+        }
     }
 }
 
@@ -32,6 +36,7 @@ impl Default for Settings {
             render_size: None,
             render_target: None,
             bg_override: None,
+            transparent: false,
         }
     }
 }

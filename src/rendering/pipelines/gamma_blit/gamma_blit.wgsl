@@ -1,6 +1,7 @@
 struct Constants {
     src_size: vec2<u32>,
     dst_size: vec2<u32>,
+    transparent: f32,
 }
 
 @group(0) @binding(0)
@@ -45,6 +46,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         0.0
     );
     let exp = vec4<f32>(2.2, 2.2, 2.2, 1.0);
-    let premul = vec4<f32>(sample.a, sample.a, sample.a, 1.0);
+    let a = 1.0 - (1.0 - sample.a) * constants.transparent;
+    let premul = vec4<f32>(a, a, a, 1.0);
     return pow(sample, exp) * premul;
 }

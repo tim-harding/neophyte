@@ -295,7 +295,7 @@ impl RenderState {
             .update(&self.device, &self.targets.monochrome.view);
     }
 
-    pub fn resize(&mut self, new_size: Vec2<u32>, cell_size: Vec2<u32>) {
+    pub fn resize(&mut self, new_size: Vec2<u32>, cell_size: Vec2<u32>, transparent: bool) {
         if new_size == Vec2::default() {
             return;
         }
@@ -313,6 +313,7 @@ impl RenderState {
             &self.targets.color.view,
             target_size,
             new_size,
+            transparent,
         );
         self.pipelines.blit_png.update(
             &self.device,
@@ -335,7 +336,7 @@ impl RenderState {
                 match e {
                     wgpu::SurfaceError::Lost => {
                         log::warn!("Rebuilding swap chain");
-                        self.resize(self.surface_size(), cell_size);
+                        self.resize(self.surface_size(), cell_size, settings.transparent);
                     }
                     _ => log::error!("{e}"),
                 }
@@ -449,9 +450,9 @@ impl RenderState {
             &mut encoder,
             &output_view,
             wgpu::Color {
-                r: ((self.clear_color[0] * self.clear_color[3]) as f64).powf(2.2),
-                g: ((self.clear_color[1] * self.clear_color[3]) as f64).powf(2.2),
-                b: ((self.clear_color[2] * self.clear_color[3]) as f64).powf(2.2),
+                r: (self.clear_color[0] as f64).powf(2.2),
+                g: (self.clear_color[1] as f64).powf(2.2),
+                b: (self.clear_color[2] as f64).powf(2.2),
                 a: (self.clear_color[3] as f64).powf(2.2),
             },
         );

@@ -52,7 +52,7 @@ impl EventHandler {
             frame_number: 0,
             surface_size: render_state.surface_size(),
             ui: Ui::new(),
-            settings: Settings::new(),
+            settings: Settings::new(transparent),
             mouse: Mouse::new(),
             modifiers: ModifiersState::default(),
             fonts,
@@ -564,8 +564,11 @@ impl EventHandler {
     fn resize(&mut self) {
         let render_size = self.render_size();
         self.resize_neovim_grid();
-        self.render_state
-            .resize(render_size, self.fonts.cell_size());
+        self.render_state.resize(
+            render_size,
+            self.fonts.cell_size(),
+            self.settings.transparent,
+        );
     }
 
     fn resize_neovim_grid(&mut self) {

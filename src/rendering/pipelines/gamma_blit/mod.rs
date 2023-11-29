@@ -7,7 +7,8 @@ pub struct Pipeline {
     pipeline_layout: wgpu::PipelineLayout,
     shader: wgpu::ShaderModule,
     sampler: wgpu::Sampler,
-    pub push_constants: PushConstants,
+    transparent: bool,
+    pub push_constants_vertex: PushConstantsVertex,
     pub bind_group: wgpu::BindGroup,
     pub pipeline: wgpu::RenderPipeline,
 }
@@ -46,14 +47,22 @@ impl Pipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[wgpu::PushConstantRange {
-                stages: wgpu::ShaderStages::VERTEX,
-                range: 0..PushConstants::SIZE,
-            }],
+            push_constant_ranges: &[
+                wgpu::PushConstantRange {
+                    stages: wgpu::ShaderStages::VERTEX,
+                    range: 0..PushConstantsVertex::SIZE,
+                },
+                wgpu::PushConstantRange {
+                    stages: wgpu::ShaderStages::FRAGMENT,
+                    range: PushConstantsVertex::SIZE
+                        ..(PushConstantsVertex::SIZE + PushConstantsFragment::SIZE),
+                },
+            ],
         });
 
         Self {
-            push_constants: PushConstants::default(),
+            push_constants_vertex: PushConstantsVertex::default(),
+            transparent: false,
             pipeline: pipeline(device, &pipeline_layout, &shader, dst_format),
             bind_group: bind_group(device, &bind_group_layout, &sampler, src_tex),
             bind_group_layout,
@@ -70,18 +79,25 @@ impl Pipeline {
         src_tex: &wgpu::TextureView,
         src_size: Vec2<u32>,
         dst_size: Vec2<u32>,
+        transparent: bool,
     ) {
         self.bind_group = bind_group(device, &self.bind_group_layout, &self.sampler, src_tex);
         self.pipeline = pipeline(device, &self.pipeline_layout, &self.shader, dst_format);
-        self.push_constants = PushConstants { src_size, dst_size };
+        self.push_constants_vertex = PushConstantsVertex { src_size, dst_size };
+        self.transparent = transparent;
     }
 
     pub fn render(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         color_target: &wgpu::TextureView,
-        clear_color: wgpu::Color,
+        mut clear_color: wgpu::Color,
     ) {
+        if self.transparent {
+            clear_color.r *= clear_color.a;
+            clear_color.g *= clear_color.a;
+            clear_color.b *= clear_color.a;
+        }
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Blit render pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -102,7 +118,14 @@ impl Pipeline {
         render_pass.set_push_constants(
             wgpu::ShaderStages::VERTEX,
             0,
-            cast_slice(&[self.push_constants]),
+            cast_slice(&[self.push_constants_vertex]),
+        );
+        render_pass.set_push_constants(
+            wgpu::ShaderStages::FRAGMENT,
+            PushConstantsVertex::SIZE,
+            cast_slice(&[PushConstantsFragment {
+                transparent: self.transparent as u8 as f32,
+            }]),
         );
         render_pass.draw(0..6, 0..1);
     }
@@ -174,11 +197,21 @@ fn bind_group(
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
-pub struct PushConstants {
+pub struct PushConstantsVertex {
     src_size: Vec2<u32>,
     dst_size: Vec2<u32>,
 }
 
-impl PushConstants {
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
+pub struct PushConstantsFragment {
+    transparent: f32,
+}
+
+impl PushConstantsVertex {
+    pub const SIZE: u32 = std::mem::size_of::<Self>() as u32;
+}
+
+impl PushConstantsFragment {
     pub const SIZE: u32 = std::mem::size_of::<Self>() as u32;
 }
