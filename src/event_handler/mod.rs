@@ -21,7 +21,7 @@ use winit::{
     event::{
         ElementState, Event, KeyEvent, MouseButton, MouseScrollDelta, TouchPhase, WindowEvent,
     },
-    event_loop::EventLoopWindowTarget,
+    event_loop::{ControlFlow, EventLoopWindowTarget},
     keyboard::{Key, ModifiersState, NamedKey},
     window::Window,
 };
@@ -88,7 +88,7 @@ impl EventHandler {
                 WindowEvent::Resized(physical_size) => self.resized(*physical_size),
                 WindowEvent::ScaleFactorChanged { scale_factor, .. } => self.rescale(*scale_factor),
                 WindowEvent::CloseRequested => window_target.exit(),
-                WindowEvent::RedrawRequested => self.redraw(),
+                WindowEvent::RedrawRequested => self.redraw(window_target),
                 _ => {}
             },
 
@@ -511,7 +511,7 @@ impl EventHandler {
         self.fonts.set_font_size(new_font_size);
     }
 
-    fn redraw(&mut self) {
+    fn redraw(&mut self, window_target: &EventLoopWindowTarget<UserEvent>) {
         let framerate = self
             .window
             .current_monitor()
@@ -530,6 +530,7 @@ impl EventHandler {
             Motion::Animating => true,
         };
         if needs_redraw {
+            window_target.set_control_flow(ControlFlow::Poll);
             self.window.request_redraw();
         }
         self.frame_number = self.frame_number.saturating_add(1);
