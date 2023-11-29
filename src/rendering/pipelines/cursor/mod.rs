@@ -213,7 +213,7 @@ impl Pipeline {
                 Some(DisplayInfo {
                     start_position: position,
                     target_position: position,
-                    elapsed: 1.0,
+                    elapsed: 0.0,
                     fill,
                     cursor_size,
                 })
@@ -259,30 +259,31 @@ impl Pipeline {
             .lerp(display_info.target_position, t);
         self.fragment_push_constants.speed = 0.;
         self.fragment_push_constants.size = cell_size;
-        let (motion, transform) = if t >= 1.0 {
-            (Motion::Still, Mat3::IDENTITY)
-        } else {
-            let toward = display_info.target_position - display_info.start_position;
-            let length = toward.length();
-            let direction = if length < 0.25 {
-                Vec2::new(1.0, 0.0)
+        let (motion, transform) =
+            if t >= 1.0 || display_info.target_position == display_info.start_position {
+                (Motion::Still, Mat3::IDENTITY)
             } else {
-                toward / length
+                let toward = display_info.target_position - display_info.start_position;
+                let length = toward.length();
+                let direction = if length < 0.25 {
+                    Vec2::new(1.0, 0.0)
+                } else {
+                    toward / length
+                };
+                let angle = f32::atan2(direction.x, direction.y);
+
+                let cell_diagonal = cell_size.length();
+                let dir = direction * (1. - t);
+                let translate = Vec2::splat(0.5) - dir / cell_diagonal * 4.;
+                let transform = Mat3::translate(translate)
+                    * Mat3::rotate(-angle)
+                    * Mat3::scale(Vec2::new(1.0, length * (1. - t) / 2.))
+                    * Mat3::rotate(angle)
+                    * Mat3::translate(-translate);
+
+                self.fragment_push_constants.speed = (1. - t) * length / cell_diagonal;
+                (Motion::Animating, transform)
             };
-            let angle = f32::atan2(direction.x, direction.y);
-
-            let cell_diagonal = cell_size.length();
-            let dir = direction * (1. - t);
-            let translate = Vec2::splat(0.5) - dir / cell_diagonal * 4.;
-            let transform = Mat3::translate(translate)
-                * Mat3::rotate(-angle)
-                * Mat3::scale(Vec2::new(1.0, length * (1. - t) / 2.))
-                * Mat3::rotate(angle)
-                * Mat3::translate(-translate);
-
-            self.fragment_push_constants.speed = (1. - t) * length / cell_diagonal;
-            (Motion::Animating, transform)
-        };
 
         let transform = Mat3::scale(target_size.map(f32::recip))
             * Mat3::translate(current_position)

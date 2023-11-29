@@ -20,7 +20,8 @@ use std::time::{Duration, Instant};
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{
-        ElementState, Event, KeyEvent, MouseButton, MouseScrollDelta, TouchPhase, WindowEvent,
+        ElementState, Event, KeyEvent, MouseButton, MouseScrollDelta, StartCause, TouchPhase,
+        WindowEvent,
     },
     event_loop::{ControlFlow, EventLoopWindowTarget},
     keyboard::{Key, ModifiersState, NamedKey},
@@ -39,6 +40,7 @@ pub struct EventHandler {
     render_state: RenderState,
     window: Window,
     frame_number: u32,
+    last_render_time: Instant,
 }
 
 impl EventHandler {
@@ -60,6 +62,7 @@ impl EventHandler {
             neovim,
             render_state,
             window,
+            last_render_time: Instant::now(),
         }
     }
 
@@ -513,12 +516,21 @@ impl EventHandler {
     }
 
     fn redraw(&mut self, window_target: &EventLoopWindowTarget<UserEvent>) {
-        let framerate = self
-            .window
-            .current_monitor()
-            .and_then(|monitor| monitor.refresh_rate_millihertz())
-            .unwrap_or(60_000);
-        let delta_seconds = 1_000. / framerate as f32;
+        let now = Instant::now();
+        let elapsed = now.duration_since(self.last_render_time);
+        self.last_render_time = now;
+
+        let delta_seconds = if self.render_state.updated_since_last_render {
+            let framerate = self
+                .window
+                .current_monitor()
+                .and_then(|monitor| monitor.refresh_rate_millihertz())
+                .unwrap_or(60_000);
+            1_000. / framerate as f32
+        } else {
+            elapsed.as_secs_f32()
+        };
+
         let motion = self.render_state.render(
             self.fonts.cell_size(),
             delta_seconds,

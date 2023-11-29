@@ -24,79 +24,6 @@ use bytemuck::cast_slice;
 use swash::shape::ShapeContext;
 use winit::window::Window;
 
-struct Targets {
-    monochrome: Texture,
-    color: Texture,
-    depth: Texture,
-    png: Texture,
-    png_staging: wgpu::Buffer,
-    png_size: Vec2<u32>,
-}
-
-impl Targets {
-    pub fn new(device: &wgpu::Device, size: Vec2<u32>) -> Self {
-        let png_size = Vec2::new(((size.x + 63) / 64) * 64, size.y);
-        Self {
-            monochrome: Texture::target(
-                device,
-                &Texture::descriptor(
-                    "Monochrome texture",
-                    size.into(),
-                    Texture::LINEAR_FORMAT,
-                    Texture::ATTACHMENT_AND_BINDING,
-                ),
-            ),
-            color: Texture::target(
-                device,
-                &Texture::descriptor(
-                    "Monochrome texture",
-                    size.into(),
-                    Texture::LINEAR_FORMAT,
-                    Texture::ATTACHMENT_AND_BINDING,
-                ),
-            ),
-            depth: Texture::target(
-                device,
-                &Texture::descriptor(
-                    "Depth texture",
-                    size.into(),
-                    Texture::DEPTH_FORMAT,
-                    wgpu::TextureUsages::RENDER_ATTACHMENT,
-                ),
-            ),
-            png: Texture::target(
-                device,
-                &Texture::descriptor(
-                    "Monochrome texture",
-                    png_size.into(),
-                    Texture::SRGB_FORMAT,
-                    Texture::ATTACHMENT_AND_BINDING | wgpu::TextureUsages::COPY_SRC,
-                ),
-            ),
-            png_staging: device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("PNG staging buffer"),
-                size: png_size.area() as u64 * 4,
-                usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            }),
-            png_size,
-        }
-    }
-}
-
-struct Pipelines {
-    cursor: cursor::Pipeline,
-    cmdline_cursor: cursor::Pipeline,
-    blend: blend::Pipeline,
-    default_fill: default_fill::Pipeline,
-    cell_fill: cell_fill::Pipeline,
-    emoji: emoji::Pipeline,
-    gamma_blit_final: gamma_blit::Pipeline,
-    blit_png: png_blit::Pipeline,
-    monochrome: monochrome::Pipeline,
-    lines: lines::Pipeline,
-}
-
 pub struct RenderState {
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -110,6 +37,7 @@ pub struct RenderState {
     clear_color: [f32; 4],
     cmdline_grid: CmdlineGrid,
     text_bind_group_layout: text::bind_group::BindGroup,
+    pub updated_since_last_render: bool,
 }
 
 impl RenderState {
@@ -223,10 +151,12 @@ impl RenderState {
             surface_config,
             clear_color: [0.; 4],
             cmdline_grid: CmdlineGrid::new(),
+            updated_since_last_render: false,
         }
     }
 
     pub fn update(&mut self, ui: &Ui, fonts: &Fonts, bg_override: Option<[f32; 4]>) {
+        self.updated_since_last_render = true;
         self.clear_color =
             bg_override.unwrap_or(ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK).into_srgb(1.));
         for grid in ui.deleted_grids.iter() {
@@ -330,6 +260,7 @@ impl RenderState {
         window: &Window,
         frame_number: u32,
     ) -> Motion {
+        self.updated_since_last_render = false;
         let output = match self.surface.get_current_texture() {
             Ok(output) => output,
             Err(e) => {
@@ -534,6 +465,79 @@ impl RenderState {
     pub fn surface_size(&self) -> Vec2<u32> {
         Vec2::new(self.surface_config.width, self.surface_config.height)
     }
+}
+
+struct Targets {
+    monochrome: Texture,
+    color: Texture,
+    depth: Texture,
+    png: Texture,
+    png_staging: wgpu::Buffer,
+    png_size: Vec2<u32>,
+}
+
+impl Targets {
+    pub fn new(device: &wgpu::Device, size: Vec2<u32>) -> Self {
+        let png_size = Vec2::new(((size.x + 63) / 64) * 64, size.y);
+        Self {
+            monochrome: Texture::target(
+                device,
+                &Texture::descriptor(
+                    "Monochrome texture",
+                    size.into(),
+                    Texture::LINEAR_FORMAT,
+                    Texture::ATTACHMENT_AND_BINDING,
+                ),
+            ),
+            color: Texture::target(
+                device,
+                &Texture::descriptor(
+                    "Monochrome texture",
+                    size.into(),
+                    Texture::LINEAR_FORMAT,
+                    Texture::ATTACHMENT_AND_BINDING,
+                ),
+            ),
+            depth: Texture::target(
+                device,
+                &Texture::descriptor(
+                    "Depth texture",
+                    size.into(),
+                    Texture::DEPTH_FORMAT,
+                    wgpu::TextureUsages::RENDER_ATTACHMENT,
+                ),
+            ),
+            png: Texture::target(
+                device,
+                &Texture::descriptor(
+                    "Monochrome texture",
+                    png_size.into(),
+                    Texture::SRGB_FORMAT,
+                    Texture::ATTACHMENT_AND_BINDING | wgpu::TextureUsages::COPY_SRC,
+                ),
+            ),
+            png_staging: device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("PNG staging buffer"),
+                size: png_size.area() as u64 * 4,
+                usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            }),
+            png_size,
+        }
+    }
+}
+
+struct Pipelines {
+    cursor: cursor::Pipeline,
+    cmdline_cursor: cursor::Pipeline,
+    blend: blend::Pipeline,
+    default_fill: default_fill::Pipeline,
+    cell_fill: cell_fill::Pipeline,
+    emoji: emoji::Pipeline,
+    gamma_blit_final: gamma_blit::Pipeline,
+    blit_png: png_blit::Pipeline,
+    monochrome: monochrome::Pipeline,
+    lines: lines::Pipeline,
 }
 
 #[derive(Debug, thiserror::Error)]
