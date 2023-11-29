@@ -16,6 +16,7 @@ use crate::{
     UserEvent,
 };
 use rmpv::Value;
+use std::time::{Duration, Instant};
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{
@@ -525,13 +526,21 @@ impl EventHandler {
             &self.window,
             self.frame_number,
         );
-        let needs_redraw = match motion {
-            Motion::Still => self.settings.render_target.is_some(),
-            Motion::Animating => true,
-        };
-        if needs_redraw {
-            window_target.set_control_flow(ControlFlow::Poll);
-            self.window.request_redraw();
+        match motion {
+            Motion::Still => {
+                if self.settings.render_target.is_some() {
+                    window_target.set_control_flow(ControlFlow::Poll);
+                    self.window.request_redraw();
+                }
+            }
+            Motion::Animating => {
+                window_target.set_control_flow(ControlFlow::Poll);
+                self.window.request_redraw();
+            }
+            Motion::DelayMs(ms) => {
+                let until = Instant::now() + Duration::from_millis(ms);
+                window_target.set_control_flow(ControlFlow::WaitUntil(until));
+            }
         }
         self.frame_number = self.frame_number.saturating_add(1);
         log::info!("Rendered with result {motion:?}");

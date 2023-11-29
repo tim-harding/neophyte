@@ -356,9 +356,10 @@ impl RenderState {
         let mut motion = Motion::Still;
 
         for grid in self.grids.iter_mut() {
-            motion |= grid
-                .scrolling
-                .advance(delta_seconds * settings.scroll_speed * cell_size.y as f32);
+            motion = motion.soonest(
+                grid.scrolling
+                    .advance(delta_seconds * settings.scroll_speed * cell_size.y as f32),
+            );
         }
 
         let grid_count = self.grids.grid_count() as f32;
@@ -421,21 +422,21 @@ impl RenderState {
             .blend
             .render(&mut encoder, &self.targets.color.view);
 
-        motion |= self.pipelines.cursor.render(
+        motion = motion.soonest(self.pipelines.cursor.render(
             &mut encoder,
             &self.targets.color.view,
             delta_seconds * settings.cursor_speed,
             target_size.cast_as(),
             cell_size.cast_as(),
-        );
+        ));
 
-        motion |= self.pipelines.cmdline_cursor.render(
+        motion = motion.soonest(self.pipelines.cmdline_cursor.render(
             &mut encoder,
             &self.targets.color.view,
             delta_seconds * settings.cursor_speed,
             target_size.cast_as(),
             cell_size.cast_as(),
-        );
+        ));
 
         self.pipelines.emoji.render(
             &mut encoder,

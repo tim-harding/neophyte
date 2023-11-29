@@ -9,8 +9,6 @@ pub mod state;
 mod text;
 mod texture;
 
-use std::ops::{BitOr, BitOrAssign};
-
 pub fn nearest_sampler(device: &wgpu::Device) -> wgpu::Sampler {
     device.create_sampler(&wgpu::SamplerDescriptor {
         label: Some("Glyph sampler"),
@@ -29,30 +27,17 @@ pub enum Motion {
     #[default]
     Still,
     Animating,
+    DelayMs(u64),
 }
 
-impl From<Motion> for &str {
-    fn from(value: Motion) -> Self {
-        match value {
-            Motion::Still => "still",
-            Motion::Animating => "animating",
+impl Motion {
+    pub fn soonest(self, other: Self) -> Self {
+        use Motion::*;
+        match (self, other) {
+            (Animating, _) | (_, Animating) => Animating,
+            (DelayMs(ms1), DelayMs(ms2)) => DelayMs(ms1.min(ms2)),
+            (DelayMs(ms), Still) | (Still, DelayMs(ms)) => DelayMs(ms),
+            (Still, Still) => Still,
         }
-    }
-}
-
-impl BitOr for Motion {
-    type Output = Self;
-
-    fn bitor(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (Self::Still, Self::Still) => Self::Still,
-            _ => Self::Animating,
-        }
-    }
-}
-
-impl BitOrAssign for Motion {
-    fn bitor_assign(&mut self, rhs: Self) {
-        *self = *self | rhs;
     }
 }
