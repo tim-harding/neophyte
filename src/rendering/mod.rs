@@ -3,7 +3,6 @@ mod glyph_bind_group;
 mod glyph_push_constants;
 mod grids;
 pub mod pipelines;
-mod range;
 mod scrolling_grids;
 pub mod state;
 mod text;

@@ -1,11 +1,11 @@
-use super::range::Range;
+mod range;
+
 use crate::{
     rendering::Motion,
     ui::grid::{CellContents, GridContents},
     util::vec2::Vec2,
 };
-
-// TODO: Should move scrolling grids and range into a module together
+use range::Range;
 
 pub struct ScrollingGrids {
     scrolling: Vec<GridPart>,
