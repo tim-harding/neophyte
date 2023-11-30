@@ -1,3 +1,8 @@
+//! Alpha-blends one texture over another. This is used to combine the results
+//! of the monochrome and lines pipelines with the background cells. These need
+//! to rendered separately so that the alphas of the monochrome and lines can be
+//! used for rendering the cursor.
+
 use crate::rendering::{nearest_sampler, texture::Texture};
 use wgpu::include_wgsl;
 

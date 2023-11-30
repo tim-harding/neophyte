@@ -1,3 +1,5 @@
+//! Paints colored glyphs, namely emoji.
+
 use crate::{
     rendering::{
         glyph_bind_group::GlyphBindGroup, glyph_push_constants::GlyphPushConstants, text::Text,

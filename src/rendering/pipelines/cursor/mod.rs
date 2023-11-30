@@ -1,3 +1,7 @@
+//! Paints and animates the cursor. In order to display the text over the
+//! cursor, we reuse the alpha from rendering the monochrome text such that the
+//! cursor appears to go underneath.
+
 use crate::{
     event::{
         mode_info_set::{CursorShape, ModeInfo},

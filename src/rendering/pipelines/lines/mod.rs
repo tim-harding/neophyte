@@ -1,3 +1,5 @@
+//! Paints text underlines.
+
 use crate::{
     rendering::{text::Text, texture::Texture},
     util::vec2::Vec2,

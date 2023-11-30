@@ -1,3 +1,10 @@
+//! For each grid, draw a quad with the correct position and depth with the
+//! default background color. This sets the correct depth in the Z-buffer for
+//! later passes. Once the Z-buffer is set correctly, we can just render the
+//! glyphs and highlight backgrounds for each grid at the correct Z-depth with
+//! LessEqual depth compare and they will be correctly masked, even with
+//! front-to-back rendering and overlapping windows.
+
 use crate::{
     rendering::{text::Text, texture::Texture},
     util::vec2::Vec2,

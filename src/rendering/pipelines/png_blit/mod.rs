@@ -1,3 +1,6 @@
+//! Copies the floating-point rendered texture to an SRGB texture that has the
+//! appropriate padding to copy to buffer for transfer to the CPU.
+
 use crate::rendering::{nearest_sampler, texture::Texture};
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;

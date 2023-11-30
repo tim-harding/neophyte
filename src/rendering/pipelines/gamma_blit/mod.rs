@@ -1,3 +1,7 @@
+//! Copies the floating-point texture we rendered to over to the output surface
+//! while applying gamma-correction and premultiplying by the alpha for window
+//! transparency as needed.
+
 use crate::{rendering::nearest_sampler, util::vec2::Vec2};
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;

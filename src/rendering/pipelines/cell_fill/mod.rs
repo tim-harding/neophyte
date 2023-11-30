@@ -1,3 +1,7 @@
+//! Renders the highlight backgrounds for grid cells that don't use the default
+//! fill color. The default fill is already written by the default_fill
+//! pipeline.
+
 use crate::{
     rendering::{text::Text, texture::Texture},
     util::vec2::Vec2,

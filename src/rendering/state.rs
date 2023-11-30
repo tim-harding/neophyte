@@ -311,6 +311,8 @@ impl RenderState {
                 )))
         };
 
+        // See the module documentation for each pipeline for more details
+
         self.pipelines.default_fill.render(
             &mut encoder,
             grids().map(|(z, _, grid)| (z, grid)),
