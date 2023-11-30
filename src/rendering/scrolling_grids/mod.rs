@@ -61,7 +61,8 @@ impl ScrollingGrids {
                 let grid_range = uncovered - part.offset;
                 part.start = grid_range.start.try_into().unwrap();
                 part.end = grid_range.end.try_into().unwrap();
-                true
+                // Useful when resizing the window
+                part.grid.size.y == grid.size.y
             } else {
                 false
             }
@@ -69,8 +70,8 @@ impl ScrollingGrids {
         self.scrolling.push_front(GridPart::new(grid));
     }
 
-    pub fn replace_last(&mut self, grid: GridContents) {
-        *self.scrolling.back_mut().unwrap() = GridPart::new(grid);
+    pub fn replace(&mut self, grid: GridContents) {
+        *self.scrolling.front_mut().unwrap() = GridPart::new(grid);
     }
 
     pub fn rows<'a, 'b: 'a>(

@@ -63,31 +63,26 @@ impl Grids {
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
     ) {
-        let grid = self
-            .grids
-            .entry(ui_grid.id)
-            // TODO: Does scrolling grids really need to be initialized with
-            // contents?
-            .or_insert_with(|| {
-                Grid::new(
-                    // TODO: Uniform type sizes
-                    Text::new(ui_grid.contents().size.try_cast().unwrap()),
-                    ScrollingGrids::new(ui_grid.contents().clone()),
-                )
-            });
-
-        if ui_grid.scroll_delta != 0 {
-            grid.scrolling
-                .push(ui_grid.contents().clone(), ui_grid.scroll_delta);
-        } else if ui_grid.dirty.contents() {
-            grid.scrolling.replace_last(ui_grid.contents().clone());
-        }
+        let grid = self.grids.entry(ui_grid.id).or_insert_with(|| {
+            Grid::new(
+                Text::new(ui_grid.contents().size.try_cast().unwrap()),
+                // TODO: Does these need to be initialized with data?
+                // We might just fill it anyway down below.
+                ScrollingGrids::new(ui_grid.contents().clone()),
+            )
+        });
 
         if ui_grid.dirty.contents() {
+            if ui_grid.scroll_delta != 0 {
+                grid.scrolling
+                    .push(ui_grid.contents().clone(), ui_grid.scroll_delta);
+            } else {
+                grid.scrolling.replace(ui_grid.contents().clone());
+            }
+
             grid.text.update_contents(
                 device,
                 queue,
-                // TODO: Uniform type sizes
                 Some(grid.scrolling.size().try_cast().unwrap()),
                 grid.scrolling.rows(),
                 &self.bind_group_layout,
