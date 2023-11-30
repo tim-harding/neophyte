@@ -19,11 +19,6 @@ impl Range {
         Self::new(0, end)
     }
 
-    #[allow(unused)]
-    pub const fn len(&self) -> usize {
-        (self.end - self.start) as usize
-    }
-
     pub fn union(self, other: Self) -> Self {
         Self {
             start: self.start.min(other.start),
@@ -31,11 +26,7 @@ impl Range {
         }
     }
 
-    pub fn covered(self) -> Self {
-        Self::new(self.start, self.start)
-    }
-
-    pub fn cover(self, cover: Self) -> Self {
+    pub fn cover(self, cover: Self) -> Option<Self> {
         match self.start.cmp(&cover.start) {
             // |...
             //    -...
@@ -43,17 +34,17 @@ impl Range {
                 // |    |
                 //         ------
                 // ^    ^
-                Ordering::Less => self,
+                Ordering::Less => Some(self),
 
                 // |    |
                 //      ------
                 // ^    ^
-                Ordering::Equal => self,
+                Ordering::Equal => Some(self),
 
                 // |    |
                 //    ------
                 // ^  ^
-                Ordering::Greater => Self::new(self.start, cover.start),
+                Ordering::Greater => Some(Self::new(self.start, cover.start)),
             },
 
             // |...
@@ -61,20 +52,16 @@ impl Range {
             Ordering::Equal => match self.end.cmp(&cover.end) {
                 // |    |
                 // --------
-                // ^
-                // ^
-                Ordering::Less => self.covered(),
+                Ordering::Less => None,
 
                 // |    |
                 // ------
-                // ^
-                // ^
-                Ordering::Equal => self.covered(),
+                Ordering::Equal => None,
 
                 // |    |
                 // ---
                 //   ^  ^
-                Ordering::Greater => Self::new(cover.end, self.end),
+                Ordering::Greater => Some(Self::new(cover.end, self.end)),
             },
 
             //    |...
@@ -86,29 +73,25 @@ impl Range {
                     Ordering::Less => match self.end.cmp(&cover.end) {
                         //   |    |
                         // ----------
-                        //   ^
-                        //   ^
-                        Ordering::Less => self.covered(),
+                        Ordering::Less => None,
 
                         //   |    |
                         // --------
-                        //   ^
-                        //   ^
-                        Ordering::Equal => self.covered(),
+                        Ordering::Equal => None,
 
                         //   |    |
                         // -----
                         //     ^  ^
-                        Ordering::Greater => Self::new(cover.end, self.end),
+                        Ordering::Greater => Some(Self::new(cover.end, self.end)),
                     },
 
                     //      |...
                     // ------
-                    Ordering::Equal => self,
+                    Ordering::Equal => Some(self),
 
                     //          |...
                     // ------
-                    Ordering::Greater => self,
+                    Ordering::Greater => Some(self),
                 }
             }
         }

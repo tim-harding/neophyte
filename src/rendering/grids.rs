@@ -79,7 +79,7 @@ impl Grids {
         if ui_grid.scroll_delta != 0 {
             grid.scrolling
                 .push(ui_grid.contents().clone(), ui_grid.scroll_delta);
-        } else {
+        } else if ui_grid.dirty.contents() {
             grid.scrolling.replace_last(ui_grid.contents().clone());
         }
 

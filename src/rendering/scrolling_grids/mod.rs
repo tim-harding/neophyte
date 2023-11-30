@@ -6,23 +6,23 @@ use crate::{
     util::vec2::Vec2,
 };
 use range::Range;
+use std::collections::VecDeque;
 
 pub struct ScrollingGrids {
-    scrolling: Vec<GridPart>,
+    scrolling: VecDeque<GridPart>,
     t: f32,
 }
 
 impl ScrollingGrids {
     #[allow(unused)]
     pub fn new(grid: GridContents) -> Self {
-        Self {
-            scrolling: vec![GridPart::new(grid)],
-            t: 0.,
-        }
+        let mut scrolling = VecDeque::new();
+        scrolling.push_back(GridPart::new(grid));
+        Self { scrolling, t: 0. }
     }
 
     pub fn finish_scroll(&mut self) {
-        self.scrolling.drain(0..self.scrolling.len() - 1);
+        self.scrolling.drain(1..);
         assert_eq!(self.scrolling.len(), 1);
     }
 
@@ -46,26 +46,31 @@ impl ScrollingGrids {
     }
 
     pub fn push(&mut self, grid: GridContents, offset: i32) {
+        // TODO: Add desired screen region
         let sign = if offset.is_positive() { 1 } else { -1 };
         let mag = offset.abs().min(grid.size.y.into());
         let offset = mag * sign;
-        let mut cover = Range::until(grid.size.y.into());
+        let mut coverage = Range::until(grid.size.y.into());
         self.t += offset as f32;
         self.scrolling.retain_mut(|part| {
             part.offset -= offset;
             let grid_range = Range::until(part.grid.size.y.into()) + part.offset;
-            let covered = grid_range.cover(cover);
-            cover = cover.union(grid_range);
-            let grid_range = covered - part.offset;
-            part.start = grid_range.start.try_into().unwrap();
-            part.end = grid_range.end.try_into().unwrap();
-            !part.is_empty()
+            let uncovered = grid_range.cover(coverage);
+            coverage = coverage.union(grid_range);
+            if let Some(uncovered) = uncovered {
+                let grid_range = uncovered - part.offset;
+                part.start = grid_range.start.try_into().unwrap();
+                part.end = grid_range.end.try_into().unwrap();
+                true
+            } else {
+                false
+            }
         });
-        self.scrolling.push(GridPart::new(grid));
+        self.scrolling.push_front(GridPart::new(grid));
     }
 
     pub fn replace_last(&mut self, grid: GridContents) {
-        *self.scrolling.last_mut().unwrap() = GridPart::new(grid);
+        *self.scrolling.back_mut().unwrap() = GridPart::new(grid);
     }
 
     pub fn rows<'a, 'b: 'a>(
@@ -83,7 +88,7 @@ impl ScrollingGrids {
     }
 
     pub fn size(&self) -> Vec2<u16> {
-        self.scrolling.last().unwrap().grid.size
+        self.scrolling.back().unwrap().grid.size
     }
 
     pub fn offset(&self, cell_height: f32) -> Vec2<i32> {
@@ -106,9 +111,5 @@ impl GridPart {
             end: grid.size.y as usize,
             grid,
         }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.start == self.end
     }
 }
