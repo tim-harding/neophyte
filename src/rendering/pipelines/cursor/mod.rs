@@ -22,6 +22,8 @@ pub struct Pipeline {
     sampler: wgpu::Sampler,
     fragment_push_constants: FragmentPushConstants,
     display_info: Option<DisplayInfo>,
+    transform: Mat3,
+    show: bool,
 }
 
 impl Pipeline {
@@ -111,6 +113,8 @@ impl Pipeline {
             sampler,
             fragment_push_constants: FragmentPushConstants::default(),
             display_info: None,
+            transform: Mat3::IDENTITY,
+            show: false,
         }
     }
 
@@ -243,14 +247,7 @@ impl Pipeline {
         };
     }
 
-    pub fn render(
-        &mut self,
-        encoder: &mut wgpu::CommandEncoder,
-        color_target: &wgpu::TextureView,
-        delta_seconds: f32,
-        target_size: Vec2<f32>,
-        cell_size: Vec2<f32>,
-    ) -> Motion {
+    pub fn advance(&mut self, delta_seconds: f32, cell_size: Vec2<f32>) -> Motion {
         let Some(display_info) = self.display_info.as_mut() else {
             return Motion::Still;
         };
@@ -288,9 +285,7 @@ impl Pipeline {
                 (Motion::Animating, transform)
             };
 
-        let transform = Mat3::scale(target_size.map(f32::recip))
-            * Mat3::translate(current_position)
-            * transform;
+        self.transform = Mat3::translate(current_position) * transform;
 
         let (motion, show) = if let Some(blink_rate) = display_info.blink_rate {
             let blink_state = display_info
@@ -311,8 +306,24 @@ impl Pipeline {
         } else {
             (motion, display_info.blink_state.visible())
         };
+        self.show = show;
 
-        if show {
+        motion
+    }
+
+    pub fn render(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        color_target: &wgpu::TextureView,
+        target_size: Vec2<f32>,
+    ) {
+        let Some(display_info) = self.display_info.as_mut() else {
+            return;
+        };
+
+        let transform = Mat3::scale(target_size.map(f32::recip)) * self.transform;
+
+        if self.show {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Cursor render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -346,8 +357,6 @@ impl Pipeline {
             render_pass.set_bind_group(0, &self.bind_group, &[]);
             render_pass.draw(0..6, 0..1);
         }
-
-        motion
     }
 }
 

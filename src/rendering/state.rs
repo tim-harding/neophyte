@@ -252,14 +252,42 @@ impl RenderState {
         );
     }
 
+    pub fn advance(
+        &mut self,
+        delta_seconds: f32,
+        cell_size: Vec2<f32>,
+        settings: &Settings,
+    ) -> Motion {
+        let mut motion = Motion::Still;
+
+        for grid in self.grids.iter_mut() {
+            motion = motion.soonest(
+                grid.scrolling
+                    .advance(delta_seconds * settings.scroll_speed * cell_size.y as f32),
+            );
+        }
+
+        motion = motion.soonest(
+            self.pipelines
+                .cursor
+                .advance(delta_seconds * settings.cursor_speed, cell_size),
+        );
+        motion = motion.soonest(
+            self.pipelines
+                .cmdline_cursor
+                .advance(delta_seconds * settings.cursor_speed, cell_size),
+        );
+
+        motion
+    }
+
     pub fn render(
         &mut self,
         cell_size: Vec2<u32>,
-        delta_seconds: f32,
         settings: &Settings,
         window: &Window,
         frame_number: u32,
-    ) -> Motion {
+    ) {
         self.updated_since_last_render = false;
         let output = match self.surface.get_current_texture() {
             Ok(output) => output,
@@ -271,7 +299,7 @@ impl RenderState {
                     }
                     _ => log::error!("{e}"),
                 }
-                return Motion::Still;
+                return;
             }
         };
 
@@ -284,14 +312,6 @@ impl RenderState {
                 label: Some("Render encoder"),
             });
         let target_size = self.targets.color.texture.size().into();
-        let mut motion = Motion::Still;
-
-        for grid in self.grids.iter_mut() {
-            motion = motion.soonest(
-                grid.scrolling
-                    .advance(delta_seconds * settings.scroll_speed * cell_size.y as f32),
-            );
-        }
 
         let grid_count = self.grids.grid_count() as f32;
         let grids = || {
@@ -355,21 +375,17 @@ impl RenderState {
             .blend
             .render(&mut encoder, &self.targets.color.view);
 
-        motion = motion.soonest(self.pipelines.cursor.render(
+        self.pipelines.cursor.render(
             &mut encoder,
             &self.targets.color.view,
-            delta_seconds * settings.cursor_speed,
             target_size.cast_as(),
-            cell_size.cast_as(),
-        ));
+        );
 
-        motion = motion.soonest(self.pipelines.cmdline_cursor.render(
+        self.pipelines.cmdline_cursor.render(
             &mut encoder,
             &self.targets.color.view,
-            delta_seconds * settings.cursor_speed,
             target_size.cast_as(),
-            cell_size.cast_as(),
-        ));
+        );
 
         self.pipelines.emoji.render(
             &mut encoder,
@@ -455,7 +471,6 @@ impl RenderState {
 
         window.pre_present_notify();
         output.present();
-        motion
     }
 
     pub fn clear_glyph_cache(&mut self) {

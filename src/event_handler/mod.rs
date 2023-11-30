@@ -38,7 +38,7 @@ pub struct EventHandler {
     fonts: Fonts,
     neovim: Neovim,
     render_state: RenderState,
-    window: Window,
+    windows: Vec<Window>,
     frame_number: u32,
     last_render_time: Instant,
 }
@@ -51,6 +51,7 @@ impl EventHandler {
             RenderState::new(&window, cell_size, transparent).await
         });
         Self {
+            windows: vec![window],
             scale_factor: 1.,
             frame_number: 0,
             surface_size: render_state.surface_size(),
@@ -61,7 +62,6 @@ impl EventHandler {
             fonts,
             neovim,
             render_state,
-            window,
             last_render_time: Instant::now(),
         }
     }
@@ -82,7 +82,9 @@ impl EventHandler {
                 StartCause::ResumeTimeReached {
                     start: _,
                     requested_resume: _,
-                } => self.window.request_redraw(),
+                } => {
+                    self.request_redraw();
+                }
                 StartCause::WaitCancelled {
                     start: _,
                     requested_resume: _,
@@ -92,9 +94,9 @@ impl EventHandler {
             },
 
             Event::WindowEvent {
-                window_id,
+                window_id: _,
                 ref event,
-            } if window_id == self.window.id() => match event {
+            } => match event {
                 WindowEvent::ModifiersChanged(new_modifiers) => {
                     self.modifiers = new_modifiers.state();
                 }
@@ -139,14 +141,14 @@ impl EventHandler {
                     let mut args = Values::new(params.into_iter().next()?)?;
                     let speed: f32 = args.next()?;
                     self.settings.cursor_speed = speed;
-                    self.window.request_redraw();
+                    self.request_redraw();
                 }
 
                 "neophyte.set_scroll_speed" => {
                     let mut args = Values::new(params.into_iter().next()?)?;
                     let speed: f32 = args.next()?;
                     self.settings.scroll_speed = speed;
-                    self.window.request_redraw();
+                    self.request_redraw();
                 }
 
                 "neophyte.set_fonts" => {
@@ -162,7 +164,7 @@ impl EventHandler {
                     let offset: f32 = args.next()?;
                     let offset: i32 = offset as i32;
                     self.settings.underline_offset = offset;
-                    self.window.request_redraw();
+                    self.request_redraw();
                 }
 
                 "neophyte.set_render_size" => {
@@ -236,7 +238,7 @@ impl EventHandler {
             self.render_state
                 .update(&self.ui, &self.fonts, self.settings.bg_override);
             self.ui.clear_dirty();
-            self.window.request_redraw();
+            self.request_redraw();
         }
     }
 
@@ -534,8 +536,7 @@ impl EventHandler {
         self.last_render_time = now;
 
         let delta_seconds = if self.render_state.updated_since_last_render {
-            let framerate = self
-                .window
+            let framerate = self.windows[0] // TODO
                 .current_monitor()
                 .and_then(|monitor| monitor.refresh_rate_millihertz())
                 .unwrap_or(60_000);
@@ -544,18 +545,22 @@ impl EventHandler {
             elapsed.as_secs_f32()
         };
 
-        let motion = self.render_state.render(
-            self.fonts.cell_size(),
+        let motion = self.render_state.advance(
             delta_seconds,
+            self.fonts.cell_size().cast_as(),
             &self.settings,
-            &self.window,
+        );
+        self.render_state.render(
+            self.fonts.cell_size(),
+            &self.settings,
+            &self.windows[0], // TODO
             self.frame_number,
         );
 
         let is_rendering = self.settings.render_target.is_some();
-        let poll_next_frame = || {
+        let mut poll_next_frame = || {
             window_target.set_control_flow(ControlFlow::Poll);
-            self.window.request_redraw();
+            self.request_redraw();
         };
         match motion {
             Motion::Still => {
@@ -624,6 +629,12 @@ impl EventHandler {
             size
         } else {
             self.surface_size
+        }
+    }
+
+    fn request_redraw(&mut self) {
+        for window in &self.windows {
+            window.request_redraw();
         }
     }
 }
