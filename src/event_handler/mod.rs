@@ -12,7 +12,10 @@ use crate::{
         options::{FontSize, GuiFont},
         Ui,
     },
-    util::{vec2::Vec2, Values},
+    util::{
+        vec2::{PixelVec, Vec2},
+        Values,
+    },
     UserEvent,
 };
 use rmpv::Value;
@@ -30,7 +33,7 @@ use winit::{
 
 pub struct EventHandler {
     scale_factor: f32,
-    surface_size: Vec2<u32>,
+    surface_size: PixelVec<u32>,
     ui: Ui,
     settings: Settings,
     mouse: Mouse,
@@ -171,7 +174,7 @@ impl EventHandler {
                     let mut args = Values::new(params.into_iter().next()?)?;
                     let width = args.next()?;
                     let height = args.next()?;
-                    self.settings.render_size = Some(Vec2::new(width, height));
+                    self.settings.render_size = Some(PixelVec::new(width, height));
                     self.resize();
                 }
 
@@ -294,8 +297,8 @@ impl EventHandler {
                 self.neovim.send_response(rpc::Response::result(
                     msgid,
                     Value::Map(vec![
-                        ("width".into(), render_size.x.into()),
-                        ("height".into(), render_size.y.into()),
+                        ("width".into(), render_size.0.x.into()),
+                        ("height".into(), render_size.0.y.into()),
                     ]),
                 ));
             }
@@ -387,10 +390,10 @@ impl EventHandler {
     }
 
     fn cursor_moved(&mut self, position: PhysicalPosition<f64>) {
-        let position: Vec2<f64> = position.into();
-        let position: Vec2<i64> = position.cast_as();
+        let position: PixelVec<f64> = position.into();
+        let position = position.cast_as::<i64>();
         let cell_size = self.fonts.cell_size();
-        let inner = (self.surface_size / cell_size) * cell_size;
+        let inner = (self.surface_size.into_cells(cell_size)).into_pixels(cell_size);
         let margin = (self.surface_size - inner) / 2;
         let position = position - margin.cast();
         let Ok(position) = position.try_cast::<u32>() else {
@@ -407,8 +410,8 @@ impl EventHandler {
                 Action::ButtonDrag,
                 self.modifiers.into(),
                 grid.grid,
-                grid.position.y,
-                grid.position.x,
+                grid.position.0.y,
+                grid.position.0.x,
             );
         }
     }
@@ -439,8 +442,8 @@ impl EventHandler {
                 action,
                 self.modifiers.into(),
                 grid.grid,
-                grid.position.y,
-                grid.position.x,
+                grid.position.0.y,
+                grid.position.0.x,
             );
         }
     }
@@ -496,8 +499,8 @@ impl EventHandler {
                 action,
                 modifiers,
                 grid.grid,
-                grid.position.y,
-                grid.position.x,
+                grid.position.0.y,
+                grid.position.0.x,
             );
         }
 
@@ -513,8 +516,8 @@ impl EventHandler {
                 action,
                 modifiers,
                 grid.grid,
-                grid.position.y,
-                grid.position.x,
+                grid.position.0.y,
+                grid.position.0.x,
             );
         }
     }
@@ -620,11 +623,11 @@ impl EventHandler {
     }
 
     fn resize_neovim_grid(&mut self) {
-        let size = self.render_size() / self.fonts.cell_size();
-        self.neovim.ui_try_resize_grid(1, size.x, size.y);
+        let size = self.render_size().into_cells(self.fonts.cell_size());
+        self.neovim.ui_try_resize_grid(1, size.0.x, size.0.y);
     }
 
-    fn render_size(&mut self) -> Vec2<u32> {
+    fn render_size(&mut self) -> PixelVec<u32> {
         if let Some(size) = self.settings.render_size {
             size
         } else {
@@ -641,7 +644,7 @@ impl EventHandler {
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 struct Mouse {
-    position: Vec2<u32>,
+    position: PixelVec<u32>,
     scroll: Vec2<i32>,
     buttons: Buttons,
 }

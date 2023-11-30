@@ -1,12 +1,12 @@
-use crate::util::vec2::Vec2;
+use crate::util::vec2::PixelVec;
 use bytemuck::{checked::cast_slice, Pod, Zeroable};
 use std::mem::size_of;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Pod, Zeroable)]
 pub struct GlyphPushConstants {
-    pub target_size: Vec2<u32>,
-    pub offset: Vec2<i32>,
+    pub target_size: PixelVec<u32>,
+    pub offset: PixelVec<i32>,
     pub z: f32,
     pub padding: f32,
 }

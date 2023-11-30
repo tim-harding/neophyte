@@ -1,8 +1,11 @@
 //! Paints text underlines.
 
 use crate::{
-    rendering::{text::Text, texture::Texture},
-    util::vec2::Vec2,
+    rendering::{
+        text::{set_scissor, Text},
+        texture::Texture,
+    },
+    util::vec2::{PixelVec, Vec2},
 };
 use bytemuck::{checked::cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
@@ -76,10 +79,10 @@ impl Pipeline {
     pub fn render<'a, 'b>(
         &'a self,
         encoder: &'a mut wgpu::CommandEncoder,
-        grids: impl Iterator<Item = (f32, Vec2<i32>, &'b Text)>,
+        grids: impl Iterator<Item = (f32, PixelVec<i32>, &'b Text)>,
         color_target: &wgpu::TextureView,
         depth_target: &wgpu::TextureView,
-        target_size: Vec2<u32>,
+        target_size: PixelVec<u32>,
         cell_size: Vec2<u32>,
         underline_offset: i32,
     ) {
@@ -112,11 +115,12 @@ impl Pipeline {
             };
             render_pass.set_bind_group(0, lines_bind_group, &[]);
 
-            grid.set_scissor(cell_size, target_size, &mut render_pass);
+            let size = grid.size().into_pixels(cell_size);
+            set_scissor(size, offset, target_size, &mut render_pass);
             PushConstants {
                 target_size,
-                offset: offset + Vec2::new(0, underline_offset),
-                grid_width: grid.size().x,
+                offset: PixelVec(offset.0 + Vec2::new(0, underline_offset)),
+                grid_width: grid.size().0.x,
                 z,
             }
             .set(&mut render_pass);
@@ -128,8 +132,8 @@ impl Pipeline {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
 pub struct PushConstants {
-    pub target_size: Vec2<u32>,
-    pub offset: Vec2<i32>,
+    pub target_size: PixelVec<u32>,
+    pub offset: PixelVec<i32>,
     pub grid_width: u32,
     pub z: f32,
 }

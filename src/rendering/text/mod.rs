@@ -7,7 +7,7 @@ use crate::{
         fonts::{FontStyle, Fonts},
     },
     ui::grid::CellContents,
-    util::vec2::Vec2,
+    util::vec2::{CellVec, PixelVec, Vec2},
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
 use std::num::NonZeroU64;
@@ -30,12 +30,12 @@ pub struct Text {
     monochrome_bind_group: Option<wgpu::BindGroup>,
     emoji_bind_group: Option<wgpu::BindGroup>,
     lines_bind_group: Option<wgpu::BindGroup>,
-    offset: Vec2<i32>,
-    size: Vec2<u32>,
+    window_position: Option<CellVec<f32>>,
+    size: CellVec<u32>,
 }
 
 impl Text {
-    pub fn new(size: Vec2<u32>) -> Self {
+    pub fn new(size: CellVec<u32>) -> Self {
         Self {
             monochrome: vec![],
             emoji: vec![],
@@ -49,7 +49,7 @@ impl Text {
             lines_bind_group: None,
             // TODO: Should be initialized to grid position. This may be
             // causing the initial Telescope scroll.
-            offset: Vec2::default(),
+            window_position: None,
             size,
         }
     }
@@ -59,7 +59,7 @@ impl Text {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        size: Option<Vec2<u32>>,
+        size: Option<CellVec<u32>>,
         lines: impl Iterator<Item = (i32, impl Iterator<Item = CellContents<'a>> + Clone)> + Clone,
         grid_bind_group_layout: &wgpu::BindGroupLayout,
         highlights: &[Option<Attributes>],
@@ -80,11 +80,11 @@ impl Text {
         self.lines.clear();
 
         let mut cluster = CharCluster::new();
-        self.size = Vec2::new(0, 0);
+        self.size = CellVec(Vec2::new(0, 0));
         let mut line_length = 0;
         for (cell_line_i, cell_line) in lines {
-            self.size.x = self.size.x.max(line_length);
-            self.size.y += 1;
+            self.size.0.x = self.size.0.x.max(line_length);
+            self.size.0.y += 1;
             line_length = 0;
             let mut parser = Parser::new(
                 Script::Latin,
@@ -277,7 +277,7 @@ impl Text {
             }
         }
 
-        self.size.x = self.size.x.max(line_length);
+        self.size.0.x = self.size.0.x.max(line_length);
         if let Some(size) = size {
             self.size = size;
         }
@@ -389,9 +389,8 @@ impl Text {
         });
     }
 
-    pub fn update_window(&mut self, position: Vec2<f32>, cell_size: Vec2<f32>) {
-        let offset = position * cell_size;
-        self.offset = Vec2::new(offset.x as i32, offset.y as i32);
+    pub fn update_window(&mut self, window_position: Option<CellVec<f32>>) {
+        self.window_position = window_position;
     }
 
     pub fn cell_fill_bind_group(&self) -> Option<&wgpu::BindGroup> {
@@ -410,53 +409,54 @@ impl Text {
         self.lines_bind_group.as_ref()
     }
 
-    pub fn size(&self) -> Vec2<u32> {
+    pub fn size(&self) -> CellVec<u32> {
         self.size
     }
 
-    pub fn offset(&self) -> Vec2<i32> {
-        self.offset
-    }
-
-    pub fn set_scissor(
-        &self,
-        cell_size: Vec2<u32>,
-        target_size: Vec2<u32>,
-        render_pass: &mut wgpu::RenderPass,
-    ) {
-        let target_size: Vec2<i32> = target_size.try_cast().unwrap();
-        let minmax = |size| {
-            Vec2::combine(
-                Vec2::combine(size, target_size, i32::min),
-                Vec2::default(),
-                i32::max,
-            )
-        };
-        let size = cell_size * self.size();
-        let size = size.try_cast().unwrap();
-        let size = self.offset + size;
-        let size = minmax(size);
-        let size = size - self.offset;
-        let size = minmax(size).try_cast().unwrap();
-        let offset = minmax(self.offset).try_cast().unwrap_or_default();
-        render_pass.set_scissor_rect(offset.x, offset.y, size.x, size.y);
+    pub fn offset(&self) -> Option<CellVec<f32>> {
+        self.window_position
     }
 
     pub fn cell_fill_count(&self) -> u32 {
-        self.cell_fill.len() as u32
+        self.cell_fill.len().try_into().unwrap()
     }
 
     pub fn monochrome_count(&self) -> u32 {
-        self.monochrome.len() as u32
+        self.monochrome.len().try_into().unwrap()
     }
 
     pub fn emoji_count(&self) -> u32 {
-        self.emoji.len() as u32
+        self.emoji.len().try_into().unwrap()
     }
 
     pub fn lines_count(&self) -> u32 {
-        self.lines.len() as u32
+        self.lines.len().try_into().unwrap()
     }
+}
+
+pub fn set_scissor(
+    size: PixelVec<u32>,
+    offset: PixelVec<i32>,
+    target_size: PixelVec<u32>,
+    render_pass: &mut wgpu::RenderPass,
+) {
+    let target_size: Vec2<i32> = target_size.0.try_cast().unwrap();
+    let minmax = |size| {
+        Vec2::combine(
+            Vec2::combine(size, target_size, i32::min),
+            Vec2::default(),
+            i32::max,
+        )
+    };
+    let offset = offset.0;
+    let size = size.0;
+    let size = size.try_cast().unwrap();
+    let size = offset + size;
+    let size = minmax(size);
+    let size = size - offset;
+    let size = minmax(size).try_cast().unwrap();
+    let offset = minmax(offset).try_cast().unwrap();
+    render_pass.set_scissor_rect(offset.x, offset.y, size.x, size.y);
 }
 
 fn best_font(

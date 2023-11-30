@@ -8,7 +8,7 @@ use super::{
 use crate::{
     event::{grid_line, hl_attr_define::Attributes, Anchor, GridScroll, HlAttrDefine},
     ui::packed_char::PackedCharContents,
-    util::vec2::Vec2,
+    util::vec2::{CellVec, Vec2},
 };
 use std::{
     collections::HashMap,
@@ -101,7 +101,7 @@ impl Grid {
 #[derive(Default, Clone)]
 pub struct GridContents {
     /// Grid dimensions
-    pub size: Vec2<u16>,
+    pub size: CellVec<u16>,
     /// Grid cells in rows then columns
     buffer: Vec<Cell>,
     /// Contains cell contents for cells that require more than one char of
@@ -122,13 +122,13 @@ impl GridContents {
     }
 
     /// Resize the grid to the new dimensions
-    pub fn resize(&mut self, size: Vec2<u16>) {
+    pub fn resize(&mut self, size: CellVec<u16>) {
         let mut old = std::mem::take(&mut self.buffer);
-        self.buffer = vec![Cell::default(); size.area() as usize];
+        self.buffer = vec![Cell::default(); size.0.area() as usize];
         for (new, old) in self
             .buffer
-            .chunks_mut(size.x as usize)
-            .zip(old.chunks(self.size.x.max(1) as usize))
+            .chunks_mut(size.0.x as usize)
+            .zip(old.chunks(self.size.0.x.max(1) as usize))
         {
             for (new, old) in new.iter_mut().zip(old.iter()) {
                 *new = *old;
@@ -141,7 +141,7 @@ impl GridContents {
     pub fn scroll(&mut self, top: u16, bot: u16, left: u16, right: u16, rows: i32) {
         let left = left as usize;
         let right = right as usize;
-        let size: Vec2<usize> = self.size.cast_as();
+        let size: Vec2<usize> = self.size.0.cast_as();
         let dst_top = top as i32 - rows;
         let dst_bot = bot as i32 - rows;
         if rows > 0 {
@@ -175,7 +175,7 @@ impl GridContents {
 
     /// Apply a grid_line event
     pub fn grid_line(&mut self, row: u16, col_start: u16, cells: Vec<grid_line::Cell>) {
-        let w = self.size.x as usize;
+        let w = self.size.0.x as usize;
         let start = row as usize * w;
         let end = start + w;
         let mut row = self.buffer[start..end].iter_mut().skip(col_start as usize);
@@ -220,7 +220,7 @@ impl GridContents {
         &self,
     ) -> impl Iterator<Item = impl Iterator<Item = CellContents<'_>> + '_ + Clone> + '_ + Clone
     {
-        self.buffer.chunks(self.size.x as usize).map(|chunk| {
+        self.buffer.chunks(self.size.0.x as usize).map(|chunk| {
             chunk.iter().map(|cell| {
                 let text = match cell.text.contents() {
                     PackedCharContents::Char(c) => c.into(),
@@ -248,7 +248,7 @@ impl GridContents {
 
 impl Debug for GridContents {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(f, "┏{:━<1$}┓", "", self.size.x as usize);
+        writeln!(f, "┏{:━<1$}┓", "", self.size.0.x as usize);
         for row in self.rows() {
             write!(f, "┃");
             for mut cell in row {
@@ -261,7 +261,7 @@ impl Debug for GridContents {
             }
             writeln!(f, "┃")?;
         }
-        write!(f, "┗{:━<1$}┛", "", self.size.x as usize);
+        write!(f, "┗{:━<1$}┛", "", self.size.0.x as usize);
         Ok(())
     }
 }

@@ -2,11 +2,13 @@
 
 use crate::{
     rendering::{
-        glyph_bind_group::GlyphBindGroup, glyph_push_constants::GlyphPushConstants, text::Text,
+        glyph_bind_group::GlyphBindGroup,
+        glyph_push_constants::GlyphPushConstants,
+        text::{set_scissor, Text},
         texture::Texture,
     },
     text::cache::Cached,
-    util::vec2::Vec2,
+    util::vec2::{PixelVec, Vec2},
 };
 use wgpu::include_wgsl;
 
@@ -104,11 +106,11 @@ impl Pipeline {
     pub fn render<'a, 'b>(
         &'a self,
         encoder: &'a mut wgpu::CommandEncoder,
-        grids: impl Iterator<Item = (f32, Vec2<i32>, &'b Text)>,
+        grids: impl Iterator<Item = (f32, PixelVec<i32>, &'b Text)>,
         color_target: &wgpu::TextureView,
         depth_target: &wgpu::TextureView,
         cell_size: Vec2<u32>,
-        target_size: Vec2<u32>,
+        target_size: PixelVec<u32>,
     ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Emoji render pass"),
@@ -142,7 +144,8 @@ impl Pipeline {
                     continue;
                 };
                 render_pass.set_bind_group(1, emoji_bind_group, &[]);
-                grid.set_scissor(cell_size, target_size, &mut render_pass);
+                let size = grid.size().into_pixels(cell_size);
+                set_scissor(size, offset, target_size, &mut render_pass);
                 GlyphPushConstants {
                     target_size,
                     offset,

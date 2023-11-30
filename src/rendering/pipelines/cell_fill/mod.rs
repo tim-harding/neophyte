@@ -3,8 +3,11 @@
 //! pipeline.
 
 use crate::{
-    rendering::{text::Text, texture::Texture},
-    util::vec2::Vec2,
+    rendering::{
+        text::{set_scissor, Text},
+        texture::Texture,
+    },
+    util::vec2::{PixelVec, Vec2},
 };
 use bytemuck::{checked::cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
@@ -78,10 +81,10 @@ impl Pipeline {
     pub fn render<'a, 'b>(
         &'a self,
         encoder: &'a mut wgpu::CommandEncoder,
-        grids: impl Iterator<Item = (f32, Vec2<i32>, &'b Text)>,
+        grids: impl Iterator<Item = (f32, PixelVec<i32>, &'b Text)>,
         color_target: &wgpu::TextureView,
         depth_target: &wgpu::TextureView,
-        target_size: Vec2<u32>,
+        target_size: PixelVec<u32>,
         cell_size: Vec2<u32>,
     ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -113,7 +116,8 @@ impl Pipeline {
             };
             render_pass.set_bind_group(0, bg_bind_group, &[]);
 
-            grid.set_scissor(cell_size, target_size, &mut render_pass);
+            let size_pixels = grid.size().into_pixels(cell_size);
+            set_scissor(size_pixels, offset, target_size, &mut render_pass);
             PushConstants {
                 target_size,
                 cell_size,
@@ -130,9 +134,9 @@ impl Pipeline {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
 pub struct PushConstants {
-    pub target_size: Vec2<u32>,
+    pub target_size: PixelVec<u32>,
     pub cell_size: Vec2<u32>,
-    pub offset: Vec2<i32>,
+    pub offset: PixelVec<i32>,
     pub z: f32,
     pub padding: u32,
 }

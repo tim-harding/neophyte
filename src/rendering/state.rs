@@ -18,7 +18,7 @@ use crate::{
     event_handler::settings::Settings,
     text::{cache::FontCache, fonts::Fonts},
     ui::Ui,
-    util::vec2::Vec2,
+    util::vec2::{CellVec, PixelVec, Vec2},
 };
 use bytemuck::cast_slice;
 use swash::shape::ShapeContext;
@@ -35,6 +35,7 @@ pub struct RenderState {
     shape_context: ShapeContext,
     font_cache: FontCache,
     clear_color: [f32; 4],
+    // TODO: Remove this if we no longer want to externalize the cmdline
     cmdline_grid: CmdlineGrid,
     text_bind_group_layout: text::bind_group::BindGroup,
     pub updated_since_last_render: bool,
@@ -42,7 +43,7 @@ pub struct RenderState {
 
 impl RenderState {
     pub async fn new(window: &Window, cell_size: Vec2<u32>, transparent: bool) -> Self {
-        let surface_size: Vec2<u32> = window.inner_size().into();
+        let surface_size: PixelVec<u32> = window.inner_size().into();
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
@@ -98,8 +99,8 @@ impl RenderState {
                 .copied()
                 .find(|f| f.is_srgb())
                 .unwrap_or(surface_caps.formats[0]),
-            width: surface_size.x,
-            height: surface_size.y,
+            width: surface_size.0.x,
+            height: surface_size.0.y,
             present_mode: wgpu::PresentMode::AutoVsync,
             alpha_mode,
             view_formats: vec![],
@@ -108,7 +109,8 @@ impl RenderState {
 
         let grids = Grids::new(&device);
 
-        let target_size: Vec2<u32> = (surface_size / cell_size) * cell_size;
+        let target_size: PixelVec<u32> =
+            (surface_size.into_cells(cell_size)).into_pixels(cell_size);
         let targets = Targets::new(&device, target_size);
 
         Self {
@@ -132,7 +134,7 @@ impl RenderState {
                 blit_png: png_blit::Pipeline::new(
                     &device,
                     &targets.color.view,
-                    target_size.x as f32 / targets.png_size.x as f32,
+                    target_size.0.x as f32 / targets.png_size.0.x as f32,
                 ),
                 monochrome: monochrome::Pipeline::new(&device),
                 lines: lines::Pipeline::new(
@@ -183,8 +185,10 @@ impl RenderState {
             &self.device,
             &self.queue,
             &ui.cmdline,
-            Vec2::new(0., ui.grids[0].contents().size.y as f32 - 1.),
-            fonts.cell_size().cast_as(),
+            Some(CellVec::new(
+                0.,
+                ui.grids[0].contents().size.0.y as f32 - 1.,
+            )),
             &self.text_bind_group_layout.bind_group_layout,
             &ui.highlights,
             fg,
@@ -225,16 +229,16 @@ impl RenderState {
             .update(&self.device, &self.targets.monochrome.view);
     }
 
-    pub fn resize(&mut self, new_size: Vec2<u32>, cell_size: Vec2<u32>, transparent: bool) {
-        if new_size == Vec2::default() {
+    pub fn resize(&mut self, new_size: PixelVec<u32>, cell_size: Vec2<u32>, transparent: bool) {
+        if new_size == PixelVec::default() {
             return;
         }
 
-        self.surface_config.width = new_size.x;
-        self.surface_config.height = new_size.y;
+        self.surface_config.width = new_size.0.x;
+        self.surface_config.height = new_size.0.y;
         self.surface.configure(&self.device, &self.surface_config);
 
-        let target_size: Vec2<u32> = (new_size / cell_size) * cell_size;
+        let target_size: PixelVec<u32> = (new_size.into_cells(cell_size)).into_pixels(cell_size);
         self.targets = Targets::new(&self.device, target_size);
 
         self.pipelines.gamma_blit_final.update(
@@ -248,7 +252,7 @@ impl RenderState {
         self.pipelines.blit_png.update(
             &self.device,
             &self.targets.color.view,
-            self.targets.png_size.x as f32 / target_size.x as f32,
+            self.targets.png_size.0.x as f32 / target_size.0.x as f32,
         );
     }
 
@@ -317,18 +321,26 @@ impl RenderState {
         let grids = || {
             self.grids
                 .front_to_back()
-                .map(|(z, grid)| {
-                    (
-                        (z as f32 + 1.) / (grid_count + 1.),
-                        grid.offset(cell_size.y as f32),
-                        &grid.text,
-                    )
+                .filter_map(|(z, grid)| {
+                    grid.offset().map(|offset| {
+                        (
+                            (z as f32 + 1.) / (grid_count + 1.),
+                            offset
+                                .cast_as::<i32>()
+                                .into_pixels(cell_size.try_cast().unwrap()),
+                            &grid.text,
+                        )
+                    })
                 })
-                .chain(std::iter::once((
-                    0.,
-                    self.cmdline_grid.offset(),
-                    &self.cmdline_grid.text,
-                )))
+                .chain(self.cmdline_grid.offset().map(|offset| {
+                    (
+                        0.,
+                        offset
+                            .cast_as::<i32>()
+                            .into_pixels(cell_size.try_cast().unwrap()),
+                        &self.cmdline_grid.text,
+                    )
+                }))
         };
 
         // See the module documentation for each pipeline for more details
@@ -431,8 +443,8 @@ impl RenderState {
                 buffer: &self.targets.png_staging,
                 layout: wgpu::ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(self.targets.png_size.x * 4),
-                    rows_per_image: Some(self.targets.png_size.y),
+                    bytes_per_row: Some(self.targets.png_size.0.x * 4),
+                    rows_per_image: Some(self.targets.png_size.0.y),
                 },
             },
             self.targets.png_size.into(),
@@ -453,7 +465,8 @@ impl RenderState {
                 let file_name = format!("{frame_number:0>6}.png");
                 let file = File::create(dir.join(file_name))?;
                 let w = &mut BufWriter::new(file);
-                let mut w = png::Encoder::new(w, self.targets.png_size.x, self.targets.png_size.y);
+                let mut w =
+                    png::Encoder::new(w, self.targets.png_size.0.x, self.targets.png_size.0.y);
                 w.set_color(png::ColorType::Rgba);
                 w.set_depth(png::BitDepth::Eight);
                 w.set_srgb(png::SrgbRenderingIntent::Perceptual);
@@ -479,8 +492,8 @@ impl RenderState {
         self.pipelines.monochrome.clear();
     }
 
-    pub fn surface_size(&self) -> Vec2<u32> {
-        Vec2::new(self.surface_config.width, self.surface_config.height)
+    pub fn surface_size(&self) -> PixelVec<u32> {
+        PixelVec::new(self.surface_config.width, self.surface_config.height)
     }
 }
 
@@ -490,12 +503,12 @@ struct Targets {
     depth: Texture,
     png: Texture,
     png_staging: wgpu::Buffer,
-    png_size: Vec2<u32>,
+    png_size: PixelVec<u32>,
 }
 
 impl Targets {
-    pub fn new(device: &wgpu::Device, size: Vec2<u32>) -> Self {
-        let png_size = Vec2::new(((size.x + 63) / 64) * 64, size.y);
+    pub fn new(device: &wgpu::Device, size: PixelVec<u32>) -> Self {
+        let png_size = PixelVec::new(((size.0.x + 63) / 64) * 64, size.0.y);
         Self {
             monochrome: Texture::target(
                 device,

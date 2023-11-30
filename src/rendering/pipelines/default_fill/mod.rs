@@ -6,8 +6,11 @@
 //! front-to-back rendering and overlapping windows.
 
 use crate::{
-    rendering::{text::Text, texture::Texture},
-    util::vec2::Vec2,
+    rendering::{
+        text::{set_scissor, Text},
+        texture::Texture,
+    },
+    util::vec2::{PixelVec, Vec2},
 };
 use bytemuck::{checked::cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
@@ -80,7 +83,7 @@ impl Pipeline {
         grids: impl Iterator<Item = (f32, &'b Text)>,
         color_target: &wgpu::TextureView,
         depth_target: &wgpu::TextureView,
-        target_size: Vec2<u32>,
+        target_size: PixelVec<u32>,
         cell_size: Vec2<u32>,
         clear_color: [f32; 4],
     ) {
@@ -114,16 +117,20 @@ impl Pipeline {
         // TODO: Could do this in a single draw call
         render_pass.set_pipeline(&self.pipeline);
         for (z, grid) in grids {
-            grid.set_scissor(cell_size, target_size, &mut render_pass);
-            PushConstants {
-                z,
-                r: clear_color[0],
-                g: clear_color[1],
-                b: clear_color[2],
-                a: clear_color[3],
+            let size = grid.size().into_pixels(cell_size);
+            if let Some(offset) = grid.offset() {
+                let offset = offset.round_to_pixels(cell_size);
+                set_scissor(size, offset, target_size, &mut render_pass);
+                PushConstants {
+                    z,
+                    r: clear_color[0],
+                    g: clear_color[1],
+                    b: clear_color[2],
+                    a: clear_color[3],
+                }
+                .set(&mut render_pass);
+                render_pass.draw(0..6, 0..1);
             }
-            .set(&mut render_pass);
-            render_pass.draw(0..6, 0..1);
         }
     }
 }

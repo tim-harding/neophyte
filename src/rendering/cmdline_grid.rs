@@ -6,7 +6,7 @@ use crate::{
         cmdline::{Cmdline, Mode},
         grid::CellContents,
     },
-    util::vec2::Vec2,
+    util::vec2::CellVec,
 };
 use swash::shape::ShapeContext;
 
@@ -17,11 +17,11 @@ pub struct CmdlineGrid {
 impl CmdlineGrid {
     pub fn new() -> Self {
         Self {
-            text: Text::new(Vec2::new(0, 0)),
+            text: Text::new(CellVec::new(0, 0)),
         }
     }
 
-    pub fn offset(&self) -> Vec2<i32> {
+    pub fn offset(&self) -> Option<CellVec<f32>> {
         self.text.offset()
     }
 
@@ -31,8 +31,7 @@ impl CmdlineGrid {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         cmdline: &Cmdline,
-        position: Vec2<f32>,
-        cell_size: Vec2<f32>,
+        position: Option<CellVec<f32>>,
         grid_bind_group_layout: &wgpu::BindGroupLayout,
         highlights: &[Option<Attributes>],
         default_fg: Rgb,
@@ -94,7 +93,7 @@ impl CmdlineGrid {
             )
         }
 
-        self.text.update_window(position, cell_size);
+        self.text.update_window(position);
     }
 }
 

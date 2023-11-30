@@ -3,7 +3,7 @@ mod range;
 use crate::{
     rendering::Motion,
     ui::grid::{CellContents, GridContents},
-    util::vec2::Vec2,
+    util::vec2::CellVec,
 };
 use range::Range;
 use std::collections::VecDeque;
@@ -48,13 +48,13 @@ impl ScrollingGrids {
     pub fn push(&mut self, grid: GridContents, offset: i32) {
         // TODO: Add desired screen region
         let sign = if offset.is_positive() { 1 } else { -1 };
-        let mag = offset.abs().min(grid.size.y.into());
+        let mag = offset.abs().min(grid.size.0.y.into());
         let offset = mag * sign;
-        let mut coverage = Range::until(grid.size.y.into());
+        let mut coverage = Range::until(grid.size.0.y.into());
         self.t += offset as f32;
         self.scrolling.retain_mut(|part| {
             part.offset -= offset;
-            let grid_range = Range::until(part.grid.size.y.into()) + part.offset;
+            let grid_range = Range::until(part.grid.size.0.y.into()) + part.offset;
             let uncovered = grid_range.cover(coverage);
             coverage = coverage.union(grid_range);
             if let Some(uncovered) = uncovered {
@@ -62,7 +62,7 @@ impl ScrollingGrids {
                 part.start = grid_range.start.try_into().unwrap();
                 part.end = grid_range.end.try_into().unwrap();
                 // Useful when resizing the window
-                part.grid.size.y == grid.size.y
+                part.grid.size.0.y == grid.size.0.y
             } else {
                 false
             }
@@ -88,12 +88,12 @@ impl ScrollingGrids {
         })
     }
 
-    pub fn size(&self) -> Vec2<u16> {
+    pub fn size(&self) -> CellVec<u16> {
         self.scrolling.back().unwrap().grid.size
     }
 
-    pub fn offset(&self, cell_height: f32) -> Vec2<i32> {
-        Vec2::new(0, (self.t() * cell_height) as i32)
+    pub fn offset(&self) -> CellVec<f32> {
+        CellVec::new(0., self.t())
     }
 }
 
@@ -109,7 +109,7 @@ impl GridPart {
         Self {
             offset: 0,
             start: 0,
-            end: grid.size.y as usize,
+            end: grid.size.0.y as usize,
             grid,
         }
     }

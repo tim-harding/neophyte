@@ -1,4 +1,4 @@
-use crate::util::vec2::Vec2;
+use crate::util::vec2::PixelVec;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -10,7 +10,7 @@ pub struct Settings {
     /// Additional offset to apply to underlines
     pub underline_offset: i32,
     /// The size of the render surface, or None to use the default
-    pub render_size: Option<Vec2<u32>>,
+    pub render_size: Option<PixelVec<u32>>,
     /// The directory to save frames to, or None if not rendering
     pub render_target: Option<PathBuf>,
     /// Overrides the background from Neovim's DefaultColorsSet event

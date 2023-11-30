@@ -1,8 +1,10 @@
-use crate::{event::Anchor, util::vec2::Vec2};
-
 use super::grid;
+use crate::{
+    event::Anchor,
+    util::vec2::{CellVec, Vec2},
+};
 
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, PartialEq)]
 pub enum Window {
     #[default]
     None,
@@ -12,7 +14,7 @@ pub enum Window {
 }
 
 impl Window {
-    pub fn offset(&self, grid_size: Vec2<u16>) -> WindowOffset {
+    pub fn offset(&self, grid_size: CellVec<u16>) -> WindowOffset {
         match &self {
             Window::None => Default::default(),
             Window::External => Default::default(),
@@ -23,10 +25,10 @@ impl Window {
             Window::Floating(window) => {
                 let offset = grid_size
                     * match window.anchor {
-                        Anchor::Nw => Vec2::new(0, 0),
-                        Anchor::Ne => Vec2::new(1, 0),
-                        Anchor::Sw => Vec2::new(0, 1),
-                        Anchor::Se => Vec2::new(1, 1),
+                        Anchor::Nw => CellVec(Vec2::new(0, 0)),
+                        Anchor::Ne => CellVec(Vec2::new(1, 0)),
+                        Anchor::Sw => CellVec(Vec2::new(0, 1)),
+                        Anchor::Se => CellVec(Vec2::new(1, 1)),
                     };
                 WindowOffset {
                     offset: window.anchor_pos - offset.cast_as(),
@@ -39,20 +41,20 @@ impl Window {
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct WindowOffset {
-    pub offset: Vec2<f32>,
+    pub offset: CellVec<f32>,
     pub anchor_grid: Option<grid::Id>,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct FloatingWindow {
     pub anchor: Anchor,
     pub anchor_grid: grid::Id,
-    pub anchor_pos: Vec2<f32>,
+    pub anchor_pos: CellVec<f32>,
     pub focusable: bool,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct NormalWindow {
-    pub start: Vec2<u16>,
-    pub size: Vec2<u16>,
+    pub start: CellVec<u16>,
+    pub size: CellVec<u16>,
 }

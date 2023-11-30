@@ -76,6 +76,8 @@ impl Mul for Mat3 {
     }
 }
 
+// Align is useful to make sure padding is handled correctly in push constant
+// structs
 #[repr(C, align(16))]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
 pub struct Vec3 {

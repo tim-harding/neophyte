@@ -9,7 +9,10 @@ use crate::{
     },
     rendering::{nearest_sampler, texture::Texture, Motion},
     ui::{cmdline::Mode, Ui},
-    util::{mat3::Mat3, vec2::Vec2},
+    util::{
+        mat3::Mat3,
+        vec2::{CellVec, PixelVec, Vec2},
+    },
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
 use std::mem::size_of;
@@ -163,30 +166,34 @@ impl Pipeline {
         );
 
         let position = match kind {
-            CursorKind::Normal => ui
-                .cursor
-                .enabled
-                .then_some(ui.position(ui.cursor.grid) + ui.cursor.pos.cast_as()),
+            CursorKind::Normal => {
+                if ui.cursor.enabled {
+                    ui.position(ui.cursor.grid)
+                        .map(|position| position + ui.cursor.pos.cast_as())
+                } else {
+                    None
+                }
+            }
             CursorKind::Cmdline => ui.cmdline.mode.as_ref().map(|mode| match mode {
                 Mode::Normal { levels } => {
                     // We guarantee at least one level if the mode is Some
                     let level = levels.last().unwrap();
                     let mut pos =
-                        Vec2::new(level.cursor_pos as i64, -(level.content_lines.len() as i64));
+                        CellVec::new(level.cursor_pos as i64, -(level.content_lines.len() as i64));
                     for line in level.content_lines.iter() {
-                        pos.y += 1;
+                        pos.0.y += 1;
                         let line_len = line
                             .chunks
                             .iter()
                             .fold(0, |acc, chunk| acc + chunk.text_chunk.len());
-                        if line_len < pos.x as usize {
-                            pos.x -= line_len as i64;
+                        if line_len < pos.0.x as usize {
+                            pos.0.x -= line_len as i64;
                         } else {
                             break;
                         }
                     }
-                    pos.x += level.prompt.len() as i64 + 1;
-                    let base = Vec2::new(0, ui.grids[0].contents().size.y - 1);
+                    pos.0.x += level.prompt.len() as i64 + 1;
+                    let base = CellVec::new(0, ui.grids[0].contents().size.0.y - 1);
                     pos.cast_as::<f32>() + base.cast_as()
                 }
 
@@ -197,7 +204,7 @@ impl Pipeline {
             }),
         };
 
-        let position: Option<Vec2<f32>> = position.map(|pos| pos.cast_as());
+        let position = position.map(|pos| pos.cast_as::<f32>());
 
         let mode = &ui.modes[ui.current_mode as usize];
         let fill = mode.cell_percentage.unwrap_or(10) as f32 / 100.0;
@@ -211,7 +218,7 @@ impl Pipeline {
         self.display_info = match (position, self.display_info.as_ref()) {
             (None, None) | (None, Some(_)) => None,
             (Some(position), None) => {
-                let position = position * cell_size;
+                let position = position.into_pixels(cell_size);
                 Some(DisplayInfo {
                     start_position: position,
                     target_position: position,
@@ -223,7 +230,7 @@ impl Pipeline {
                 })
             }
             (Some(position), Some(display_info)) => {
-                let new_target = cell_size * position;
+                let new_target = position.into_pixels(cell_size);
                 let (start_position, elapsed) = if new_target != display_info.target_position {
                     let current_position = display_info
                         .start_position
@@ -266,26 +273,26 @@ impl Pipeline {
                 let toward = display_info.target_position - display_info.start_position;
                 let length = toward.length();
                 let direction = if length < 0.25 {
-                    Vec2::new(1.0, 0.0)
+                    PixelVec::new(1.0, 0.0)
                 } else {
                     toward / length
                 };
-                let angle = f32::atan2(direction.x, direction.y);
+                let angle = f32::atan2(direction.0.x, direction.0.y);
 
                 let cell_diagonal = cell_size.length();
                 let dir = direction * (1. - t);
-                let translate = Vec2::splat(0.5) - dir / cell_diagonal * 4.;
-                let transform = Mat3::translate(translate)
+                let translate = PixelVec::splat(0.5) - dir / cell_diagonal * 4.;
+                let transform = Mat3::translate(translate.0)
                     * Mat3::rotate(-angle)
                     * Mat3::scale(Vec2::new(1.0, length * (1. - t) / 2.))
                     * Mat3::rotate(angle)
-                    * Mat3::translate(-translate);
+                    * Mat3::translate(-translate.0);
 
                 self.fragment_push_constants.speed = (1. - t) * length / cell_diagonal;
                 (Motion::Animating, transform)
             };
 
-        self.transform = Mat3::translate(current_position) * transform;
+        self.transform = Mat3::translate(current_position.0) * transform;
 
         let (motion, show) = if let Some(blink_rate) = display_info.blink_rate {
             let blink_state = display_info
@@ -315,13 +322,13 @@ impl Pipeline {
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         color_target: &wgpu::TextureView,
-        target_size: Vec2<f32>,
+        target_size: PixelVec<f32>,
     ) {
         let Some(display_info) = self.display_info.as_mut() else {
             return;
         };
 
-        let transform = Mat3::scale(target_size.map(f32::recip)) * self.transform;
+        let transform = Mat3::scale(target_size.map(f32::recip).0) * self.transform;
 
         if self.show {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -346,7 +353,8 @@ impl Pipeline {
                 cast_slice(&[VertexPushConstants {
                     transform,
                     fill: display_info.fill,
-                    cursor_size: display_info.cursor_size / target_size,
+                    // TODO: ScreenVec type for vector in screenspace?
+                    cursor_size: display_info.cursor_size / target_size.0,
                 }]),
             );
             render_pass.set_push_constants(
@@ -384,8 +392,8 @@ fn bind_group(
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct DisplayInfo {
-    start_position: Vec2<f32>,
-    target_position: Vec2<f32>,
+    start_position: PixelVec<f32>,
+    target_position: PixelVec<f32>,
     elapsed: f32,
     fill: Vec2<f32>,
     cursor_size: Vec2<f32>,

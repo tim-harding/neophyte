@@ -41,7 +41,7 @@ impl Parse for WinFloatPos {
 }
 
 /// Which corner of the float to place at the anchor position
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Anchor {
     /// Northwest
     Nw,

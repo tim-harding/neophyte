@@ -3,7 +3,7 @@ use crate::{
     event::{hl_attr_define::Attributes, rgb::Rgb},
     text::{cache::FontCache, fonts::Fonts},
     ui::{self, grid::Grid as UiGrid},
-    util::vec2::Vec2,
+    util::vec2::CellVec,
 };
 use std::collections::HashMap;
 use swash::shape::ShapeContext;
@@ -18,8 +18,10 @@ impl Grid {
         Self { text, scrolling }
     }
 
-    pub fn offset(&self, cell_height: f32) -> Vec2<i32> {
-        self.text.offset() + self.scrolling.offset(cell_height)
+    pub fn offset(&self) -> Option<CellVec<f32>> {
+        self.text
+            .offset()
+            .map(|offset| self.scrolling.offset() + offset.cast_as())
     }
 }
 
@@ -56,7 +58,7 @@ impl Grids {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         ui_grid: &UiGrid,
-        position: Vec2<f32>,
+        window_position: Option<CellVec<f32>>,
         highlights: &[Option<Attributes>],
         default_fg: Rgb,
         fonts: &Fonts,
@@ -95,8 +97,7 @@ impl Grids {
         }
 
         if ui_grid.dirty.window() {
-            grid.text
-                .update_window(position, fonts.cell_size().cast_as());
+            grid.text.update_window(window_position);
         }
     }
 

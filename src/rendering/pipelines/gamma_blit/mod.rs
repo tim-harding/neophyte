@@ -2,7 +2,7 @@
 //! while applying gamma-correction and premultiplying by the alpha for window
 //! transparency as needed.
 
-use crate::{rendering::nearest_sampler, util::vec2::Vec2};
+use crate::{rendering::nearest_sampler, util::vec2::PixelVec};
 use bytemuck::{cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
 
@@ -81,8 +81,8 @@ impl Pipeline {
         device: &wgpu::Device,
         dst_format: wgpu::TextureFormat,
         src_tex: &wgpu::TextureView,
-        src_size: Vec2<u32>,
-        dst_size: Vec2<u32>,
+        src_size: PixelVec<u32>,
+        dst_size: PixelVec<u32>,
         transparent: bool,
     ) {
         self.bind_group = bind_group(device, &self.bind_group_layout, &self.sampler, src_tex);
@@ -202,8 +202,8 @@ fn bind_group(
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
 pub struct PushConstantsVertex {
-    src_size: Vec2<u32>,
-    dst_size: Vec2<u32>,
+    src_size: PixelVec<u32>,
+    dst_size: PixelVec<u32>,
 }
 
 #[repr(C)]

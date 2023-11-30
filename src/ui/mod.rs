@@ -18,7 +18,7 @@ use crate::{
         WinViewport,
     },
     ui::window::{FloatingWindow, NormalWindow, Window},
-    util::vec2::Vec2,
+    util::vec2::{CellVec, PixelVec, Vec2},
 };
 use std::{collections::HashMap, fmt::Debug};
 
@@ -181,7 +181,7 @@ impl Ui {
             }) => {
                 self.get_or_create_grid(grid)
                     .contents_mut()
-                    .resize(Vec2::new(width, height));
+                    .resize(CellVec(Vec2::new(width, height)));
             }
             Event::GridClear(GridClear { grid }) => self
                 .grid_mut(grid)
@@ -190,7 +190,7 @@ impl Ui {
                 .clear(),
             Event::GridDestroy(GridDestroy { grid }) => self.delete_grid(grid),
             Event::GridCursorGoto(GridCursorGoto { grid, row, column }) => {
-                self.cursor.pos = Vec2::new(column, row);
+                self.cursor.pos = CellVec::new(column, row);
                 self.cursor.grid = grid;
             }
             Event::GridScroll(GridScroll {
@@ -232,8 +232,8 @@ impl Ui {
                     .grid_mut(grid)
                     .expect("Tried to update the position of a nonexistent grid")
                     .window_mut() = Window::Normal(NormalWindow {
-                    start: Vec2::new(start_col, start_row),
-                    size: Vec2::new(width, height),
+                    start: CellVec(Vec2::new(start_col, start_row)),
+                    size: CellVec(Vec2::new(width, height)),
                 });
             }
             Event::WinFloatPos(WinFloatPos {
@@ -253,7 +253,7 @@ impl Ui {
                     anchor,
                     focusable,
                     anchor_grid,
-                    anchor_pos: Vec2::new(anchor_col, anchor_row),
+                    anchor_pos: CellVec(Vec2::new(anchor_col, anchor_row)),
                 });
             }
             Event::WinExternalPos(WinExternalPos { grid, win: _ }) => {
@@ -318,7 +318,7 @@ impl Ui {
                 *self.get_or_create_grid(grid).window_mut() = Window::Floating(FloatingWindow {
                     anchor: Anchor::Nw,
                     anchor_grid: 1,
-                    anchor_pos: Vec2::new(0.0, row as f32),
+                    anchor_pos: CellVec(Vec2::new(0.0, row as f32)),
                     focusable: false,
                 });
             }
@@ -379,21 +379,24 @@ impl Ui {
 
     /// Get the position of the grid, accounting for anchor grids and other
     /// windowing details
-    pub fn position(&self, grid: grid::Id) -> Vec2<f32> {
+    pub fn position(&self, grid: grid::Id) -> Option<CellVec<f32>> {
         if let Ok(index) = self.grid_index(grid) {
             let grid = &self.grids[index];
+            if grid.window() == &Window::None {
+                return None;
+            }
             let WindowOffset {
                 offset,
                 anchor_grid,
             } = grid.window().offset(grid.contents().size);
             let position = if let Some(anchor_grid) = anchor_grid {
-                self.position(anchor_grid) + offset
+                self.position(anchor_grid)? + offset
             } else {
                 offset
             };
-            position.map(|x| x.max(0.))
+            Some(position.map(|x| x.max(0.)))
         } else {
-            Vec2::default()
+            None
         }
     }
 
@@ -401,20 +404,24 @@ impl Ui {
     /// windowing details
     pub fn grid_under_cursor(
         &self,
-        cursor: Vec2<u32>,
+        cursor: PixelVec<u32>,
         cell_size: Vec2<u32>,
     ) -> Option<GridUnderCursor> {
         // TODO: Can this be derived from CursorInfo instead?
-        let cursor: Vec2<f32> = cursor.cast_as();
-        let cell_size: Vec2<f32> = cell_size.cast_as();
+        let cursor = cursor.cast_as::<f32>();
+        let cell_size = cell_size.cast_as::<f32>();
         for &grid_id in self.draw_order.iter().rev() {
             let grid = self.grid(grid_id).unwrap();
-            let size: Vec2<f32> = grid.contents().size.cast_as();
-            let start = self.position(grid_id) * cell_size;
-            let end = start + size * cell_size;
-            if cursor.x > start.x && cursor.y > start.y && cursor.x < end.x && cursor.y < end.y {
-                let position = (cursor - start) / cell_size;
-                let position: Vec2<i64> = position.cast_as();
+            let size: CellVec<f32> = grid.contents().size.cast_as();
+            let start = self.position(grid_id)?.into_pixels(cell_size);
+            let end = start + size.into_pixels(cell_size);
+            if cursor.0.x > start.0.x
+                && cursor.0.y > start.0.y
+                && cursor.0.x < end.0.x
+                && cursor.0.y < end.0.y
+            {
+                let position = (cursor - start).into_cells(cell_size);
+                let position = position.cast_as::<i64>();
                 let Ok(position) = position.try_cast() else {
                     continue;
                 };
@@ -433,13 +440,13 @@ pub struct GridUnderCursor {
     /// The ID of the grid
     pub grid: grid::Id,
     /// The position of the cursor in grid cells relative to the grid
-    pub position: Vec2<u32>,
+    pub position: CellVec<u32>,
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct CursorInfo {
     /// The position of the cursor in grid cells
-    pub pos: Vec2<u16>,
+    pub pos: CellVec<u16>,
     /// The grid the cursor is on
     pub grid: grid::Id,
     /// Whether the cursor should be rendered
