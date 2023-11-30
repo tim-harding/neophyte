@@ -121,7 +121,7 @@ impl Attributes {
     /// windows to the background or to signal a transparent cursor
     pub fn blend(&self) -> f32 {
         let percentage = (self.packed & Self::BLEND_MASK >> Self::BLEND_TRAILING) as u8;
-        (100 - percentage) as f32 / 100.
+        f32::from(100 - percentage) / 100.
     }
 
     fn maybe_set(&mut self, value: Value, mask: u16) -> Option<()> {
