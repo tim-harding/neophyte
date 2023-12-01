@@ -325,9 +325,7 @@ impl RenderState {
                     grid.offset().map(|offset| {
                         (
                             (z as f32 + 1.) / (grid_count + 1.),
-                            offset
-                                .cast_as::<i32>()
-                                .into_pixels(cell_size.try_cast().unwrap()),
+                            offset.into_pixels(cell_size.cast_as()).cast_as::<i32>(),
                             &grid.text,
                         )
                     })
@@ -335,9 +333,7 @@ impl RenderState {
                 .chain(self.cmdline_grid.offset().map(|offset| {
                     (
                         0.,
-                        offset
-                            .cast_as::<i32>()
-                            .into_pixels(cell_size.try_cast().unwrap()),
+                        offset.into_pixels(cell_size.cast_as()).cast_as::<i32>(),
                         &self.cmdline_grid.text,
                     )
                 }))
