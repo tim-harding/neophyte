@@ -2,11 +2,11 @@
 linker = "clang"
 rustflags = ["-C", "link-arg=-fuse-ld=/usr/bin/mold"]
 
-[build]
-rustflags = ["-Z", "threads=8"]
-
-[unstable]
-codegen-backend = true
-
-[profile.server-dev]
-codegen-backend = "cranelift"
+# [build]
+# rustflags = ["-Z", "threads=8"]
+#
+# [unstable]
+# codegen-backend = true
+#
+# [profile.server-dev]
+# codegen-backend = "cranelift"

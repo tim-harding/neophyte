@@ -31,6 +31,7 @@ fn main() {
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event()
         .build()
         .expect("Failed to create event loop");
+
     let window = WindowBuilder::new()
         .with_transparent(transparent)
         .build(&event_loop)

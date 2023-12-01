@@ -21,3 +21,6 @@ pollster = "0.3.0"
 bytemuck = { version = "1.13.1", features = ["derive"] }
 font-loader = "0.11.0"
 png = "0.17.10"
+
+[profile.dev]
+opt-level = 1
