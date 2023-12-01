@@ -7,7 +7,7 @@ use crate::{
         text::{set_scissor, Text},
         texture::Texture,
     },
-    util::vec2::{PixelVec, Vec2},
+    util::vec2::{CellVec, PixelVec, Vec2},
 };
 use bytemuck::{checked::cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
@@ -110,23 +110,26 @@ impl Pipeline {
         });
 
         render_pass.set_pipeline(&self.pipeline);
-        for (z, offset, grid) in grids {
+        for (z, scroll_offset, grid) in grids {
             let Some(bg_bind_group) = &grid.cell_fill_bind_group() else {
                 continue;
             };
             render_pass.set_bind_group(0, bg_bind_group, &[]);
 
-            let size_pixels = grid.size().into_pixels(cell_size);
-            set_scissor(size_pixels, offset, target_size, &mut render_pass);
-            PushConstants {
-                target_size,
-                cell_size,
-                offset,
-                z,
-                padding: 0,
+            if let Some(offset) = grid.offset() {
+                let size = grid.size().into_pixels(cell_size);
+                let offset = offset.round_to_pixels(cell_size);
+                set_scissor(size, offset, target_size, &mut render_pass);
+                PushConstants {
+                    target_size,
+                    cell_size,
+                    offset: offset + scroll_offset,
+                    z,
+                    padding: 0,
+                }
+                .set(&mut render_pass);
+                render_pass.draw(0..grid.cell_fill_count() * 6, 0..1);
             }
-            .set(&mut render_pass);
-            render_pass.draw(0..grid.cell_fill_count() * 6, 0..1);
         }
     }
 }

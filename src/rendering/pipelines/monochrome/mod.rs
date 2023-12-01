@@ -139,21 +139,24 @@ impl Pipeline {
         {
             render_pass.set_pipeline(pipeline);
             render_pass.set_bind_group(0, glyph_bind_group, &[]);
-            for (z, offset, grid) in grids {
+            for (z, scroll_offset, grid) in grids {
                 let Some(monochrome_bind_group) = &grid.monochrome_bind_group() else {
                     continue;
                 };
                 render_pass.set_bind_group(1, monochrome_bind_group, &[]);
                 let size = grid.size().into_pixels(cell_size);
-                set_scissor(size, offset, target_size, &mut render_pass);
-                GlyphPushConstants {
-                    target_size,
-                    offset,
-                    z,
-                    padding: 0.0,
+                if let Some(offset) = grid.offset() {
+                    let offset = offset.round_to_pixels(cell_size);
+                    set_scissor(size, offset, target_size, &mut render_pass);
+                    GlyphPushConstants {
+                        target_size,
+                        offset: offset + scroll_offset,
+                        z,
+                        padding: 0.0,
+                    }
+                    .set(&mut render_pass);
+                    render_pass.draw(0..grid.monochrome_count() * 6, 0..1);
                 }
-                .set(&mut render_pass);
-                render_pass.draw(0..grid.monochrome_count() * 6, 0..1);
             }
         }
     }

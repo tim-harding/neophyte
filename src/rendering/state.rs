@@ -321,22 +321,18 @@ impl RenderState {
         let grids = || {
             self.grids
                 .front_to_back()
-                .filter_map(|(z, grid)| {
-                    grid.offset().map(|offset| {
-                        (
-                            (z as f32 + 1.) / (grid_count + 1.),
-                            offset.into_pixels(cell_size.cast_as()).cast_as::<i32>(),
-                            &grid.text,
-                        )
-                    })
-                })
-                .chain(self.cmdline_grid.offset().map(|offset| {
+                .map(|(z, grid)| {
                     (
-                        0.,
-                        offset.into_pixels(cell_size.cast_as()).cast_as::<i32>(),
-                        &self.cmdline_grid.text,
+                        (z as f32 + 1.) / (grid_count + 1.),
+                        grid.scrolling.offset().round_to_pixels(cell_size),
+                        &grid.text,
                     )
-                }))
+                })
+                .chain(std::iter::once((
+                    0.,
+                    PixelVec::new(0, 0),
+                    &self.cmdline_grid.text,
+                )))
         };
 
         // See the module documentation for each pipeline for more details
