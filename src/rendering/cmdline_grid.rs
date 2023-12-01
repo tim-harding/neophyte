@@ -21,10 +21,6 @@ impl CmdlineGrid {
         }
     }
 
-    pub fn offset(&self) -> Option<CellVec<f32>> {
-        self.text.offset()
-    }
-
     #[allow(clippy::too_many_arguments)]
     pub fn update(
         &mut self,

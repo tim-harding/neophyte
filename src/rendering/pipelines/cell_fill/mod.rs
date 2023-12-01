@@ -7,7 +7,7 @@ use crate::{
         text::{set_scissor, Text},
         texture::Texture,
     },
-    util::vec2::{CellVec, PixelVec, Vec2},
+    util::vec2::{PixelVec, Vec2},
 };
 use bytemuck::{checked::cast_slice, Pod, Zeroable};
 use wgpu::include_wgsl;
