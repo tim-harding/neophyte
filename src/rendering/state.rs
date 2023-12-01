@@ -267,7 +267,7 @@ impl RenderState {
         for grid in self.grids.iter_mut() {
             motion = motion.soonest(
                 grid.scrolling
-                    .advance(delta_seconds * settings.scroll_speed * cell_size.y as f32),
+                    .advance(delta_seconds * settings.scroll_speed * cell_size.y),
             );
         }
 
