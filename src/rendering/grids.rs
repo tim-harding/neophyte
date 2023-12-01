@@ -96,9 +96,9 @@ impl Grids {
             );
         }
 
-        if ui_grid.dirty.window() {
-            grid.text.update_window(window_position);
-        }
+        // if ui_grid.dirty.window() {
+        grid.text.update_window(window_position);
+        // }
     }
 
     pub fn remove_grid(&mut self, id: ui::grid::Id) {

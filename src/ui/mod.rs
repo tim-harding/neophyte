@@ -380,6 +380,9 @@ impl Ui {
     /// Get the position of the grid, accounting for anchor grids and other
     /// windowing details
     pub fn position(&self, grid: grid::Id) -> Option<CellVec<f32>> {
+        if grid == 1 {
+            return Some(CellVec::new(0., 0.));
+        }
         if let Ok(index) = self.grid_index(grid) {
             let grid = &self.grids[index];
             if grid.window() == &Window::None {
