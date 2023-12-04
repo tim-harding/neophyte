@@ -20,7 +20,7 @@ local M = {}
 
 ---@alias Font string | FontFull
 
----@alias FontSizeKind "width" | "height"
+---@alias FontSizeKind 'width' | 'height'
 
 ---@class FontSize
 ---@field kind FontSizeKind
@@ -40,7 +40,13 @@ local M = {}
 ---@field scroll_speed? number
 ---@field bg_override? Color
 
----@alias motion "still" | "animating"
+---@alias motion 'still' | 'animating'
+
+vim.api.nvim_create_autocmd('VimLeavePre', {
+  callback = function()
+    vim.rpcnotify(1, 'neophyte.leave', {})
+  end
+})
 
 ---Set Neophyte configuration
 ---@param config Config
@@ -85,102 +91,102 @@ end
 ---Set the height of the font
 ---@param height number
 function M.set_font_height(height)
-  vim.rpcnotify(1, "neophyte.set_font_height", { height })
+  vim.rpcnotify(1, 'neophyte.set_font_height', { height })
 end
 
 ---Get the width of the font
 ---@return number
 function M.get_font_height()
-  return vim.rpcrequest(1, "neophyte.get_font_height", {})
+  return vim.rpcrequest(1, 'neophyte.get_font_height', {})
 end
 
 ---Set the font width
 ---@param width number
 function M.set_font_width(width)
-  vim.rpcnotify(1, "neophyte.set_font_width", { width })
+  vim.rpcnotify(1, 'neophyte.set_font_width', { width })
 end
 
 ---Get the font width
 ---@return number
 function M.get_font_width()
-  return vim.rpcrequest(1, "neophyte.get_font_width", {})
+  return vim.rpcrequest(1, 'neophyte.get_font_width', {})
 end
 
 ---Set the fonts to use, higher-priority fonts coming first and fallbacks after
 ---@param fonts Font[]
 function M.set_fonts(fonts)
-  vim.rpcnotify(1, "neophyte.set_fonts", fonts)
+  vim.rpcnotify(1, 'neophyte.set_fonts', fonts)
 end
 
 ---Set the offset of underlines from the font baseline
 ---@return number
 function M.get_underline_offset()
-  return vim.rpcrequest(1, "neophyte.get_underline_offset", {})
+  return vim.rpcrequest(1, 'neophyte.get_underline_offset', {})
 end
 
 ---Get the offset of underlines from the font baseline
 ---@param offset number
 function M.set_underline_offset(offset)
-  vim.rpcnotify(1, "neophyte.set_underline_offset", { offset })
+  vim.rpcnotify(1, 'neophyte.set_underline_offset', { offset })
 end
 
 ---Get the names of loaded fonts
 ---@return string[]
 function M.get_fonts()
-  return vim.rpcrequest(1, "neophyte.get_fonts", {})
+  return vim.rpcrequest(1, 'neophyte.get_fonts', {})
 end
 
 ---Set the cursor speed as a multiple of the base speed
 ---@param speed number
 function M.set_cursor_speed(speed)
-  vim.rpcnotify(1, "neophyte.set_cursor_speed", { speed })
+  vim.rpcnotify(1, 'neophyte.set_cursor_speed', { speed })
 end
 
 ---Get the cursor speed as a multiple of the base speed
 ---@return number
 function M.get_cursor_speed()
-  return vim.rpcrequest(1, "neophyte.get_cursor_speed", {})
+  return vim.rpcrequest(1, 'neophyte.get_cursor_speed', {})
 end
 
 ---Set the scroll speed as a multiple of the base speed
 ---@param speed number
 function M.set_scroll_speed(speed)
-  vim.rpcnotify(1, "neophyte.set_scroll_speed", { speed })
+  vim.rpcnotify(1, 'neophyte.set_scroll_speed', { speed })
 end
 
 ---Get the scroll speed as a multiple of the base speed
 ---@return number
 function M.get_scroll_speed()
-  return vim.rpcrequest(1, "neophyte.get_scroll_speed", {})
+  return vim.rpcrequest(1, 'neophyte.get_scroll_speed', {})
 end
 
 ---Set the size of the render target in pixels
 ---@param width integer
 ---@param height integer
 function M.set_render_size(width, height)
-  vim.rpcnotify(1, "neophyte.set_render_size", { width, height })
+  vim.rpcnotify(1, 'neophyte.set_render_size', { width, height })
 end
 
 ---Undoes the effect of set_render_size such that Neophyte sets the render target size based on the window size.
 function M.unset_render_size()
-  vim.rpcnotify(1, "neophyte.unset_render_size", {})
+  vim.rpcnotify(1, 'neophyte.unset_render_size', {})
 end
 
 ---Gets the current size of the render target
 ---@return { width: integer, height: integer }
 function M.get_render_size()
-  return vim.rpcrequest(1, "neophyte.get_render_size", {})
+  return vim.rpcrequest(1, 'neophyte.get_render_size', {})
 end
 
 ---Output rendered frames to the given directory as PNGs. Frames are named with the number of microseconds since the render was started.
 ---@param directory string
 function M.start_render(directory)
-  vim.rpcnotify(1, "neophyte.start_render", { directory })
+  vim.rpcnotify(1, 'neophyte.start_render', { directory })
 end
 
 ---Stops rendering the directory set by start_render.
 function M.end_render()
-  vim.rpcnotify(1, "neophyte.end_render", {})
+  vim.rpcnotify(1, 'neophyte.end_render', {})
 end
 
 ---@param r number The red channel in 0-255
@@ -188,7 +194,7 @@ end
 ---@param b number The blue channel in 0-255
 ---@param a number The alpha channel in 0-255
 function M.set_bg_override(r, g, b, a)
-  vim.rpcnotify(1, "neophyte.set_bg_override", { r, g, b, a })
+  vim.rpcnotify(1, 'neophyte.set_bg_override', { r, g, b, a })
 end
 
 return M

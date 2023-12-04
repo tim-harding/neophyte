@@ -78,7 +78,9 @@ impl EventHandler {
             Event::UserEvent(user_event) => match user_event {
                 UserEvent::Shutdown => window_target.exit(),
                 UserEvent::Request(request) => self.request(request),
-                UserEvent::Notification(notification) => self.notification(notification),
+                UserEvent::Notification(notification) => {
+                    self.notification(notification, window_target)
+                }
             },
 
             Event::NewEvents(cause) => match cause {
@@ -118,7 +120,11 @@ impl EventHandler {
         }
     }
 
-    fn notification(&mut self, notification: Notification) {
+    fn notification(
+        &mut self,
+        notification: Notification,
+        window_target: &EventLoopWindowTarget<UserEvent>,
+    ) {
         let inner = || {
             let Notification { method, params } = notification;
             match method.as_str() {
@@ -202,6 +208,10 @@ impl EventHandler {
                     let a: u8 = args.next()?;
                     let rgba = Rgb::new(r, g, b).into_srgb(a as f32 / 255.);
                     self.settings.bg_override = Some(rgba);
+                }
+
+                "neophyte.leave" => {
+                    window_target.exit();
                 }
 
                 _ => log::error!("Unrecognized notification: {method}"),
