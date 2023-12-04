@@ -35,7 +35,6 @@ local M = {}
 ---@class Config
 ---@field fonts? Font[]
 ---@field font_size? FontSize
----@field underline_offset? number
 ---@field cursor_speed? number
 ---@field scroll_speed? number
 ---@field bg_override? Color
@@ -67,10 +66,6 @@ function M.setup(config)
     elseif kind == 'height' then
       M.set_font_height(size)
     end
-  end
-
-  if config.underline_offset ~= nil then
-    M.set_underline_offset(config.underline_offset)
   end
 
   if config.cursor_speed ~= nil then
@@ -116,18 +111,6 @@ end
 ---@param fonts Font[]
 function M.set_fonts(fonts)
   vim.rpcnotify(1, 'neophyte.set_fonts', fonts)
-end
-
----Set the offset of underlines from the font baseline
----@return number
-function M.get_underline_offset()
-  return vim.rpcrequest(1, 'neophyte.get_underline_offset', {})
-end
-
----Get the offset of underlines from the font baseline
----@param offset number
-function M.set_underline_offset(offset)
-  vim.rpcnotify(1, 'neophyte.set_underline_offset', { offset })
 end
 
 ---Get the names of loaded fonts
