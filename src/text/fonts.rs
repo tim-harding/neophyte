@@ -10,8 +10,6 @@ use swash::Setting;
 #[derive(Debug, Clone)]
 pub struct Fonts {
     fonts: Vec<FontFamily>,
-    roboto: FontFamily,
-    last_resort: FontFamily,
 }
 
 impl Default for Fonts {
@@ -20,46 +18,45 @@ impl Default for Fonts {
     }
 }
 
-// TODO: No need to store the size on each font
-
 impl Fonts {
     pub fn new() -> Self {
         Self {
-            fonts: vec![],
-            roboto: FontFamily {
-                setting: FontSetting::with_name("Roboto Mono".to_string()),
-                regular: Font::from_bytes(
-                    include_bytes!("fonts/RobotoMono-Regular.ttf").as_slice(),
-                    0,
-                    FontSize::default(),
-                ),
-                bold: Font::from_bytes(
-                    include_bytes!("fonts/RobotoMono-Bold.ttf").as_slice(),
-                    0,
-                    FontSize::default(),
-                ),
-                bold_italic: Font::from_bytes(
-                    include_bytes!("fonts/RobotoMono-BoldItalic.ttf").as_slice(),
-                    0,
-                    FontSize::default(),
-                ),
-                italic: Font::from_bytes(
-                    include_bytes!("fonts/RobotoMono-Italic.ttf").as_slice(),
-                    0,
-                    FontSize::default(),
-                ),
-            },
-            last_resort: FontFamily {
-                setting: FontSetting::with_name("Last Resort".to_string()),
-                regular: Font::from_bytes(
-                    include_bytes!("fonts/LastResort-Regular.ttf").as_slice(),
-                    0,
-                    FontSize::default(),
-                ),
-                bold: None,
-                italic: None,
-                bold_italic: None,
-            },
+            fonts: vec![
+                FontFamily {
+                    setting: FontSetting::with_name("Roboto Mono".to_string()),
+                    regular: Font::from_bytes(
+                        include_bytes!("fonts/RobotoMono-Regular.ttf").as_slice(),
+                        0,
+                        FontSize::default(),
+                    ),
+                    bold: Font::from_bytes(
+                        include_bytes!("fonts/RobotoMono-Bold.ttf").as_slice(),
+                        0,
+                        FontSize::default(),
+                    ),
+                    bold_italic: Font::from_bytes(
+                        include_bytes!("fonts/RobotoMono-BoldItalic.ttf").as_slice(),
+                        0,
+                        FontSize::default(),
+                    ),
+                    italic: Font::from_bytes(
+                        include_bytes!("fonts/RobotoMono-Italic.ttf").as_slice(),
+                        0,
+                        FontSize::default(),
+                    ),
+                },
+                FontFamily {
+                    setting: FontSetting::with_name("Last Resort".to_string()),
+                    regular: Font::from_bytes(
+                        include_bytes!("fonts/LastResort-Regular.ttf").as_slice(),
+                        0,
+                        FontSize::default(),
+                    ),
+                    bold: None,
+                    italic: None,
+                    bold_italic: None,
+                },
+            ],
         }
     }
 
@@ -86,10 +83,7 @@ impl Fonts {
     }
 
     pub fn families(&self) -> impl Iterator<Item = &FontFamily> {
-        self.fonts
-            .iter()
-            .chain(std::iter::once(&self.roboto))
-            .chain(std::iter::once(&self.last_resort))
+        self.fonts.iter()
     }
 
     pub fn fonts(&self) -> impl Iterator<Item = (&Font, FontStyle)> {
