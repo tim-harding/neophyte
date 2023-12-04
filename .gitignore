@@ -9,3 +9,4 @@
 *.svg
 **/*.png
 cachegrind.out.*
+writeup.md

@@ -102,12 +102,25 @@ vim.opt.guifont = "Cascadia Code PL:w10, Symbols Nerd Font, Noto Color Emoji"
 -- Increase font size
 vim.keymap.set('n', '<c-+>', function()
   neophyte.set_font_width(neophyte.get_font_width() + 1)
-end, { silent = true, remap = false })
+end)
 
 -- Decrease font size
 vim.keymap.set('n', '<c-->', function()
   neophyte.set_font_width(neophyte.get_font_width() - 1)
-end, { silent = true, remap = false })
+end)
+
+-- Neophyte can also record frames to a PNG sequence.
+-- You can convert to a video with ffmpeg:
+--
+-- ffmpeg -framerate 60 -pattern_type glob -i '/my/frames/location/*.png' 
+-- -pix_fmt yuv422p -c:v libx264 -vf 
+-- "colorspace=all=bt709:iprimaries=bt709:itrc=srgb:ispace=bt709:range=tv:irange=pc"  
+-- -color_range 1 -colorspace 1 -color_primaries 1 -crf 23 -y /my/output/video.mp4
+
+-- Start rendering
+neophyte.start_render('/directory/to/output/frames/')
+-- Stop rendering
+neophyte.end_render()
 ```
 
 ### Noice
