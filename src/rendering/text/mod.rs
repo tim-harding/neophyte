@@ -208,7 +208,10 @@ impl Text {
                                 let line_position = position
                                     + Vec2::new(
                                         0,
-                                        (metrics_px.ascent + metrics_px.underline_offset) as i32,
+                                        (metrics_px.ascent
+                                            + metrics_px.underline_offset
+                                            + cell_size.y)
+                                            as i32,
                                     );
                                 let line_size =
                                     Vec2::new(metrics_px.width, metrics_px.stroke_size.min(1));
