@@ -32,7 +32,7 @@ impl Default for Settings {
         Self {
             cursor_speed: 1.,
             scroll_speed: 1.,
-            underline_offset: 2,
+            underline_offset: 0,
             render_size: None,
             render_target: None,
             bg_override: None,
