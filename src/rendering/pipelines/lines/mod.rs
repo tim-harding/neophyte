@@ -119,7 +119,7 @@ impl Pipeline {
             set_scissor(size, offset, target_size, &mut render_pass);
             PushConstants {
                 target_size,
-                offset: PixelVec(offset.0 + Vec2::new(0, underline_offset)),
+                offset: PixelVec(offset.0 + Vec2::new(0, underline_offset + 2)),
                 grid_width: grid.size().0.x,
                 z,
             }
