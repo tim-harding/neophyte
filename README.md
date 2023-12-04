@@ -11,7 +11,6 @@ It offers several niceties over the default terminal-based UI:
 - Smooth scrolling
 - Cursor animations
 - Pixel-level window positioning
-- Window transparency
 
 ## Installation
 
@@ -79,6 +78,8 @@ neophyte.setup({
   -- To disable animations, set these to large values like 1000.
   cursor_speed = 2,
   scroll_speed = 2,
+  -- Increase or decrease the distance from the baseline for underlines.
+  underline_offset = 1,
   -- For transparent window effects, use this to set the default background color. 
   -- This is because most colorschemes in transparent mode unset the background,
   -- which normally defaults to the terminal background, but we don't have that here. 

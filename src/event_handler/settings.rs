@@ -7,6 +7,8 @@ pub struct Settings {
     pub cursor_speed: f32,
     /// Multiplier of the default scroll speed
     pub scroll_speed: f32,
+    /// Additional offset to apply to underlines
+    pub underline_offset: i32,
     /// The size of the render surface, or None to use the default
     pub render_size: Option<PixelVec<u32>>,
     /// The directory to save frames to, or None if not rendering
@@ -30,6 +32,7 @@ impl Default for Settings {
         Self {
             cursor_speed: 1.,
             scroll_speed: 1.,
+            underline_offset: 2,
             render_size: None,
             render_target: None,
             bg_override: None,

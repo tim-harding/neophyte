@@ -168,6 +168,14 @@ impl EventHandler {
                     self.finish_font_change();
                 }
 
+                "neophyte.set_underline_offset" => {
+                    let mut args = Values::new(params.into_iter().next()?)?;
+                    let offset: f32 = args.next()?;
+                    let offset: i32 = offset as i32;
+                    self.settings.underline_offset = offset;
+                    self.request_redraw();
+                }
+
                 "neophyte.set_render_size" => {
                     let mut args = Values::new(params.into_iter().next()?)?;
                     let width = args.next()?;
@@ -286,6 +294,12 @@ impl EventHandler {
                 let width = self.fonts.metrics().em / self.scale_factor;
                 self.neovim
                     .send_response(rpc::Response::result(msgid, width.into()));
+            }
+
+            "neophyte.get_underline_offset" => {
+                let offset = self.settings.underline_offset;
+                self.neovim
+                    .send_response(rpc::Response::result(msgid, offset.into()));
             }
 
             "neophyte.get_render_size" => {
