@@ -16,6 +16,7 @@ mod ui;
 mod util;
 
 use event_handler::EventHandler;
+use flexi_logger::Logger;
 use neovim::Neovim;
 use neovim_handler::NeovimHandler;
 use std::thread;
@@ -25,7 +26,7 @@ use winit::{
 };
 
 fn main() {
-    env_logger::builder().format_timestamp(None).init();
+    Logger::try_with_env().unwrap().start().unwrap();
 
     let transparent = std::env::args().any(|arg| arg == "--transparent");
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event()

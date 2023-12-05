@@ -12,7 +12,6 @@ description = "A WebGPU rendered Neovim GUI"
 [dependencies]
 swash = "0.1.8"
 thiserror = "1.0.44"
-env_logger = "0.10.0"
 log = "0.4.19"
 rmpv = "1.0.1"
 winit = { version = "0.29.3", features = ["rwh_05",] }
@@ -21,6 +20,11 @@ pollster = "0.3.0"
 bytemuck = { version = "1.13.1", features = ["derive"] }
 font-loader = "0.11.0"
 png = "0.17.10"
+
+[dependencies.flexi_logger]
+version = "0.27.3"
+default_features = false
+features = ["colors"]
 
 [profile.dev]
 opt-level = 1
