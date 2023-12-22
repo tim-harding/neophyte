@@ -136,7 +136,7 @@ impl RenderState {
                     &targets.color.view,
                     target_size.0.x as f32 / targets.png_size.0.x as f32,
                 ),
-                monochrome: monochrome::Pipeline::new(&device),
+                monochrome: monochrome::Pipeline::new(&device, grids.bind_group_layout()),
                 lines: lines::Pipeline::new(
                     &device,
                     grids.bind_group_layout(),
@@ -212,12 +212,9 @@ impl RenderState {
             fonts.cell_size().cast_as(),
             &self.targets.monochrome.view,
         );
-        self.pipelines.monochrome.update(
-            &self.device,
-            &self.queue,
-            &self.font_cache.monochrome,
-            self.grids.bind_group_layout(),
-        );
+        self.pipelines
+            .monochrome
+            .update(&self.device, &self.queue, &self.font_cache.monochrome);
         self.pipelines.emoji.update(
             &self.device,
             &self.queue,
