@@ -16,6 +16,7 @@ pub struct Pipeline {
     shader: wgpu::ShaderModule,
     pipeline: Option<wgpu::RenderPipeline>,
     bind_group: GlyphBindGroup,
+    atlas_size: u32,
 }
 
 impl Pipeline {
@@ -24,6 +25,7 @@ impl Pipeline {
             shader: device.create_shader_module(include_wgsl!("emoji.wgsl")),
             bind_group: GlyphBindGroup::new(device),
             pipeline: None,
+            atlas_size: 0,
         }
     }
 
@@ -45,14 +47,13 @@ impl Pipeline {
             wgpu::TextureFormat::Rgba8UnormSrgb,
             cached_glyphs,
         );
-        let Some(glyph_bind_group_layout) = self.bind_group.layout() else {
-            return;
-        };
+
+        // TODO: Rebuilding the pipeline every update
 
         let glyph_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Emoji pipeline layout"),
-                bind_group_layouts: &[glyph_bind_group_layout, grid_bind_group_layout],
+                bind_group_layouts: &[self.bind_group.layout(), grid_bind_group_layout],
                 push_constant_ranges: &[wgpu::PushConstantRange {
                     stages: wgpu::ShaderStages::VERTEX,
                     range: 0..GlyphPushConstants::SIZE,
@@ -150,7 +151,7 @@ impl Pipeline {
                     target_size,
                     offset,
                     z,
-                    padding: 0.0,
+                    atlas_size: self.atlas_size,
                 }
                 .set(&mut render_pass);
                 render_pass.draw(0..grid.emoji_count() * 6, 0..1);

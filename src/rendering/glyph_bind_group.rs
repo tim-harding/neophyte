@@ -1,75 +1,19 @@
 use super::nearest_sampler;
-use crate::{rendering::texture::Texture, text::cache::Cached};
+use crate::{rendering::texture::Texture, text::cache::Cached, util::vec2::Vec2};
 use bytemuck::cast_slice;
-use std::num::NonZeroU32;
 use wgpu::util::DeviceExt;
 
 pub struct GlyphBindGroup {
-    textures: Vec<Texture>,
-    next_glyph_to_upload: usize,
-    sampler: wgpu::Sampler,
-    deferred: Option<Deferred>,
-}
-
-struct Deferred {
-    bind_group: wgpu::BindGroup,
     layout: wgpu::BindGroupLayout,
+    sampler: wgpu::Sampler,
+    last_revision: u32,
+    texture: Option<Texture>,
+    bind_group: Option<wgpu::BindGroup>,
 }
 
 impl GlyphBindGroup {
     pub fn new(device: &wgpu::Device) -> Self {
-        GlyphBindGroup {
-            textures: vec![],
-            next_glyph_to_upload: 0,
-            sampler: nearest_sampler(device),
-            deferred: None,
-        }
-    }
-
-    pub fn clear(&mut self) {
-        self.textures.clear();
-        self.next_glyph_to_upload = 0;
-        self.deferred = None;
-    }
-
-    pub fn update(
-        &mut self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        texture_format: wgpu::TextureFormat,
-        cached_glyphs: &Cached,
-    ) {
-        if self.next_glyph_to_upload == cached_glyphs.data.len() {
-            return;
-        }
-
-        for (data, info) in cached_glyphs
-            .data
-            .iter()
-            .zip(cached_glyphs.info.iter())
-            .skip(self.next_glyph_to_upload)
-        {
-            self.textures.push(Texture::with_data(
-                device,
-                queue,
-                data.as_slice(),
-                info.size,
-                texture_format,
-            ));
-        }
-
-        self.next_glyph_to_upload = self.textures.len();
-        let views: Vec<_> = self.textures.iter().map(|texture| &texture.view).collect();
-        // Okay to unwrap because we only reach here if we got at least one glyph to upload
-        let tex_count = Some(NonZeroU32::new(self.textures.len() as u32).unwrap());
-
-        let font_info_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Glyph info buffer"),
-            contents: cast_slice(cached_glyphs.info.as_slice()),
-            usage: wgpu::BufferUsages::STORAGE,
-        });
-
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Glyph bind group layout"),
             entries: &[
                 wgpu::BindGroupLayoutEntry {
@@ -80,7 +24,7 @@ impl GlyphBindGroup {
                         view_dimension: wgpu::TextureViewDimension::D2,
                         multisampled: false,
                     },
-                    count: tex_count,
+                    count: None,
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
@@ -101,13 +45,53 @@ impl GlyphBindGroup {
             ],
         });
 
+        GlyphBindGroup {
+            layout,
+            sampler: nearest_sampler(device),
+            last_revision: 0,
+            texture: None,
+            bind_group: None,
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.texture = None;
+        self.bind_group = None;
+    }
+
+    pub fn update(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        texture_format: wgpu::TextureFormat,
+        cached_glyphs: &Cached,
+    ) {
+        if self.last_revision == cached_glyphs.revision || cached_glyphs.info.is_empty() {
+            return;
+        }
+
+        // TODO: Reuse buffer if size did not change
+        let texture = Texture::with_data(
+            device,
+            queue,
+            cached_glyphs.atlas.data(),
+            Vec2::splat(cached_glyphs.atlas.size()),
+            texture_format,
+        );
+
+        let font_info_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Glyph info buffer"),
+            contents: cast_slice(cached_glyphs.info.as_slice()),
+            usage: wgpu::BufferUsages::STORAGE,
+        });
+
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Glyph bind group"),
-            layout: &bind_group_layout,
+            layout: &self.layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureViewArray(views.as_slice()),
+                    resource: wgpu::BindingResource::TextureView(&texture.view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -124,17 +108,15 @@ impl GlyphBindGroup {
             ],
         });
 
-        self.deferred = Some(Deferred {
-            bind_group,
-            layout: bind_group_layout,
-        });
+        self.texture = Some(texture);
+        self.bind_group = Some(bind_group);
     }
 
-    pub fn layout(&self) -> Option<&wgpu::BindGroupLayout> {
-        self.deferred.as_ref().map(|deferred| &deferred.layout)
+    pub fn layout(&self) -> &wgpu::BindGroupLayout {
+        &self.layout
     }
 
     pub fn bind_group(&self) -> Option<&wgpu::BindGroup> {
-        self.deferred.as_ref().map(|deferred| &deferred.bind_group)
+        self.bind_group.as_ref()
     }
 }

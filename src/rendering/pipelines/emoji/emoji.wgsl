@@ -13,6 +13,7 @@ struct PushConstants {
     target_size: vec2<u32>,
     offset: vec2<i32>,
     z: f32,
+    atlas_size: u32,
 }
 
 var<push_constant> constants: PushConstants;

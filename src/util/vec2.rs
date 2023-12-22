@@ -25,7 +25,7 @@ where
 }
 
 impl<T> Vec2<T> {
-    pub fn new(x: T, y: T) -> Self {
+    pub const fn new(x: T, y: T) -> Self {
         Self { x, y }
     }
 

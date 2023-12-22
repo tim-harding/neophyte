@@ -1,4 +1,4 @@
-use super::fonts::FontStyle;
+use super::{atlas::FontAtlas, fonts::FontStyle};
 use crate::util::vec2::Vec2;
 use bytemuck::{Pod, Zeroable};
 use std::collections::{hash_map::Entry, HashMap};
@@ -8,11 +8,8 @@ use swash::{
 };
 
 /// A cache of font glyphs
-#[derive(Default)]
 pub struct FontCache {
-    /// Cached monochrome glyphs.
     pub monochrome: Cached,
-    /// Cached color glyphs
     pub emoji: Cached,
     /// Given a glyph, a font, and a font style, get the corresponding cache
     /// entry. A value of None indicates that we already tried to convert the
@@ -23,7 +20,12 @@ pub struct FontCache {
 
 impl FontCache {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            monochrome: Cached::new(1),
+            emoji: Cached::new(4),
+            lut: HashMap::new(),
+            scale_context: ScaleContext::default(),
+        }
     }
 
     /// Remove all cached entries
@@ -69,19 +71,23 @@ impl FontCache {
                     Some(image) => {
                         let placement = image.placement;
                         let size = Vec2::new(placement.width, placement.height);
-                        let (dst, kind) = if image.content == Content::Color {
-                            (&mut self.emoji, GlyphKind::Emoji)
-                        } else {
-                            (&mut self.monochrome, GlyphKind::Monochrome)
-                        };
                         if size.area() > 0 {
-                            let index = dst.data.len();
+                            let (cached, kind) = match image.content {
+                                Content::Mask => (&mut self.monochrome, GlyphKind::Monochrome),
+                                Content::SubpixelMask | Content::Color => {
+                                    (&mut self.emoji, GlyphKind::Emoji)
+                                }
+                            };
+
+                            let index = cached.info.len();
                             let out = Some(CacheValue { index, kind });
                             entry.insert(out);
-                            dst.data.push(image.data);
-                            dst.info.push(GlyphInfo {
+                            cached.revision += 1;
+                            let origin = cached.atlas.pack(&image);
+                            cached.info.push(GlyphInfo {
                                 size,
                                 offset: Vec2::new(placement.left, placement.top) * Vec2::new(1, -1),
+                                origin,
                             });
                             out
                         } else {
@@ -99,23 +105,25 @@ impl FontCache {
     }
 }
 
-/// Cached glyphs. The image data and glyph information are stored separately so
-/// that no data conversion is needed to upload the textures glyph information
-/// to GPU buffers. The index from a cache value can be used to index both of
-/// these arrays.
-#[derive(Debug, Default)]
 pub struct Cached {
-    /// The image data for the glyphs
-    pub data: Vec<Vec<u8>>,
-    /// Information about the size and placement of glyphs
+    pub atlas: FontAtlas,
     pub info: Vec<GlyphInfo>,
+    pub revision: u32,
 }
 
 impl Cached {
-    /// Clear all cached glyphs.
+    pub fn new(channels: u32) -> Self {
+        Self {
+            atlas: FontAtlas::new(channels),
+            info: vec![],
+            revision: 0,
+        }
+    }
+
     pub fn clear(&mut self) {
-        self.data.clear();
+        self.atlas.clear();
         self.info.clear();
+        self.revision += 1;
     }
 }
 
@@ -126,6 +134,8 @@ pub struct GlyphInfo {
     pub size: Vec2<u32>,
     /// The amount to offset the glyph in pixels
     pub offset: Vec2<i32>,
+    /// The upper-left corner of the texture in the glyph atlas
+    pub origin: Vec2<u32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

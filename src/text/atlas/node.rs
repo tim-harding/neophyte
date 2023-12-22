@@ -1,14 +1,14 @@
 use crate::util::vec2::Vec2;
 
 pub struct Node {
-    origin: Vec2<u16>,
-    size: Vec2<u16>,
+    origin: Vec2<u32>,
+    size: Vec2<u32>,
     is_filled: bool,
     children: Option<(Box<Node>, Box<Node>)>,
 }
 
 impl Node {
-    pub fn new(origin: Vec2<u16>, size: Vec2<u16>) -> Self {
+    pub const fn new(origin: Vec2<u32>, size: Vec2<u32>) -> Self {
         Self {
             origin,
             size,
@@ -17,7 +17,7 @@ impl Node {
         }
     }
 
-    pub fn pack(&mut self, size: Vec2<u16>, texture_size: u16) -> Option<Vec2<u16>> {
+    pub fn pack(&mut self, size: Vec2<u32>, texture_size: u32) -> Option<Vec2<u32>> {
         if self.is_filled {
             return None;
         } else if let Some(children) = self.children.as_mut() {
@@ -28,10 +28,10 @@ impl Node {
         } else {
             let real_size = {
                 let mut real_size = self.size;
-                if self.origin.x + self.size.x == u16::MAX {
+                if self.origin.x + self.size.x == u32::MAX {
                     real_size.x = texture_size - self.origin.x;
                 }
-                if self.origin.y + self.size.y == u16::MAX {
+                if self.origin.y + self.size.y == u32::MAX {
                     real_size.y = texture_size - self.origin.y;
                 }
                 real_size
