@@ -125,7 +125,7 @@ impl RenderState {
                     grids.bind_group_layout(),
                     Texture::LINEAR_FORMAT,
                 ),
-                emoji: emoji::Pipeline::new(&device),
+                emoji: emoji::Pipeline::new(&device, grids.bind_group_layout()),
                 gamma_blit_final: gamma_blit::Pipeline::new(
                     &device,
                     surface_config.format,
@@ -215,12 +215,9 @@ impl RenderState {
         self.pipelines
             .monochrome
             .update(&self.device, &self.queue, &self.font_cache.monochrome);
-        self.pipelines.emoji.update(
-            &self.device,
-            &self.queue,
-            &self.font_cache.emoji,
-            self.grids.bind_group_layout(),
-        );
+        self.pipelines
+            .emoji
+            .update(&self.device, &self.queue, &self.font_cache.emoji);
         self.pipelines
             .blend
             .update(&self.device, &self.targets.monochrome.view);
