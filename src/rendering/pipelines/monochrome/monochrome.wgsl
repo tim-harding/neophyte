@@ -55,7 +55,6 @@ fn vs_main(
     let size_uv = vec2<f32>(glyph_info.size) / atlas_size;
 
     var out: VertexOutput;
-    out.fg = vec3<f32>(grid_cell.r, grid_cell.g, grid_cell.b);
     out.tex_coord = origin_uv + size_uv * corner;
     out.clip_position = vec4<f32>(
         (
@@ -65,6 +64,7 @@ fn vs_main(
         constants.z, 
         1.0
     );
+    out.fg = vec3<f32>(grid_cell.r, grid_cell.g, grid_cell.b);
     return out;
 }
 
