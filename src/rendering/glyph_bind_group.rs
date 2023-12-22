@@ -7,7 +7,6 @@ pub struct GlyphBindGroup {
     layout: wgpu::BindGroupLayout,
     sampler: wgpu::Sampler,
     last_revision: u32,
-    texture: Option<Texture>,
     bind_group: Option<wgpu::BindGroup>,
 }
 
@@ -49,13 +48,11 @@ impl GlyphBindGroup {
             layout,
             sampler: nearest_sampler(device),
             last_revision: 0,
-            texture: None,
             bind_group: None,
         }
     }
 
     pub fn clear(&mut self) {
-        self.texture = None;
         self.bind_group = None;
     }
 
@@ -108,7 +105,6 @@ impl GlyphBindGroup {
             ],
         });
 
-        self.texture = Some(texture);
         self.bind_group = Some(bind_group);
     }
 
