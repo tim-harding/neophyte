@@ -69,7 +69,7 @@ impl FontAtlas {
             .zip(
                 self.data
                     .chunks_mut(self.size as usize * channels)
-                    .skip(origin.y as usize * channels),
+                    .skip(origin.y as usize),
             )
         {
             for (src, dst) in src
@@ -86,6 +86,7 @@ impl FontAtlas {
     pub fn clear(&mut self) {
         self.size = DEFAULT_SIZE;
         self.root = DEFAULT_ROOT;
+        self.data.clear();
         self.data
             .resize(DEFAULT_PIXEL_COUNT * self.channels as usize, 0);
     }

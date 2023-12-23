@@ -6,9 +6,7 @@ use std::{
 use super::{
     cmdline_grid::CmdlineGrid,
     grids::Grids,
-    pipelines::{
-        blend, cell_fill, cursor, default_fill, emoji, gamma_blit, lines, monochrome, png_blit,
-    },
+    pipelines::{blend, cell_fill, cursor, default_fill, gamma_blit, glyph, lines, png_blit},
     text,
     texture::Texture,
     Motion,
@@ -125,7 +123,17 @@ impl RenderState {
                     grids.bind_group_layout(),
                     Texture::LINEAR_FORMAT,
                 ),
-                emoji: emoji::Pipeline::new(&device, grids.bind_group_layout()),
+                monochrome: glyph::Pipeline::new(
+                    &device,
+                    grids.bind_group_layout(),
+                    glyph::Kind::Monochrome,
+                ),
+                emoji: glyph::Pipeline::new(&device, grids.bind_group_layout(), glyph::Kind::Emoji),
+                lines: lines::Pipeline::new(
+                    &device,
+                    grids.bind_group_layout(),
+                    Texture::LINEAR_FORMAT,
+                ),
                 gamma_blit_final: gamma_blit::Pipeline::new(
                     &device,
                     surface_config.format,
@@ -135,12 +143,6 @@ impl RenderState {
                     &device,
                     &targets.color.view,
                     target_size.0.x as f32 / targets.png_size.0.x as f32,
-                ),
-                monochrome: monochrome::Pipeline::new(&device, grids.bind_group_layout()),
-                lines: lines::Pipeline::new(
-                    &device,
-                    grids.bind_group_layout(),
-                    Texture::LINEAR_FORMAT,
                 ),
             },
             shape_context: ShapeContext::new(),
@@ -390,8 +392,8 @@ impl RenderState {
             grids(),
             &self.targets.color.view,
             &self.targets.depth.view,
-            cell_size,
             target_size,
+            cell_size,
         );
 
         self.pipelines.gamma_blit_final.render(
@@ -549,10 +551,10 @@ struct Pipelines {
     blend: blend::Pipeline,
     default_fill: default_fill::Pipeline,
     cell_fill: cell_fill::Pipeline,
-    emoji: emoji::Pipeline,
+    monochrome: glyph::Pipeline,
+    emoji: glyph::Pipeline,
     gamma_blit_final: gamma_blit::Pipeline,
     blit_png: png_blit::Pipeline,
-    monochrome: monochrome::Pipeline,
     lines: lines::Pipeline,
 }
 

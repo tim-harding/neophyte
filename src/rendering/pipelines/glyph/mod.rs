@@ -1,4 +1,4 @@
-//! Paints non-emoji, solid-color glyphs with the appropriate highlight colors.
+//! Paints monochrome and emoji glyphs with the appropriate highlight colors.
 
 use crate::{
     rendering::{
@@ -12,20 +12,34 @@ use crate::{
 };
 use wgpu::include_wgsl;
 
+pub enum Kind {
+    Monochrome,
+    Emoji,
+}
+
 pub struct Pipeline {
     pipeline: wgpu::RenderPipeline,
     bind_group: GlyphBindGroup,
     atlas_size: u32,
+    kind: Kind,
 }
 
 impl Pipeline {
-    pub fn new(device: &wgpu::Device, grid_bind_group_layout: &wgpu::BindGroupLayout) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        grid_bind_group_layout: &wgpu::BindGroupLayout,
+        kind: Kind,
+    ) -> Self {
+        let shader = match kind {
+            Kind::Monochrome => include_wgsl!("monochrome.wgsl"),
+            Kind::Emoji => include_wgsl!("emoji.wgsl"),
+        };
         let bind_group = GlyphBindGroup::new(device);
-        let shader = device.create_shader_module(include_wgsl!("monochrome.wgsl"));
+        let shader = device.create_shader_module(shader);
 
         let glyph_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Monochrome pipeline layout"),
+                label: Some("Glyph pipeline layout"),
                 bind_group_layouts: &[bind_group.layout(), grid_bind_group_layout],
                 push_constant_ranges: &[wgpu::PushConstantRange {
                     stages: wgpu::ShaderStages::VERTEX,
@@ -34,7 +48,7 @@ impl Pipeline {
             });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Monochrome pipeline"),
+            label: Some("Glyph pipeline"),
             layout: Some(&glyph_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -77,6 +91,7 @@ impl Pipeline {
         Pipeline {
             bind_group,
             pipeline,
+            kind,
             atlas_size: 0,
         }
     }
@@ -86,12 +101,15 @@ impl Pipeline {
     }
 
     pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, cached_glyphs: &Cached) {
+        let texture_format = match self.kind {
+            Kind::Monochrome => wgpu::TextureFormat::R8Unorm,
+            Kind::Emoji => wgpu::TextureFormat::Rgba8UnormSrgb,
+        };
         self.bind_group
-            .update(device, queue, wgpu::TextureFormat::R8Unorm, cached_glyphs);
+            .update(device, queue, texture_format, cached_glyphs);
         self.atlas_size = cached_glyphs.atlas.size();
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn render<'a, 'b>(
         &'a self,
         encoder: &'a mut wgpu::CommandEncoder,
@@ -101,13 +119,17 @@ impl Pipeline {
         target_size: PixelVec<u32>,
         cell_size: Vec2<u32>,
     ) {
+        let color_load_op = match self.kind {
+            Kind::Monochrome => wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+            Kind::Emoji => wgpu::LoadOp::Load,
+        };
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Monochrome render pass"),
+            label: Some("Glyph render pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: color_target,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    load: color_load_op,
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -127,10 +149,14 @@ impl Pipeline {
             render_pass.set_pipeline(&self.pipeline);
             render_pass.set_bind_group(0, glyph_bind_group, &[]);
             for (z, scroll_offset, grid) in grids {
-                let Some(monochrome_bind_group) = &grid.monochrome_bind_group() else {
+                let (bind_group, count) = match self.kind {
+                    Kind::Monochrome => (grid.monochrome_bind_group(), grid.monochrome_count()),
+                    Kind::Emoji => (grid.emoji_bind_group(), grid.emoji_count()),
+                };
+                let Some(bind_group) = bind_group else {
                     continue;
                 };
-                render_pass.set_bind_group(1, monochrome_bind_group, &[]);
+                render_pass.set_bind_group(1, bind_group, &[]);
                 let size = grid.size().into_pixels(cell_size);
                 if let Some(offset) = grid.offset() {
                     let offset = offset.round_to_pixels(cell_size);
@@ -142,7 +168,7 @@ impl Pipeline {
                         atlas_size: self.atlas_size,
                     }
                     .set(&mut render_pass);
-                    render_pass.draw(0..grid.monochrome_count() * 6, 0..1);
+                    render_pass.draw(0..count * 6, 0..1);
                 }
             }
         }
