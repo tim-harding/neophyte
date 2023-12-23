@@ -18,6 +18,12 @@ pub struct FontCache {
     scale_context: ScaleContext,
 }
 
+impl Default for FontCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FontCache {
     pub fn new() -> Self {
         Self {

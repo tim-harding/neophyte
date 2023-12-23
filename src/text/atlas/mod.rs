@@ -41,7 +41,7 @@ impl FontAtlas {
         }
 
         let channels = self.channels as usize;
-        let glyph_size = Vec2::new(image.placement.width as u32, image.placement.height as u32);
+        let glyph_size = Vec2::new(image.placement.width, image.placement.height);
         let origin = loop {
             if let Some(node) = self.root.pack(glyph_size, self.size) {
                 break node;
@@ -56,7 +56,7 @@ impl FontAtlas {
                     .chunks(old_size as usize * channels)
                     .zip(self.data.chunks_mut(self.size as usize * channels))
                 {
-                    for (src, dst) in src.into_iter().zip(dst.into_iter()) {
+                    for (src, dst) in src.iter().zip(dst.iter_mut()) {
                         *dst = *src;
                     }
                 }
@@ -73,8 +73,8 @@ impl FontAtlas {
             )
         {
             for (src, dst) in src
-                .into_iter()
-                .zip(dst.into_iter().skip(origin.x as usize * channels))
+                .iter()
+                .zip(dst.iter_mut().skip(origin.x as usize * channels))
             {
                 *dst = *src;
             }

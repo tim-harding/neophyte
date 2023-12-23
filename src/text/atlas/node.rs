@@ -19,7 +19,7 @@ impl Node {
 
     pub fn pack(&mut self, size: Vec2<u32>, texture_size: u32) -> Option<Vec2<u32>> {
         if self.is_filled {
-            return None;
+            None
         } else if let Some(children) = self.children.as_mut() {
             children
                 .0
