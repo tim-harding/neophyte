@@ -76,6 +76,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         in.tex_coord,
         0.0
     );
-    return sample;
+    let g = 1.0 / 2.2;
+    let gamma = vec4<f32>(g, g, g, 1.0);
+    return pow(sample, gamma);
 }
 
