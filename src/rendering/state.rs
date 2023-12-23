@@ -163,9 +163,8 @@ impl RenderState {
         self.updated_since_last_render = true;
         self.clear_color =
             bg_override.unwrap_or(ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK).into_srgb(1.));
-        for grid in ui.deleted_grids.iter() {
-            self.grids.remove_grid(*grid);
-        }
+
+        self.grids.retain(|id| ui.grid(id).is_some());
 
         let fg = ui.default_colors.rgb_fg.unwrap_or(Rgb::WHITE);
 

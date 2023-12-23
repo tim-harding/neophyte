@@ -29,8 +29,6 @@ pub type HlId = u32;
 pub struct Ui {
     /// UI grids, ordered by ID
     pub grids: Vec<Grid>,
-    /// Grids that have been deleted since the last flush
-    pub deleted_grids: Vec<grid::Id>,
     /// The order in which grids should be drawn, ordered from bottom to top
     pub draw_order: Vec<grid::Id>,
     /// The index into self.draw_order at which floating windows begin
@@ -71,7 +69,6 @@ impl Default for Ui {
     fn default() -> Self {
         Self {
             grids: vec![],
-            deleted_grids: vec![],
             draw_order: vec![1],
             float_windows_start: 1,
             cursor: Default::default(),
@@ -134,7 +131,6 @@ impl Ui {
     /// Reset dirty flags
     pub fn clear_dirty(&mut self) {
         self.did_highlights_change = false;
-        self.deleted_grids.clear();
         self.did_flush = false;
         self.guifont_update = None;
         for grid in self.grids.iter_mut() {
@@ -374,7 +370,6 @@ impl Ui {
             self.grids.remove(i);
         }
         self.hide(grid);
-        self.deleted_grids.push(grid);
     }
 
     /// Get the position of the grid, accounting for anchor grids and other

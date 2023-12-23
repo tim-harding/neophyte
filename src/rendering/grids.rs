@@ -93,10 +93,6 @@ impl Grids {
         grid.text.update_window(window_position);
     }
 
-    pub fn remove_grid(&mut self, id: ui::grid::Id) {
-        self.grids.remove(&id);
-    }
-
     pub fn set_draw_order(&mut self, draw_order: Vec<ui::grid::Id>) {
         self.draw_order = draw_order;
     }
@@ -119,5 +115,9 @@ impl Grids {
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Grid> {
         self.grids.values_mut()
+    }
+
+    pub fn retain(&mut self, mut f: impl FnMut(ui::grid::Id) -> bool) {
+        self.grids.retain(|id, _| f(*id))
     }
 }
