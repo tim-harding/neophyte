@@ -76,7 +76,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         in.tex_coord,
         0.0
     );
-    //return sample;
-    return vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    return sample;
 }
 
