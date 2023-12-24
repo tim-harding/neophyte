@@ -198,7 +198,12 @@ impl RenderState {
             &mut self.shape_context,
         );
 
-        self.grids.set_draw_order(ui.draw_order.clone());
+        self.grids.set_draw_order(
+            ui.draw_order
+                .iter()
+                .map(|draw_item| draw_item.grid)
+                .collect(),
+        );
         self.pipelines.cursor.update(
             &self.device,
             ui,

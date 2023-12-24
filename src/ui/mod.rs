@@ -24,13 +24,25 @@ use std::{collections::HashMap, fmt::Debug};
 
 pub type HlId = u32;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DrawItem {
+    pub grid: grid::Id,
+    pub z: Option<u32>,
+}
+
+impl DrawItem {
+    pub const fn new(grid: grid::Id, z: Option<u32>) -> Self {
+        Self { grid, z }
+    }
+}
+
 /// Manages updates to the UI state from UI events
 #[derive(Clone)]
 pub struct Ui {
     /// UI grids, ordered by ID
     pub grids: Vec<Grid>,
     /// The order in which grids should be drawn, ordered from bottom to top
-    pub draw_order: Vec<grid::Id>,
+    pub draw_order: Vec<DrawItem>,
     /// The index into self.draw_order at which floating windows begin
     pub float_windows_start: usize,
     /// Cursor information
@@ -69,7 +81,7 @@ impl Default for Ui {
     fn default() -> Self {
         Self {
             grids: vec![],
-            draw_order: vec![1],
+            draw_order: vec![DrawItem::new(1, None)],
             float_windows_start: 1,
             cursor: Default::default(),
             mouse: false,
@@ -223,6 +235,7 @@ impl Ui {
                 width,
                 height,
             }) => {
+                println!("WinFloatPos {grid}");
                 self.show_normal(grid);
                 *self
                     .grid_mut(grid)
@@ -240,8 +253,10 @@ impl Ui {
                 anchor_row,
                 anchor_col,
                 focusable,
+                zindex,
             }) => {
-                self.show_float(grid);
+                println!("WinFloatPos {grid}");
+                self.show_float(DrawItem::new(grid, zindex));
                 *self
                     .grid_mut(grid)
                     .expect("Tried to update the position of a nonexistent grid")
@@ -253,13 +268,18 @@ impl Ui {
                 });
             }
             Event::WinExternalPos(WinExternalPos { grid, win: _ }) => {
+                println!("WinExternalPos {grid}");
                 *self
                     .grid_mut(grid)
                     .expect("Tried to update the position of a nonexistent grid")
                     .window_mut() = Window::External;
             }
-            Event::WinHide(WinHide { grid }) => self.hide(grid),
+            Event::WinHide(WinHide { grid }) => {
+                println!("WinHide {grid}");
+                self.hide(grid);
+            }
             Event::WinClose(WinClose { grid }) => {
+                println!("WinClose {grid}");
                 self.hide(grid);
                 // It seems like we shouldn't be able to receive this event
                 // when a grid doesn't exist, but I have had this happen when
@@ -310,7 +330,9 @@ impl Ui {
                 scrolled: _,
                 sep_char: _,
             }) => {
-                self.show_float(grid);
+                // Message scrollback is a hard-coded z-index
+                // https://neovim.io/doc/user/api.html#nvim_open_win()
+                self.show_float(DrawItem::new(grid, Some(200)));
                 *self.get_or_create_grid(grid).window_mut() = Window::Floating(FloatingWindow {
                     anchor: Anchor::Nw,
                     anchor_grid: 1,
@@ -342,21 +364,34 @@ impl Ui {
     }
 
     /// Move the given grid to the top of the draw order
-    fn show_float(&mut self, grid: grid::Id) {
-        self.hide(grid);
-        self.draw_order.push(grid);
+    fn show_float(&mut self, draw_item: DrawItem) {
+        self.hide(draw_item.grid);
+        // Default float value is 50
+        // https://neovim.io/doc/user/api.html#nvim_open_win()
+        let z_of = |item: DrawItem| item.z.unwrap_or(50);
+        let z = z_of(draw_item);
+        let insert_position = self
+            .draw_order
+            .iter()
+            .enumerate()
+            .skip(self.float_windows_start)
+            .rev()
+            .find_map(|(i, item)| (z >= z_of(*item)).then_some(i + 1))
+            .unwrap_or(self.float_windows_start);
+        self.draw_order.insert(insert_position, draw_item);
     }
 
     /// Move the given grid to the top of the draw order
     fn show_normal(&mut self, grid: grid::Id) {
         self.hide(grid);
-        self.draw_order.insert(self.float_windows_start, grid);
+        self.draw_order
+            .insert(self.float_windows_start, DrawItem::new(grid, None));
         self.float_windows_start += 1;
     }
 
     /// Remove the given grid from the draw order
     fn hide(&mut self, grid: grid::Id) {
-        if let Some(i) = self.draw_order.iter().position(|&r| r == grid) {
+        if let Some(i) = self.draw_order.iter().position(|&r| r.grid == grid) {
             self.draw_order.remove(i);
             if i < self.float_windows_start {
                 self.float_windows_start -= 1;
@@ -408,10 +443,10 @@ impl Ui {
         // TODO: Can this be derived from CursorInfo instead?
         let cursor = cursor.cast_as::<f32>();
         let cell_size = cell_size.cast_as::<f32>();
-        for &grid_id in self.draw_order.iter().rev() {
-            let grid = self.grid(grid_id).unwrap();
+        for &draw_item in self.draw_order.iter().rev() {
+            let grid = self.grid(draw_item.grid).unwrap();
             let size: CellVec<f32> = grid.contents().size.cast_as();
-            let start = self.position(grid_id)?.into_pixels(cell_size);
+            let start = self.position(draw_item.grid)?.into_pixels(cell_size);
             let end = start + size.into_pixels(cell_size);
             if cursor.0.x > start.0.x
                 && cursor.0.y > start.0.y
@@ -424,7 +459,7 @@ impl Ui {
                     continue;
                 };
                 return Some(GridUnderCursor {
-                    grid: grid_id,
+                    grid: draw_item.grid,
                     position,
                 });
             }

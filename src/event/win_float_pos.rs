@@ -19,10 +19,8 @@ pub struct WinFloatPos {
     pub anchor_col: f32,
     /// Whether the window can receive focus
     pub focusable: bool,
-    // NOTE: There is an additional undocumented u32 parameter. Based on the
-    // Neovide codebase, this is used to indicate stacking order. I choose to
-    // ignore it unless the documentation is updated. Until then, I assume it is
-    // not intended to be used.
+    // NOTE: Add documentation for z-index
+    pub zindex: Option<u32>,
 }
 
 impl Parse for WinFloatPos {
@@ -36,6 +34,7 @@ impl Parse for WinFloatPos {
             anchor_row: iter.next()?,
             anchor_col: iter.next()?,
             focusable: iter.next()?,
+            zindex: iter.next()?,
         })
     }
 }
