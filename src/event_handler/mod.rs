@@ -241,25 +241,6 @@ impl EventHandler {
         }
 
         if self.ui.did_flush {
-            println!("---- {} ----", self.frame_number);
-            for grid in self.ui.grids.iter() {
-                if grid.id < 3 {
-                    continue;
-                }
-                let order = self.ui.draw_order.iter().position(|id| id.grid == grid.id);
-                let window = match grid.window() {
-                    window::Window::None => "None",
-                    window::Window::Normal(_) => "Normal",
-                    window::Window::Floating(_) => "Floating",
-                    window::Window::External => "External",
-                };
-                println!("{: <4} {} {:?}", grid.id, window, order);
-                println!("{:?}", grid.contents());
-                println!();
-            }
-            println!();
-            println!();
-            println!();
             if let Some(guifont_update) = self.ui.guifont_update.take() {
                 let GuiFont { fonts, size } = guifont_update;
                 self.fonts.set_fonts(

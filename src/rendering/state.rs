@@ -444,6 +444,7 @@ impl RenderState {
 
         let submission = self.queue.submit(std::iter::once(encoder.finish()));
 
+        // TODO: Offload to a thread
         if let Some(dir) = settings.render_target.as_ref() {
             let cb = || -> Result<(), SavePngError> {
                 let buffer_slice = self.targets.png_staging.slice(..);

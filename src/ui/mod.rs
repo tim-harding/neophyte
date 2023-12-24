@@ -235,7 +235,6 @@ impl Ui {
                 width,
                 height,
             }) => {
-                println!("WinFloatPos {grid}");
                 self.show_normal(grid);
                 *self
                     .grid_mut(grid)
@@ -255,7 +254,6 @@ impl Ui {
                 focusable,
                 zindex,
             }) => {
-                println!("WinFloatPos {grid}");
                 self.show_float(DrawItem::new(grid, zindex));
                 *self
                     .grid_mut(grid)
@@ -268,18 +266,15 @@ impl Ui {
                 });
             }
             Event::WinExternalPos(WinExternalPos { grid, win: _ }) => {
-                println!("WinExternalPos {grid}");
                 *self
                     .grid_mut(grid)
                     .expect("Tried to update the position of a nonexistent grid")
                     .window_mut() = Window::External;
             }
             Event::WinHide(WinHide { grid }) => {
-                println!("WinHide {grid}");
                 self.hide(grid);
             }
             Event::WinClose(WinClose { grid }) => {
-                println!("WinClose {grid}");
                 self.hide(grid);
                 // It seems like we shouldn't be able to receive this event
                 // when a grid doesn't exist, but I have had this happen when
