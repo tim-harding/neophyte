@@ -10,7 +10,7 @@ use crate::{
     text::fonts::{FontSetting, Fonts},
     ui::{
         options::{FontSize, GuiFont},
-        window, Ui,
+        Ui,
     },
     util::{
         vec2::{PixelVec, Vec2},
