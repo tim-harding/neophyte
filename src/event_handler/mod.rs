@@ -592,7 +592,10 @@ impl EventHandler {
             }
         }
         self.frame_number = self.frame_number.saturating_add(1);
-        log::info!("Rendered with result {motion:?}");
+        log::info!(
+            "Rendered: motion={motion:?} elapsed={:.4} delta_seconds={delta_seconds:.4}",
+            elapsed.as_secs_f32()
+        );
     }
 
     fn send_keys(&mut self, c: &str, ignore_shift: bool) {

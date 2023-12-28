@@ -89,8 +89,6 @@ impl RenderState {
             surface_caps.alpha_modes[0]
         };
 
-        log::info!("{:?}", surface_caps.present_modes);
-
         let surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_caps
