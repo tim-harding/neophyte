@@ -19,7 +19,7 @@ pub fn time_execution(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 #(#stmts)*
             };
             let time_execution_elapsed = time_execution_start.elapsed();
-            log::info!(#log_message, time_execution_elapsed.as_micros());
+            log::trace!(#log_message, time_execution_elapsed.as_micros());
             out
         }
     };
