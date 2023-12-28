@@ -47,6 +47,7 @@ pub struct EventHandler {
 }
 
 impl EventHandler {
+    #[time_execution]
     pub fn new(neovim: Neovim, window: Window, transparent: bool) -> Self {
         let fonts = Fonts::new();
         let render_state = pollster::block_on(async {

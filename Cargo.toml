@@ -9,7 +9,11 @@ keywords = ["neovim"]
 categories = ["text-editors", "gui", "development-tools"]
 description = "A WebGPU rendered Neovim GUI"
 
+[workspace]
+members = ['neophyte-macro']
+
 [dependencies]
+neophyte-macro = { path = "neophyte-macro", version = "*" }
 swash = "0.1.8"
 thiserror = "1.0.44"
 log = "0.4.19"
