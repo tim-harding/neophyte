@@ -37,10 +37,10 @@ impl ScrollingGrids {
             Motion::Still
         } else {
             let sign = if self.t.is_sign_positive() { -1.0 } else { 1.0 };
-            let mag = self.t.abs() * delta_seconds;
-            let mag = mag.ln_1p().powf(1.5);
-            let mag = mag.min(self.t.abs());
-            self.t += sign * mag;
+            let dist = self.t.abs();
+            let speed = dist.ln_1p().powf(1.5) * delta_seconds;
+            let delta = speed.min(self.t.abs());
+            self.t += sign * delta;
             Motion::Animating
         }
     }
