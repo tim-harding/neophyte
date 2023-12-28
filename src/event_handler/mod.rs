@@ -47,7 +47,6 @@ pub struct EventHandler {
 }
 
 impl EventHandler {
-    #[time_execution]
     pub fn new(neovim: Neovim, window: Window, transparent: bool) -> Self {
         let fonts = Fonts::new();
         let render_state = pollster::block_on(async {
@@ -222,6 +221,7 @@ impl EventHandler {
         let _ = inner();
     }
 
+    #[time_execution]
     fn handle_redraw_notification(&mut self, params: Vec<Value>) {
         for param in params {
             match event::Event::try_parse(param.clone()) {
@@ -545,6 +545,7 @@ impl EventHandler {
         self.fonts.set_font_size(new_font_size);
     }
 
+    #[time_execution]
     fn redraw(&mut self, window_target: &EventLoopWindowTarget<UserEvent>) {
         let now = Instant::now();
         let elapsed = now.duration_since(self.last_render_time);

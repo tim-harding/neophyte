@@ -14,7 +14,7 @@ pub fn time_execution(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let stmts = &block.stmts;
     let out = quote! {
         #(#attrs)* #vis #sig {
-            let time_execution_start = Instant::now();
+            let time_execution_start = std::time::Instant::now();
             let out = {
                 #(#stmts)*
             };
@@ -25,4 +25,3 @@ pub fn time_execution(_attr: TokenStream, item: TokenStream) -> TokenStream {
     };
     proc_macro::TokenStream::from(out)
 }
-

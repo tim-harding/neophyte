@@ -10,7 +10,7 @@ categories = ["text-editors", "gui", "development-tools"]
 description = "A WebGPU rendered Neovim GUI"
 
 [workspace]
-members = ['neophyte-macro']
+members = ["neophyte-macro", "neophyte-log-analyzer"]
 
 [dependencies]
 neophyte-macro = { path = "neophyte-macro", version = "*" }
