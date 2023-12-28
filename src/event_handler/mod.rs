@@ -543,17 +543,18 @@ impl EventHandler {
     #[time_execution]
     fn redraw(&mut self, window_target: &EventLoopWindowTarget<UserEvent>) {
         let now = Instant::now();
-        let elapsed = now.duration_since(self.last_render_time);
+        let elapsed = now.duration_since(self.last_render_time).as_secs_f32();
         self.last_render_time = now;
 
         let delta_seconds = if self.render_state.updated_since_last_render {
-            let framerate = self.windows[0] // TODO
+            let framerate = self.windows[0] // TODO: Multiple windows
                 .current_monitor()
                 .and_then(|monitor| monitor.refresh_rate_millihertz())
                 .unwrap_or(60_000);
-            1_000. / framerate as f32
+            let secs = 1_000. / framerate as f32;
+            secs.min(elapsed)
         } else {
-            elapsed.as_secs_f32()
+            elapsed
         };
 
         let motion = self.render_state.advance(
@@ -593,8 +594,7 @@ impl EventHandler {
         }
         self.frame_number = self.frame_number.saturating_add(1);
         log::info!(
-            "Rendered: motion={motion:?} elapsed={:.4} delta_seconds={delta_seconds:.4}",
-            elapsed.as_secs_f32()
+            "Rendered: motion={motion:?} elapsed={elapsed:.4} delta_seconds={delta_seconds:.4}",
         );
     }
 
