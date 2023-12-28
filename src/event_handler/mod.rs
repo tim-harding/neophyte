@@ -69,6 +69,7 @@ impl EventHandler {
         }
     }
 
+    #[time_execution]
     pub fn handle(
         &mut self,
         event: Event<UserEvent>,
@@ -83,20 +84,13 @@ impl EventHandler {
                 }
             },
 
-            Event::NewEvents(cause) => match cause {
-                StartCause::ResumeTimeReached {
-                    start: _,
-                    requested_resume: _,
-                } => {
-                    self.request_redraw();
+            Event::NewEvents(cause) => {
+                window_target.set_control_flow(ControlFlow::Wait);
+                match cause {
+                    StartCause::ResumeTimeReached { .. } => self.request_redraw(),
+                    _ => {}
                 }
-                StartCause::WaitCancelled {
-                    start: _,
-                    requested_resume: _,
-                }
-                | StartCause::Poll
-                | StartCause::Init => {}
-            },
+            }
 
             Event::WindowEvent {
                 window_id: _,
@@ -120,6 +114,7 @@ impl EventHandler {
         }
     }
 
+    #[time_execution]
     fn notification(
         &mut self,
         notification: Notification,

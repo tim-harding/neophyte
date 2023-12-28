@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-regex-lite = "0.1"
+regex = "1.10"
 anyhow = "1.0"
 prettytable-rs = "0.10"
