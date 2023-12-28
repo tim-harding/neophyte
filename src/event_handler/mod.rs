@@ -83,20 +83,23 @@ impl EventHandler {
                 }
             },
 
-            Event::NewEvents(cause) => match cause {
-                StartCause::ResumeTimeReached {
-                    start: _,
-                    requested_resume: _,
-                } => {
-                    self.request_redraw();
+            Event::NewEvents(cause) => {
+                window_target.set_control_flow(ControlFlow::Wait);
+                match cause {
+                    StartCause::ResumeTimeReached {
+                        start: _,
+                        requested_resume: _,
+                    } => {
+                        self.request_redraw();
+                    }
+                    StartCause::WaitCancelled {
+                        start: _,
+                        requested_resume: _,
+                    }
+                    | StartCause::Poll
+                    | StartCause::Init => {}
                 }
-                StartCause::WaitCancelled {
-                    start: _,
-                    requested_resume: _,
-                }
-                | StartCause::Poll
-                | StartCause::Init => {}
-            },
+            }
 
             Event::WindowEvent {
                 window_id: _,
