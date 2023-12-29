@@ -90,7 +90,8 @@ impl ScrollingGrids {
     }
 
     fn offset_y(&self) -> f32 {
-        let total_time = self.offset_start.abs().ln_1p();
+        let abs = self.offset_start.abs();
+        let total_time = abs.ln_1p() + abs.sqrt();
         let t = self.t / total_time;
         let t = t.min(1.);
         let v = 1. - t;
