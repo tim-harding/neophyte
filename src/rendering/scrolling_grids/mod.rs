@@ -11,6 +11,7 @@ use std::collections::VecDeque;
 pub struct ScrollingGrids {
     scrolling: VecDeque<GridPart>,
     t: f32,
+    offset_start: f32,
 }
 
 impl ScrollingGrids {
@@ -18,7 +19,11 @@ impl ScrollingGrids {
     pub fn new(grid: GridContents) -> Self {
         let mut scrolling = VecDeque::new();
         scrolling.push_back(GridPart::new(grid));
-        Self { scrolling, t: 0. }
+        Self {
+            scrolling,
+            t: 0.,
+            offset_start: 0.,
+        }
     }
 
     pub fn finish_scroll(&mut self) {
@@ -26,21 +31,12 @@ impl ScrollingGrids {
         assert_eq!(self.scrolling.len(), 1);
     }
 
-    pub fn t(&self) -> f32 {
-        self.t
-    }
-
     pub fn advance(&mut self, delta_seconds: f32) -> Motion {
-        if self.t.abs() < 0.025 {
-            self.t = 0.0;
+        self.t += delta_seconds;
+        if self.offset_y() == 0. {
             self.finish_scroll();
             Motion::Still
         } else {
-            let sign = if self.t.is_sign_positive() { -1.0 } else { 1.0 };
-            let dist = self.t.abs();
-            let speed = dist.ln_1p().powf(1.5) * delta_seconds;
-            let delta = speed.min(self.t.abs());
-            self.t += sign * delta;
             Motion::Animating
         }
     }
@@ -51,7 +47,8 @@ impl ScrollingGrids {
         let mag = offset.abs().min(grid.size.0.y.into());
         let offset = mag * sign;
         let mut coverage = Range::until(grid.size.0.y.into());
-        self.t += offset as f32;
+        self.offset_start = self.offset_y() + offset as f32;
+        self.t = 0.;
         self.scrolling.retain_mut(|part| {
             part.offset -= offset;
             let grid_range = Range::until(part.grid.size.0.y.into()) + part.offset;
@@ -92,8 +89,20 @@ impl ScrollingGrids {
         self.scrolling.back().unwrap().grid.size
     }
 
+    fn offset_y(&self) -> f32 {
+        let total_time = self.offset_start.abs().ln_1p();
+        let t = self.t / total_time;
+        let t = t.min(1.);
+        let v = 1. - t;
+        let mix = t.sqrt();
+        let a = t * t;
+        let b = 1. - v * v * v * v;
+        let t = (1. - mix) * a + mix * b;
+        self.offset_start * (1. - t)
+    }
+
     pub fn offset(&self) -> CellVec<f32> {
-        CellVec::new(0., self.t())
+        CellVec::new(0., self.offset_y())
     }
 }
 
