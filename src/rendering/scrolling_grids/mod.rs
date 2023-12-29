@@ -3,7 +3,7 @@ mod range;
 use crate::{
     rendering::Motion,
     ui::grid::{CellContents, GridContents},
-    util::vec2::CellVec,
+    util::{nice_s_curve, vec2::CellVec},
 };
 use range::Range;
 use std::collections::VecDeque;
@@ -90,16 +90,7 @@ impl ScrollingGrids {
     }
 
     fn offset_y(&self) -> f32 {
-        let abs = self.offset_start.abs();
-        let total_time = abs.ln_1p() + abs.sqrt();
-        let t = self.t / total_time;
-        let t = t.min(1.);
-        let v = 1. - t;
-        let mix = t.sqrt();
-        let a = t * t;
-        let b = 1. - v * v * v * v;
-        let t = (1. - mix) * a + mix * b;
-        self.offset_start * (1. - t)
+        self.offset_start * (1. - nice_s_curve(self.t, self.offset_start.abs()))
     }
 
     pub fn offset(&self) -> CellVec<f32> {

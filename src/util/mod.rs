@@ -92,3 +92,10 @@ pub fn srgb(c: u8) -> f32 {
         ((c + 0.055) / 1.055).powf(2.4)
     }
 }
+
+pub fn nice_s_curve(t: f32, length: f32) -> f32 {
+    let length = length.sqrt() + length.ln_1p();
+    let t = (t / length).min(1.).max(0.);
+    let v = 1. - t;
+    1. - v * v
+}

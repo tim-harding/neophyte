@@ -11,6 +11,7 @@ use crate::{
     ui::{cmdline::Mode, Ui},
     util::{
         mat3::Mat3,
+        nice_s_curve,
         vec2::{CellVec, PixelVec, Vec2},
     },
 };
@@ -438,10 +439,7 @@ fn t(display_info: &DisplayInfo) -> f32 {
     if length < 0.25 {
         1.0
     } else {
-        let length = length.sqrt() / 100.;
-        let normal = (display_info.elapsed / length).min(1.);
-        let t = 1.0 - normal;
-        1.0 - t * t
+        nice_s_curve(display_info.elapsed, length)
     }
 }
 

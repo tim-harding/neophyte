@@ -30,8 +30,8 @@ impl Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            cursor_speed: 1.,
-            scroll_speed: 1.,
+            cursor_speed: 200.,
+            scroll_speed: 2.,
             underline_offset: 0,
             render_size: None,
             render_target: None,
