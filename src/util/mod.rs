@@ -94,8 +94,12 @@ pub fn srgb(c: u8) -> f32 {
 }
 
 pub fn nice_s_curve(t: f32, length: f32) -> f32 {
-    let length = length.sqrt() + length.ln_1p();
-    let t = (t / length).min(1.).max(0.);
+    let t = normalize(t, length);
     let v = 1. - t;
     1. - v * v
+}
+
+fn normalize(t: f32, length: f32) -> f32 {
+    let length = length.sqrt() + length.ln_1p();
+    (t / length).min(1.).max(0.)
 }

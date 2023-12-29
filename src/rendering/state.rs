@@ -271,15 +271,14 @@ impl RenderState {
             );
         }
 
-        motion = motion.soonest(
-            self.pipelines
-                .cursor
-                .advance(delta_seconds * settings.cursor_speed, cell_size),
-        );
+        const DEFAULT_CURSOR_SPEED: f32 = 100.;
+        let cursor_time_delta = delta_seconds * settings.cursor_speed * DEFAULT_CURSOR_SPEED;
+
+        motion = motion.soonest(self.pipelines.cursor.advance(cursor_time_delta, cell_size));
         motion = motion.soonest(
             self.pipelines
                 .cmdline_cursor
-                .advance(delta_seconds * settings.cursor_speed, cell_size),
+                .advance(cursor_time_delta, cell_size),
         );
 
         motion
