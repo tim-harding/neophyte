@@ -33,6 +33,7 @@ discoverability.
 -- lazy.nvim example:
 {
   'tim-harding/neophyte',
+  tag = '0.2.0',
   event = 'VeryLazy',
   opts = {
     -- Same as neophyte.setup({ ... })
@@ -94,7 +95,7 @@ neophyte.setup({
 })
 
 -- Alternatively, the guifont option is supported:
-vim.opt.guifont = "Cascadia Code PL:w10, Symbols Nerd Font, Noto Color Emoji"
+vim.opt.guifont = 'Cascadia Code PL:w10, Symbols Nerd Font, Noto Color Emoji'
 
 -- There are also freestanding functions to set these options as desired. 
 -- Below is a keymap for increasing and decreasing the font size:
@@ -160,7 +161,7 @@ or the popup cmdline, you can try these settings:
     },
   },
   dependencies = {
-    "MunifTanjim/nui.nvim",
+    'MunifTanjim/nui.nvim',
   },
 }
 ```
