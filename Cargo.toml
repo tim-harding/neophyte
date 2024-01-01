@@ -1,6 +1,6 @@
 [package]
 name = "neophyte"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 authors = ["Tim Harding"]
 repository = "https://github.com/tim-harding/neophyte"
@@ -8,12 +8,13 @@ license = "MIT"
 keywords = ["neovim"]
 categories = ["text-editors", "gui", "development-tools"]
 description = "A WebGPU rendered Neovim GUI"
+readme = "README.md"
 
 [workspace]
 members = ["neophyte-macro", "neophyte-log-analyzer"]
 
 [dependencies]
-neophyte-macro = { path = "neophyte-macro", version = "*" }
+neophyte-macro = { path = "neophyte-macro", version = "0.2.0" }
 swash = "0.1.8"
 thiserror = "1.0.44"
 log = "0.4.19"
