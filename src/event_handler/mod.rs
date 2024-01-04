@@ -5,7 +5,7 @@ use self::{buttons::Buttons, settings::Settings};
 use crate::{
     event::{self, rgb::Rgb},
     neovim::{action::Action, button::Button, Neovim},
-    rendering::{state::RenderState, Motion},
+    rendering::state::RenderState,
     rpc::{self, Notification},
     text::fonts::{FontSetting, Fonts},
     ui::{
@@ -19,14 +19,13 @@ use crate::{
     UserEvent,
 };
 use rmpv::Value;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{
-        ElementState, Event, KeyEvent, MouseButton, MouseScrollDelta, StartCause, TouchPhase,
-        WindowEvent,
+        ElementState, Event, KeyEvent, MouseButton, MouseScrollDelta, TouchPhase, WindowEvent,
     },
-    event_loop::{ControlFlow, EventLoopWindowTarget},
+    event_loop::EventLoopWindowTarget,
     keyboard::{Key, ModifiersState, NamedKey},
     window::Window,
 };
@@ -84,13 +83,7 @@ impl EventHandler {
                 }
             },
 
-            Event::NewEvents(cause) => {
-                window_target.set_control_flow(ControlFlow::Wait);
-                match cause {
-                    StartCause::ResumeTimeReached { .. } => self.request_redraw(),
-                    _ => {}
-                }
-            }
+            Event::NewEvents(_) => self.request_redraw(),
 
             Event::WindowEvent {
                 window_id: _,
@@ -106,7 +99,7 @@ impl EventHandler {
                 WindowEvent::Resized(physical_size) => self.resized(*physical_size),
                 WindowEvent::ScaleFactorChanged { scale_factor, .. } => self.rescale(*scale_factor),
                 WindowEvent::CloseRequested => window_target.exit(),
-                WindowEvent::RedrawRequested => self.redraw(window_target),
+                WindowEvent::RedrawRequested => self.redraw(),
                 _ => {}
             },
 
@@ -541,27 +534,13 @@ impl EventHandler {
     }
 
     #[time_execution]
-    fn redraw(&mut self, window_target: &EventLoopWindowTarget<UserEvent>) {
+    fn redraw(&mut self) {
         let now = Instant::now();
         let elapsed = now.duration_since(self.last_render_time).as_secs_f32();
         self.last_render_time = now;
 
-        let delta_seconds = if self.render_state.updated_since_last_render {
-            let framerate = self.windows[0] // TODO: Multiple windows
-                .current_monitor()
-                .and_then(|monitor| monitor.refresh_rate_millihertz())
-                .unwrap_or(60_000);
-            let secs = 1_000. / framerate as f32;
-            secs.min(elapsed)
-        } else {
-            elapsed
-        };
-
-        let motion = self.render_state.advance(
-            delta_seconds,
-            self.fonts.cell_size().cast_as(),
-            &self.settings,
-        );
+        self.render_state
+            .advance(elapsed, self.fonts.cell_size().cast_as(), &self.settings);
         self.render_state.render(
             self.fonts.cell_size(),
             &self.settings,
@@ -569,33 +548,7 @@ impl EventHandler {
             self.frame_number,
         );
 
-        let is_rendering = self.settings.render_target.is_some();
-        let mut poll_next_frame = || {
-            window_target.set_control_flow(ControlFlow::Poll);
-            self.request_redraw();
-        };
-        match motion {
-            Motion::Still => {
-                if is_rendering {
-                    poll_next_frame();
-                }
-            }
-            Motion::Animating => {
-                poll_next_frame();
-            }
-            Motion::DelayMs(ms) => {
-                if is_rendering {
-                    poll_next_frame()
-                } else {
-                    let until = Instant::now() + Duration::from_millis(ms as u64);
-                    window_target.set_control_flow(ControlFlow::WaitUntil(until));
-                }
-            }
-        }
         self.frame_number = self.frame_number.saturating_add(1);
-        log::info!(
-            "Rendered: motion={motion:?} elapsed={elapsed:.4} delta_seconds={delta_seconds:.4}",
-        );
     }
 
     fn send_keys(&mut self, c: &str, ignore_shift: bool) {

@@ -51,7 +51,7 @@ fn main() {
     });
 
     let mut handler = EventHandler::new(neovim, window, transparent);
-    event_loop.set_control_flow(ControlFlow::Wait);
+    event_loop.set_control_flow(ControlFlow::Poll);
     event_loop
         .run(move |event, window_target| {
             handler.handle(event, window_target);

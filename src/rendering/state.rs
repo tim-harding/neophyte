@@ -36,7 +36,6 @@ pub struct RenderState {
     // TODO: Remove this if we no longer want to externalize the cmdline
     cmdline_grid: CmdlineGrid,
     text_bind_group_layout: text::bind_group::BindGroup,
-    pub updated_since_last_render: bool,
 }
 
 impl RenderState {
@@ -155,12 +154,10 @@ impl RenderState {
             surface_config,
             clear_color: [0.; 4],
             cmdline_grid: CmdlineGrid::new(),
-            updated_since_last_render: false,
         }
     }
 
     pub fn update(&mut self, ui: &Ui, fonts: &Fonts, bg_override: Option<[f32; 4]>) {
-        self.updated_since_last_render = true;
         self.clear_color =
             bg_override.unwrap_or(ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK).into_srgb(1.));
 
@@ -297,7 +294,6 @@ impl RenderState {
         window: &Window,
         frame_number: u32,
     ) {
-        self.updated_since_last_render = false;
         let output = match self.current_texture() {
             Ok(output) => output,
             Err(e) => {
