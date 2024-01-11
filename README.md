@@ -12,6 +12,8 @@ It offers several niceties over the default terminal-based UI:
 - Cursor animations
 - Pixel-level window positioning
 
+https://github.com/tim-harding/neophyte/assets/13814470/f42a4169-8db2-4f78-a39d-50bae7304663
+
 ## Installation
 
 Either grab a binary from the
