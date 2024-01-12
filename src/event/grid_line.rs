@@ -1,8 +1,10 @@
+use std::fmt::Debug;
+
 use crate::util::{Parse, Values};
 use rmpv::Value;
 
 /// Redraw a continuous part of a row on a grid.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct GridLine {
     /// The grid to draw on
     pub grid: u32,
@@ -25,6 +27,26 @@ impl Parse for GridLine {
             col_start: iter.next()?,
             cells: iter.next()?,
         })
+    }
+}
+
+impl Debug for GridLine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut s = f.debug_struct("GridLine");
+        s.field("grid", &self.grid);
+        s.field("row", &self.row);
+        s.field("col_start", &self.col_start);
+        let cells: String = self
+            .cells
+            .iter()
+            .flat_map(|cell| {
+                std::iter::repeat(cell.text.chars())
+                    .take(cell.repeat.unwrap_or(1) as usize)
+                    .flatten()
+            })
+            .collect();
+        s.field("cells", &cells);
+        s.finish()
     }
 }
 

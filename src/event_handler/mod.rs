@@ -76,7 +76,10 @@ impl EventHandler {
     ) {
         match event {
             Event::UserEvent(user_event) => match user_event {
-                UserEvent::Shutdown => window_target.exit(),
+                UserEvent::Shutdown => {
+                    log::info!("Shutting down");
+                    window_target.exit();
+                }
                 UserEvent::Request(request) => self.request(request),
                 UserEvent::Notification(notification) => {
                     self.notification(notification, window_target)
@@ -115,6 +118,9 @@ impl EventHandler {
     ) {
         let inner = || {
             let Notification { method, params } = notification;
+            if method.as_str() != "redraw" {
+                log::info!("Got notification {method} with {params:?}");
+            }
             match method.as_str() {
                 "redraw" => self.handle_redraw_notification(params),
 
@@ -251,6 +257,7 @@ impl EventHandler {
             method,
             params,
         } = request;
+        log::info!("Got request {method} with {params:?}");
         match method.as_str() {
             "neophyte.get_fonts" => {
                 let names = self
@@ -312,6 +319,8 @@ impl EventHandler {
             ElementState::Pressed => {}
             ElementState::Released => return,
         }
+
+        log::info!("Got keyboard input: {event:?}");
         match &event.logical_key {
             Key::Named(key) => {
                 let c = || {
@@ -390,6 +399,7 @@ impl EventHandler {
     }
 
     fn cursor_moved(&mut self, position: PhysicalPosition<f64>) {
+        log::info!("Got cursor move: {position:?}");
         let position: PixelVec<f64> = position.into();
         let position = position.cast_as::<i64>();
         let cell_size = self.fonts.cell_size();
@@ -417,6 +427,7 @@ impl EventHandler {
     }
 
     fn mouse_input(&mut self, state: ElementState, button: MouseButton) {
+        log::info!("Got mouse input: {button:?}, {state:?}");
         let Ok(button) = button.try_into() else {
             return;
         };
@@ -449,6 +460,7 @@ impl EventHandler {
     }
 
     fn mouse_wheel(&mut self, delta: MouseScrollDelta, phase: TouchPhase) {
+        log::info!("Got mouse wheel: {delta:?}, {phase:?}");
         let reset = matches!(
             phase,
             TouchPhase::Started | TouchPhase::Ended | TouchPhase::Cancelled
@@ -523,11 +535,13 @@ impl EventHandler {
     }
 
     fn resized(&mut self, physical_size: PhysicalSize<u32>) {
+        log::info!("Got resize: {physical_size:?}");
         self.surface_size = physical_size.into();
         self.resize();
     }
 
     fn rescale(&mut self, new_scale_factor: f64) {
+        log::info!("Got rescale: {new_scale_factor}");
         self.scale_factor = new_scale_factor as f32;
         let new_font_size = FontSize::Height(self.fonts.metrics().em * self.scale_factor);
         self.fonts.set_font_size(new_font_size);
@@ -535,6 +549,7 @@ impl EventHandler {
 
     #[time_execution]
     fn redraw(&mut self) {
+        log::info!("Got redraw");
         let now = Instant::now();
         let elapsed = now.duration_since(self.last_render_time).as_secs_f32();
         self.last_render_time = now;

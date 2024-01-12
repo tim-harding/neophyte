@@ -94,6 +94,7 @@ impl Neovim {
     }
 
     pub fn input(&mut self, input: String) {
+        log::info!("Sending Neovim input: {input}");
         let args = vec![input.into()];
         self.call("nvim_input", args);
     }
