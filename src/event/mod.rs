@@ -52,7 +52,7 @@ pub use self::{
     grid_scroll::GridScroll,
     hl_attr_define::HlAttrDefine,
     hl_group_set::HlGroupSet,
-    message_content::{Content},
+    message_content::Content,
     mode_change::ModeChange,
     mode_info_set::ModeInfoSet,
     msg_history_show::MsgHistoryShow,

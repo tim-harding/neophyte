@@ -13,7 +13,7 @@ use crate::rpc::{self, Request};
 use rmpv::Value;
 use std::{
     io::{self, ErrorKind},
-    process::{Command, Stdio},
+    process::{Child, Command, Stdio},
     sync::{mpsc, Arc, RwLock},
 };
 
@@ -25,12 +25,13 @@ pub struct Neovim {
 }
 
 impl Neovim {
-    pub fn new() -> io::Result<(Neovim, StdoutThread, StdinThread)> {
+    pub fn new() -> io::Result<(Neovim, StdoutThread, StdinThread, Child)> {
         use io::Error;
         let mut child = Command::new("nvim")
             .arg("--embed")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()?;
         let stdout = child
             .stdout
@@ -51,6 +52,7 @@ impl Neovim {
             },
             StdoutThread::new(incoming, stdout),
             StdinThread::new(rx, stdin),
+            child,
         ))
     }
 
@@ -62,6 +64,7 @@ impl Neovim {
     }
 
     fn call(&mut self, method: &str, args: Vec<Value>) -> u64 {
+        log::info!("Calling method {method}");
         let msgid = self.next_msgid;
         let req = Request {
             msgid,
@@ -82,7 +85,7 @@ impl Neovim {
 
     // TODO: Proper public API
     pub fn ui_attach(&mut self) {
-        let extensions = ["ext_linegrid", "ext_multigrid", "ext_hlstate"];
+        let extensions = ["ext_linegrid", "ext_multigrid"];
         let extensions = Value::Map(
             extensions
                 .into_iter()

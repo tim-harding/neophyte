@@ -36,7 +36,7 @@ impl StdoutThread {
                                 Error::DepthLimitExceeded => None,
                             } {
                                 match io_error {
-                                    ErrorKind::UnexpectedEof => {}
+                                    ErrorKind::UnexpectedEof => log::info!("Got Neovim EOF"),
                                     _ => log::error!("{e}"),
                                 }
                             } else {

@@ -101,8 +101,14 @@ impl EventHandler {
                 WindowEvent::MouseWheel { delta, phase, .. } => self.mouse_wheel(*delta, *phase),
                 WindowEvent::Resized(physical_size) => self.resized(*physical_size),
                 WindowEvent::ScaleFactorChanged { scale_factor, .. } => self.rescale(*scale_factor),
-                WindowEvent::CloseRequested => window_target.exit(),
-                WindowEvent::RedrawRequested => self.redraw(),
+                WindowEvent::CloseRequested => {
+                    log::info!("Close requested");
+                    window_target.exit();
+                }
+                WindowEvent::RedrawRequested => {
+                    log::info!("Redraw requested");
+                    self.redraw();
+                }
                 _ => {}
             },
 
@@ -217,19 +223,18 @@ impl EventHandler {
 
     #[time_execution]
     fn handle_redraw_notification(&mut self, params: Vec<Value>) {
+        log::info!("Notified redraw");
         for param in params {
-            match event::Event::try_parse(param.clone()) {
+            match event::Event::try_parse(param) {
                 Ok(events) => {
-                    for event in events.iter().cloned() {
+                    for event in events.into_iter() {
                         log::debug!("{event:?}");
                         self.ui.process(event);
                     }
                 }
 
                 Err(e) => match e {
-                    event::Error::UnknownEvent(name) => {
-                        log::error!("Unknown event: {name}\n{param:#?}");
-                    }
+                    event::Error::UnknownEvent(name) => log::error!("Unknown event: {name}"),
                     _ => log::error!("{e}"),
                 },
             }
@@ -249,6 +254,7 @@ impl EventHandler {
             self.ui.clear_dirty();
             self.request_redraw();
         }
+        log::info!("Processed redraw notification");
     }
 
     fn request(&mut self, request: rpc::Request) {
@@ -549,10 +555,10 @@ impl EventHandler {
 
     #[time_execution]
     fn redraw(&mut self) {
-        log::info!("Got redraw");
         let now = Instant::now();
         let elapsed = now.duration_since(self.last_render_time).as_secs_f32();
         self.last_render_time = now;
+        log::info!("Got redraw: {elapsed:?}");
 
         self.render_state
             .advance(elapsed, self.fonts.cell_size().cast_as(), &self.settings);

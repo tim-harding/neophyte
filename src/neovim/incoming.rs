@@ -21,7 +21,10 @@ impl Incoming {
     pub fn push_response(&mut self, response: rpc::Response, tx: &mpsc::Sender<rpc::Message>) {
         self.responses.push(response.into());
         while let Some(ready) = self.next_ready() {
-            tx.send(ready.into()).unwrap();
+            match tx.send(ready.into()) {
+                Ok(_) => {}
+                Err(e) => log::error!("{e}"),
+            }
         }
     }
 

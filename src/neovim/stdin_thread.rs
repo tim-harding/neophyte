@@ -14,10 +14,20 @@ impl StdinThread {
     pub fn start(self) {
         let Self { rx, stdin } = self;
         let mut stdin = BufWriter::new(stdin);
-        while let Ok(msg) = rx.recv() {
-            match encode(&mut stdin, msg) {
-                Ok(_) => {}
-                Err(_) => return,
+        loop {
+            match rx.recv() {
+                Ok(msg) => match encode(&mut stdin, msg) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        log::error!("{e}");
+                        return;
+                    }
+                },
+
+                Err(e) => {
+                    log::error!("{e}");
+                    return;
+                }
             }
         }
     }

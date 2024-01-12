@@ -22,7 +22,7 @@ use event_handler::EventHandler;
 use flexi_logger::Logger;
 use neovim::Neovim;
 use neovim_handler::NeovimHandler;
-use std::thread;
+use std::{process::Output, thread};
 use winit::{
     event_loop::{ControlFlow, EventLoopBuilder},
     window::WindowBuilder,
@@ -41,7 +41,7 @@ fn main() {
         .build(&event_loop)
         .expect("Failed to create window");
 
-    let (mut neovim, stdout_handler, stdin_handler) =
+    let (mut neovim, stdout_handler, stdin_handler, child) =
         Neovim::new().expect("Failed to start Neovim");
     neovim.ui_attach();
     let stdin_thread = std::thread::spawn(move || stdin_handler.start());
@@ -57,6 +57,25 @@ fn main() {
             handler.handle(event, window_target);
         })
         .expect("Failed to start render loop");
+
+    match child.wait_with_output() {
+        Ok(output) => {
+            let Output {
+                status,
+                stdout: _,
+                stderr,
+            } = output;
+            let stderr = match String::from_utf8(stderr) {
+                Ok(stderr) => stderr,
+                Err(_) => {
+                    log::error!("Unable to get Neovim stderr as a string");
+                    String::new()
+                }
+            };
+            log::info!("Neovim exited with {status} and stderr: {stderr}");
+        }
+        Err(e) => log::error!("{e}"),
+    }
 
     stdout_thread
         .join()
