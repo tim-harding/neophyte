@@ -422,7 +422,10 @@ impl Ui {
             } else {
                 offset
             };
-            Some(position.map(|x| x.max(0.)))
+            let base_grid_size = self.grids[0].contents().size;
+            let grid_max = position + grid.contents().size.cast_as();
+            let overflow = (grid_max - base_grid_size.cast_as()).map(|x| x.max(0.));
+            Some((position - overflow).map(|x| x.max(0.)))
         } else {
             None
         }
