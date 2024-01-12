@@ -35,7 +35,7 @@ discoverability.
 -- lazy.nvim example:
 {
   'tim-harding/neophyte',
-  tag = '0.2.0',
+  tag = '0.2.2',
   event = 'VeryLazy',
   opts = {
     -- Same as neophyte.setup({ ... })

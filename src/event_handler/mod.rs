@@ -265,6 +265,11 @@ impl EventHandler {
         } = request;
         log::info!("Got request {method} with {params:?}");
         match method.as_str() {
+            "neophyte.is_running" => {
+                self.neovim
+                    .send_response(rpc::Response::result(msgid, true.into()));
+            }
+
             "neophyte.get_fonts" => {
                 let names = self
                     .fonts

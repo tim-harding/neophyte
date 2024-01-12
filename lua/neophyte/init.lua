@@ -42,15 +42,19 @@ local M = {}
 
 ---@alias motion 'still' | 'animating'
 
-vim.api.nvim_create_autocmd('VimLeavePre', {
-  callback = function()
-    vim.rpcnotify(1, 'neophyte.leave', {})
-  end
-})
-
 ---Set Neophyte configuration
 ---@param config Config
 function M.setup(config)
+  if not M.is_running() then
+    return
+  end
+
+  vim.api.nvim_create_autocmd('VimLeavePre', {
+    callback = function()
+      vim.rpcnotify(1, 'neophyte.leave', {})
+    end
+  })
+
   if config.fonts ~= nil then
     M.set_fonts(config.fonts)
   end
@@ -86,6 +90,13 @@ function M.setup(config)
     assert(bg)
     M.set_bg_override(bg.r, bg.g, bg.b, bg.a)
   end
+end
+
+---Gets whether Neovim is running in Neophyte
+function M.is_running()
+  local success, result = pcall(function() return vim.rpcrequest(1, 'neophyte.is_running', {}) end)
+  -- May not be a bool if handled by another frontend
+  return success and result == true
 end
 
 ---Set the height of the font
