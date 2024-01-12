@@ -1,6 +1,6 @@
 # Neophyte
 
-![Crates.io](https://img.shields.io/crates/d/neophyte)
+[![Crates.io Version](https://img.shields.io/crates/v/neophyte)](https://crates.io/crates/neophyte)
 
 Neophyte is a Neovim GUI rendered with WebGPU and written in Rust. 
 It offers several niceties over the default terminal-based UI:
