@@ -12,7 +12,7 @@ It offers several niceties over the default terminal-based UI:
 - Cursor animations
 - Pixel-level window positioning
 
-https://github.com/tim-harding/neophyte/assets/13814470/b5648d18-ffa4-4f7d-8b90-6bfb03c6edde
+https://github.com/tim-harding/neophyte/assets/13814470/7007c562-efaf-4e0e-98a3-cc71954183d0
 
 ## Installation
 
