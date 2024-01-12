@@ -62,19 +62,16 @@ impl RenderState {
             .expect("Failed to get a graphics adapter");
 
         let (device, queue) = adapter
-        .request_device(
-            &wgpu::DeviceDescriptor {
-                label: None,
-                features: wgpu::Features::TEXTURE_BINDING_ARRAY
-                    | wgpu::Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING
-                    | wgpu::Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING
-                    | wgpu::Features::PUSH_CONSTANTS,
-                limits: adapter.limits(),
-            },
-            None,
-        )
-        .await
-        .expect("Failed to get a graphics device");
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    label: None,
+                    features: wgpu::Features::PUSH_CONSTANTS,
+                    limits: adapter.limits(),
+                },
+                None,
+            )
+            .await
+            .expect("Failed to get a graphics device");
 
         let surface_caps = surface.get_capabilities(&adapter);
 
