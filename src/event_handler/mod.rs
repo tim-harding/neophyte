@@ -86,7 +86,7 @@ impl EventHandler {
                 }
             },
 
-            Event::NewEvents(_) => self.request_redraw(),
+            Event::AboutToWait => self.request_redraw(),
 
             Event::WindowEvent {
                 window_id: _,
