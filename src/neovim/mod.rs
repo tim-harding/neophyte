@@ -12,6 +12,7 @@ use self::{
 use crate::rpc::{self, Request};
 use rmpv::Value;
 use std::{
+    ffi::OsStr,
     io::{self, ErrorKind},
     process::{Child, Command, Stdio},
     sync::{mpsc, Arc, RwLock},
@@ -25,9 +26,12 @@ pub struct Neovim {
 }
 
 impl Neovim {
-    pub fn new() -> io::Result<(Neovim, StdoutThread, StdinThread, Child)> {
+    pub fn new(
+        args: impl IntoIterator<Item = impl AsRef<OsStr>>,
+    ) -> io::Result<(Neovim, StdoutThread, StdinThread, Child)> {
         use io::Error;
         let mut child = Command::new("nvim")
+            .args(args)
             .arg("--embed")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -85,7 +89,7 @@ impl Neovim {
 
     // TODO: Proper public API
     pub fn ui_attach(&mut self) {
-        let extensions = ["ext_linegrid", "ext_multigrid"];
+        let extensions = ["ext_multigrid"];
         let extensions = Value::Map(
             extensions
                 .into_iter()

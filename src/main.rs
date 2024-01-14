@@ -41,8 +41,12 @@ fn main() {
         .build(&event_loop)
         .expect("Failed to create window");
 
-    let (mut neovim, stdout_handler, stdin_handler, child) =
-        Neovim::new().expect("Failed to start Neovim");
+    let (mut neovim, stdout_handler, stdin_handler, child) = Neovim::new(
+        std::env::args()
+            .skip(1)
+            .filter(|arg| arg != "--transparent"),
+    )
+    .expect("Failed to start Neovim");
     neovim.ui_attach();
     let stdin_thread = std::thread::spawn(move || stdin_handler.start());
     let proxy = event_loop.create_proxy();

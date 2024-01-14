@@ -86,6 +86,7 @@ impl EventHandler {
                 }
             },
 
+            Event::NewEvents(_) => log::info!("New Winit events"),
             Event::AboutToWait => self.request_redraw(),
 
             Event::WindowEvent {
@@ -106,7 +107,7 @@ impl EventHandler {
                     window_target.exit();
                 }
                 WindowEvent::RedrawRequested => {
-                    log::info!("Redraw requested");
+                    log::info!("Winit requested redraw");
                     self.redraw();
                 }
                 _ => {}
@@ -223,7 +224,7 @@ impl EventHandler {
 
     #[time_execution]
     fn handle_redraw_notification(&mut self, params: Vec<Value>) {
-        log::info!("Notified redraw");
+        log::info!("Neovim redraw start");
         for param in params {
             match event::Event::try_parse(param) {
                 Ok(events) => {
@@ -254,7 +255,7 @@ impl EventHandler {
             self.ui.clear_dirty();
             self.request_redraw();
         }
-        log::info!("Processed redraw notification");
+        log::info!("Neovim redraw end");
     }
 
     fn request(&mut self, request: rpc::Request) {
