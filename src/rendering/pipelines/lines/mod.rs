@@ -118,7 +118,7 @@ impl Pipeline {
             let size = grid.size().into_pixels(cell_size);
             set_scissor(size, offset, target_size, &mut render_pass);
             PushConstants {
-                target_size,
+                target_size: target_size.try_cast().unwrap(),
                 offset: PixelVec(offset.0 + Vec2::new(0, underline_offset + 2)),
                 grid_width: grid.size().0.x,
                 z,
@@ -132,7 +132,7 @@ impl Pipeline {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
 pub struct PushConstants {
-    pub target_size: PixelVec<u32>,
+    pub target_size: PixelVec<i32>,
     pub offset: PixelVec<i32>,
     pub grid_width: u32,
     pub z: f32,
