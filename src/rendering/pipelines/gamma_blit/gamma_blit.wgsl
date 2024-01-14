@@ -1,6 +1,6 @@
 struct Constants {
-    src_size: vec2<u32>,
-    dst_size: vec2<u32>,
+    src_size: vec2<i32>,
+    dst_size: vec2<i32>,
     transparent: f32,
 }
 
@@ -24,7 +24,7 @@ fn vs_main(
         f32(in_vertex_index % 2u),
         f32(((in_vertex_index + 5u) % 6u) / 3u),
     );
-    let two = vec2<u32>(2u, 2u);
+    let two = vec2<i32>(2, 2);
     let offset = vec2<f32>((constants.dst_size - constants.src_size) / two);
     let src_size = vec2<f32>(constants.src_size);
     let dst_size = vec2<f32>(constants.dst_size);

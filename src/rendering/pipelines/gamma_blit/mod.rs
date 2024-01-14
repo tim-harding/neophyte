@@ -87,7 +87,10 @@ impl Pipeline {
     ) {
         self.bind_group = bind_group(device, &self.bind_group_layout, &self.sampler, src_tex);
         self.pipeline = pipeline(device, &self.pipeline_layout, &self.shader, dst_format);
-        self.push_constants_vertex = PushConstantsVertex { src_size, dst_size };
+        self.push_constants_vertex = PushConstantsVertex {
+            src_size: src_size.try_cast().unwrap(),
+            dst_size: dst_size.try_cast().unwrap(),
+        };
         self.transparent = transparent;
     }
 
@@ -202,8 +205,8 @@ fn bind_group(
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
 pub struct PushConstantsVertex {
-    src_size: PixelVec<u32>,
-    dst_size: PixelVec<u32>,
+    src_size: PixelVec<i32>,
+    dst_size: PixelVec<i32>,
 }
 
 #[repr(C)]
