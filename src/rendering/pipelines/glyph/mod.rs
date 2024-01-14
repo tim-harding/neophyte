@@ -162,7 +162,7 @@ impl Pipeline {
                     let offset = offset.round_to_pixels(cell_size);
                     set_scissor(size, offset, target_size, &mut render_pass);
                     GlyphPushConstants {
-                        target_size,
+                        target_size: target_size.try_cast().unwrap(),
                         offset: offset + scroll_offset,
                         z,
                         atlas_size: self.atlas_size,

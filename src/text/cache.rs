@@ -91,9 +91,9 @@ impl FontCache {
                             cached.revision += 1;
                             let origin = cached.atlas.pack(&image);
                             cached.info.push(GlyphInfo {
-                                size,
+                                size: size.try_cast().unwrap(),
                                 offset: Vec2::new(placement.left, placement.top) * Vec2::new(1, -1),
-                                origin,
+                                origin: origin.try_cast().unwrap(),
                             });
                             out
                         } else {
@@ -137,11 +137,11 @@ impl Cached {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Pod, Zeroable)]
 pub struct GlyphInfo {
     /// The size of the glyph in pixels
-    pub size: Vec2<u32>,
+    pub size: Vec2<i32>,
     /// The amount to offset the glyph in pixels
     pub offset: Vec2<i32>,
     /// The upper-left corner of the texture in the glyph atlas
-    pub origin: Vec2<u32>,
+    pub origin: Vec2<i32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

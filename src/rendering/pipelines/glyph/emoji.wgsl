@@ -8,13 +8,13 @@ struct EmojiCell {
 
 
 struct GlyphInfo {
-    size: vec2<u32>,
+    size: vec2<i32>,
     offset: vec2<i32>,
-    origin: vec2<u32>,
+    origin: vec2<i32>,
 }
 
 struct PushConstants {
-    target_size: vec2<u32>,
+    target_size: vec2<i32>,
     offset: vec2<i32>,
     z: f32,
     atlas_size: u32,
