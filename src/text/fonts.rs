@@ -80,6 +80,9 @@ impl Fonts {
                 }
             })
             .collect();
+        if self.fonts.is_empty() {
+            self.fonts = Self::new().fonts;
+        }
     }
 
     pub fn families(&self) -> impl Iterator<Item = &FontFamily> {
