@@ -10,6 +10,9 @@ pub enum Window {
     None,
     Normal(NormalWindow),
     Floating(FloatingWindow),
+    Messages {
+        row: u16,
+    },
     External,
 }
 
@@ -18,6 +21,10 @@ impl Window {
         match &self {
             Window::None => Default::default(),
             Window::External => Default::default(),
+            Window::Messages { row } => WindowOffset {
+                offset: CellVec(Vec2::new(0, *row).cast_as()),
+                anchor_grid: None,
+            },
             Window::Normal(window) => WindowOffset {
                 offset: window.start.cast_as(),
                 anchor_grid: None,

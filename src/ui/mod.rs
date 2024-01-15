@@ -10,12 +10,11 @@ use self::{
 };
 use crate::{
     event::{
-        hl_attr_define::Attributes, mode_info_set::ModeInfo, Anchor, CmdlineBlockAppend,
-        CmdlineBlockShow, CmdlinePos, DefaultColorsSet, Event, GridClear, GridCursorGoto,
-        GridDestroy, GridLine, GridResize, GridScroll, HlGroupSet, ModeChange, ModeInfoSet,
-        MsgHistoryShow, MsgRuler, MsgSetPos, MsgShowcmd, MsgShowmode, OptionSet, PopupmenuSelect,
-        PopupmenuShow, TablineUpdate, WinClose, WinExternalPos, WinFloatPos, WinHide, WinPos,
-        WinViewport,
+        hl_attr_define::Attributes, mode_info_set::ModeInfo, CmdlineBlockAppend, CmdlineBlockShow,
+        CmdlinePos, DefaultColorsSet, Event, GridClear, GridCursorGoto, GridDestroy, GridLine,
+        GridResize, GridScroll, HlGroupSet, ModeChange, ModeInfoSet, MsgHistoryShow, MsgRuler,
+        MsgSetPos, MsgShowcmd, MsgShowmode, OptionSet, PopupmenuSelect, PopupmenuShow,
+        TablineUpdate, WinClose, WinExternalPos, WinFloatPos, WinHide, WinPos, WinViewport,
     },
     ui::window::{FloatingWindow, NormalWindow, Window},
     util::vec2::{CellVec, PixelVec, Vec2},
@@ -328,12 +327,7 @@ impl Ui {
                 // Message scrollback is a hard-coded z-index
                 // https://neovim.io/doc/user/api.html#nvim_open_win()
                 self.show_float(DrawItem::new(grid, Some(200)));
-                *self.get_or_create_grid(grid).window_mut() = Window::Floating(FloatingWindow {
-                    anchor: Anchor::Nw,
-                    anchor_grid: 1,
-                    anchor_pos: CellVec(Vec2::new(0.0, row as f32)),
-                    focusable: false,
-                });
+                *self.get_or_create_grid(grid).window_mut() = Window::Messages { row };
             }
             Event::MsgShow(event) => self.messages.show(event),
             Event::MsgShowmode(MsgShowmode { content }) => self.messages.showmode = content,
@@ -413,19 +407,27 @@ impl Ui {
             if grid.window() == &Window::None {
                 return None;
             }
+
             let WindowOffset {
                 offset,
                 anchor_grid,
             } = grid.window().offset(grid.contents().size);
+
             let position = if let Some(anchor_grid) = anchor_grid {
                 self.position(anchor_grid)? + offset
             } else {
                 offset
             };
-            let base_grid_size = self.grids[0].contents().size;
-            let grid_max = position + grid.contents().size.cast_as();
-            let overflow = (grid_max - base_grid_size.cast_as()).map(|x| x.max(0.));
-            Some((position - overflow).map(|x| x.max(0.)))
+
+            match grid.window() {
+                Window::Floating(_) => {
+                    let base_grid_size = self.grids[0].contents().size;
+                    let grid_max = position + grid.contents().size.cast_as();
+                    let overflow = (grid_max - base_grid_size.cast_as()).map(|x| x.max(0.));
+                    Some((position - overflow).map(|x| x.max(0.)))
+                }
+                _ => Some(position),
+            }
         } else {
             None
         }
