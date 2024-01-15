@@ -43,7 +43,7 @@ impl RenderState {
         let surface_size: PixelVec<u32> = window.inner_size().into();
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
+            backends: wgpu::Backends::PRIMARY,
             dx12_shader_compiler: Default::default(),
             flags: wgpu::InstanceFlags::default(),
             gles_minor_version: wgpu::Gles3MinorVersion::Automatic,
@@ -59,7 +59,7 @@ impl RenderState {
                 force_fallback_adapter: false,
             })
             .await
-            .expect("Failed to get a graphics adapter");
+            .expect("Failed to get a graphics adapter. Make sure you are using either Vulkan, Metal, or DX12.");
 
         let (device, queue) = adapter
             .request_device(

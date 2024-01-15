@@ -234,12 +234,12 @@ impl Text {
                                     r: fg[0],
                                     g: fg[1],
                                     b: fg[2],
-                                    glyph_index,
+                                    glyph_index: glyph_index.try_into().unwrap(),
                                 }),
                                 GlyphKind::Emoji => self.emoji.push(EmojiCell {
                                     x: position.x,
                                     y: position.y,
-                                    glyph_index,
+                                    glyph_index: glyph_index.try_into().unwrap(),
                                 }),
                             }
                             advanced += glyph.advance * metrics.scale_factor;
@@ -524,7 +524,7 @@ pub struct MonochromeCell {
     pub r: f32,
     pub g: f32,
     pub b: f32,
-    pub glyph_index: u32,
+    pub glyph_index: i32,
 }
 
 #[repr(C)]
@@ -532,7 +532,7 @@ pub struct MonochromeCell {
 pub struct EmojiCell {
     pub x: i32,
     pub y: i32,
-    pub glyph_index: u32,
+    pub glyph_index: i32,
 }
 
 #[repr(C)]

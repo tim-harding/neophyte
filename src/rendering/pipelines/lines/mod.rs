@@ -120,7 +120,7 @@ impl Pipeline {
             PushConstants {
                 target_size: target_size.try_cast().unwrap(),
                 offset: PixelVec(offset.0 + Vec2::new(0, underline_offset + 2)),
-                grid_width: grid.size().0.x,
+                grid_width: grid.size().0.x.try_into().unwrap(),
                 z,
             }
             .set(&mut render_pass);
@@ -134,7 +134,7 @@ impl Pipeline {
 pub struct PushConstants {
     pub target_size: PixelVec<i32>,
     pub offset: PixelVec<i32>,
-    pub grid_width: u32,
+    pub grid_width: i32,
     pub z: f32,
 }
 

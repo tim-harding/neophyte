@@ -165,7 +165,7 @@ impl Pipeline {
                         target_size: target_size.try_cast().unwrap(),
                         offset: offset + scroll_offset,
                         z,
-                        atlas_size: self.atlas_size,
+                        atlas_size: self.atlas_size.try_into().unwrap(),
                     }
                     .set(&mut render_pass);
                     render_pass.draw(0..count * 6, 0..1);

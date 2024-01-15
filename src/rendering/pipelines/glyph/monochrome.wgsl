@@ -4,7 +4,7 @@ struct MonochromeCell {
     r: f32,
     g: f32,
     b: f32,
-    glyph_index: u32,
+    glyph_index: i32,
 }
 
 struct GlyphInfo {
@@ -17,7 +17,7 @@ struct PushConstants {
     target_size: vec2<i32>,
     offset: vec2<i32>,
     z: f32,
-    atlas_size: u32,
+    atlas_size: i32,
 }
 
 var<push_constant> constants: PushConstants;
