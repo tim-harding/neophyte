@@ -109,22 +109,24 @@ impl Pipeline {
         });
 
         render_pass.set_pipeline(&self.pipeline);
-        for (z, offset, grid) in grids {
+        for (z, scroll_offset, grid) in grids {
             let Some(lines_bind_group) = &grid.lines_bind_group() else {
                 continue;
             };
             render_pass.set_bind_group(0, lines_bind_group, &[]);
-
             let size = grid.size().into_pixels(cell_size);
-            set_scissor(size, offset, target_size, &mut render_pass);
-            PushConstants {
-                target_size: target_size.try_cast().unwrap(),
-                offset: PixelVec(offset.0 + Vec2::new(0, underline_offset + 2)),
-                grid_width: grid.size().0.x.try_into().unwrap(),
-                z,
+            if let Some(offset) = grid.offset() {
+                let offset = offset.round_to_pixels(cell_size);
+                set_scissor(size, offset, target_size, &mut render_pass);
+                PushConstants {
+                    target_size: target_size.try_cast().unwrap(),
+                    offset: offset + scroll_offset + PixelVec::new(0, underline_offset + 2),
+                    grid_width: grid.size().0.x.try_into().unwrap(),
+                    z,
+                }
+                .set(&mut render_pass);
+                render_pass.draw(0..grid.lines_count() * 6, 0..1);
             }
-            .set(&mut render_pass);
-            render_pass.draw(0..grid.lines_count() * 6, 0..1);
         }
     }
 }
