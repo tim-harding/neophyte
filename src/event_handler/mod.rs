@@ -250,8 +250,14 @@ impl EventHandler {
                 );
                 self.finish_font_change();
             }
-            self.render_state
-                .update(&self.ui, &self.fonts, self.settings.bg_override);
+
+            let bg_override = if self.settings.transparent {
+                self.settings.bg_override
+            } else {
+                None
+            };
+
+            self.render_state.update(&self.ui, &self.fonts, bg_override);
             self.ui.clear_dirty();
             self.request_redraw();
         }
