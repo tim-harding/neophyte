@@ -16,7 +16,7 @@ use crate::{
     },
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
-use std::mem::size_of;
+use std::{mem::size_of, time::Duration};
 use wgpu::include_wgsl;
 
 pub struct Pipeline {
@@ -26,6 +26,7 @@ pub struct Pipeline {
     sampler: wgpu::Sampler,
     fragment_push_constants: FragmentPushConstants,
     display_info: Option<DisplayInfo>,
+    speed: f32,
     transform: Mat3,
     show: bool,
 }
@@ -119,6 +120,7 @@ impl Pipeline {
             display_info: None,
             transform: Mat3::IDENTITY,
             show: false,
+            speed: 0.,
         }
     }
 
@@ -223,11 +225,10 @@ impl Pipeline {
                 Some(DisplayInfo {
                     start_position: position,
                     target_position: position,
-                    elapsed: 0.0,
+                    elapsed: Duration::ZERO,
                     fill,
                     cursor_size,
                     blink_rate: BlinkRate::from_mode_info(mode),
-                    blink_state: BlinkState::Wait,
                 })
             }
             (Some(position), Some(display_info)) => {
@@ -235,8 +236,8 @@ impl Pipeline {
                 let (start_position, elapsed) = if new_target != display_info.target_position {
                     let current_position = display_info
                         .start_position
-                        .lerp(display_info.target_position, t(display_info));
-                    (current_position, 0.0)
+                        .lerp(display_info.target_position, t(display_info, self.speed));
+                    (current_position, Duration::ZERO)
                 } else {
                     (display_info.start_position, display_info.elapsed)
                 };
@@ -249,19 +250,19 @@ impl Pipeline {
                     fill,
                     cursor_size,
                     blink_rate,
-                    blink_state: BlinkState::Wait,
                 })
             }
         };
     }
 
-    pub fn advance(&mut self, delta_seconds: f32, cell_size: Vec2<f32>) -> Motion {
+    pub fn advance(&mut self, delta_time: Duration, speed: f32, cell_size: Vec2<f32>) -> Motion {
+        self.speed = speed;
         let Some(display_info) = self.display_info.as_mut() else {
             return Motion::Still;
         };
 
-        display_info.elapsed += delta_seconds;
-        let t = t(display_info).min(1.);
+        display_info.elapsed += delta_time;
+        let t = t(display_info, speed).min(1.);
         let current_position = display_info
             .start_position
             .lerp(display_info.target_position, t);
@@ -296,23 +297,29 @@ impl Pipeline {
         self.transform = Mat3::translate(current_position.0) * transform;
 
         let (motion, show) = if let Some(blink_rate) = display_info.blink_rate {
-            let blink_state = display_info
-                .blink_rate
-                .map(|blink_rate| {
-                    display_info
-                        .blink_state
-                        .next(blink_rate, display_info.elapsed)
-                })
-                .unwrap_or(BlinkState::Wait);
-            let ms = match blink_state {
-                BlinkState::On(_) => blink_rate.on,
-                BlinkState::Off(_) => blink_rate.off,
-                BlinkState::Wait => blink_rate.wait,
-            };
-            display_info.blink_state = blink_state;
-            (motion.soonest(Motion::DelayMs(ms)), blink_state.visible())
+            let wait = Duration::from_millis(blink_rate.wait as u64);
+            if display_info.elapsed < wait {
+                let until_cycle = wait - display_info.elapsed;
+                (motion.soonest(Motion::Delay(until_cycle)), true)
+            } else {
+                let since_wait = (display_info.elapsed - wait).as_millis();
+                let on = blink_rate.on as u128;
+                let off = blink_rate.off as u128;
+                let cycle_duration = on + off;
+                let cycle_time = since_wait % cycle_duration;
+                if cycle_time < on {
+                    let until_off: u64 = (on - cycle_time).try_into().unwrap_or(0);
+                    let until_off = Duration::from_millis(until_off);
+                    (motion.soonest(Motion::Delay(until_off)), true)
+                } else {
+                    let off_time = cycle_time - on;
+                    let until_on: u64 = (off - off_time).try_into().unwrap_or(0);
+                    let until_on = Duration::from_millis(until_on);
+                    (motion.soonest(Motion::Delay(until_on)), false)
+                }
+            }
         } else {
-            (motion, display_info.blink_state.visible())
+            (motion, true)
         };
         self.show = show;
 
@@ -395,11 +402,10 @@ fn bind_group(
 struct DisplayInfo {
     start_position: PixelVec<f32>,
     target_position: PixelVec<f32>,
-    elapsed: f32,
+    elapsed: Duration,
     fill: Vec2<f32>,
     cursor_size: Vec2<f32>,
     blink_rate: Option<BlinkRate>,
-    blink_state: BlinkState,
 }
 
 #[repr(C)]
@@ -434,12 +440,12 @@ pub enum CursorKind {
     Cmdline,
 }
 
-fn t(display_info: &DisplayInfo) -> f32 {
+fn t(display_info: &DisplayInfo, speed: f32) -> f32 {
     let length = (display_info.target_position - display_info.start_position).length();
     if length < 0.25 {
         1.0
     } else {
-        nice_s_curve(display_info.elapsed, length)
+        nice_s_curve(display_info.elapsed.as_secs_f32() * speed, length)
     }
 }
 
@@ -459,31 +465,4 @@ impl BlinkRate {
             _ => None,
         }
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Default)]
-enum BlinkState {
-    On(f32),
-    Off(f32),
-    #[default]
-    Wait,
-}
-
-impl BlinkState {
-    pub fn next(self, rate: BlinkRate, elapsed: f32) -> Self {
-        match self {
-            BlinkState::On(start) if elapsed > start + sec(rate.on) => Self::Off(elapsed),
-            BlinkState::Off(start) if elapsed > start + sec(rate.off) => Self::On(elapsed),
-            BlinkState::Wait if elapsed > sec(rate.wait) => Self::Off(elapsed),
-            _ => self,
-        }
-    }
-
-    pub fn visible(&self) -> bool {
-        matches!(self, BlinkState::On(_) | BlinkState::Wait)
-    }
-}
-
-fn sec(ms: u32) -> f32 {
-    ms as f32 / 1_000.
 }

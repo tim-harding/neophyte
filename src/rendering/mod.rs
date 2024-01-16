@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 mod cmdline_grid;
 mod glyph_bind_group;
 mod glyph_push_constants;
@@ -26,7 +28,7 @@ pub enum Motion {
     #[default]
     Still,
     Animating,
-    DelayMs(u32),
+    Delay(Duration),
 }
 
 impl Motion {
@@ -34,8 +36,8 @@ impl Motion {
         use Motion::*;
         match (self, other) {
             (Animating, _) | (_, Animating) => Animating,
-            (DelayMs(ms1), DelayMs(ms2)) => DelayMs(ms1.min(ms2)),
-            (DelayMs(ms), Still) | (Still, DelayMs(ms)) => DelayMs(ms),
+            (Delay(ms1), Delay(ms2)) => Delay(ms1.min(ms2)),
+            (Delay(ms), Still) | (Still, Delay(ms)) => Delay(ms),
             (Still, Still) => Still,
         }
     }

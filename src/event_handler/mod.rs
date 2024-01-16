@@ -568,7 +568,7 @@ impl EventHandler {
     #[time_execution]
     fn redraw(&mut self) {
         let now = Instant::now();
-        let elapsed = now.duration_since(self.last_render_time).as_secs_f32();
+        let elapsed = now.duration_since(self.last_render_time);
         self.last_render_time = now;
         log::info!("Got redraw: {elapsed:?}");
 

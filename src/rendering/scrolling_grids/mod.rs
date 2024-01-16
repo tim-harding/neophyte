@@ -6,11 +6,11 @@ use crate::{
     util::{nice_s_curve, vec2::CellVec},
 };
 use range::Range;
-use std::collections::VecDeque;
+use std::{collections::VecDeque, time::Duration};
 
 pub struct ScrollingGrids {
     scrolling: VecDeque<GridPart>,
-    t: f32,
+    t: Duration,
     offset_start: f32,
 }
 
@@ -21,7 +21,7 @@ impl ScrollingGrids {
         scrolling.push_back(GridPart::new(grid));
         Self {
             scrolling,
-            t: 0.,
+            t: Duration::ZERO,
             offset_start: 0.,
         }
     }
@@ -31,8 +31,9 @@ impl ScrollingGrids {
         assert_eq!(self.scrolling.len(), 1);
     }
 
-    pub fn advance(&mut self, delta_seconds: f32) -> Motion {
-        self.t += delta_seconds;
+    pub fn advance(&mut self, delta_time: Duration, speed: f32) -> Motion {
+        self.t +=
+            Duration::try_from_secs_f32(delta_time.as_secs_f32() * speed).unwrap_or(Duration::ZERO);
         if self.offset_y() == 0. {
             self.finish_scroll();
             Motion::Still
@@ -48,7 +49,7 @@ impl ScrollingGrids {
         let offset = mag * sign;
         let mut coverage = Range::until(grid.size.0.y.into());
         self.offset_start = self.offset_y() + offset as f32;
-        self.t = 0.;
+        self.t = Duration::ZERO;
         self.scrolling.retain_mut(|part| {
             part.offset -= offset;
             let grid_range = Range::until(part.grid.size.0.y.into()) + part.offset;
@@ -90,7 +91,7 @@ impl ScrollingGrids {
     }
 
     fn offset_y(&self) -> f32 {
-        self.offset_start * (1. - nice_s_curve(self.t, self.offset_start.abs()))
+        self.offset_start * (1. - nice_s_curve(self.t.as_secs_f32(), self.offset_start.abs()))
     }
 
     pub fn offset(&self) -> CellVec<f32> {

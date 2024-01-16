@@ -1,6 +1,7 @@
 use std::{
     fs::File,
     io::{self, BufWriter},
+    time::Duration,
 };
 
 use super::{
@@ -252,7 +253,7 @@ impl RenderState {
 
     pub fn advance(
         &mut self,
-        delta_seconds: f32,
+        delta_time: Duration,
         cell_size: Vec2<f32>,
         settings: &Settings,
     ) -> Motion {
@@ -261,19 +262,23 @@ impl RenderState {
         for grid in self.grids.iter_mut() {
             motion = motion.soonest(
                 grid.scrolling
-                    .advance(delta_seconds * settings.scroll_speed * cell_size.y),
+                    .advance(delta_time, settings.scroll_speed * cell_size.y),
             );
         }
 
         const DEFAULT_CURSOR_SPEED: f32 = 100.;
-        let cursor_time_delta = delta_seconds * settings.cursor_speed * DEFAULT_CURSOR_SPEED;
+        let cursor_speed = settings.cursor_speed * DEFAULT_CURSOR_SPEED;
 
-        motion = motion.soonest(self.pipelines.cursor.advance(cursor_time_delta, cell_size));
         motion = motion.soonest(
             self.pipelines
-                .cmdline_cursor
-                .advance(cursor_time_delta, cell_size),
+                .cursor
+                .advance(delta_time, cursor_speed, cell_size),
         );
+        motion = motion.soonest(self.pipelines.cmdline_cursor.advance(
+            delta_time,
+            cursor_speed,
+            cell_size,
+        ));
 
         motion
     }
