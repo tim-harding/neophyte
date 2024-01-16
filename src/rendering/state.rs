@@ -268,7 +268,6 @@ impl RenderState {
 
         const DEFAULT_CURSOR_SPEED: f32 = 100.;
         let cursor_speed = settings.cursor_speed * DEFAULT_CURSOR_SPEED;
-
         motion = motion.soonest(
             self.pipelines
                 .cursor

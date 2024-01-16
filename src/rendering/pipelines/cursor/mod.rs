@@ -132,13 +132,18 @@ impl Pipeline {
         cell_size: Vec2<f32>,
         monochrome_target: &wgpu::TextureView,
     ) {
-        let cursor_hl = ui.highlight_groups.get("Cursor");
-        let (fg, bg) = cursor_hl
-            .and_then(|hl_id| ui.highlights.get((*hl_id) as usize))
+        let mode = &ui.modes[ui.current_mode as usize];
+        let (fg, bg) = mode
+            .attr_id
+            .and_then(|hl_id| ui.highlights.get(hl_id as usize))
             .and_then(|hl| (*hl).as_ref())
             .and_then(|hl| {
-                let fg = hl.foreground?;
-                let bg = hl.background?;
+                let fg = hl
+                    .foreground
+                    .unwrap_or(ui.default_colors.rgb_fg.unwrap_or(Rgb::WHITE));
+                let bg = hl
+                    .background
+                    .unwrap_or(ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK));
                 let blend = hl.blend();
                 Some((bg.into_srgb(blend), fg.into_srgb(blend)))
             })
@@ -157,7 +162,7 @@ impl Pipeline {
             fg,
             bg,
             size: cell_size,
-            speed: 0.,
+            stretch: 0.,
             padding: 0.,
         };
 
@@ -177,6 +182,7 @@ impl Pipeline {
                     None
                 }
             }
+
             CursorKind::Cmdline => ui.cmdline.mode.as_ref().map(|mode| match mode {
                 Mode::Normal { levels } => {
                     // We guarantee at least one level if the mode is Some
@@ -209,7 +215,6 @@ impl Pipeline {
 
         let position = position.map(|pos| pos.cast_as::<f32>());
 
-        let mode = &ui.modes[ui.current_mode as usize];
         let fill = mode.cell_percentage.unwrap_or(10) as f32 / 100.0;
         let fill = match mode.cursor_shape.unwrap_or(CursorShape::Block) {
             CursorShape::Block => Vec2::new(1.0, 1.0),
@@ -266,7 +271,7 @@ impl Pipeline {
         let current_position = display_info
             .start_position
             .lerp(display_info.target_position, t);
-        self.fragment_push_constants.speed = 0.;
+        self.fragment_push_constants.stretch = 0.;
         self.fragment_push_constants.size = cell_size;
         let (motion, transform) =
             if t >= 1.0 || display_info.target_position == display_info.start_position {
@@ -290,7 +295,7 @@ impl Pipeline {
                     * Mat3::rotate(angle)
                     * Mat3::translate(-translate.0);
 
-                self.fragment_push_constants.speed = (1. - t) * length / cell_diagonal;
+                self.fragment_push_constants.stretch = (1. - t) * length / cell_diagonal;
                 (Motion::Animating, transform)
             };
 
@@ -421,13 +426,13 @@ impl FragmentPushConstants {
     pub const SIZE: u32 = size_of::<Self>() as u32;
 }
 
-#[repr(C)]
+#[repr(C, align(16))]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 struct FragmentPushConstants {
     fg: [f32; 4],
     bg: [f32; 4],
     size: Vec2<f32>,
-    speed: f32,
+    stretch: f32,
     padding: f32,
 }
 

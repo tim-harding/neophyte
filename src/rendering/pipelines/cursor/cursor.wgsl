@@ -8,7 +8,7 @@ struct FragmentInfo {
     fg: vec3<f32>,
     bg: vec3<f32>,
     size: vec2<f32>,
-    speed: f32,
+    stretch: f32,
 }
 
 struct Info {
@@ -64,9 +64,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let sz = max(info.fragment.size.x, info.fragment.size.y);
     let rect = 1. - max(abs(in.corner.x - 0.5), abs(in.corner.y - 0.5)) * 2.;
     let round = 1. - length(in.corner - vec2<f32>(0.5, 0.5)) * 2.;
-    let l1 = round * sz / (info.fragment.speed / 4. + 1.);
+    let l1 = round * sz / (info.fragment.stretch / 4. + 1.);
     let l2 = rect * sz;
-    let t = min(1., max(0., info.fragment.speed / 4.));
+    let t = min(1., max(0., info.fragment.stretch / 4.));
     let l = max(0., min(1., mix(l2, l1, t)));
     let color = mix(info.fragment.fg, info.fragment.bg, sample.a);
     return vec4<f32>(color, l);
