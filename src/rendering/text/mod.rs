@@ -64,6 +64,7 @@ impl Text {
         grid_bind_group_layout: &wgpu::BindGroupLayout,
         highlights: &[Option<Attributes>],
         default_fg: Rgb,
+        default_bg: Rgb,
         fonts: &Fonts,
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
@@ -73,6 +74,7 @@ impl Text {
         let cell_size = metrics_px.cell_size();
 
         let default_fg = default_fg.into_srgb(1.);
+        let default_bg = default_bg.into_srgb(1.);
 
         self.monochrome.clear();
         self.emoji.clear();
@@ -144,15 +146,14 @@ impl Text {
                             .and_then(|hl| (*hl).as_ref())
                         {
                             let blend = hl.blend();
-                            let fg = if let Some(fg) = hl.foreground {
-                                fg.into_srgb(blend)
+                            let fg = hl.foreground;
+                            let bg = hl.background;
+
+                            if let Some(bg) = if hl.reverse() {
+                                Some(fg.map(|fg| fg.into_srgb(blend)).unwrap_or(default_fg))
                             } else {
-                                default_fg
-                            };
-
-                            if let Some(bg) = hl.background {
-                                let bg = bg.into_srgb(blend);
-
+                                bg.map(|bg| bg.into_srgb(blend))
+                            } {
                                 // Although some programming fonts are said to
                                 // contain ligatures, in practice these are more
                                 // commonly implemented as multi-character alternates.
@@ -175,7 +176,14 @@ impl Text {
                                 self.cell_fill.push(bg_cell);
                             }
 
-                            (fg, hl.underline())
+                            (
+                                if hl.reverse() {
+                                    bg.map(|bg| bg.into_srgb(blend)).unwrap_or(default_bg)
+                                } else {
+                                    fg.map(|fg| fg.into_srgb(blend)).unwrap_or(default_fg)
+                                },
+                                hl.underline(),
+                            )
                         } else {
                             (default_fg, false)
                         };
@@ -247,7 +255,13 @@ impl Text {
                         let range = cluster.range();
                         line_length += range.end - range.start;
                         if let Some(hl) = highlights[cluster.user_data() as usize] {
-                            if let Some(bg) = hl.background {
+                            let bg = if hl.reverse() {
+                                hl.foreground
+                            } else {
+                                hl.background
+                            };
+
+                            if let Some(bg) = bg {
                                 let bg = bg.into_srgb(hl.blend());
                                 for i in range.start..range.end {
                                     let bg_cell = BgCell {
