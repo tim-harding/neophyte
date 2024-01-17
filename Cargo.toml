@@ -24,7 +24,11 @@ wgpu = "0.18.0"
 pollster = "0.3.0"
 bytemuck = { version = "1.13.1", features = ["derive"] }
 png = "0.17.10"
-font-kit = "0.12.0"
+
+[dependencies.font-kit]
+version = "0.12.0"
+default-features = false
+features = ["source"]
 
 [dependencies.flexi_logger]
 version = "0.27.3"
