@@ -23,8 +23,8 @@ winit = { version = "0.29.3", features = ["rwh_05",] }
 wgpu = "0.18.0"
 pollster = "0.3.0"
 bytemuck = { version = "1.13.1", features = ["derive"] }
-font-loader = "0.11.0"
 png = "0.17.10"
+font-kit = "0.12.0"
 
 [dependencies.flexi_logger]
 version = "0.27.3"

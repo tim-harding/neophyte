@@ -1,5 +1,5 @@
 use crate::{ui::options::FontSize, util::vec2::Vec2};
-use std::{fs, io, path::Path};
+use std::{fs, io, path::Path, sync::Arc};
 use swash::{proxy::CharmapProxy, CacheKey, Charmap, FontRef};
 
 /// Wrapper over a Swash font
@@ -14,6 +14,7 @@ pub struct Font {
 
 #[derive(Debug, Clone)]
 pub enum Data {
+    ArcVec(Arc<Vec<u8>>),
     Vec(Vec<u8>),
     Array(&'static [u8]),
 }
@@ -21,9 +22,16 @@ pub enum Data {
 impl AsRef<[u8]> for Data {
     fn as_ref(&self) -> &[u8] {
         match self {
+            Data::ArcVec(v) => v.as_ref(),
             Data::Vec(v) => v.as_ref(),
             Data::Array(a) => a,
         }
+    }
+}
+
+impl From<Arc<Vec<u8>>> for Data {
+    fn from(value: Arc<Vec<u8>>) -> Self {
+        Self::ArcVec(value)
     }
 }
 

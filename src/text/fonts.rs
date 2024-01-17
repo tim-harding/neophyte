@@ -1,10 +1,10 @@
-use super::font::{Font, Metrics};
+use super::font::{Font, FontFromFileError, Metrics};
 use crate::{
     ui::options::FontSize,
     util::{vec2::Vec2, MaybeInto, Parse},
 };
-use font_loader::system_fonts::{self, FontPropertyBuilder};
-use swash::Setting;
+use font_kit::{error::SelectionError, handle::Handle, source::SystemSource};
+use swash::{Setting, Style, Weight};
 
 /// Loaded fonts
 #[derive(Debug, Clone)]
@@ -70,13 +70,20 @@ impl Fonts {
         let mut old = std::mem::take(&mut self.fonts);
         self.fonts = fonts
             .into_iter()
-            .map(move |font| {
+            .filter_map(move |font| {
                 if let Some(i) = old.iter().position(|old| old.setting == font) {
                     let mut existing = old.swap_remove(i);
                     existing.resize(size);
-                    existing
+                    Some(existing)
                 } else {
-                    FontFamily::with_settings(font, size)
+                    let name = font.name.clone();
+                    match FontFamily::with_settings(font, size) {
+                        Ok(family) => Some(family),
+                        Err(e) => {
+                            log::error!("Failed to load family {}: {e}", name);
+                            None
+                        }
+                    }
                 }
             })
             .collect();
@@ -120,16 +127,54 @@ pub struct FontFamily {
     pub bold_italic: Option<Font>,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum FontFamilyError {
+    #[error("{0}")]
+    Selection(#[from] SelectionError),
+    #[error("{0}")]
+    FontFromFile(#[from] FontFromFileError),
+    #[error("Could not read file as a font")]
+    InvalidFont,
+    #[error("Not fonts were loaded for the family")]
+    Empty,
+}
+
 impl FontFamily {
     /// Attempt to load the system font with the given name
-    pub fn with_settings(setting: FontSetting, size: FontSize) -> Self {
-        let builder = || FontPropertyBuilder::new().family(&setting.name);
-        Self {
-            regular: get(builder(), size),
-            bold: get(builder().bold(), size),
-            italic: get(builder().italic(), size),
-            bold_italic: get(builder().bold().italic(), size),
+    pub fn with_settings(setting: FontSetting, size: FontSize) -> Result<Self, FontFamilyError> {
+        let family = SystemSource::new().select_family_by_name(&setting.name)?;
+        let mut out = Self {
             setting,
+            regular: None,
+            bold: None,
+            italic: None,
+            bold_italic: None,
+        };
+
+        for font in family.fonts() {
+            let font = match font {
+                Handle::Path { path, font_index } => {
+                    Font::from_file(path, *font_index as usize, size)?
+                }
+                Handle::Memory { bytes, font_index } => {
+                    Font::from_bytes(bytes.clone(), *font_index as usize, size)
+                        .ok_or(FontFamilyError::InvalidFont)?
+                }
+            };
+            let attributes = font.as_ref().attributes();
+            match (attributes.weight(), attributes.style()) {
+                (Weight::NORMAL, Style::Normal) => out.regular = Some(font),
+                (Weight::NORMAL, Style::Italic) => out.italic = Some(font),
+                (Weight::BOLD, Style::Normal) => out.bold = Some(font),
+                (Weight::BOLD, Style::Italic) => out.bold_italic = Some(font),
+                _ => {}
+            }
+        }
+
+        if out.iter().count() == 0 {
+            Err(FontFamilyError::Empty)
+        } else {
+            Ok(out)
         }
     }
 
@@ -183,11 +228,6 @@ const STYLES: [FontStyle; 4] = [
     FontStyle::Italic,
     FontStyle::BoldItalic,
 ];
-
-fn get(builder: FontPropertyBuilder, size: FontSize) -> Option<Font> {
-    system_fonts::get(&builder.build())
-        .and_then(|(data, index)| Font::from_bytes(data, index as usize, size))
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum FontStyle {
