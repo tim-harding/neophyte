@@ -100,6 +100,24 @@ pub fn nice_s_curve(t: f32, length: f32) -> f32 {
 }
 
 fn normalize(t: f32, length: f32) -> f32 {
+    dbg!(10);
     let length = length.sqrt() + length.ln_1p();
     (t / length).min(1.).max(0.)
 }
+
+#[allow(unused)]
+macro_rules! time_execution {
+    ($e:expr) => {{
+        let now = ::std::time::Instant::now();
+        let out = $e;
+        ::log::trace!(
+            "EXECUTION_TIME({}): {}",
+            ::std::stringify!($e),
+            now.elapsed().as_micros()
+        );
+        out
+    }};
+}
+
+#[allow(unused)]
+pub(crate) use time_execution;
