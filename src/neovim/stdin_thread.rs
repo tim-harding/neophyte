@@ -20,15 +20,16 @@ impl StdinThread {
                     Ok(_) => {}
                     Err(e) => {
                         log::error!("{e}");
-                        return;
+                        break;
                     }
                 },
 
                 Err(e) => {
-                    log::error!("{e}");
-                    return;
+                    log::info!("{e}");
+                    break;
                 }
             }
         }
+        log::info!("Closing stdin thread");
     }
 }
