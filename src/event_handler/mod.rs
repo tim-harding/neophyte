@@ -68,7 +68,6 @@ impl EventHandler {
         }
     }
 
-    #[time_execution]
     pub fn handle(
         &mut self,
         event: Event<UserEvent>,
@@ -117,7 +116,6 @@ impl EventHandler {
         }
     }
 
-    #[time_execution]
     fn notification(
         &mut self,
         notification: Notification,
@@ -222,7 +220,6 @@ impl EventHandler {
         let _ = inner();
     }
 
-    #[time_execution]
     fn handle_redraw_notification(&mut self, params: Vec<Value>) {
         log::info!("Neovim redraw start");
         for param in params {
@@ -565,7 +562,6 @@ impl EventHandler {
         self.fonts.set_font_size(new_font_size);
     }
 
-    #[time_execution]
     fn redraw(&mut self) {
         let now = Instant::now();
         let elapsed = now.duration_since(self.last_render_time);

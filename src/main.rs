@@ -15,9 +15,6 @@ pub mod text;
 mod ui;
 mod util;
 
-#[macro_use]
-extern crate neophyte_macro;
-
 use event_handler::EventHandler;
 use flexi_logger::Logger;
 use neovim::Neovim;

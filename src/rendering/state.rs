@@ -282,12 +282,10 @@ impl RenderState {
         motion
     }
 
-    #[time_execution]
     fn current_texture(&mut self) -> Result<wgpu::SurfaceTexture, wgpu::SurfaceError> {
         self.surface.get_current_texture()
     }
 
-    #[time_execution]
     pub fn render(
         &mut self,
         cell_size: Vec2<u32>,
