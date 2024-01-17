@@ -29,7 +29,10 @@ use winit::{
 };
 
 fn main() {
-    Logger::try_with_env().unwrap().start().unwrap();
+    Logger::try_with_env_or_str("neophyte=warn")
+        .unwrap()
+        .start()
+        .unwrap();
 
     let transparent = std::env::args().any(|arg| arg == "--transparent");
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event()

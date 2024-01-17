@@ -80,7 +80,7 @@ impl Fonts {
                     match FontFamily::with_settings(font, size) {
                         Ok(family) => Some(family),
                         Err(e) => {
-                            log::error!("Failed to load family {}: {e}", name);
+                            log::warn!("Failed to load family {}: {e}", name);
                             None
                         }
                     }
