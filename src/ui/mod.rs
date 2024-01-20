@@ -74,6 +74,7 @@ pub struct Ui {
     pub tabline: Option<TablineUpdate>,
     /// Did we receive a flush event?
     pub did_flush: bool,
+    pub ignore_next_scroll: bool,
 }
 
 impl Default for Ui {
@@ -97,6 +98,7 @@ impl Default for Ui {
             tabline: None,
             did_flush: false,
             blend: 1.0,
+            ignore_next_scroll: false,
         }
     }
 }
@@ -144,6 +146,7 @@ impl Ui {
         self.did_highlights_change = false;
         self.did_flush = false;
         self.guifont_update = None;
+        self.ignore_next_scroll = false;
         for grid in self.grids.iter_mut() {
             grid.clear_dirty();
         }
@@ -292,9 +295,11 @@ impl Ui {
                 curcol: _,
                 line_count: _,
             }) => {
-                self.grid_mut(grid)
-                    .expect("Tried to update the viewport of a nonexistent grid")
-                    .scroll_delta = scroll_delta;
+                if !self.ignore_next_scroll {
+                    self.grid_mut(grid)
+                        .expect("Tried to update the viewport of a nonexistent grid")
+                        .scroll_delta = scroll_delta;
+                }
             }
             Event::WinExtmark(_) => {}
 

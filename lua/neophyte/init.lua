@@ -49,9 +49,19 @@ function M.setup(config)
     return
   end
 
+  local group = vim.api.nvim_create_augroup('Neophyte', { clear = true })
+
   vim.api.nvim_create_autocmd('VimLeavePre', {
+    group = group,
     callback = function()
       vim.rpcnotify(1, 'neophyte.leave', {})
+    end
+  })
+
+  vim.api.nvim_create_autocmd('BufLeave', {
+    group = group,
+    callback = function()
+      vim.rpcnotify(1, 'neophyte.buf_leave', {})
     end
   })
 

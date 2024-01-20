@@ -213,6 +213,10 @@ impl EventHandler {
                     window_target.exit();
                 }
 
+                "neophyte.buf_leave" => {
+                    self.ui.ignore_next_scroll = true;
+                }
+
                 _ => log::error!("Unrecognized notification: {method}"),
             }
             Some(())
