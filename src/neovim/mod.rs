@@ -133,4 +133,8 @@ impl Neovim {
             .collect();
         self.call("nvim_ui_try_resize_grid", args);
     }
+
+    pub fn ui_set_focus(&mut self, focus: bool) {
+        self.call("nvim_ui_set_focus", vec![focus.into()]);
+    }
 }

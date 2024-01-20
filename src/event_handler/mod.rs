@@ -85,7 +85,7 @@ impl EventHandler {
                 }
             },
 
-            Event::NewEvents(_) => log::info!("New Winit events"),
+            Event::NewEvents(_) => log::debug!("New Winit events"),
             Event::AboutToWait => self.request_redraw(),
 
             Event::WindowEvent {
@@ -106,9 +106,10 @@ impl EventHandler {
                     window_target.exit();
                 }
                 WindowEvent::RedrawRequested => {
-                    log::info!("Winit requested redraw");
+                    log::debug!("Winit requested redraw");
                     self.redraw();
                 }
+                WindowEvent::Focused(focus) => self.neovim.ui_set_focus(*focus),
                 _ => {}
             },
 
@@ -225,7 +226,7 @@ impl EventHandler {
     }
 
     fn handle_redraw_notification(&mut self, params: Vec<Value>) {
-        log::info!("Neovim redraw start");
+        log::debug!("Neovim redraw start");
         for param in params {
             match event::Event::try_parse(param) {
                 Ok(events) => {
@@ -262,7 +263,7 @@ impl EventHandler {
             self.ui.clear_dirty();
             self.request_redraw();
         }
-        log::info!("Neovim redraw end");
+        log::debug!("Neovim redraw end");
     }
 
     fn request(&mut self, request: rpc::Request) {
@@ -570,7 +571,7 @@ impl EventHandler {
         let now = Instant::now();
         let elapsed = now.duration_since(self.last_render_time);
         self.last_render_time = now;
-        log::info!("Got redraw: {elapsed:?}");
+        log::debug!("Got winit redraw: {elapsed:?}");
 
         self.render_state
             .advance(elapsed, self.fonts.cell_size().cast_as(), &self.settings);
