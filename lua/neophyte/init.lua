@@ -239,9 +239,37 @@ end
 
 ---Sends the given input string to the handler registered by `enable_raw_input`. This should only be called by Neophyte.
 ---@param input string The raw keyboard input
+---@private
 function M.receive_raw_input(input)
   if raw_input_handler ~= nil then
     raw_input_handler(input)
+  end
+end
+
+---@alias FrameHandler fun(frame_number: integer)
+
+---@type FrameHandler | nil
+local frame_handler = nil
+
+---Resets the frame counter and sets a function that will receive render completion notifications. Whenever Neophyte finishes rendering a frame, it will call this function with the frame number. To disable notifications, use `disable_frame_handler`.
+---@param handler FrameHandler The function that will receive events
+function M.set_frame_handler(handler)
+  vim.rpcnotify(1, 'neophyte.enable_frame_events', {})
+  frame_handler = handler
+end
+
+---Unsets the frame handler so that render notifications are no longer received.
+function M.remove_frame_handler()
+  vim.rpcnotify(1, 'neophyte.disable_frame_events', {})
+  frame_handler = nil
+end
+
+---Sends the given frame number to the handler registered by `enable_frame_handler`. This should only be called by Neophyte.
+---@param frame integer The frame number
+---@private
+function M.receive_frame_event(frame)
+  if frame_handler ~= nil then
+    frame_handler(frame)
   end
 end
 

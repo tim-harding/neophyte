@@ -17,6 +17,7 @@ pub struct Settings {
     pub bg_override: Option<[f32; 4]>,
     pub transparent: bool,
     pub raw_input: bool,
+    pub send_frame_events: bool,
 }
 
 impl Settings {
@@ -39,6 +40,7 @@ impl Default for Settings {
             bg_override: None,
             transparent: false,
             raw_input: false,
+            send_frame_events: false,
         }
     }
 }

@@ -212,6 +212,11 @@ impl EventHandler {
                 "neophyte.buf_leave" => self.ui.ignore_next_scroll = true,
                 "neophyte.enable_raw_input" => self.settings.raw_input = true,
                 "neophyte.disable_raw_input" => self.settings.raw_input = false,
+                "neophyte.enable_frame_events" => {
+                    self.settings.send_frame_events = true;
+                    self.frame_number = 0;
+                }
+                "neophyte.disable_frame_events" => self.settings.send_frame_events = false,
 
                 _ => log::error!("Unrecognized notification: {method}"),
             }
@@ -577,6 +582,12 @@ impl EventHandler {
             self.frame_number,
         );
 
+        if self.settings.send_frame_events {
+            self.neovim.exec_lua(
+                "require('neophyte').receive_frame_event(...)".to_string(),
+                vec![self.frame_number.into()],
+            )
+        }
         self.frame_number = self.frame_number.saturating_add(1);
     }
 
