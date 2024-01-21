@@ -16,6 +16,7 @@ pub struct Settings {
     /// Overrides the background from Neovim's DefaultColorsSet event
     pub bg_override: Option<[f32; 4]>,
     pub transparent: bool,
+    pub raw_input: bool,
 }
 
 impl Settings {
@@ -37,6 +38,7 @@ impl Default for Settings {
             render_target: None,
             bg_override: None,
             transparent: false,
+            raw_input: false,
         }
     }
 }

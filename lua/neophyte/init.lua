@@ -210,12 +210,39 @@ function M.end_render()
   vim.rpcnotify(1, 'neophyte.end_render', {})
 end
 
+---Set the background color to use for transparent windows
 ---@param r number The red channel in 0-255
 ---@param g number The green channel in 0-255
 ---@param b number The blue channel in 0-255
 ---@param a number The alpha channel in 0-255
 function M.set_bg_override(r, g, b, a)
   vim.rpcnotify(1, 'neophyte.set_bg_override', { r, g, b, a })
+end
+
+---@alias RawInputHandler fun(input: string)
+
+---@type RawInputHandler | nil
+local raw_input_handler = nil
+
+---Disable normal input handling and receive raw keyboard inputs as strings. These strings will be escaped per the `keycodes` section of Neovim's documentation. `disable_raw_input` will return Neophyte to normal input handling.
+---@param handler RawInputHandler The function that will receive raw input strings
+function M.enable_raw_input(handler)
+  vim.rpcnotify(1, 'neophyte.enable_raw_input', {})
+  raw_input_handler = handler
+end
+
+---Disable raw input handling and return to normal input handling.
+function M.disable_raw_input()
+  vim.rpcnotify(1, 'neophyte.disable_raw_input', {})
+  raw_input_handler = nil
+end
+
+---Sends the given input string to the handler registered by `enable_raw_input`. This should only be called by Neophyte.
+---@param input string The raw keyboard input
+function M.receive_raw_input(input)
+  if raw_input_handler ~= nil then
+    raw_input_handler(input)
+  end
 end
 
 return M

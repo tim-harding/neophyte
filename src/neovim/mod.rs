@@ -137,4 +137,8 @@ impl Neovim {
     pub fn ui_set_focus(&mut self, focus: bool) {
         self.call("nvim_ui_set_focus", vec![focus.into()]);
     }
+
+    pub fn exec_lua(&mut self, lua: String, args: Vec<Value>) {
+        self.call("nvim_exec_lua", vec![lua.into(), args.into()]);
+    }
 }

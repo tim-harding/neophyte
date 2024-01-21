@@ -196,9 +196,7 @@ impl EventHandler {
                     self.frame_number = 0;
                 }
 
-                "neophyte.end_render" => {
-                    self.settings.render_target = None;
-                }
+                "neophyte.end_render" => self.settings.render_target = None,
 
                 "neophyte.set_bg_override" => {
                     let mut args = Values::new(params.into_iter().next()?)?;
@@ -210,13 +208,10 @@ impl EventHandler {
                     self.settings.bg_override = Some(rgba);
                 }
 
-                "neophyte.leave" => {
-                    window_target.exit();
-                }
-
-                "neophyte.buf_leave" => {
-                    self.ui.ignore_next_scroll = true;
-                }
+                "neophyte.leave" => window_target.exit(),
+                "neophyte.buf_leave" => self.ui.ignore_next_scroll = true,
+                "neophyte.enable_raw_input" => self.settings.raw_input = true,
+                "neophyte.disable_raw_input" => self.settings.raw_input = false,
 
                 _ => log::error!("Unrecognized notification: {method}"),
             }
@@ -602,7 +597,15 @@ impl EventHandler {
                 _ => format!("<{c}>"),
             }
         };
-        self.neovim.input(c);
+
+        if self.settings.raw_input {
+            self.neovim.exec_lua(
+                "require('neophyte').receive_raw_input(...)".to_string(),
+                vec![c.into()],
+            );
+        } else {
+            self.neovim.input(c);
+        }
     }
 
     fn finish_font_change(&mut self) {
