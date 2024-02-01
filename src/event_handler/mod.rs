@@ -30,7 +30,7 @@ use winit::{
     window::Window,
 };
 
-pub struct EventHandler {
+pub struct EventHandler<'a> {
     scale_factor: f32,
     surface_size: PixelVec<u32>,
     ui: Ui,
@@ -39,21 +39,17 @@ pub struct EventHandler {
     modifiers: ModifiersState,
     fonts: Fonts,
     neovim: Neovim,
-    render_state: RenderState,
-    windows: Vec<Window>,
+    render_state: RenderState<'a>,
     frame_number: u32,
     last_render_time: Instant,
 }
 
-impl EventHandler {
-    pub fn new(neovim: Neovim, window: Window, transparent: bool) -> Self {
+impl<'a> EventHandler<'a> {
+    pub fn new(neovim: Neovim, window: &'a Window, transparent: bool) -> Self {
         let fonts = Fonts::new();
-        let render_state = pollster::block_on(async {
-            let cell_size = fonts.cell_size();
-            RenderState::new(&window, cell_size, transparent).await
-        });
+        let cell_size = fonts.cell_size();
+        let render_state = RenderState::new(&window, cell_size, transparent);
         Self {
-            windows: vec![window],
             scale_factor: 1.,
             frame_number: 0,
             surface_size: render_state.surface_size(),
@@ -72,6 +68,7 @@ impl EventHandler {
         &mut self,
         event: Event<UserEvent>,
         window_target: &EventLoopWindowTarget<UserEvent>,
+        window: &Window,
     ) {
         match event {
             Event::UserEvent(user_event) => match user_event {
@@ -81,12 +78,12 @@ impl EventHandler {
                 }
                 UserEvent::Request(request) => self.request(request),
                 UserEvent::Notification(notification) => {
-                    self.notification(notification, window_target)
+                    self.notification(notification, window_target, window)
                 }
             },
 
             Event::NewEvents(_) => log::debug!("New Winit events"),
-            Event::AboutToWait => self.request_redraw(),
+            Event::AboutToWait => window.request_redraw(),
 
             Event::WindowEvent {
                 window_id: _,
@@ -107,7 +104,7 @@ impl EventHandler {
                 }
                 WindowEvent::RedrawRequested => {
                     log::debug!("Winit requested redraw");
-                    self.redraw();
+                    self.redraw(window);
                 }
                 WindowEvent::Focused(focus) => self.neovim.ui_set_focus(*focus),
                 _ => {}
@@ -121,6 +118,7 @@ impl EventHandler {
         &mut self,
         notification: Notification,
         window_target: &EventLoopWindowTarget<UserEvent>,
+        window: &Window,
     ) {
         let inner = || {
             let Notification { method, params } = notification;
@@ -128,7 +126,7 @@ impl EventHandler {
                 log::info!("Got notification {method} with {params:?}");
             }
             match method.as_str() {
-                "redraw" => self.handle_redraw_notification(params),
+                "redraw" => self.handle_redraw_notification(params, window),
 
                 "neophyte.set_font_height" => {
                     let mut args = Values::new(params.into_iter().next()?)?;
@@ -150,14 +148,14 @@ impl EventHandler {
                     let mut args = Values::new(params.into_iter().next()?)?;
                     let speed: f32 = args.next()?;
                     self.settings.cursor_speed = speed;
-                    self.request_redraw();
+                    window.request_redraw();
                 }
 
                 "neophyte.set_scroll_speed" => {
                     let mut args = Values::new(params.into_iter().next()?)?;
                     let speed: f32 = args.next()?;
                     self.settings.scroll_speed = speed;
-                    self.request_redraw();
+                    window.request_redraw();
                 }
 
                 "neophyte.set_fonts" => {
@@ -173,7 +171,7 @@ impl EventHandler {
                     let offset: f32 = args.next()?;
                     let offset: i32 = offset as i32;
                     self.settings.underline_offset = offset;
-                    self.request_redraw();
+                    window.request_redraw();
                 }
 
                 "neophyte.set_render_size" => {
@@ -225,7 +223,7 @@ impl EventHandler {
         let _ = inner();
     }
 
-    fn handle_redraw_notification(&mut self, params: Vec<Value>) {
+    fn handle_redraw_notification(&mut self, params: Vec<Value>, window: &Window) {
         log::debug!("Neovim redraw start");
         for param in params {
             match event::Event::try_parse(param) {
@@ -261,7 +259,7 @@ impl EventHandler {
 
             self.render_state.update(&self.ui, &self.fonts, bg_override);
             self.ui.clear_dirty();
-            self.request_redraw();
+            window.request_redraw();
         }
         log::debug!("Neovim redraw end");
     }
@@ -567,7 +565,7 @@ impl EventHandler {
         self.fonts.set_font_size(new_font_size);
     }
 
-    fn redraw(&mut self) {
+    fn redraw(&mut self, window: &Window) {
         let now = Instant::now();
         let elapsed = now.duration_since(self.last_render_time);
         self.last_render_time = now;
@@ -578,7 +576,7 @@ impl EventHandler {
         self.render_state.render(
             self.fonts.cell_size(),
             &self.settings,
-            &self.windows[0], // TODO
+            window,
             self.frame_number,
         );
 
@@ -644,12 +642,6 @@ impl EventHandler {
             size
         } else {
             self.surface_size
-        }
-    }
-
-    fn request_redraw(&mut self) {
-        for window in &self.windows {
-            window.request_redraw();
         }
     }
 }

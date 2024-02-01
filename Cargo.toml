@@ -19,7 +19,7 @@ thiserror = "1.0.44"
 log = "0.4.19"
 rmpv = "1.0.1"
 winit = { version = "0.29.3", features = ["rwh_05",] }
-wgpu = "0.18.0"
+wgpu = "0.19.1"
 pollster = "0.3.0"
 bytemuck = { version = "1.13.1", features = ["derive"] }
 png = "0.17.10"

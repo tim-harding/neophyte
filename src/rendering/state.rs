@@ -23,10 +23,10 @@ use bytemuck::cast_slice;
 use swash::shape::ShapeContext;
 use winit::window::Window;
 
-pub struct RenderState {
+pub struct RenderState<'a> {
     device: wgpu::Device,
     queue: wgpu::Queue,
-    surface: wgpu::Surface,
+    surface: wgpu::Surface<'a>,
     surface_config: wgpu::SurfaceConfiguration,
     pipelines: Pipelines,
     targets: Targets,
@@ -39,8 +39,8 @@ pub struct RenderState {
     text_bind_group_layout: text::bind_group::BindGroup,
 }
 
-impl RenderState {
-    pub async fn new(window: &Window, cell_size: Vec2<u32>, transparent: bool) -> Self {
+impl<'a> RenderState<'a> {
+    pub fn new(window: &'a Window, cell_size: Vec2<u32>, transparent: bool) -> Self {
         let surface_size: PixelVec<u32> = window.inner_size().into();
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -50,29 +50,32 @@ impl RenderState {
             gles_minor_version: wgpu::Gles3MinorVersion::Automatic,
         });
 
-        let surface =
-            unsafe { instance.create_surface(window) }.expect("Failed to create graphics surface");
+        let surface = instance
+            .create_surface(window)
+            .expect("Failed to create graphics surface");
 
-        let adapter = instance
+        let adapter = pollster::block_on(async { instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
             })
-            .await
+            .await })
             .expect("Failed to get a graphics adapter. Make sure you are using either Vulkan, Metal, or DX12.");
 
-        let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: None,
-                    features: wgpu::Features::PUSH_CONSTANTS,
-                    limits: adapter.limits(),
-                },
-                None,
-            )
-            .await
-            .expect("Failed to get a graphics device");
+        let (device, queue) = pollster::block_on(async {
+            adapter
+                .request_device(
+                    &wgpu::DeviceDescriptor {
+                        label: None,
+                        required_features: wgpu::Features::PUSH_CONSTANTS,
+                        required_limits: adapter.limits(),
+                    },
+                    None,
+                )
+                .await
+        })
+        .expect("Failed to get a graphics device");
 
         let surface_caps = surface.get_capabilities(&adapter);
 
@@ -99,6 +102,7 @@ impl RenderState {
             present_mode: wgpu::PresentMode::AutoVsync,
             alpha_mode,
             view_formats: vec![],
+            desired_maximum_frame_latency: 2,
         };
         surface.configure(&device, &surface_config);
 

@@ -1,5 +1,5 @@
 use crate::util::vec2::Vec2;
-use wgpu::util::DeviceExt;
+use wgpu::util::{DeviceExt, TextureDataOrder};
 
 pub struct Texture {
     pub texture: wgpu::Texture,
@@ -72,6 +72,7 @@ impl Texture {
                 label: None,
                 view_formats: &[],
             },
+            TextureDataOrder::LayerMajor,
             data,
         );
 

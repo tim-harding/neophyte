@@ -54,13 +54,17 @@ fn main() {
         stdout_handler.start(NeovimHandler::new(proxy));
     });
 
-    let mut handler = EventHandler::new(neovim, window, transparent);
+    let mut handler = EventHandler::new(neovim, &window, transparent);
     event_loop.set_control_flow(ControlFlow::Wait);
+    let window_ref = &window;
     event_loop
         .run(move |event, window_target| {
-            handler.handle(event, window_target);
+            handler.handle(event, window_target, window_ref);
         })
         .expect("Failed to start render loop");
+
+    // Faster shutdown
+    drop(window);
 
     match child.wait_with_output() {
         Ok(output) => {
