@@ -81,8 +81,8 @@ impl Default for Ui {
     fn default() -> Self {
         Self {
             grids: vec![],
-            draw_order: vec![DrawItem::new(1, None)],
-            float_windows_start: 1,
+            draw_order: vec![],
+            float_windows_start: 0,
             cursor: Default::default(),
             mouse: false,
             highlights: vec![],
@@ -135,6 +135,8 @@ impl Ui {
         match self.grid_index(id) {
             Ok(i) => &mut self.grids[i],
             Err(i) => {
+                // First grid added tries to add to index 1, which fails
+                let i = i.min(self.grids.len());
                 self.grids.insert(i, Grid::new(id));
                 &mut self.grids[i]
             }
@@ -189,6 +191,7 @@ impl Ui {
                 width,
                 height,
             }) => {
+                self.show_normal(grid);
                 self.get_or_create_grid(grid)
                     .contents_mut()
                     .resize(CellVec(Vec2::new(width, height)));
