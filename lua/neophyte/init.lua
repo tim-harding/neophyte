@@ -219,57 +219,61 @@ function M.set_bg_override(r, g, b, a)
   vim.rpcnotify(1, 'neophyte.set_bg_override', { r, g, b, a })
 end
 
----@alias RawInputHandler fun(input: string)
+---@alias RawInputHandler fun(input: string): nil
 
----@type RawInputHandler | nil
-local raw_input_handler = nil
+---@type { [number]: RawInputHandler }
+local raw_input_handlers = {}
 
----Disable normal input handling and receive raw keyboard inputs as strings. These strings will be escaped per the `keycodes` section of Neovim's documentation. `disable_raw_input` will return Neophyte to normal input handling.
----@param handler RawInputHandler The function that will receive raw input strings
-function M.enable_raw_input(handler)
-  vim.rpcnotify(1, 'neophyte.enable_raw_input', {})
-  raw_input_handler = handler
-end
-
----Disable raw input handling and return to normal input handling.
-function M.disable_raw_input()
-  vim.rpcnotify(1, 'neophyte.disable_raw_input', {})
-  raw_input_handler = nil
+---Receive raw keyboard inputs as strings. These strings will be escaped per the `keycodes` section of Neovim's documentation.
+---@param handler RawInputHandler | nil The function that will receive raw input strings or `nil` to remove a previously-registered handler
+---@param namespace number The namespace, created by `nvim_create_namespace`, that can be used to remove the handler
+function M.handle_raw_input(handler, namespace)
+  if handler == nil then
+    table.remove(raw_input_handlers, namespace)
+    if #raw_input_handlers == 0 then
+      vim.rpcnotify(1, 'neophyte.disable_raw_input', {})
+    end
+  else
+    raw_input_handlers[namespace] = handler
+    vim.rpcnotify(1, 'neophyte.enable_raw_input', {})
+  end
 end
 
 ---Sends the given input string to the handler registered by `enable_raw_input`. This should only be called by Neophyte.
 ---@param input string The raw keyboard input
 ---@private
 function M.receive_raw_input(input)
-  if raw_input_handler ~= nil then
-    raw_input_handler(input)
+  for _, handler in pairs(raw_input_handlers) do
+    handler(input)
   end
 end
 
----@alias FrameHandler fun(frame_number: integer)
+---@alias FrameHandler fun(frame_number: integer): nil
 
----@type FrameHandler | nil
-local frame_handler = nil
+---@type { [number]: FrameHandler }
+local frame_handlers = {}
 
----Resets the frame counter and sets a function that will receive render completion notifications. Whenever Neophyte finishes rendering a frame, it will call this function with the frame number. To disable notifications, use `disable_frame_handler`.
----@param handler FrameHandler The function that will receive events
-function M.set_frame_handler(handler)
-  vim.rpcnotify(1, 'neophyte.enable_frame_events', {})
-  frame_handler = handler
-end
-
----Unsets the frame handler so that render notifications are no longer received.
-function M.remove_frame_handler()
-  vim.rpcnotify(1, 'neophyte.disable_frame_events', {})
-  frame_handler = nil
+---Resets the frame counter and sets a function that will receive render completion notifications. Whenever Neophyte finishes rendering a frame, it will call this function with the frame number.
+---@param handler FrameHandler | nil The function that will receive events or `nil` to remove a previously-registered handler
+---@param namespace number The namespace, created by `nvim_create_namespace`, that can be used to remove the handler
+function M.handle_frame(handler, namespace)
+  if handler == nil then
+    table.remove(frame_handlers, namespace)
+    if #frame_handlers == 0 then
+      vim.rpcnotify(1, 'neophyte.disable_frame_events', {})
+    end
+  else
+    vim.rpcnotify(1, 'neophyte.enable_frame_events', {})
+    frame_handlers[namespace] = handler
+  end
 end
 
 ---Sends the given frame number to the handler registered by `enable_frame_handler`. This should only be called by Neophyte.
 ---@param frame integer The frame number
 ---@private
 function M.receive_frame_event(frame)
-  if frame_handler ~= nil then
-    frame_handler(frame)
+  for _, handler in pairs(frame_handlers) do
+    handler(frame)
   end
 end
 

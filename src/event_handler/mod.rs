@@ -612,11 +612,11 @@ impl EventHandler {
         if self.settings.raw_input {
             self.neovim.exec_lua(
                 "require('neophyte').receive_raw_input(...)".to_string(),
-                vec![c.into()],
+                vec![c.clone().into()],
             );
-        } else {
-            self.neovim.input(c);
         }
+
+        self.neovim.input(c);
     }
 
     fn finish_font_change(&mut self) {
