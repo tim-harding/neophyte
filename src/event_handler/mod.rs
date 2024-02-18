@@ -432,14 +432,15 @@ impl<'a> EventHandler<'a> {
             .ui
             .grid_under_cursor(position, self.fonts.cell_size().cast())
         {
+            let position = position.into_cells(cell_size);
             self.neovim.input_mouse(
                 self.mouse.buttons.first().unwrap_or(Button::Move),
                 // Irrelevant for move
                 Action::ButtonDrag,
                 self.modifiers.into(),
                 grid.grid,
-                grid.position.0.y,
-                grid.position.0.x,
+                position.0.y,
+                position.0.x,
             );
         }
     }
