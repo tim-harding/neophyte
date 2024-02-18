@@ -137,7 +137,7 @@ impl Pipeline {
             .attr_id
             .and_then(|hl_id| ui.highlights.get(hl_id as usize))
             .and_then(|hl| (*hl).as_ref())
-            .and_then(|hl| {
+            .map(|hl| {
                 let fg = hl
                     .foreground
                     .unwrap_or(ui.default_colors.rgb_fg.unwrap_or(Rgb::WHITE));
@@ -145,7 +145,7 @@ impl Pipeline {
                     .background
                     .unwrap_or(ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK));
                 let blend = hl.blend();
-                Some((bg.into_srgb(blend), fg.into_srgb(blend)))
+                (bg.into_srgb(blend), fg.into_srgb(blend))
             })
             .unwrap_or((
                 ui.default_colors

@@ -48,7 +48,7 @@ impl<'a> EventHandler<'a> {
     pub fn new(neovim: Neovim, window: &'a Window, transparent: bool) -> Self {
         let fonts = Fonts::new();
         let cell_size = fonts.cell_size();
-        let render_state = RenderState::new(&window, cell_size, transparent);
+        let render_state = RenderState::new(window, cell_size, transparent);
         Self {
             scale_factor: 1.,
             frame_number: 0,
