@@ -50,7 +50,7 @@ impl<'a> EventHandler<'a> {
         let cell_size = fonts.cell_size();
         let render_state = RenderState::new(window, cell_size, transparent);
         Self {
-            scale_factor: 1.,
+            scale_factor: window.scale_factor() as f32,
             frame_number: 0,
             surface_size: render_state.surface_size(),
             ui: Ui::new(),
