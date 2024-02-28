@@ -1,3 +1,4 @@
+mod chdir;
 mod cmdline_block_append;
 mod cmdline_block_show;
 mod cmdline_pos;
@@ -38,6 +39,7 @@ mod win_pos;
 mod win_viewport;
 
 pub use self::{
+    chdir::Chdir,
     cmdline_block_append::CmdlineBlockAppend,
     cmdline_block_show::CmdlineBlockShow,
     cmdline_pos::CmdlinePos,
@@ -122,6 +124,7 @@ pub enum Event {
     ModeInfoSet(ModeInfoSet),
     HlGroupSet(HlGroupSet),
     TablineUpdate(TablineUpdate),
+    Chdir(Chdir),
 
     /// The mouse was enabled in the current editor mode
     MouseOn,
@@ -203,6 +206,7 @@ event_from!(WinClose);
 event_from!(PopupmenuSelect);
 event_from!(CmdlineBlockShow);
 event_from!(CmdlineBlockAppend);
+event_from!(Chdir);
 
 fn parse<T: Parse>(iter: Values, error: Error) -> Result<Vec<Event>, Error>
 where
@@ -255,6 +259,7 @@ impl Event {
             "popupmenu_select" => parse::<PopupmenuSelect>(iter, Error::PopupmenuSelect),
             "cmdline_block_show" => parse::<CmdlineBlockShow>(iter, Error::CmdlineBlockShow),
             "cmdline_block_append" => parse::<CmdlineBlockAppend>(iter, Error::CmdlineBlockAppend),
+            "chdir" => parse::<Chdir>(iter, Error::Chdir),
             "mouse_on" => Ok(vec![Self::MouseOn]),
             "mouse_off" => Ok(vec![Self::MouseOff]),
             "busy_start" => Ok(vec![Self::BusyStart]),
@@ -348,6 +353,8 @@ pub enum Error {
     CmdlineBlockShow,
     #[error("Failed to parse cmdline_block_append event")]
     CmdlineBlockAppend,
+    #[error("Failed to parse chdir event")]
+    Chdir,
     #[error("Failed to parse msg_history_show event")]
     MsgHistoryShow,
 }
