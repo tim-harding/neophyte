@@ -38,6 +38,7 @@ fn main() {
 
     let window = WindowBuilder::new()
         .with_transparent(transparent)
+        .with_title("Neophyte")
         .build(&event_loop)
         .expect("Failed to create window");
 
