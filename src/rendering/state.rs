@@ -8,7 +8,7 @@ use super::{
     cmdline_grid::CmdlineGrid,
     grids::Grids,
     pipelines::{blend, cell_fill, cursor, default_fill, gamma_blit, glyph, lines, png_blit},
-    text,
+    text::BindGroup as TextBindGroup,
     texture::Texture,
     Motion,
 };
@@ -36,7 +36,7 @@ pub struct RenderState<'a> {
     clear_color: [f32; 4],
     // TODO: Remove this if we no longer want to externalize the cmdline
     cmdline_grid: CmdlineGrid,
-    text_bind_group_layout: text::BindGroup,
+    text_bind_group_layout: TextBindGroup,
 }
 
 impl<'a> RenderState<'a> {
@@ -113,7 +113,7 @@ impl<'a> RenderState<'a> {
         let targets = Targets::new(&device, target_size);
 
         Self {
-            text_bind_group_layout: text::BindGroup::new(&device),
+            text_bind_group_layout: TextBindGroup::new(&device),
             pipelines: Pipelines {
                 cursor: cursor::Pipeline::new(&device, &targets.monochrome.view),
                 cmdline_cursor: cursor::Pipeline::new(&device, &targets.monochrome.view),
