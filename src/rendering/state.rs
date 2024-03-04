@@ -7,10 +7,9 @@ use std::{
 use super::{
     cmdline_grid::CmdlineGrid,
     grids::Grids,
-    pipelines::{blend, cell_fill, cursor, default_fill, gamma_blit, lines, png_blit, text},
+    pipelines::{cursor, Pipelines},
     targets::Targets,
     text::BindGroup as TextBindGroup,
-    texture::Texture,
     Motion,
 };
 use crate::{
@@ -115,38 +114,12 @@ impl<'a> RenderState<'a> {
 
         Self {
             text_bind_group_layout: TextBindGroup::new(&device),
-            pipelines: Pipelines {
-                cursor: cursor::Pipeline::new(&device, &targets.monochrome.view),
-                cmdline_cursor: cursor::Pipeline::new(&device, &targets.monochrome.view),
-                blend: blend::Pipeline::new(&device, &targets.color.view),
-                default_fill: default_fill::Pipeline::new(&device, Texture::LINEAR_FORMAT),
-                cell_fill: cell_fill::Pipeline::new(
-                    &device,
-                    grids.bind_group_layout(),
-                    Texture::LINEAR_FORMAT,
-                ),
-                monochrome: text::Pipeline::new(
-                    &device,
-                    grids.bind_group_layout(),
-                    text::Kind::Monochrome,
-                ),
-                emoji: text::Pipeline::new(&device, grids.bind_group_layout(), text::Kind::Emoji),
-                lines: lines::Pipeline::new(
-                    &device,
-                    grids.bind_group_layout(),
-                    Texture::LINEAR_FORMAT,
-                ),
-                gamma_blit_final: gamma_blit::Pipeline::new(
-                    &device,
-                    surface_config.format,
-                    &targets.color.view,
-                ),
-                blit_png: png_blit::Pipeline::new(
-                    &device,
-                    &targets.color.view,
-                    target_size.0.x as f32 / targets.png_size.0.x as f32,
-                ),
-            },
+            pipelines: Pipelines::new(
+                &device,
+                grids.bind_group_layout(),
+                &surface_config,
+                &targets,
+            ),
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
             grids: Grids::new(&device),
@@ -496,19 +469,6 @@ impl<'a> RenderState<'a> {
     pub fn surface_size(&self) -> PixelVec<u32> {
         PixelVec::new(self.surface_config.width, self.surface_config.height)
     }
-}
-
-struct Pipelines {
-    cursor: cursor::Pipeline,
-    cmdline_cursor: cursor::Pipeline,
-    blend: blend::Pipeline,
-    default_fill: default_fill::Pipeline,
-    cell_fill: cell_fill::Pipeline,
-    monochrome: text::Pipeline,
-    emoji: text::Pipeline,
-    gamma_blit_final: gamma_blit::Pipeline,
-    blit_png: png_blit::Pipeline,
-    lines: lines::Pipeline,
 }
 
 #[derive(Debug, thiserror::Error)]
