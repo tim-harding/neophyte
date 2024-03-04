@@ -7,7 +7,7 @@ use std::{
 use super::{
     cmdline_grid::CmdlineGrid,
     grids::Grids,
-    pipelines::{blend, cell_fill, cursor, default_fill, gamma_blit, glyph, lines, png_blit},
+    pipelines::{blend, cell_fill, cursor, default_fill, gamma_blit, lines, png_blit, text},
     text::BindGroup as TextBindGroup,
     texture::Texture,
     Motion,
@@ -124,12 +124,12 @@ impl<'a> RenderState<'a> {
                     grids.bind_group_layout(),
                     Texture::LINEAR_FORMAT,
                 ),
-                monochrome: glyph::Pipeline::new(
+                monochrome: text::Pipeline::new(
                     &device,
                     grids.bind_group_layout(),
-                    glyph::Kind::Monochrome,
+                    text::Kind::Monochrome,
                 ),
-                emoji: glyph::Pipeline::new(&device, grids.bind_group_layout(), glyph::Kind::Emoji),
+                emoji: text::Pipeline::new(&device, grids.bind_group_layout(), text::Kind::Emoji),
                 lines: lines::Pipeline::new(
                     &device,
                     grids.bind_group_layout(),
@@ -563,8 +563,8 @@ struct Pipelines {
     blend: blend::Pipeline,
     default_fill: default_fill::Pipeline,
     cell_fill: cell_fill::Pipeline,
-    monochrome: glyph::Pipeline,
-    emoji: glyph::Pipeline,
+    monochrome: text::Pipeline,
+    emoji: text::Pipeline,
     gamma_blit_final: gamma_blit::Pipeline,
     blit_png: png_blit::Pipeline,
     lines: lines::Pipeline,
