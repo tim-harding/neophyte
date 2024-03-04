@@ -36,7 +36,7 @@ pub struct RenderState<'a> {
     clear_color: [f32; 4],
     // TODO: Remove this if we no longer want to externalize the cmdline
     cmdline_grid: CmdlineGrid,
-    text_bind_group_layout: text::bind_group::BindGroup,
+    text_bind_group_layout: text::BindGroup,
 }
 
 impl<'a> RenderState<'a> {
@@ -113,7 +113,7 @@ impl<'a> RenderState<'a> {
         let targets = Targets::new(&device, target_size);
 
         Self {
-            text_bind_group_layout: text::bind_group::BindGroup::new(&device),
+            text_bind_group_layout: text::BindGroup::new(&device),
             pipelines: Pipelines {
                 cursor: cursor::Pipeline::new(&device, &targets.monochrome.view),
                 cmdline_cursor: cursor::Pipeline::new(&device, &targets.monochrome.view),
