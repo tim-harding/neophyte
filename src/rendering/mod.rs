@@ -7,6 +7,7 @@ mod grids;
 pub mod pipelines;
 mod scrolling_grids;
 pub mod state;
+mod targets;
 mod text;
 mod texture;
 

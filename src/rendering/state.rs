@@ -8,6 +8,7 @@ use super::{
     cmdline_grid::CmdlineGrid,
     grids::Grids,
     pipelines::{blend, cell_fill, cursor, default_fill, gamma_blit, lines, png_blit, text},
+    targets::Targets,
     text::BindGroup as TextBindGroup,
     texture::Texture,
     Motion,
@@ -494,66 +495,6 @@ impl<'a> RenderState<'a> {
 
     pub fn surface_size(&self) -> PixelVec<u32> {
         PixelVec::new(self.surface_config.width, self.surface_config.height)
-    }
-}
-
-struct Targets {
-    monochrome: Texture,
-    color: Texture,
-    depth: Texture,
-    png: Texture,
-    png_staging: wgpu::Buffer,
-    png_size: PixelVec<u32>,
-}
-
-impl Targets {
-    pub fn new(device: &wgpu::Device, size: PixelVec<u32>) -> Self {
-        let png_size = PixelVec::new(((size.0.x + 63) / 64) * 64, size.0.y);
-        Self {
-            monochrome: Texture::target(
-                device,
-                &Texture::descriptor(
-                    "Monochrome texture",
-                    size.into(),
-                    Texture::LINEAR_FORMAT,
-                    Texture::ATTACHMENT_AND_BINDING,
-                ),
-            ),
-            color: Texture::target(
-                device,
-                &Texture::descriptor(
-                    "Monochrome texture",
-                    size.into(),
-                    Texture::LINEAR_FORMAT,
-                    Texture::ATTACHMENT_AND_BINDING,
-                ),
-            ),
-            depth: Texture::target(
-                device,
-                &Texture::descriptor(
-                    "Depth texture",
-                    size.into(),
-                    Texture::DEPTH_FORMAT,
-                    wgpu::TextureUsages::RENDER_ATTACHMENT,
-                ),
-            ),
-            png: Texture::target(
-                device,
-                &Texture::descriptor(
-                    "Monochrome texture",
-                    png_size.into(),
-                    Texture::SRGB_FORMAT,
-                    Texture::ATTACHMENT_AND_BINDING | wgpu::TextureUsages::COPY_SRC,
-                ),
-            ),
-            png_staging: device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("PNG staging buffer"),
-                size: png_size.area() as u64 * 4,
-                usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            }),
-            png_size,
-        }
     }
 }
 
