@@ -61,25 +61,17 @@ impl<'a> RenderState<'a> {
         self.clear_color =
             bg_override.unwrap_or(ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK).into_srgb(1.));
 
-        self.grids.retain(|id| ui.grid(id).is_some());
-
         let fg = ui.default_colors.rgb_fg.unwrap_or(Rgb::WHITE);
         let bg = ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK);
 
-        for grid in ui.grids.iter() {
-            self.grids.update(
-                &self.wgpu_context.device,
-                &self.wgpu_context.queue,
-                grid,
-                ui.position(grid.id),
-                &ui.highlights,
-                fg,
-                bg,
-                fonts,
-                &mut self.font_cache,
-                &mut self.shape_context,
-            );
-        }
+        self.grids.update(
+            &self.wgpu_context.device,
+            &self.wgpu_context.queue,
+            ui,
+            fonts,
+            &mut self.font_cache,
+            &mut self.shape_context,
+        );
 
         self.cmdline_grid.update(
             &self.wgpu_context.device,
@@ -96,13 +88,6 @@ impl<'a> RenderState<'a> {
             fonts,
             &mut self.font_cache,
             &mut self.shape_context,
-        );
-
-        self.grids.set_draw_order(
-            ui.draw_order
-                .iter()
-                .map(|draw_item| draw_item.grid)
-                .collect(),
         );
 
         self.pipelines.update(

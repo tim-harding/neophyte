@@ -1,9 +1,8 @@
 use super::{scrolling_grids::ScrollingGrids, text::Text};
 use crate::{
-    event::{hl_attr_define::Attributes, rgb::Rgb},
+    event::rgb::Rgb,
     text::{cache::FontCache, fonts::Fonts},
-    ui::{self, grid::Grid as UiGrid},
-    util::vec2::CellVec,
+    ui::{self, Ui},
 };
 use std::collections::HashMap;
 use swash::shape::ShapeContext;
@@ -51,52 +50,56 @@ impl Grids {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        ui_grid: &UiGrid,
-        window_position: Option<CellVec<f32>>,
-        highlights: &[Option<Attributes>],
-        default_fg: Rgb,
-        default_bg: Rgb,
+        ui: &Ui,
         fonts: &Fonts,
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
     ) {
-        let grid = self.grids.entry(ui_grid.id).or_insert_with(|| {
-            Grid::new(
-                Text::new(ui_grid.contents().size.try_cast().unwrap()),
-                // TODO: Does these need to be initialized with data?
-                // We might just fill it anyway down below.
-                ScrollingGrids::new(ui_grid.contents().clone()),
-            )
-        });
+        self.grids.retain(|id, _| ui.grid(*id).is_some());
 
-        if ui_grid.dirty.contents() {
-            if ui_grid.scroll_delta != 0 {
-                grid.scrolling
-                    .push(ui_grid.contents().clone(), ui_grid.scroll_delta);
-            } else {
-                grid.scrolling.replace(ui_grid.contents().clone());
+        let fg = ui.default_colors.rgb_fg.unwrap_or(Rgb::WHITE);
+        let bg = ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK);
+
+        for ui_grid in ui.grids.iter() {
+            let grid = self.grids.entry(ui_grid.id).or_insert_with(|| {
+                Grid::new(
+                    Text::new(ui_grid.contents().size.try_cast().unwrap()),
+                    // TODO: Does these need to be initialized with data?
+                    // We might just fill it anyway down below.
+                    ScrollingGrids::new(ui_grid.contents().clone()),
+                )
+            });
+
+            let window_position = ui.position(ui_grid.id);
+            if ui_grid.dirty.contents() {
+                if ui_grid.scroll_delta != 0 {
+                    grid.scrolling
+                        .push(ui_grid.contents().clone(), ui_grid.scroll_delta);
+                } else {
+                    grid.scrolling.replace(ui_grid.contents().clone());
+                }
+
+                grid.text.update_contents(
+                    device,
+                    queue,
+                    Some(grid.scrolling.size().try_cast().unwrap()),
+                    grid.scrolling.rows(),
+                    &self.bind_group_layout,
+                    &ui.highlights,
+                    fg,
+                    bg,
+                    fonts,
+                    font_cache,
+                    shape_context,
+                );
             }
 
-            grid.text.update_contents(
-                device,
-                queue,
-                Some(grid.scrolling.size().try_cast().unwrap()),
-                grid.scrolling.rows(),
-                &self.bind_group_layout,
-                highlights,
-                default_fg,
-                default_bg,
-                fonts,
-                font_cache,
-                shape_context,
-            );
+            grid.text.update_window(window_position);
         }
 
-        grid.text.update_window(window_position);
-    }
-
-    pub fn set_draw_order(&mut self, draw_order: Vec<ui::grid::Id>) {
-        self.draw_order = draw_order;
+        self.draw_order.clear();
+        self.draw_order
+            .extend(ui.draw_order.iter().map(|draw_item| draw_item.grid));
     }
 
     pub fn bind_group_layout(&self) -> &wgpu::BindGroupLayout {
@@ -117,9 +120,5 @@ impl Grids {
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Grid> {
         self.grids.values_mut()
-    }
-
-    pub fn retain(&mut self, mut f: impl FnMut(ui::grid::Id) -> bool) {
-        self.grids.retain(|id, _| f(*id))
     }
 }
