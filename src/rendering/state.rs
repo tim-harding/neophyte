@@ -10,6 +10,7 @@ use super::{
     pipelines::{cursor, Pipelines},
     targets::Targets,
     text::BindGroup as TextBindGroup,
+    wgpu_context::WgpuContext,
     Motion,
 };
 use crate::{
@@ -24,10 +25,7 @@ use swash::shape::ShapeContext;
 use winit::window::Window;
 
 pub struct RenderState<'a> {
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    surface: wgpu::Surface<'a>,
-    surface_config: wgpu::SurfaceConfiguration,
+    wgpu_context: WgpuContext<'a>,
     pipelines: Pipelines,
     targets: Targets,
     grids: Grids,
@@ -41,93 +39,24 @@ pub struct RenderState<'a> {
 
 impl<'a> RenderState<'a> {
     pub fn new(window: &'a Window, cell_size: Vec2<u32>, transparent: bool) -> Self {
-        let surface_size: PixelVec<u32> = window.inner_size().into();
-
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::PRIMARY,
-            dx12_shader_compiler: Default::default(),
-            flags: wgpu::InstanceFlags::default(),
-            gles_minor_version: wgpu::Gles3MinorVersion::Automatic,
-        });
-
-        let surface = instance
-            .create_surface(window)
-            .expect("Failed to create graphics surface");
-
-        let adapter = pollster::block_on(async { instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            })
-            .await })
-            .expect("Failed to get a graphics adapter. Make sure you are using either Vulkan, Metal, or DX12.");
-
-        let (device, queue) = pollster::block_on(async {
-            adapter
-                .request_device(
-                    &wgpu::DeviceDescriptor {
-                        label: None,
-                        required_features: wgpu::Features::PUSH_CONSTANTS,
-                        required_limits: adapter.limits(),
-                    },
-                    None,
-                )
-                .await
-        })
-        .expect("Failed to get a graphics device");
-
-        let surface_caps = surface.get_capabilities(&adapter);
-
-        let alpha_mode = if transparent
-            && surface_caps
-                .alpha_modes
-                .contains(&wgpu::CompositeAlphaMode::PreMultiplied)
-        {
-            wgpu::CompositeAlphaMode::PreMultiplied
-        } else {
-            surface_caps.alpha_modes[0]
-        };
-
-        let surface_config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface_caps
-                .formats
-                .iter()
-                .copied()
-                .find(|f| f.is_srgb())
-                .unwrap_or(surface_caps.formats[0]),
-            width: surface_size.0.x,
-            height: surface_size.0.y,
-            present_mode: wgpu::PresentMode::AutoVsync,
-            alpha_mode,
-            view_formats: vec![],
-            desired_maximum_frame_latency: 2,
-        };
-        surface.configure(&device, &surface_config);
-
-        let grids = Grids::new(&device);
-
+        let context = WgpuContext::new(window, transparent);
+        let grids = Grids::new(&context.device);
         let target_size: PixelVec<u32> =
-            (surface_size.into_cells(cell_size)).into_pixels(cell_size);
-        let targets = Targets::new(&device, target_size);
-
+            (context.surface_size().into_cells(cell_size)).into_pixels(cell_size);
+        let targets = Targets::new(&context.device, target_size);
         Self {
-            text_bind_group_layout: TextBindGroup::new(&device),
+            text_bind_group_layout: TextBindGroup::new(&context.device),
             pipelines: Pipelines::new(
-                &device,
+                &context.device,
                 grids.bind_group_layout(),
-                &surface_config,
+                &context.surface_config,
                 &targets,
             ),
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
-            grids: Grids::new(&device),
+            grids: Grids::new(&context.device),
             targets,
-            device,
-            queue,
-            surface,
-            surface_config,
+            wgpu_context: context,
             clear_color: [0.; 4],
             cmdline_grid: CmdlineGrid::new(),
         }
@@ -144,8 +73,8 @@ impl<'a> RenderState<'a> {
 
         for grid in ui.grids.iter() {
             self.grids.update(
-                &self.device,
-                &self.queue,
+                &self.wgpu_context.device,
+                &self.wgpu_context.queue,
                 grid,
                 ui.position(grid.id),
                 &ui.highlights,
@@ -158,8 +87,8 @@ impl<'a> RenderState<'a> {
         }
 
         self.cmdline_grid.update(
-            &self.device,
-            &self.queue,
+            &self.wgpu_context.device,
+            &self.wgpu_context.queue,
             &ui.cmdline,
             Some(CellVec::new(
                 0.,
@@ -181,28 +110,32 @@ impl<'a> RenderState<'a> {
                 .collect(),
         );
         self.pipelines.cursor.update(
-            &self.device,
+            &self.wgpu_context.device,
             ui,
             cursor::CursorKind::Normal,
             fonts.cell_size().cast_as(),
             &self.targets.monochrome.view,
         );
         self.pipelines.cmdline_cursor.update(
-            &self.device,
+            &self.wgpu_context.device,
             ui,
             cursor::CursorKind::Cmdline,
             fonts.cell_size().cast_as(),
             &self.targets.monochrome.view,
         );
-        self.pipelines
-            .monochrome
-            .update(&self.device, &self.queue, &self.font_cache.monochrome);
-        self.pipelines
-            .emoji
-            .update(&self.device, &self.queue, &self.font_cache.emoji);
+        self.pipelines.monochrome.update(
+            &self.wgpu_context.device,
+            &self.wgpu_context.queue,
+            &self.font_cache.monochrome,
+        );
+        self.pipelines.emoji.update(
+            &self.wgpu_context.device,
+            &self.wgpu_context.queue,
+            &self.font_cache.emoji,
+        );
         self.pipelines
             .blend
-            .update(&self.device, &self.targets.monochrome.view);
+            .update(&self.wgpu_context.device, &self.targets.monochrome.view);
     }
 
     pub fn resize(&mut self, new_size: PixelVec<u32>, cell_size: Vec2<u32>, transparent: bool) {
@@ -210,23 +143,21 @@ impl<'a> RenderState<'a> {
             return;
         }
 
-        self.surface_config.width = new_size.0.x;
-        self.surface_config.height = new_size.0.y;
-        self.surface.configure(&self.device, &self.surface_config);
+        self.wgpu_context.resize(new_size);
 
         let target_size: PixelVec<u32> = (new_size.into_cells(cell_size)).into_pixels(cell_size);
-        self.targets = Targets::new(&self.device, target_size);
+        self.targets = Targets::new(&self.wgpu_context.device, target_size);
 
         self.pipelines.gamma_blit_final.update(
-            &self.device,
-            self.surface_config.format,
+            &self.wgpu_context.device,
+            self.wgpu_context.surface_config.format,
             &self.targets.color.view,
             target_size,
             new_size,
             transparent,
         );
         self.pipelines.blit_png.update(
-            &self.device,
+            &self.wgpu_context.device,
             &self.targets.color.view,
             self.targets.png_size.0.x as f32 / target_size.0.x as f32,
         );
@@ -264,7 +195,7 @@ impl<'a> RenderState<'a> {
     }
 
     fn current_texture(&mut self) -> Result<wgpu::SurfaceTexture, wgpu::SurfaceError> {
-        self.surface.get_current_texture()
+        self.wgpu_context.surface.get_current_texture()
     }
 
     pub fn render(
@@ -291,11 +222,12 @@ impl<'a> RenderState<'a> {
         let output_view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render encoder"),
-            });
+        let mut encoder =
+            self.wgpu_context
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Render encoder"),
+                });
         let target_size = self.targets.color.texture.size().into();
 
         let grid_count = self.grids.grid_count() as f32;
@@ -423,7 +355,10 @@ impl<'a> RenderState<'a> {
             self.targets.png_size.into(),
         );
 
-        let submission = self.queue.submit(std::iter::once(encoder.finish()));
+        let submission = self
+            .wgpu_context
+            .queue
+            .submit(std::iter::once(encoder.finish()));
 
         // TODO: Offload to a thread
         if let Some(dir) = settings.render_target.as_ref() {
@@ -433,7 +368,8 @@ impl<'a> RenderState<'a> {
                     result.unwrap();
                 });
 
-                self.device
+                self.wgpu_context
+                    .device
                     .poll(wgpu::MaintainBase::WaitForSubmissionIndex(submission));
                 let data = buffer_slice.get_mapped_range();
                 let file_name = format!("{frame_number:0>6}.png");
@@ -467,7 +403,10 @@ impl<'a> RenderState<'a> {
     }
 
     pub fn surface_size(&self) -> PixelVec<u32> {
-        PixelVec::new(self.surface_config.width, self.surface_config.height)
+        PixelVec::new(
+            self.wgpu_context.surface_config.width,
+            self.wgpu_context.surface_config.height,
+        )
     }
 }
 

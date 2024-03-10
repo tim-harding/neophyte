@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 mod cmdline_grid;
 mod glyph_bind_group;
 mod glyph_push_constants;
@@ -10,6 +8,9 @@ pub mod state;
 mod targets;
 mod text;
 mod texture;
+mod wgpu_context;
+
+use std::time::Duration;
 
 pub fn nearest_sampler(device: &wgpu::Device) -> wgpu::Sampler {
     device.create_sampler(&wgpu::SamplerDescriptor {
