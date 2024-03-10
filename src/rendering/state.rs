@@ -5,13 +5,8 @@ use std::{
 };
 
 use super::{
-    cmdline_grid::CmdlineGrid,
-    grids::Grids,
-    pipelines::{cursor, Pipelines},
-    targets::Targets,
-    text::BindGroup as TextBindGroup,
-    wgpu_context::WgpuContext,
-    Motion,
+    cmdline_grid::CmdlineGrid, grids::Grids, pipelines::Pipelines, targets::Targets,
+    text::BindGroup as TextBindGroup, wgpu_context::WgpuContext, Motion,
 };
 use crate::{
     event::rgb::Rgb,
@@ -109,33 +104,14 @@ impl<'a> RenderState<'a> {
                 .map(|draw_item| draw_item.grid)
                 .collect(),
         );
-        self.pipelines.cursor.update(
-            &self.wgpu_context.device,
+
+        self.pipelines.update(
             ui,
-            cursor::CursorKind::Normal,
+            &self.wgpu_context,
+            &self.targets,
+            &self.font_cache,
             fonts.cell_size().cast_as(),
-            &self.targets.monochrome.view,
         );
-        self.pipelines.cmdline_cursor.update(
-            &self.wgpu_context.device,
-            ui,
-            cursor::CursorKind::Cmdline,
-            fonts.cell_size().cast_as(),
-            &self.targets.monochrome.view,
-        );
-        self.pipelines.monochrome.update(
-            &self.wgpu_context.device,
-            &self.wgpu_context.queue,
-            &self.font_cache.monochrome,
-        );
-        self.pipelines.emoji.update(
-            &self.wgpu_context.device,
-            &self.wgpu_context.queue,
-            &self.font_cache.emoji,
-        );
-        self.pipelines
-            .blend
-            .update(&self.wgpu_context.device, &self.targets.monochrome.view);
     }
 
     pub fn resize(&mut self, new_size: PixelVec<u32>, cell_size: Vec2<u32>, transparent: bool) {

@@ -7,7 +7,8 @@ pub mod lines;
 pub mod png_blit;
 pub mod text;
 
-use super::{targets::Targets, texture::Texture};
+use super::{targets::Targets, texture::Texture, wgpu_context::WgpuContext};
+use crate::{text::cache::FontCache, ui::Ui, util::vec2::Vec2};
 
 pub struct Pipelines {
     pub cursor: cursor::Pipeline,
@@ -57,5 +58,38 @@ impl Pipelines {
                 surface_config.width as f32 / targets.png_size.0.x as f32,
             ),
         }
+    }
+
+    pub fn update(
+        &mut self,
+        ui: &Ui,
+        wgpu_context: &WgpuContext,
+        targets: &Targets,
+        font_cache: &FontCache,
+        cell_size: Vec2<f32>,
+    ) {
+        self.cursor.update(
+            &wgpu_context.device,
+            ui,
+            cursor::CursorKind::Normal,
+            cell_size,
+            &targets.monochrome.view,
+        );
+        self.cmdline_cursor.update(
+            &wgpu_context.device,
+            ui,
+            cursor::CursorKind::Cmdline,
+            cell_size,
+            &targets.monochrome.view,
+        );
+        self.monochrome.update(
+            &wgpu_context.device,
+            &wgpu_context.queue,
+            &font_cache.monochrome,
+        );
+        self.emoji
+            .update(&wgpu_context.device, &wgpu_context.queue, &font_cache.emoji);
+        self.blend
+            .update(&wgpu_context.device, &targets.monochrome.view);
     }
 }
