@@ -21,7 +21,7 @@ pub struct Text {
     monochrome: Vec<MonochromeCell>,
     emoji: Vec<EmojiCell>,
     cell_fill: Vec<BgCell>,
-    lines: Vec<Line>,
+    decoration: Vec<Decoration>,
     buffer: Option<wgpu::Buffer>,
     buffer_capacity: u64,
     cell_fill_bind_group: Option<wgpu::BindGroup>,
@@ -38,7 +38,7 @@ impl Text {
             monochrome: vec![],
             emoji: vec![],
             cell_fill: vec![],
-            lines: vec![],
+            decoration: vec![],
             buffer: None,
             buffer_capacity: 0,
             cell_fill_bind_group: None,
@@ -77,7 +77,7 @@ impl Text {
         self.monochrome.clear();
         self.emoji.clear();
         self.cell_fill.clear();
-        self.lines.clear();
+        self.decoration.clear();
 
         let mut cluster = CharCluster::new();
         self.size = CellVec(Vec2::new(0, 0));
@@ -218,7 +218,7 @@ impl Text {
                                     );
                                 let line_size =
                                     Vec2::new(metrics_px.width, metrics_px.stroke_size.max(1));
-                                self.lines.push(Line {
+                                self.decoration.push(Decoration {
                                     x: line_position.x,
                                     y: line_position.y,
                                     w: line_size.x,
@@ -297,7 +297,7 @@ impl Text {
         let glyphs = cast_slice(self.monochrome.as_slice());
         let emoji = cast_slice(self.emoji.as_slice());
         let bg = cast_slice(self.cell_fill.as_slice());
-        let lines = cast_slice(self.lines.as_slice());
+        let lines = cast_slice(self.decoration.as_slice());
 
         let alignment = device.limits().min_storage_buffer_offset_alignment as u64;
 
@@ -442,7 +442,7 @@ impl Text {
     }
 
     pub fn lines_count(&self) -> u32 {
-        self.lines.len().try_into().unwrap()
+        self.decoration.len().try_into().unwrap()
     }
 }
 
@@ -557,7 +557,7 @@ pub struct BgCell {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable)]
-pub struct Line {
+pub struct Decoration {
     pub x: i32,
     pub y: i32,
     pub w: u32,
