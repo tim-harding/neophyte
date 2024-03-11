@@ -6,7 +6,7 @@ use std::{
 
 use super::{
     cmdline_grid::CmdlineGrid, grids::Grids, pipelines::Pipelines, targets::Targets,
-    text::BindGroup as TextBindGroup, wgpu_context::WgpuContext, Motion,
+    text::BindGroupLayout as TextBindGroup, wgpu_context::WgpuContext, Motion,
 };
 use crate::{
     event::rgb::Rgb,

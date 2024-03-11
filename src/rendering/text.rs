@@ -567,11 +567,11 @@ pub struct Decoration {
     pub b: f32,
 }
 
-pub struct BindGroup {
+pub struct BindGroupLayout {
     pub bind_group_layout: wgpu::BindGroupLayout,
 }
 
-impl BindGroup {
+impl BindGroupLayout {
     pub fn new(device: &wgpu::Device) -> Self {
         Self {
             bind_group_layout: device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
