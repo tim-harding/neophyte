@@ -25,6 +25,7 @@ pub struct RenderState<'a> {
     targets: Targets,
     grids: Grids,
     shape_context: ShapeContext,
+    pub fonts: Fonts,
     font_cache: FontCache,
     clear_color: [f32; 4],
     // TODO: Remove this if we no longer want to externalize the cmdline
@@ -33,13 +34,16 @@ pub struct RenderState<'a> {
 }
 
 impl<'a> RenderState<'a> {
-    pub fn new(window: &'a Window, cell_size: Vec2<u32>, transparent: bool) -> Self {
+    pub fn new(window: &'a Window, transparent: bool) -> Self {
+        let fonts = Fonts::new();
+        let cell_size = fonts.cell_size();
         let wgpu_context = WgpuContext::new(window, transparent);
         let grids = Grids::new(&wgpu_context.device);
         let target_size: PixelVec<u32> =
             (wgpu_context.surface_size().into_cells(cell_size)).into_pixels(cell_size);
         let targets = Targets::new(&wgpu_context.device, target_size);
         Self {
+            fonts,
             text_bind_group_layout: TextBindGroup::new(&wgpu_context.device),
             pipelines: Pipelines::new(
                 &wgpu_context.device,
@@ -57,7 +61,7 @@ impl<'a> RenderState<'a> {
         }
     }
 
-    pub fn update(&mut self, ui: &Ui, fonts: &Fonts, bg_override: Option<[f32; 4]>) {
+    pub fn update(&mut self, ui: &Ui, bg_override: Option<[f32; 4]>) {
         self.clear_color =
             bg_override.unwrap_or(ui.default_colors.rgb_bg.unwrap_or(Rgb::BLACK).into_srgb(1.));
 
@@ -68,7 +72,7 @@ impl<'a> RenderState<'a> {
             &self.wgpu_context.device,
             &self.wgpu_context.queue,
             ui,
-            fonts,
+            &self.fonts,
             &mut self.font_cache,
             &mut self.shape_context,
         );
@@ -85,7 +89,7 @@ impl<'a> RenderState<'a> {
             &ui.highlights,
             fg,
             bg,
-            fonts,
+            &self.fonts,
             &mut self.font_cache,
             &mut self.shape_context,
         );
@@ -95,7 +99,7 @@ impl<'a> RenderState<'a> {
             &self.wgpu_context,
             &self.targets,
             &self.font_cache,
-            fonts.cell_size().cast_as(),
+            self.fonts.cell_size().cast_as(),
         );
     }
 

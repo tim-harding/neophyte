@@ -7,7 +7,7 @@ use crate::{
     neovim::{action::Action, button::Button, Neovim},
     rendering::state::RenderState,
     rpc::{self, Notification},
-    text::fonts::{FontSetting, Fonts},
+    text::{font::Metrics, fonts::FontSetting},
     ui::{
         options::{FontSize, GuiFont},
         Ui,
@@ -37,7 +37,6 @@ pub struct EventHandler<'a> {
     settings: Settings,
     mouse: Mouse,
     modifiers: ModifiersState,
-    fonts: Fonts,
     neovim: Neovim,
     render_state: RenderState<'a>,
     frame_number: u32,
@@ -46,9 +45,7 @@ pub struct EventHandler<'a> {
 
 impl<'a> EventHandler<'a> {
     pub fn new(neovim: Neovim, window: &'a Window, transparent: bool) -> Self {
-        let fonts = Fonts::new();
-        let cell_size = fonts.cell_size();
-        let render_state = RenderState::new(window, cell_size, transparent);
+        let render_state = RenderState::new(window, transparent);
         Self {
             scale_factor: window.scale_factor() as f32,
             frame_number: 0,
@@ -57,7 +54,6 @@ impl<'a> EventHandler<'a> {
             settings: Settings::new(transparent),
             mouse: Mouse::new(),
             modifiers: ModifiersState::default(),
-            fonts,
             neovim,
             render_state,
             last_render_time: Instant::now(),
@@ -132,7 +128,7 @@ impl<'a> EventHandler<'a> {
                     let mut args = Values::new(params.into_iter().next()?)?;
                     let height: f32 = args.next()?;
                     let size = FontSize::Height(height * self.scale_factor);
-                    self.fonts.set_font_size(size);
+                    self.set_font_size(size);
                     self.finish_font_change();
                 }
 
@@ -140,7 +136,7 @@ impl<'a> EventHandler<'a> {
                     let mut args = Values::new(params.into_iter().next()?)?;
                     let width: f32 = args.next()?;
                     let size = FontSize::Width(width * self.scale_factor);
-                    self.fonts.set_font_size(size);
+                    self.set_font_size(size);
                     self.finish_font_change();
                 }
 
@@ -161,8 +157,8 @@ impl<'a> EventHandler<'a> {
                 "neophyte.set_fonts" => {
                     let args = Values::new(params.into_iter().next()?)?;
                     let font_settings = args.map()?;
-                    let em = self.fonts.metrics().em;
-                    self.fonts.set_fonts(font_settings, FontSize::Height(em));
+                    let em = self.metrics().em;
+                    self.set_fonts(font_settings, FontSize::Height(em));
                     self.finish_font_change();
                 }
 
@@ -244,7 +240,7 @@ impl<'a> EventHandler<'a> {
         if self.ui.did_flush {
             if let Some(guifont_update) = self.ui.guifont_update.take() {
                 let GuiFont { fonts, size } = guifont_update;
-                self.fonts.set_fonts(
+                self.set_fonts(
                     fonts.into_iter().map(FontSetting::with_name).collect(),
                     size,
                 );
@@ -257,7 +253,7 @@ impl<'a> EventHandler<'a> {
                 None
             };
 
-            self.render_state.update(&self.ui, &self.fonts, bg_override);
+            self.render_state.update(&self.ui, bg_override);
             self.ui.clear_dirty();
             window.request_redraw();
         }
@@ -279,6 +275,7 @@ impl<'a> EventHandler<'a> {
 
             "neophyte.get_fonts" => {
                 let names = self
+                    .render_state
                     .fonts
                     .families()
                     .map(|family| family.setting.name.clone())
@@ -300,13 +297,13 @@ impl<'a> EventHandler<'a> {
             }
 
             "neophyte.get_font_width" => {
-                let width = self.fonts.metrics().width / self.scale_factor;
+                let width = self.metrics().width / self.scale_factor;
                 self.neovim
                     .send_response(rpc::Response::result(msgid, width.into()));
             }
 
             "neophyte.get_font_height" => {
-                let width = self.fonts.metrics().em / self.scale_factor;
+                let width = self.metrics().em / self.scale_factor;
                 self.neovim
                     .send_response(rpc::Response::result(msgid, width.into()));
             }
@@ -420,7 +417,7 @@ impl<'a> EventHandler<'a> {
         log::info!("Got cursor move: {position:?}");
         let position: PixelVec<f64> = position.into();
         let position = position.cast_as::<i64>();
-        let cell_size = self.fonts.cell_size();
+        let cell_size = self.cell_size();
         let inner = (self.surface_size.into_cells(cell_size)).into_pixels(cell_size);
         let margin = (self.surface_size - inner) / 2;
         let position = position - margin.cast();
@@ -428,10 +425,7 @@ impl<'a> EventHandler<'a> {
             return;
         };
         self.mouse.position = position;
-        if let Some(grid) = self
-            .ui
-            .grid_under_cursor(position, self.fonts.cell_size().cast())
-        {
+        if let Some(grid) = self.ui.grid_under_cursor(position, self.cell_size().cast()) {
             let position = position.into_cells(cell_size);
             self.neovim.input_mouse(
                 self.mouse.buttons.first().unwrap_or(Button::Move),
@@ -465,7 +459,7 @@ impl<'a> EventHandler<'a> {
         }
         if let Some(grid) = self
             .ui
-            .grid_under_cursor(self.mouse.position, self.fonts.cell_size().cast())
+            .grid_under_cursor(self.mouse.position, self.cell_size().cast())
         {
             self.neovim.input_mouse(
                 button,
@@ -504,7 +498,7 @@ impl<'a> EventHandler<'a> {
             ScrollKind::Lines => delta,
             ScrollKind::Pixels => {
                 self.mouse.scroll += delta;
-                let cell_size: Vec2<i32> = self.fonts.cell_size().try_cast().unwrap();
+                let cell_size: Vec2<i32> = self.cell_size().try_cast().unwrap();
                 let lines = self.mouse.scroll / cell_size;
                 self.mouse.scroll -= lines * cell_size;
                 lines
@@ -513,7 +507,7 @@ impl<'a> EventHandler<'a> {
 
         let Some(grid) = self
             .ui
-            .grid_under_cursor(self.mouse.position, self.fonts.cell_size().cast())
+            .grid_under_cursor(self.mouse.position, self.cell_size().cast())
         else {
             return;
         };
@@ -562,8 +556,8 @@ impl<'a> EventHandler<'a> {
     fn rescale(&mut self, new_scale_factor: f64) {
         log::info!("Got rescale: {new_scale_factor}");
         self.scale_factor = new_scale_factor as f32;
-        let new_font_size = FontSize::Height(self.fonts.metrics().em * self.scale_factor);
-        self.fonts.set_font_size(new_font_size);
+        let new_font_size = FontSize::Height(self.metrics().em * self.scale_factor);
+        self.set_font_size(new_font_size);
     }
 
     fn redraw(&mut self, window: &Window) {
@@ -573,13 +567,9 @@ impl<'a> EventHandler<'a> {
         log::debug!("Got winit redraw: {elapsed:?}");
 
         self.render_state
-            .advance(elapsed, self.fonts.cell_size().cast_as(), &self.settings);
-        self.render_state.render(
-            self.fonts.cell_size(),
-            &self.settings,
-            window,
-            self.frame_number,
-        );
+            .advance(elapsed, self.cell_size().cast_as(), &self.settings);
+        self.render_state
+            .render(self.cell_size(), &self.settings, window, self.frame_number);
 
         if self.settings.send_frame_events {
             self.neovim.exec_lua(
@@ -618,6 +608,22 @@ impl<'a> EventHandler<'a> {
         self.neovim.input(c);
     }
 
+    fn set_font_size(&mut self, size: FontSize) {
+        self.render_state.fonts.set_font_size(size);
+    }
+
+    fn metrics(&self) -> Metrics {
+        self.render_state.fonts.metrics()
+    }
+
+    fn set_fonts(&mut self, fonts: Vec<FontSetting>, size: FontSize) {
+        self.render_state.fonts.set_fonts(fonts, size)
+    }
+
+    fn cell_size(&self) -> Vec2<u32> {
+        self.render_state.fonts.cell_size()
+    }
+
     fn finish_font_change(&mut self) {
         self.render_state.clear_glyph_cache();
         self.resize();
@@ -626,15 +632,12 @@ impl<'a> EventHandler<'a> {
     fn resize(&mut self) {
         let render_size = self.render_size();
         self.resize_neovim_grid();
-        self.render_state.resize(
-            render_size,
-            self.fonts.cell_size(),
-            self.settings.transparent,
-        );
+        self.render_state
+            .resize(render_size, self.cell_size(), self.settings.transparent);
     }
 
     fn resize_neovim_grid(&mut self) {
-        let size = self.render_size().into_cells(self.fonts.cell_size());
+        let size = self.render_size().into_cells(self.cell_size());
         self.neovim.ui_try_resize_grid(1, size.0.x, size.0.y);
     }
 
