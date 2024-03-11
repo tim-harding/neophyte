@@ -34,24 +34,24 @@ pub struct RenderState<'a> {
 
 impl<'a> RenderState<'a> {
     pub fn new(window: &'a Window, cell_size: Vec2<u32>, transparent: bool) -> Self {
-        let context = WgpuContext::new(window, transparent);
-        let grids = Grids::new(&context.device);
+        let wgpu_context = WgpuContext::new(window, transparent);
+        let grids = Grids::new(&wgpu_context.device);
         let target_size: PixelVec<u32> =
-            (context.surface_size().into_cells(cell_size)).into_pixels(cell_size);
-        let targets = Targets::new(&context.device, target_size);
+            (wgpu_context.surface_size().into_cells(cell_size)).into_pixels(cell_size);
+        let targets = Targets::new(&wgpu_context.device, target_size);
         Self {
-            text_bind_group_layout: TextBindGroup::new(&context.device),
+            text_bind_group_layout: TextBindGroup::new(&wgpu_context.device),
             pipelines: Pipelines::new(
-                &context.device,
+                &wgpu_context.device,
                 grids.bind_group_layout(),
-                &context.surface_config,
+                &wgpu_context.surface_config,
                 &targets,
             ),
             shape_context: ShapeContext::new(),
             font_cache: FontCache::new(),
-            grids: Grids::new(&context.device),
+            grids: Grids::new(&wgpu_context.device),
             targets,
-            wgpu_context: context,
+            wgpu_context,
             clear_color: [0.; 4],
             cmdline_grid: CmdlineGrid::new(),
         }
