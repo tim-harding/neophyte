@@ -27,7 +27,7 @@ use winit::{
     },
     event_loop::EventLoopWindowTarget,
     keyboard::{Key, ModifiersState, NamedKey},
-    window::Window,
+    window::{Fullscreen, Window},
 };
 
 pub struct EventHandler<'a> {
@@ -72,7 +72,7 @@ impl<'a> EventHandler<'a> {
                     log::info!("Shutting down");
                     window_target.exit();
                 }
-                UserEvent::Request(request) => self.request(request),
+                UserEvent::Request(request) => self.request(request, window),
                 UserEvent::Notification(notification) => {
                     self.notification(notification, window_target, window)
                 }
@@ -202,6 +202,13 @@ impl<'a> EventHandler<'a> {
                     self.settings.bg_override = Some(rgba);
                 }
 
+                "neophyte.set_fullscreen" => {
+                    let mut args = Values::new(params.into_iter().next()?)?;
+                    let is_fullscreen: bool = args.next()?;
+                    let fullscreen = is_fullscreen.then_some(Fullscreen::Borderless(None));
+                    window.set_fullscreen(fullscreen);
+                }
+
                 "neophyte.leave" => window_target.exit(),
                 "neophyte.buf_leave" => self.ui.ignore_next_scroll = true,
                 "neophyte.enable_raw_input" => self.settings.raw_input = true,
@@ -260,7 +267,7 @@ impl<'a> EventHandler<'a> {
         log::debug!("Neovim redraw end");
     }
 
-    fn request(&mut self, request: rpc::Request) {
+    fn request(&mut self, request: rpc::Request, window: &Window) {
         let rpc::Request {
             msgid,
             method,
@@ -323,6 +330,12 @@ impl<'a> EventHandler<'a> {
                         ("height".into(), render_size.0.y.into()),
                     ]),
                 ));
+            }
+
+            "neophyte.get_fullscreen" => {
+                let is_fullscreen = window.fullscreen().is_some();
+                self.neovim
+                    .send_response(rpc::Response::result(msgid, is_fullscreen.into()));
             }
 
             _ => log::error!("Unknown request: {}, {:?}", method, params),
