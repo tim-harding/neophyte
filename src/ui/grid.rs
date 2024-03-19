@@ -1,15 +1,14 @@
 #![allow(unused)]
 
 use super::{
-    packed_char::{PackedChar, U22},
     window::{Window, WindowOffset},
     HlId,
 };
 use crate::{
     event::{grid_line, hl_attr_define::Attributes, Anchor, GridScroll, HlAttrDefine},
-    ui::packed_char::PackedCharContents,
     util::vec2::{CellVec, Vec2},
 };
+use packed_char::{Contents, PackedChar, U22};
 use std::{
     collections::HashMap,
     fmt::{self, Debug, Display, Formatter},
@@ -224,10 +223,8 @@ impl GridContents {
         self.buffer.chunks(self.size.0.x as usize).map(|chunk| {
             chunk.iter().map(|cell| {
                 let text = match cell.text.contents() {
-                    PackedCharContents::Char(c) => c.into(),
-                    PackedCharContents::U22(u22) => {
-                        self.overflow[u22.as_u32() as usize].chars().into()
-                    }
+                    Contents::Char(c) => c.into(),
+                    Contents::U22(u22) => self.overflow[u22.as_u32() as usize].chars().into(),
                 };
                 CellContents {
                     text,

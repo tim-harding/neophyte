@@ -2,7 +2,6 @@ pub mod cmdline;
 pub mod grid;
 mod messages;
 pub mod options;
-pub mod packed_char;
 pub mod window;
 
 use self::{

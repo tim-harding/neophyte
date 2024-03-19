@@ -1143,6 +1143,7 @@ dependencies = [
  "flexi_logger",
  "font-kit",
  "log",
+ "packed-char",
  "png",
  "pollster",
  "rmpv",
@@ -1264,6 +1265,12 @@ checksum = "d4586edfe4c648c71797a74c84bacb32b52b212eff5dfe2bb9f2c599844023e7"
 dependencies = [
  "ttf-parser",
 ]
+
+[[package]]
+name = "packed-char"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc2027d2f0d60e2a3bfde33ecc2e4b42c96173f0e6f51c4f3d066726833799f5"
 
 [[package]]
 name = "parking_lot"
