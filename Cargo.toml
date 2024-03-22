@@ -1,6 +1,6 @@
 [package]
 name = "neophyte"
-version = "0.2.3"
+version = "0.2.4"
 edition = "2021"
 authors = ["Tim Harding"]
 repository = "https://github.com/tim-harding/neophyte"
@@ -37,3 +37,9 @@ features = ["colors"]
 
 [profile.dev]
 opt-level = 1
+
+[profile.ci]
+inherits = "release"
+strip = true
+lto = true
+codegen-units = 1

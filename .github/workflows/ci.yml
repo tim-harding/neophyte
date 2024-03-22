@@ -1,0 +1,111 @@
+name: Publish release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+
+    - name: Install Rust toolchain
+      run: rustup update
+
+    - name: Build
+      run: cargo build --profile ci
+
+    - name: Archive artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: neophyte-linux
+        path: target/release/neophyte
+        retention-days: 1
+
+  build-macos:
+    runs-on: macos-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+
+    - name: Install Rust toolchain
+      run: rustup update
+
+    - name: Build
+      run: cargo build --profile ci
+
+    - name: Archive artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: neophyte-macos
+        path: target/release/neophyte
+        retention-days: 1
+
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+
+    - name: Install Rust toolchain
+      run: rustup update
+
+    - name: Build
+      run: cargo build --profile ci
+
+    - name: Archive artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: neophyte-windows.exe
+        path: target/release/neophyte.exe
+        retention-days: 1
+
+  create-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs:
+      - build-linux
+      - build-macos
+      - build-windows
+
+    steps:
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: neophyte-linux
+
+      - name: Download MacOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: neophyte-macos
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: neophyte-windows.exe
+
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" neophyte-linux neophyte-macos neophyte-windows.exe \
+            --verify-tag \
+            --title="${TAG}" \
+            --notes-from-tag
