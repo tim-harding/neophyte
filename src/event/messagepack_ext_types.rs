@@ -5,7 +5,7 @@ macro_rules! msgpack_ext {
     ($x:ident, $doc:meta) => {
         #[derive(Debug, Clone)]
         #[$doc]
-        pub struct $x(Value);
+        pub struct $x(#[allow(unused)] Value);
 
         impl Parse for $x {
             fn parse(value: Value) -> Option<Self> {
