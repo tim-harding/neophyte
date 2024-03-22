@@ -46,7 +46,7 @@ jobs:
       run: cargo build --profile ci
 
     - name: Rename artifact
-      run: mv target/release/neophyte neophyte-linux
+      run: mv target/ci/neophyte neophyte-linux
 
     - name: Upload to release
       env:
@@ -74,7 +74,7 @@ jobs:
       run: cargo build --profile ci
 
     - name: Rename artifact
-      run: mv target/release/neophyte neophyte-macos
+      run: mv target/ci/neophyte neophyte-macos
 
     - name: Upload to release
       env:
@@ -103,7 +103,7 @@ jobs:
       run: cargo build --profile ci
 
     - name: Rename artifact
-      run: mv target/release/neophyte.exe neophyte-windows.exe
+      run: mv target/ci/neophyte.exe neophyte-windows.exe
 
     - name: Upload to release
       env:
