@@ -1,0 +1,30 @@
+# Maintainer: Tim Harding <tim@timharding.co>
+pkgname='neophyte-git'
+pkgver='0.2.4'
+pkgrel=1
+pkgdesc='A WebGPU-rendered Neovim GUI'
+arch=('x86_64')
+url='https://github.com/tim-harding/neophyte'
+license=('MIT')
+makedepends=('git' 'rust')
+provides=("neophyte=$pkgver")
+conflicts=('neophyte')
+source=("neophyte::git+$url.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$pkgname"
+  git describe | sed 's/-/.r/;s/-/./'
+}
+
+build() {
+    cd "$pkgname"
+    cargo build --release
+}
+
+package() {
+    cd "$pkgname"
+	install -D --mode=0755 ./target/release/neophyte "$pkgdir/usr/bin/"
+	install -D --mode=0644 ./LICENSE                 "$pkgdir/usr/share/licenses/$pkgname/" 
+	install -D --mode=0644 ./README.md               "$pkgdir/usr/share/doc/$pkgname/"
+}
