@@ -1,6 +1,6 @@
 # Maintainer: Tim Harding <tim@timharding.co>
 pkgname='neophyte-git'
-pkgver='0.2.4'
+pkgver=0.2.4.r3.g748ca36
 pkgrel=1
 pkgdesc='A WebGPU-rendered Neovim GUI'
 arch=('x86_64')
@@ -13,18 +13,27 @@ source=("neophyte::git+$url.git")
 sha256sums=('SKIP')
 
 pkgver() {
-  cd "$pkgname"
+  cd "neophyte"
   git describe | sed 's/-/.r/;s/-/./'
 }
 
 build() {
-    cd "$pkgname"
+    cd "neophyte"
     cargo build --release
 }
 
 package() {
-    cd "$pkgname"
-	install -D --mode=0755 ./target/release/neophyte "$pkgdir/usr/bin/"
-	install -D --mode=0644 ./LICENSE                 "$pkgdir/usr/share/licenses/$pkgname/" 
-	install -D --mode=0644 ./README.md               "$pkgdir/usr/share/doc/$pkgname/"
+    cd "neophyte"
+    install \
+	--mode=0755 \
+	-D --target-directory="$pkgdir/usr/bin/" \
+	./target/release/neophyte
+    install \
+	--mode=0644 \
+	-D --target-directory="$pkgdir/usr/share/licenses/neophyte/" \
+	./LICENSE
+    install \
+	--mode=0644 \
+	-D --target-directory="$pkgdir/usr/share/doc/neophyte/" \
+	./README.md
 }
