@@ -87,20 +87,26 @@ jobs:
       - build-windows
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Download Linux artifact
         uses: actions/download-artifact@v4
         with:
           name: neophyte-linux
+          path: neophyte-linux
 
       - name: Download MacOS artifact
         uses: actions/download-artifact@v4
         with:
           name: neophyte-macos
+          path: neophyte-macos
 
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
         with:
           name: neophyte-windows.exe
+          path: neophyte-windows.exe
 
       - name: Create release
         env:
