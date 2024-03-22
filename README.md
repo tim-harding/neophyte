@@ -29,8 +29,6 @@ cargo install neophyte
 ```bash
 git clone https://github.com/tim-harding/neophyte
 cd neophyte
-git lfs install
-git lfs pull
 cargo build --release
 ```
 
