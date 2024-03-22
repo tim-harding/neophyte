@@ -9,13 +9,98 @@ permissions:
   contents: write
 
 jobs:
-  create-release:
+  build-linux:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+
+    - name: Install Rust toolchain
+      run: rustup update
+
+    - name: Build
+      run: cargo build --profile ci
+
+    - name: Archive artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: neophyte-linux
+        path: target/ci/neophyte
+        retention-days: 1
+
+  build-macos:
+    runs-on: macos-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+
+    - name: Install Rust toolchain
+      run: rustup update
+
+    - name: Build
+      run: cargo build --profile ci
+
+    - name: Archive artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: neophyte-macos
+        path: target/ci/neophyte
+        retention-days: 1
+
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+
+    - name: Install Rust toolchain
+      run: rustup update
+
+    - name: Build
+      run: cargo build --profile ci
+
+    - name: Archive artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: neophyte-windows.exe
+        path: target/ci/neophyte.exe
+        retention-days: 1
+
+  create-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs:
+      - build-linux
+      - build-macos
+      - build-windows
+
+    steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Rename Linux artifact
+        run: mv neophyte-linux/neophyte neophyte-linux/neophyte-linux
+
+      - name: Rename MacOS artifact
+        run: mv neophyte-macos/neophyte neophyte-macos/neophyte-macos
+
+      - name: Rename Windows artifact
+        run: mv neophyte-windows/neophyte.exe neophyte-windows/neophyte-windows.exe
 
       - name: Create release
         env:
@@ -23,91 +108,9 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           gh release create "$TAG" \
+            neophyte-linux/neophyte-linux \
+            neophyte-macos/neophyte-macos \
+            neophyte-windows/neophyte-windows.exe \
             --verify-tag \
             --title="${TAG}" \
             --notes-from-tag
-
-  build-linux:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs:
-    - create-release
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        lfs: true
-
-    - name: Install Rust toolchain
-      run: rustup update
-
-    - name: Build
-      run: cargo build --profile ci
-
-    - name: Rename artifact
-      run: mv target/ci/neophyte neophyte-linux
-
-    - name: Upload to release
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        TAG: ${{ github.ref_name }}
-      run: |
-        gh release upload "$TAG" neophyte-linux
-
-  build-macos:
-    runs-on: macos-latest
-    timeout-minutes: 10
-    needs:
-    - create-release
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        lfs: true
-
-    - name: Install Rust toolchain
-      run: rustup update
-
-    - name: Build
-      run: cargo build --profile ci
-
-    - name: Rename artifact
-      run: mv target/ci/neophyte neophyte-macos
-
-    - name: Upload to release
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        TAG: ${{ github.ref_name }}
-      run: |
-        gh release upload "$TAG" neophyte-macos
-
-
-  build-windows:
-    runs-on: windows-latest
-    timeout-minutes: 10
-    needs:
-    - create-release
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        lfs: true
-
-    - name: Install Rust toolchain
-      run: rustup update
-
-    - name: Build
-      run: cargo build --profile ci
-
-    - name: Rename artifact
-      run: mv target/ci/neophyte.exe neophyte-windows.exe
-
-    - name: Upload to release
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        TAG: ${{ github.ref_name }}
-      run: |
-        gh release upload "$TAG" neophyte-windows.exe
