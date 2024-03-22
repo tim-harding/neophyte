@@ -1,34 +1,37 @@
 # Maintainer: Tim Harding <tim@timharding.co>
-pkgname=neophyte
-pkgver=0.2.4
+pkgname='neophyte'
+pkgver='0.2.4'
 pkgrel=1
-pkgdesc="A WebGPU-rendered Neovim GUI"
+pkgdesc='A WebGPU-rendered Neovim GUI'
 arch=('x86_64')
-url="https://github.com/tim-harding/neophyte"
+url="https://github.com/tim-harding/$pkgname"
 license=('MIT')
 makedepends=('git' 'rust')
-provides=('neophyte')
-conflicts=('neophyte-git')
-source=("$pkgname-linux::https://github.com/tim-harding/$pkgname/releases/download/$pkgver/$pkgname-linux")
-sha256sums=()
-
-prepare() {
-    cd "$pkgname-$pkgver"
-    patch -p1 -i "$srcdir/$pkgname-$pkgver.patch"
-}
+provides=("$pkgname=$pkgver")
+conflicts=("$pkgname-bin")
+source=("$pkgname::git+$url.git")
+sha256sums=('SKIP')
 
 build() {
-    cd "$pkgname-$pkgver"
-    ./configure --prefix=/usr
-    make
-}
-
-check() {
-    cd "$pkgname-$pkgver"
-    make -k check
+    cd "$pkgname"
+    cargo build --release
 }
 
 package() {
-    cd "$pkgname-$pkgver"
-    make DESTDIR="$pkgdir/" install
+    cd "$pkgname"
+
+    install \
+	--mode=0755 \
+	-D --target-directory="$pkgdir/usr/bin/" \
+	./target/release/$pkgname
+
+    install \
+	--mode=0644 \
+	-D --target-directory="$pkgdir/usr/share/licenses/$pkgname/" \
+	./LICENSE
+
+    install \
+	--mode=0644 \
+	-D --target-directory="$pkgdir/usr/share/doc/$pkgname/" \
+	./README.md
 }
