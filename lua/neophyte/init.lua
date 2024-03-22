@@ -182,13 +182,13 @@ function M.get_scroll_speed()
 end
 
 ---Sets the window to fullscreen or windowed
----@param is_fullscreen bool
+---@param is_fullscreen boolean
 function M.set_fullscreen(is_fullscreen)
   vim.rpcnotify(1, 'neophyte.set_fullscreen', { is_fullscreen })
 end
 
 ---Gets whether the window is fullscreen or windowed
----@return bool
+---@return boolean
 function M.get_fullscreen()
   return vim.rpcrequest(1, 'neophyte.get_fullscreen', {})
 end
