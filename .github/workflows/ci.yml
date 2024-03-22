@@ -29,7 +29,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: neophyte-linux
-        path: target/release/neophyte
+        path: target/ci/neophyte
         retention-days: 1
 
   build-macos:
@@ -52,7 +52,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: neophyte-macos
-        path: target/release/neophyte
+        path: target/ci/neophyte
         retention-days: 1
 
   build-windows:
@@ -75,7 +75,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: neophyte-windows.exe
-        path: target/release/neophyte.exe
+        path: target/ci/neophyte.exe
         retention-days: 1
 
   create-release:
