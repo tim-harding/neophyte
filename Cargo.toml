@@ -9,6 +9,7 @@ keywords = ["neovim"]
 categories = ["text-editors", "gui", "development-tools"]
 description = "A WebGPU rendered Neovim GUI"
 readme = "README.md"
+exclude = ["/packaging", "/lua"]
 
 [workspace]
 members = ["neophyte-log-analyzer"]

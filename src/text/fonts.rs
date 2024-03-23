@@ -1,5 +1,6 @@
 use super::font::{Font, FontFromFileError, Metrics};
 use crate::{
+    assets,
     ui::options::FontSize,
     util::{vec2::Vec2, MaybeInto, Parse},
 };
@@ -25,22 +26,18 @@ impl Fonts {
                 FontFamily {
                     setting: FontSetting::with_name("Roboto Mono".to_string()),
                     regular: Font::from_bytes(
-                        include_bytes!("fonts/RobotoMono-Regular.ttf").as_slice(),
+                        assets::fonts::ROBOTO_MONO_REGULAR,
                         0,
                         FontSize::default(),
                     ),
-                    bold: Font::from_bytes(
-                        include_bytes!("fonts/RobotoMono-Bold.ttf").as_slice(),
-                        0,
-                        FontSize::default(),
-                    ),
+                    bold: Font::from_bytes(assets::fonts::ROBOTO_MONO_BOLD, 0, FontSize::default()),
                     bold_italic: Font::from_bytes(
-                        include_bytes!("fonts/RobotoMono-BoldItalic.ttf").as_slice(),
+                        assets::fonts::ROBOTO_MONO_BOLDITALIC,
                         0,
                         FontSize::default(),
                     ),
                     italic: Font::from_bytes(
-                        include_bytes!("fonts/RobotoMono-Italic.ttf").as_slice(),
+                        assets::fonts::ROBOTO_MONO_ITALIC,
                         0,
                         FontSize::default(),
                     ),
@@ -48,7 +45,7 @@ impl Fonts {
                 FontFamily {
                     setting: FontSetting::with_name("Last Resort".to_string()),
                     regular: Font::from_bytes(
-                        include_bytes!("fonts/LastResort-Regular.ttf").as_slice(),
+                        assets::fonts::LAST_RESORT_REGULAR,
                         0,
                         FontSize::default(),
                     ),

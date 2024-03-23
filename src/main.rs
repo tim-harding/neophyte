@@ -1,3 +1,4 @@
+mod assets;
 #[warn(
     clippy::cast_lossless,
     clippy::cast_possible_wrap,
