@@ -17,8 +17,9 @@ https://github.com/tim-harding/neophyte/assets/13814470/7007c562-efaf-4e0e-98a3-
 ## Installation
 
 Neophyte currently works best on MacOS and Linux. It also requires a compatible
-graphics driver, namely Vulkan, Metal, or DX12. Installing from Crates.io or Git
-requires the [Rust toolchain](https://www.rust-lang.org/tools/install).
+graphics driver, namely Vulkan, Metal, or DX12. Linux targets require the
+`fontconfig` library. Installing from Crates.io or Git requires the [Rust
+toolchain](https://www.rust-lang.org/tools/install).
 
 ### Crates.io
 ```bash
