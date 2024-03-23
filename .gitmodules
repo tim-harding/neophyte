@@ -1,0 +1,9 @@
+[submodule "packaging/aur/neophyte"]
+	path = packaging/aur/neophyte
+	url = ssh://aur@aur.archlinux.org/neophyte.git
+[submodule "packaging/aur/neophyte-git"]
+	path = packaging/aur/neophyte-git
+	url = ssh://aur@aur.archlinux.org/neophyte-git.git
+[submodule "packaging/aur/neophyte-bin"]
+	path = packaging/aur/neophyte-bin
+	url = ssh://aur@aur.archlinux.org/neophyte-bin.git
