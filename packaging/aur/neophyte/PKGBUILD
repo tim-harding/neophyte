@@ -1,7 +1,7 @@
 # Maintainer: Tim Harding <tim@timharding.co>
 
 pkgname='neophyte'
-pkgver='0.2.4'
+pkgver='0.2.5'
 pkgrel=1
 pkgdesc='A WebGPU-rendered Neovim GUI'
 arch=('x86_64' 'i686' 'aarch64')
@@ -45,11 +45,10 @@ package() {
         -D --target-directory="$pkgdir/usr/bin/" \
         target/release/$pkgname
 
-    # TODO: Enable for 0.2.5
-    # install \
-    #     --mode=0644 \
-    #     -D --target-directory="$pkgdir/usr/share/applications/" \
-    #     assets/neophyte.desktop
+    install \
+        --mode=0644 \
+        -D --target-directory="$pkgdir/usr/share/applications/" \
+        assets/neophyte.desktop
 
     install \
         --mode=0644 \

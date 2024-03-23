@@ -1,6 +1,6 @@
 [package]
 name = "neophyte"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2021"
 authors = ["Tim Harding"]
 repository = "https://github.com/tim-harding/neophyte"
@@ -9,7 +9,7 @@ keywords = ["neovim"]
 categories = ["text-editors", "gui", "development-tools"]
 description = "A WebGPU rendered Neovim GUI"
 readme = "README.md"
-exclude = ["/packaging", "/lua", "/fonts"]
+exclude = ["/packaging", "/lua"]
 
 [workspace]
 members = ["neophyte-log-analyzer"]
