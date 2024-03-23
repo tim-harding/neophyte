@@ -28,7 +28,7 @@ cargo install neophyte
 
 ### Git
 ```bash
-git clone https://github.com/tim-harding/neophyte
+git clone --recurse-submodules https://github.com/tim-harding/neophyte
 cd neophyte
 cargo build --release
 ```
@@ -50,7 +50,7 @@ discoverability.
 -- lazy.nvim example:
 {
   'tim-harding/neophyte',
-  tag = '0.2.4',
+  tag = '0.2.5',
   event = 'VeryLazy',
   opts = {
     -- Same as neophyte.setup({ ... })

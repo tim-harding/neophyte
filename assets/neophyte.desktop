@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Neophyte
-Version=0.2.4
+Version=0.2.5
 Exec=spotify
 Terminal=false
 Categories=Utility;TextEditor;
