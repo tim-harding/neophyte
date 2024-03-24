@@ -39,6 +39,34 @@ The binary will be `target/release/neophyte`.
 Prebuilt binaries are available in the
 [releases](https://github.com/tim-harding/neophyte/releases/latest). 
 
+### Packages
+
+#### AUR
+
+##### `neophyte`
+
+Builds from source hosted on Crates.io.
+
+```bash
+yay -S neophyte
+```
+
+##### `neophyte-git`
+
+Builds from the latest tagged release on GitHub.
+
+```bash
+yay -S neophyte-git
+```
+
+##### `neophyte-bin`
+
+Installs the latest binary release artifacts from GitHub.
+
+```bash
+yay -S neophyte-bin
+```
+
 ## Configuration
 
 ### Scripting
