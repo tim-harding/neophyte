@@ -7,3 +7,6 @@
 [submodule "packaging/aur/neophyte-bin"]
 	path = packaging/aur/neophyte-bin
 	url = ssh://aur@aur.archlinux.org/neophyte-bin.git
+[submodule "packaging/homebrew-neophyte"]
+	path = packaging/homebrew
+	url = https://github.com/tim-harding/homebrew-neophyte
