@@ -2,6 +2,7 @@
 *.txt
 *.mm_profdata
 *.json
+!.neoconf.json
 *.folded
 *.perf
 *.data
