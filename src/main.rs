@@ -20,11 +20,37 @@ use event_handler::EventHandler;
 use flexi_logger::Logger;
 use neovim::Neovim;
 use neovim_handler::NeovimHandler;
-use std::{process::Output, thread};
+use std::{env, process::Output, thread};
 use winit::{
     event_loop::{ControlFlow, EventLoopBuilder},
     window::WindowBuilder,
 };
+
+const HELP_TEXT: &str = "\
+A WebGPU-rendered Neovim GUI
+
+SYNOPSIS 
+    neophyte [OPTIONS] [-- NVIM_COMMAND]
+
+DESCRIPTION
+    Opens the GUI with the given options and Neovim command. 
+    All the arguments following the two dashes (--) specify the Neovim command to run. 
+    If two dashes are not given, the default command `nvim` is run instead.
+
+OPTIONS
+    -t, --transparent  
+        Enable window transparency
+    -h, --help
+        Show this help text
+
+EXAMPLES
+    1. Run Neophyte with defaults. The following commands are equivalent.
+        neophyte
+        neophyte -- nvim
+
+    2. Run Neophyte with a transparent window and a clean Neovim configuration.
+        neophyte --transparent -- nvim --clean
+";
 
 fn main() {
     Logger::try_with_env_or_str("neophyte=warn")
@@ -32,7 +58,20 @@ fn main() {
         .start()
         .unwrap();
 
-    let transparent = std::env::args().any(|arg| arg == "--transparent");
+    let mut transparent = false;
+    let mut args = env::args().skip(1);
+    for arg in &mut args {
+        match arg.as_str() {
+            "--" => break,
+            "--transparent" | "-t" => transparent = true,
+            "--help" | "-h" => {
+                print!("{}", HELP_TEXT);
+                return;
+            }
+            other => log::warn!("Unrecognized argument: {}", other),
+        }
+    }
+
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event()
         .build()
         .expect("Failed to create event loop");
@@ -43,12 +82,8 @@ fn main() {
         .build(&event_loop)
         .expect("Failed to create window");
 
-    let (mut neovim, stdout_handler, stdin_handler, child) = Neovim::new(
-        std::env::args()
-            .skip(1)
-            .filter(|arg| arg != "--transparent"),
-    )
-    .expect("Failed to start Neovim");
+    let (mut neovim, stdout_handler, stdin_handler, child) =
+        Neovim::new(args).expect("Failed to start Neovim");
     neovim.ui_attach();
     let stdin_thread = std::thread::spawn(move || stdin_handler.start());
     let proxy = event_loop.create_proxy();
