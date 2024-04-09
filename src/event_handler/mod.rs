@@ -79,7 +79,8 @@ impl<'a> EventHandler<'a> {
             },
 
             Event::NewEvents(_) => log::debug!("New Winit events"),
-            // Event::AboutToWait => window.request_redraw(),
+            Event::AboutToWait => window.request_redraw(),
+
             Event::WindowEvent {
                 window_id: _,
                 ref event,
