@@ -208,9 +208,9 @@ event_from!(CmdlineBlockShow);
 event_from!(CmdlineBlockAppend);
 event_from!(Chdir);
 
-fn parse<T: Parse>(iter: Values, error: Error) -> Result<Vec<Event>, Error>
+fn parse<T>(iter: Values, error: Error) -> Result<Vec<Event>, Error>
 where
-    T: Into<Event>,
+    T: Parse + Into<Event>,
 {
     let v: Option<Vec<_>> = iter
         .into_inner()
