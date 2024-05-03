@@ -708,7 +708,7 @@ impl EventHandler {
         if let Some(size) = self.settings.render_size {
             size
         } else {
-            self.render_state.as_ref().unwrap().surface_size()
+            self.window.as_ref().unwrap().inner_size().into()
         }
     }
 }
