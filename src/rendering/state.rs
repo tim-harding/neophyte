@@ -1,9 +1,3 @@
-use std::{
-    fs::File,
-    io::{self, BufWriter},
-    time::Duration,
-};
-
 use super::{
     cmdline_grid::CmdlineGrid, grids::Grids, pipelines::Pipelines, targets::Targets,
     text::BindGroupLayout as TextBindGroup, wgpu_context::WgpuContext, Motion,
@@ -16,11 +10,17 @@ use crate::{
     util::vec2::{CellVec, PixelVec, Vec2},
 };
 use bytemuck::cast_slice;
+use std::{
+    fs::File,
+    io::{self, BufWriter},
+    sync::Arc,
+    time::Duration,
+};
 use swash::shape::ShapeContext;
 use winit::window::Window;
 
-pub struct RenderState<'a> {
-    wgpu_context: WgpuContext<'a>,
+pub struct RenderState {
+    wgpu_context: WgpuContext,
     pipelines: Pipelines,
     targets: Targets,
     grids: Grids,
@@ -33,8 +33,8 @@ pub struct RenderState<'a> {
     text_bind_group_layout: TextBindGroup,
 }
 
-impl<'a> RenderState<'a> {
-    pub fn new(window: &'a Window, transparent: bool) -> Self {
+impl RenderState {
+    pub fn new(window: Arc<Window>, transparent: bool) -> Self {
         let fonts = Fonts::new();
         let cell_size = fonts.cell_size();
         let wgpu_context = WgpuContext::new(window, transparent);

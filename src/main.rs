@@ -21,10 +21,7 @@ use flexi_logger::Logger;
 use neovim::Neovim;
 use neovim_handler::NeovimHandler;
 use std::{env, process::Output, thread};
-use winit::{
-    event_loop::{ControlFlow, EventLoopBuilder},
-    window::WindowBuilder,
-};
+use winit::event_loop::{ControlFlow, EventLoop};
 
 const HELP_TEXT: &str = "\
 A WebGPU-rendered Neovim GUI
@@ -53,10 +50,13 @@ EXAMPLES
 ";
 
 fn main() {
-    Logger::try_with_env_or_str("neophyte=warn")
+    match Logger::try_with_env_or_str("neophyte=warn")
         .unwrap()
         .start()
-        .unwrap();
+    {
+        Ok(_logger) => {}
+        Err(e) => eprintln!("Failed to start logging: {e}"),
+    }
 
     let mut transparent = false;
     let mut args = env::args().skip(1);
@@ -72,15 +72,9 @@ fn main() {
         }
     }
 
-    let event_loop = EventLoopBuilder::<UserEvent>::with_user_event()
+    let event_loop = EventLoop::<UserEvent>::with_user_event()
         .build()
         .expect("Failed to create event loop");
-
-    let window = WindowBuilder::new()
-        .with_transparent(transparent)
-        .with_title("Neophyte")
-        .build(&event_loop)
-        .expect("Failed to create window");
 
     let (mut neovim, stdout_handler, stdin_handler, child) =
         Neovim::new(args).expect("Failed to start Neovim");
@@ -91,17 +85,13 @@ fn main() {
         stdout_handler.start(NeovimHandler::new(proxy));
     });
 
-    let mut handler = EventHandler::new(neovim, &window, transparent);
-    event_loop.set_control_flow(ControlFlow::Wait);
-    let window_ref = &window;
-    event_loop
-        .run(move |event, window_target| {
-            handler.handle(event, window_target, window_ref);
-        })
-        .expect("Failed to start render loop");
-
-    // Faster shutdown
-    drop(window);
+    {
+        let mut handler = EventHandler::new(neovim, transparent);
+        event_loop.set_control_flow(ControlFlow::Wait);
+        event_loop
+            .run_app(&mut handler)
+            .expect("Failed to start event loop");
+    } // Dropping handler drops channels for faster shutdown
 
     match child.wait_with_output() {
         Ok(output) => {

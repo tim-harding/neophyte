@@ -19,115 +19,144 @@ use crate::{
     UserEvent,
 };
 use rmpv::Value;
-use std::time::Instant;
+use std::{sync::Arc, time::Instant};
 use winit::{
+    application::ApplicationHandler,
     dpi::{PhysicalPosition, PhysicalSize},
     event::{
-        ElementState, Event, KeyEvent, MouseButton, MouseScrollDelta, TouchPhase, WindowEvent,
+        DeviceEvent, DeviceId, ElementState, KeyEvent, MouseButton, MouseScrollDelta, StartCause,
+        TouchPhase, WindowEvent,
     },
-    event_loop::EventLoopWindowTarget,
+    event_loop::ActiveEventLoop,
     keyboard::{Key, ModifiersState, NamedKey},
-    window::{Fullscreen, Window},
+    window::{Fullscreen, Window, WindowId},
 };
 
-pub struct EventHandler<'a> {
-    scale_factor: f32,
-    surface_size: PixelVec<u32>,
+pub struct EventHandler {
+    window: Option<Arc<Window>>,
+    render_state: Option<RenderState>,
     ui: Ui,
     settings: Settings,
     mouse: Mouse,
     modifiers: ModifiersState,
     neovim: Neovim,
-    render_state: RenderState<'a>,
     frame_number: u32,
     last_render_time: Instant,
 }
 
-impl<'a> EventHandler<'a> {
-    pub fn new(neovim: Neovim, window: &'a Window, transparent: bool) -> Self {
-        let render_state = RenderState::new(window, transparent);
+impl ApplicationHandler<UserEvent> for EventHandler {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        let Some(window) = event_loop
+            .create_window(
+                Window::default_attributes()
+                    .with_transparent(self.settings.transparent)
+                    .with_title("Neophyte"),
+            )
+            .ok()
+            .map(Arc::new)
+        else {
+            return;
+        };
+
+        self.render_state = Some(RenderState::new(window.clone(), self.settings.transparent));
+        self.window = Some(window);
+    }
+
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        _window_id: WindowId,
+        event: WindowEvent,
+    ) {
+        match event {
+            WindowEvent::ModifiersChanged(new_modifiers) => {
+                self.modifiers = new_modifiers.state();
+            }
+            WindowEvent::KeyboardInput { event, .. } => self.keyboard_input(&event),
+            WindowEvent::CursorMoved { position, .. } => self.cursor_moved(position),
+            WindowEvent::MouseInput { state, button, .. } => self.mouse_input(state, button),
+            WindowEvent::MouseWheel { delta, phase, .. } => self.mouse_wheel(delta, phase),
+            WindowEvent::Resized(physical_size) => self.resized(physical_size),
+            WindowEvent::ScaleFactorChanged { scale_factor, .. } => self.rescale(scale_factor),
+            WindowEvent::CloseRequested => {
+                log::info!("Close requested");
+                event_loop.exit();
+            }
+            WindowEvent::RedrawRequested => {
+                log::debug!("Winit requested redraw");
+                self.redraw();
+            }
+            WindowEvent::Focused(focus) => self.neovim.ui_set_focus(focus),
+            _ => {}
+        }
+    }
+
+    fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: StartCause) {
+        log::debug!("New Winit events: {cause:?}");
+    }
+
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: UserEvent) {
+        match event {
+            UserEvent::Shutdown => {
+                log::info!("Shutting down");
+                event_loop.exit();
+            }
+            UserEvent::Request(request) => self.request(request),
+            UserEvent::Notification(notification) => self.notification(notification, event_loop),
+        }
+    }
+
+    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+        self.window().request_redraw();
+    }
+
+    fn device_event(
+        &mut self,
+        _event_loop: &ActiveEventLoop,
+        _device_id: DeviceId,
+        _event: DeviceEvent,
+    ) {
+    }
+
+    fn suspended(&mut self, _event_loop: &ActiveEventLoop) {}
+
+    fn exiting(&mut self, _event_loop: &ActiveEventLoop) {}
+
+    fn memory_warning(&mut self, _event_loop: &ActiveEventLoop) {}
+}
+
+impl EventHandler {
+    pub fn new(neovim: Neovim, transparent: bool) -> Self {
         Self {
-            scale_factor: window.scale_factor() as f32,
+            window: None,
+            render_state: None,
             frame_number: 0,
-            surface_size: render_state.surface_size(),
             ui: Ui::new(),
             settings: Settings::new(transparent),
             mouse: Mouse::new(),
             modifiers: ModifiersState::default(),
             neovim,
-            render_state,
             last_render_time: Instant::now(),
         }
     }
 
-    pub fn handle(
-        &mut self,
-        event: Event<UserEvent>,
-        window_target: &EventLoopWindowTarget<UserEvent>,
-        window: &Window,
-    ) {
-        match event {
-            Event::UserEvent(user_event) => match user_event {
-                UserEvent::Shutdown => {
-                    log::info!("Shutting down");
-                    window_target.exit();
-                }
-                UserEvent::Request(request) => self.request(request, window),
-                UserEvent::Notification(notification) => {
-                    self.notification(notification, window_target, window)
-                }
-            },
-
-            Event::NewEvents(_) => log::debug!("New Winit events"),
-            Event::AboutToWait => window.request_redraw(),
-
-            Event::WindowEvent {
-                window_id: _,
-                ref event,
-            } => match event {
-                WindowEvent::ModifiersChanged(new_modifiers) => {
-                    self.modifiers = new_modifiers.state();
-                }
-                WindowEvent::KeyboardInput { event, .. } => self.keyboard_input(event),
-                WindowEvent::CursorMoved { position, .. } => self.cursor_moved(*position),
-                WindowEvent::MouseInput { state, button, .. } => self.mouse_input(*state, *button),
-                WindowEvent::MouseWheel { delta, phase, .. } => self.mouse_wheel(*delta, *phase),
-                WindowEvent::Resized(physical_size) => self.resized(*physical_size),
-                WindowEvent::ScaleFactorChanged { scale_factor, .. } => self.rescale(*scale_factor),
-                WindowEvent::CloseRequested => {
-                    log::info!("Close requested");
-                    window_target.exit();
-                }
-                WindowEvent::RedrawRequested => {
-                    log::debug!("Winit requested redraw");
-                    self.redraw(window);
-                }
-                WindowEvent::Focused(focus) => self.neovim.ui_set_focus(*focus),
-                _ => {}
-            },
-
-            _ => {}
-        }
+    fn window(&self) -> &Window {
+        self.window.as_ref().unwrap()
     }
 
-    fn notification(
-        &mut self,
-        notification: Notification,
-        window_target: &EventLoopWindowTarget<UserEvent>,
-        window: &Window,
-    ) {
+    fn notification(&mut self, notification: Notification, event_loop: &ActiveEventLoop) {
         let inner = || {
             let Notification { method, params } = notification;
             if method.as_str() != "redraw" {
                 log::info!("Got notification {method} with {params:?}");
             }
             match method.as_str() {
-                "redraw" => self.handle_redraw_notification(params, window),
+                "redraw" => self.handle_redraw_notification(params),
 
                 "neophyte.set_font_height" => {
                     let mut args = Values::new(params.into_iter().next()?)?;
                     let height: f32 = args.next()?;
-                    let size = FontSize::Height(height * self.scale_factor);
+                    let size = FontSize::Height(height * self.window().scale_factor() as f32);
                     self.set_font_size(size);
                     self.finish_font_change();
                 }
@@ -135,7 +164,7 @@ impl<'a> EventHandler<'a> {
                 "neophyte.set_font_width" => {
                     let mut args = Values::new(params.into_iter().next()?)?;
                     let width: f32 = args.next()?;
-                    let size = FontSize::Width(width * self.scale_factor);
+                    let size = FontSize::Width(width * self.window().scale_factor() as f32);
                     self.set_font_size(size);
                     self.finish_font_change();
                 }
@@ -144,14 +173,14 @@ impl<'a> EventHandler<'a> {
                     let mut args = Values::new(params.into_iter().next()?)?;
                     let speed: f32 = args.next()?;
                     self.settings.cursor_speed = speed;
-                    window.request_redraw();
+                    self.window().request_redraw();
                 }
 
                 "neophyte.set_scroll_speed" => {
                     let mut args = Values::new(params.into_iter().next()?)?;
                     let speed: f32 = args.next()?;
                     self.settings.scroll_speed = speed;
-                    window.request_redraw();
+                    self.window().request_redraw();
                 }
 
                 "neophyte.set_fonts" => {
@@ -167,7 +196,7 @@ impl<'a> EventHandler<'a> {
                     let offset: f32 = args.next()?;
                     let offset: i32 = offset as i32;
                     self.settings.underline_offset = offset;
-                    window.request_redraw();
+                    self.window().request_redraw();
                 }
 
                 "neophyte.set_render_size" => {
@@ -206,10 +235,10 @@ impl<'a> EventHandler<'a> {
                     let mut args = Values::new(params.into_iter().next()?)?;
                     let is_fullscreen: bool = args.next()?;
                     let fullscreen = is_fullscreen.then_some(Fullscreen::Borderless(None));
-                    window.set_fullscreen(fullscreen);
+                    self.window().set_fullscreen(fullscreen);
                 }
 
-                "neophyte.leave" => window_target.exit(),
+                "neophyte.leave" => event_loop.exit(),
                 "neophyte.buf_leave" => self.ui.ignore_next_scroll = true,
                 "neophyte.enable_raw_input" => self.settings.raw_input = true,
                 "neophyte.disable_raw_input" => self.settings.raw_input = false,
@@ -226,7 +255,7 @@ impl<'a> EventHandler<'a> {
         let _ = inner();
     }
 
-    fn handle_redraw_notification(&mut self, params: Vec<Value>, window: &Window) {
+    fn handle_redraw_notification(&mut self, params: Vec<Value>) {
         log::debug!("Neovim redraw start");
         for param in params {
             match event::Event::try_parse(param) {
@@ -260,14 +289,17 @@ impl<'a> EventHandler<'a> {
                 None
             };
 
-            self.render_state.update(&self.ui, bg_override);
+            self.render_state
+                .as_mut()
+                .unwrap()
+                .update(&self.ui, bg_override);
             self.ui.clear_dirty();
-            window.request_redraw();
+            self.window().request_redraw();
         }
         log::debug!("Neovim redraw end");
     }
 
-    fn request(&mut self, request: rpc::Request, window: &Window) {
+    fn request(&mut self, request: rpc::Request) {
         let rpc::Request {
             msgid,
             method,
@@ -283,6 +315,8 @@ impl<'a> EventHandler<'a> {
             "neophyte.get_fonts" => {
                 let names = self
                     .render_state
+                    .as_mut()
+                    .unwrap()
                     .fonts
                     .families()
                     .map(|family| family.setting.name.clone())
@@ -304,13 +338,13 @@ impl<'a> EventHandler<'a> {
             }
 
             "neophyte.get_font_width" => {
-                let width = self.metrics().width / self.scale_factor;
+                let width = self.metrics().width / self.window().scale_factor() as f32;
                 self.neovim
                     .send_response(rpc::Response::result(msgid, width.into()));
             }
 
             "neophyte.get_font_height" => {
-                let width = self.metrics().em / self.scale_factor;
+                let width = self.metrics().em / self.window().scale_factor() as f32;
                 self.neovim
                     .send_response(rpc::Response::result(msgid, width.into()));
             }
@@ -333,7 +367,7 @@ impl<'a> EventHandler<'a> {
             }
 
             "neophyte.get_fullscreen" => {
-                let is_fullscreen = window.fullscreen().is_some();
+                let is_fullscreen = self.window().fullscreen().is_some();
                 self.neovim
                     .send_response(rpc::Response::result(msgid, is_fullscreen.into()));
             }
@@ -431,8 +465,9 @@ impl<'a> EventHandler<'a> {
         let position: PixelVec<f64> = position.into();
         let position = position.cast_as::<i64>();
         let cell_size = self.cell_size();
-        let inner = (self.surface_size.into_cells(cell_size)).into_pixels(cell_size);
-        let margin = (self.surface_size - inner) / 2;
+        let surface_size = self.render_state.as_ref().unwrap().surface_size();
+        let inner = (surface_size.into_cells(cell_size)).into_pixels(cell_size);
+        let margin = (surface_size - inner) / 2;
         let position = position - margin.cast();
         let Ok(position) = position.try_cast::<u32>() else {
             return;
@@ -562,27 +597,30 @@ impl<'a> EventHandler<'a> {
 
     fn resized(&mut self, physical_size: PhysicalSize<u32>) {
         log::info!("Got resize: {physical_size:?}");
-        self.surface_size = physical_size.into();
         self.resize();
     }
 
     fn rescale(&mut self, new_scale_factor: f64) {
         log::info!("Got rescale: {new_scale_factor}");
-        self.scale_factor = new_scale_factor as f32;
-        let new_font_size = FontSize::Height(self.metrics().em * self.scale_factor);
+        let new_font_size = FontSize::Height(self.metrics().em * new_scale_factor as f32);
         self.set_font_size(new_font_size);
     }
 
-    fn redraw(&mut self, window: &Window) {
+    fn redraw(&mut self) {
         let now = Instant::now();
         let elapsed = now.duration_since(self.last_render_time);
         self.last_render_time = now;
         log::debug!("Got winit redraw: {elapsed:?}");
 
-        self.render_state
-            .advance(elapsed, self.cell_size().cast_as(), &self.settings);
-        self.render_state
-            .render(self.cell_size(), &self.settings, window, self.frame_number);
+        let cell_size = self.cell_size();
+        let render_state = self.render_state.as_mut().unwrap();
+        render_state.advance(elapsed, cell_size.cast_as(), &self.settings);
+        render_state.render(
+            cell_size,
+            &self.settings,
+            self.window.as_ref().unwrap(),
+            self.frame_number,
+        );
 
         if self.settings.send_frame_events {
             self.neovim.exec_lua(
@@ -622,31 +660,43 @@ impl<'a> EventHandler<'a> {
     }
 
     fn set_font_size(&mut self, size: FontSize) {
-        self.render_state.fonts.set_font_size(size);
+        self.render_state
+            .as_mut()
+            .unwrap()
+            .fonts
+            .set_font_size(size);
     }
 
     fn metrics(&self) -> Metrics {
-        self.render_state.fonts.metrics()
+        self.render_state.as_ref().unwrap().fonts.metrics()
     }
 
     fn set_fonts(&mut self, fonts: Vec<FontSetting>, size: FontSize) {
-        self.render_state.fonts.set_fonts(fonts, size)
+        self.render_state
+            .as_mut()
+            .unwrap()
+            .fonts
+            .set_fonts(fonts, size)
     }
 
     fn cell_size(&self) -> Vec2<u32> {
-        self.render_state.fonts.cell_size()
+        self.render_state.as_ref().unwrap().fonts.cell_size()
     }
 
     fn finish_font_change(&mut self) {
-        self.render_state.clear_glyph_cache();
+        self.render_state.as_mut().unwrap().clear_glyph_cache();
         self.resize();
     }
 
     fn resize(&mut self) {
         let render_size = self.render_size();
         self.resize_neovim_grid();
-        self.render_state
-            .resize(render_size, self.cell_size(), self.settings.transparent);
+        let cell_size = self.cell_size();
+        self.render_state.as_mut().unwrap().resize(
+            render_size,
+            cell_size,
+            self.settings.transparent,
+        );
     }
 
     fn resize_neovim_grid(&mut self) {
@@ -658,7 +708,7 @@ impl<'a> EventHandler<'a> {
         if let Some(size) = self.settings.render_size {
             size
         } else {
-            self.surface_size
+            self.render_state.as_ref().unwrap().surface_size()
         }
     }
 }

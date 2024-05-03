@@ -1,15 +1,17 @@
+use std::sync::Arc;
+
 use crate::util::vec2::PixelVec;
 use winit::window::Window;
 
-pub struct WgpuContext<'a> {
+pub struct WgpuContext {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
-    pub surface: wgpu::Surface<'a>,
+    pub surface: wgpu::Surface<'static>,
     pub surface_config: wgpu::SurfaceConfiguration,
 }
 
-impl<'a> WgpuContext<'a> {
-    pub fn new(window: &'a Window, transparent: bool) -> Self {
+impl WgpuContext {
+    pub fn new(window: Arc<Window>, transparent: bool) -> Self {
         let surface_size: PixelVec<u32> = window.inner_size().into();
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
