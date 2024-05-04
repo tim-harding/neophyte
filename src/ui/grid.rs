@@ -151,10 +151,10 @@ impl GridContents {
             for dst_y in dst_top..dst_bot {
                 let src_y = dst_y + rows;
                 let (dst, src) = self.buffer.split_at_mut(src_y * size.x);
-                let dst = dst.iter_mut().skip(dst_y * size.x);
-                for (dst, src) in dst.zip(src.iter()).skip(left).take(right - left) {
-                    *dst = *src;
-                }
+                let dst = &mut dst[dst_y * size.x..];
+                let dst = &mut dst[left..right];
+                let src = &src[left..right];
+                dst.copy_from_slice(src);
             }
         } else {
             // Move a region down
@@ -164,10 +164,10 @@ impl GridContents {
             for dst_y in (dst_top..dst_bot).rev() {
                 let src_y = dst_y - rows;
                 let (src, dst) = self.buffer.split_at_mut(dst_y * size.x);
-                let src = src.iter().skip(src_y * size.x);
-                for (dst, src) in dst.iter_mut().zip(src).skip(left).take(right - left) {
-                    *dst = *src;
-                }
+                let src = &src[src_y * size.x..];
+                let src = &src[left..right];
+                let dst = &mut dst[left..right];
+                dst.copy_from_slice(src);
             }
         }
     }
