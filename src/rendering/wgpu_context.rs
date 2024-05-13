@@ -70,7 +70,7 @@ impl WgpuContext {
                 .unwrap_or(surface_caps.formats[0]),
             width: surface_size.0.x,
             height: surface_size.0.y,
-            present_mode: wgpu::PresentMode::AutoVsync,
+            present_mode: wgpu::PresentMode::AutoNoVsync,
             alpha_mode,
             view_formats: vec![],
             desired_maximum_frame_latency: 2,

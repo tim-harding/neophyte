@@ -5,7 +5,7 @@ use self::{buttons::Buttons, settings::Settings};
 use crate::{
     event::{self, rgb::Rgb},
     neovim::{action::Action, button::Button, Neovim},
-    rendering::state::RenderState,
+    rendering::{state::RenderState, Motion},
     rpc::{self, Notification},
     text::{font::Metrics, fonts::FontSetting},
     ui::{
@@ -19,7 +19,10 @@ use crate::{
     UserEvent,
 };
 use rmpv::Value;
-use std::{sync::Arc, time::Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use winit::{
     application::ApplicationHandler,
     dpi::{PhysicalPosition, PhysicalSize},
@@ -27,7 +30,7 @@ use winit::{
         DeviceEvent, DeviceId, ElementState, KeyEvent, MouseButton, MouseScrollDelta, StartCause,
         TouchPhase, WindowEvent,
     },
-    event_loop::ActiveEventLoop,
+    event_loop::{ActiveEventLoop, ControlFlow},
     keyboard::{Key, ModifiersState, NamedKey},
     window::{Fullscreen, Window, WindowId},
 };
@@ -41,7 +44,7 @@ pub struct EventHandler {
     modifiers: ModifiersState,
     neovim: Neovim,
     frame_number: u32,
-    last_render_time: Instant,
+    last_render_time: Option<Instant>,
 }
 
 impl ApplicationHandler<UserEvent> for EventHandler {
@@ -84,7 +87,7 @@ impl ApplicationHandler<UserEvent> for EventHandler {
             }
             WindowEvent::RedrawRequested => {
                 log::debug!("Winit requested redraw");
-                self.redraw();
+                self.redraw(event_loop);
             }
             WindowEvent::Focused(focus) => self.neovim.ui_set_focus(focus),
             _ => {}
@@ -92,6 +95,11 @@ impl ApplicationHandler<UserEvent> for EventHandler {
     }
 
     fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: StartCause) {
+        match cause {
+            // May need to redraw as a result of blinking cursor timeout
+            StartCause::ResumeTimeReached { .. } => self.window().request_redraw(),
+            StartCause::WaitCancelled { .. } | StartCause::Poll | StartCause::Init => {}
+        }
         log::debug!("New Winit events: {cause:?}");
     }
 
@@ -106,9 +114,7 @@ impl ApplicationHandler<UserEvent> for EventHandler {
         }
     }
 
-    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
-        self.window().request_redraw();
-    }
+    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {}
 
     fn device_event(
         &mut self,
@@ -136,7 +142,7 @@ impl EventHandler {
             mouse: Mouse::new(),
             modifiers: ModifiersState::default(),
             neovim,
-            last_render_time: Instant::now(),
+            last_render_time: None,
         }
     }
 
@@ -606,15 +612,27 @@ impl EventHandler {
         self.set_font_size(new_font_size);
     }
 
-    fn redraw(&mut self) {
-        let now = Instant::now();
-        let elapsed = now.duration_since(self.last_render_time);
-        self.last_render_time = now;
-        log::debug!("Got winit redraw: {elapsed:?}");
+    fn redraw(&mut self, event_loop: &ActiveEventLoop) {
+        let elapsed = self
+            .last_render_time
+            .map(|last_render_time| {
+                let now = Instant::now();
+                let elapsed = now.duration_since(last_render_time);
+                self.last_render_time = Some(now);
+                log::debug!("Got winit redraw: {elapsed:?}");
+                elapsed
+            })
+            .unwrap_or_else(|| {
+                self.window()
+                    .current_monitor()
+                    .and_then(|monitor| monitor.refresh_rate_millihertz())
+                    .map(|mhz| Duration::from_secs_f64(1000.0 / mhz as f64))
+                    .unwrap_or(Duration::from_millis(16))
+            });
 
         let cell_size = self.cell_size();
         let render_state = self.render_state.as_mut().unwrap();
-        render_state.advance(elapsed, cell_size.cast_as(), &self.settings);
+        let motion = render_state.advance(elapsed, cell_size.cast_as(), &self.settings);
         render_state.render(
             cell_size,
             &self.settings,
@@ -629,6 +647,20 @@ impl EventHandler {
             )
         }
         self.frame_number = self.frame_number.saturating_add(1);
+
+        match motion {
+            Motion::Still => self.last_render_time = None,
+            Motion::Animating => {
+                self.window().request_redraw();
+                if self.last_render_time.is_none() {
+                    self.last_render_time = Some(Instant::now());
+                }
+            }
+            Motion::Delay(duration) => {
+                event_loop.set_control_flow(ControlFlow::WaitUntil(Instant::now() + duration));
+                self.last_render_time = None;
+            }
+        }
     }
 
     fn send_keys(&mut self, c: &str, ignore_shift: bool) {
