@@ -146,10 +146,10 @@ impl GridContents {
         if rows > 0 {
             // Move a region up
             let rows = rows as usize;
-            let dst_top = dst_top.max(0) as usize;
-            let dst_bot = dst_bot.max(0) as usize;
-            for dst_y in dst_top..dst_bot {
-                let src_y = dst_y + rows;
+            let top = top as usize + rows;
+            let bot = bot as usize;
+            for src_y in top..bot {
+                let dst_y = src_y - rows;
                 let (dst, src) = self.buffer.split_at_mut(src_y * size.x);
                 let dst = &mut dst[dst_y * size.x..];
                 let dst = &mut dst[left..right];
@@ -159,10 +159,10 @@ impl GridContents {
         } else {
             // Move a region down
             let rows = (-rows) as usize;
-            let dst_top = dst_top.min(size.y as i32) as usize;
-            let dst_bot = dst_bot.min(size.y as i32) as usize;
-            for dst_y in (dst_top..dst_bot).rev() {
-                let src_y = dst_y - rows;
+            let top = top as usize;
+            let bot = bot as usize - rows;
+            for src_y in (top..bot).rev() {
+                let dst_y = src_y + rows;
                 let (src, dst) = self.buffer.split_at_mut(dst_y * size.x);
                 let src = &src[src_y * size.x..];
                 let src = &src[left..right];
