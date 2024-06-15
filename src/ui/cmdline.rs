@@ -122,6 +122,7 @@ pub struct Prompt {
     pub first_char: Option<char>,
     pub prompt: String,
     pub special: Option<Special>,
+    #[allow(unused)]
     pub indent: u32,
 }
 
@@ -140,7 +141,9 @@ impl From<CmdlineShow> for Prompt {
 
 #[derive(Debug, Clone)]
 pub struct Special {
+    #[allow(unused)]
     pub c: char,
+    #[allow(unused)]
     pub shift: bool,
 }
 

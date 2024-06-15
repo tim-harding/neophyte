@@ -36,7 +36,7 @@ impl DrawItem {
 }
 
 /// Manages updates to the UI state from UI events
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Ui {
     /// UI grids, ordered by ID
     pub grids: Vec<Grid>,
@@ -61,7 +61,6 @@ pub struct Ui {
     pub modes: Vec<ModeInfo>,
     /// UI options set by the option_set event
     pub guifont_update: Option<GuiFont>,
-    pub blend: f32,
     /// Default highlight colors
     pub default_colors: DefaultColorsSet,
     /// Manages ext_hlstate events
@@ -75,32 +74,6 @@ pub struct Ui {
     /// Did we receive a flush event?
     pub did_flush: bool,
     pub ignore_next_scroll: bool,
-}
-
-impl Default for Ui {
-    fn default() -> Self {
-        Self {
-            grids: vec![],
-            draw_order: vec![],
-            float_windows_start: 0,
-            cursor: Default::default(),
-            mouse: false,
-            highlights: vec![],
-            highlight_groups: HashMap::new(),
-            did_highlights_change: false,
-            current_mode: 0,
-            modes: vec![],
-            guifont_update: None,
-            default_colors: Default::default(),
-            messages: Default::default(),
-            cmdline: Default::default(),
-            popupmenu: None,
-            tabline: None,
-            did_flush: false,
-            blend: 1.0,
-            ignore_next_scroll: false,
-        }
-    }
 }
 
 impl Ui {

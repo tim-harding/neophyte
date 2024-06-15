@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 mod chdir;
 mod cmdline_block_append;
 mod cmdline_block_show;

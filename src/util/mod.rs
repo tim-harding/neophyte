@@ -101,7 +101,7 @@ pub fn nice_s_curve(t: f32, length: f32) -> f32 {
 
 fn normalize(t: f32, length: f32) -> f32 {
     let length = length.sqrt() + length.ln_1p();
-    (t / length).min(1.).max(0.)
+    (t / length).clamp(0., 1.)
 }
 
 #[allow(unused)]
