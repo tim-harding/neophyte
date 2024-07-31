@@ -9,5 +9,5 @@
 *.old
 *.svg
 **/*.png
-cachegrind.out.*
-writeup.md
+/cachegrind.out.*
+/packaging
