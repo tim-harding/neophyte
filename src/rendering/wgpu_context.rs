@@ -1,6 +1,5 @@
-use std::sync::Arc;
-
 use crate::util::vec2::PixelVec;
+use std::sync::Arc;
 use winit::window::Window;
 
 pub struct WgpuContext {
@@ -41,6 +40,7 @@ impl WgpuContext {
                         label: None,
                         required_features: wgpu::Features::PUSH_CONSTANTS,
                         required_limits: adapter.limits(),
+                        memory_hints: wgpu::MemoryHints::Performance,
                     },
                     None,
                 )
