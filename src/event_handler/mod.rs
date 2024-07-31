@@ -625,6 +625,7 @@ impl EventHandler {
             .unwrap_or_else(|| {
                 self.window()
                     .current_monitor()
+                    // TODO: Use refresh rate of of VideoModeHandle for exclusive fullscreen
                     .and_then(|monitor| monitor.refresh_rate_millihertz())
                     .map(|mhz| Duration::from_secs_f64(1000.0 / mhz as f64))
                     .unwrap_or(Duration::from_millis(16))
