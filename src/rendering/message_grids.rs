@@ -9,11 +9,15 @@ use swash::shape::ShapeContext;
 
 pub struct MessageGrids {
     texts: Vec<Text>,
+    previous_base_grid_size: Vec2<u16>,
 }
 
 impl MessageGrids {
     pub const fn new() -> Self {
-        Self { texts: vec![] }
+        Self {
+            texts: vec![],
+            previous_base_grid_size: Vec2::new(0, 0),
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -31,7 +35,9 @@ impl MessageGrids {
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
     ) {
-        if !messages.dirty {
+        let did_size_change = self.previous_base_grid_size != base_grid_size;
+        self.previous_base_grid_size = base_grid_size;
+        if !(messages.dirty || did_size_change) {
             return;
         }
 
