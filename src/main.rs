@@ -26,17 +26,26 @@ use winit::event_loop::{ControlFlow, EventLoop};
 const HELP_TEXT: &str = "\
 A WebGPU-rendered Neovim GUI
 
-SYNOPSIS 
+SYNOPSIS
     neophyte [OPTIONS] [-- NVIM_COMMAND]
 
 DESCRIPTION
-    Opens the GUI with the given options and Neovim command. 
-    All the arguments following the two dashes (--) specify the Neovim command to run. 
+    Opens the GUI with the given options and Neovim command.
+    All the arguments following the two dashes (--) specify the Neovim command to run.
     If two dashes are not given, the default command `nvim` is run instead.
 
 OPTIONS
-    -t, --transparent  
+    -t, --transparent
         Enable window transparency
+    --cmdline
+        Enable cmdline_ext to externalize the commandline. Neophyte will handle
+        commandline rendering. This option is incompatible with plugins that
+        also externalize the commandline, such as Noice.
+    --messages
+        Enable messages_ext to externalize messages. Neophyte will handle
+        message rendering. Enabling this option also implies `--cmdline`.
+        This option is incompatible with other plugins that externalize messages,
+        such as Noice.
     -h, --help
         Show this help text
 
@@ -59,11 +68,15 @@ fn main() {
     }
 
     let mut transparent = false;
+    let mut cmdline_ext = false;
+    let mut messages_ext = false;
     let mut args = env::args().skip(1);
     for arg in &mut args {
         match arg.as_str() {
             "--" => break,
             "--transparent" | "-t" => transparent = true,
+            "--cmdline" => cmdline_ext = true,
+            "--messages" => messages_ext = true,
             "--help" | "-h" => {
                 print!("{}", HELP_TEXT);
                 return;
@@ -78,7 +91,7 @@ fn main() {
 
     let (mut neovim, stdout_handler, stdin_handler, child) =
         Neovim::new(args).expect("Failed to start Neovim");
-    neovim.ui_attach();
+    neovim.ui_attach(cmdline_ext, messages_ext);
     let stdin_thread = std::thread::spawn(move || stdin_handler.start());
     let proxy = event_loop.create_proxy();
     let stdout_thread = thread::spawn(move || {

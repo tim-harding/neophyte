@@ -88,8 +88,11 @@ impl Neovim {
     }
 
     // TODO: Proper public API
-    pub fn ui_attach(&mut self) {
-        let extensions = ["ext_multigrid", "ext_cmdline", "ext_messages"];
+    pub fn ui_attach(&mut self, cmdline: bool, messages: bool) {
+        let extensions: Vec<_> = std::iter::once("ext_multigrid")
+            .chain(cmdline.then_some("ext_cmdline"))
+            .chain(messages.then_some("ext_messages"))
+            .collect();
         let extensions = Value::Map(
             extensions
                 .into_iter()
