@@ -6,7 +6,7 @@ use crate::{
         cmdline::{Cmdline, Mode},
         grid::CellContents,
     },
-    util::vec2::CellVec,
+    util::vec2::{CellVec, Vec2},
 };
 use swash::shape::ShapeContext;
 
@@ -35,6 +35,7 @@ impl CmdlineGrid {
         fonts: &Fonts,
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
+        width: u32,
     ) {
         if let Some(mode) = &cmdline.mode {
             match mode {
@@ -47,7 +48,7 @@ impl CmdlineGrid {
                     self.text.update_contents(
                         device,
                         queue,
-                        None,
+                        Some(CellVec(Vec2::new(width, 1))),
                         std::iter::once(IterVariants::Head(
                             std::iter::once(CellContents {
                                 highlight: 0,

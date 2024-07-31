@@ -92,6 +92,7 @@ impl RenderState {
             &self.fonts,
             &mut self.font_cache,
             &mut self.shape_context,
+            ui.grids.first().unwrap().contents().size.0.x as u32,
         );
 
         self.pipelines.update(
