@@ -1,13 +1,13 @@
 use super::{
-    cmdline_grid::CmdlineGrid, grids::Grids, pipelines::Pipelines, targets::Targets,
-    text::BindGroupLayout as TextBindGroup, wgpu_context::WgpuContext, Motion,
+    cmdline_grid::CmdlineGrid, grids::Grids, message_grids::MessageGrids, pipelines::Pipelines,
+    targets::Targets, text::BindGroupLayout as TextBindGroup, wgpu_context::WgpuContext, Motion,
 };
 use crate::{
     event::rgb::Rgb,
     event_handler::settings::Settings,
     text::{cache::FontCache, fonts::Fonts},
     ui::Ui,
-    util::vec2::{CellVec, PixelVec, Vec2},
+    util::vec2::{PixelVec, Vec2},
 };
 use bytemuck::cast_slice;
 use std::{
@@ -30,6 +30,7 @@ pub struct RenderState {
     clear_color: [f32; 4],
     // TODO: Remove this if we no longer want to externalize the cmdline
     cmdline_grid: CmdlineGrid,
+    message_grids: MessageGrids,
     text_bind_group_layout: TextBindGroup,
 }
 
@@ -58,6 +59,7 @@ impl RenderState {
             wgpu_context,
             clear_color: [0.; 4],
             cmdline_grid: CmdlineGrid::new(),
+            message_grids: MessageGrids::new(),
         }
     }
 
@@ -77,11 +79,26 @@ impl RenderState {
             &mut self.shape_context,
         );
 
+        let base_grid_size = ui.grids[0].contents().size.0;
         self.cmdline_grid.update(
             &self.wgpu_context.device,
             &self.wgpu_context.queue,
             &ui.cmdline,
-            ui.grids[0].contents().size.0,
+            base_grid_size,
+            &self.text_bind_group_layout.bind_group_layout,
+            &ui.highlights,
+            fg,
+            bg,
+            &self.fonts,
+            &mut self.font_cache,
+            &mut self.shape_context,
+        );
+
+        self.message_grids.update(
+            &self.wgpu_context.device,
+            &self.wgpu_context.queue,
+            &ui.messages,
+            base_grid_size,
             &self.text_bind_group_layout.bind_group_layout,
             &ui.highlights,
             fg,
@@ -203,14 +220,17 @@ impl RenderState {
                         &grid.text,
                     )
                 })
+                .chain(
+                    self.message_grids
+                        .texts()
+                        .map(|text| (f32::EPSILON, PixelVec::new(0, 0), text)),
+                )
                 .chain(std::iter::once((
                     0.,
                     PixelVec::new(0, 0),
                     &self.cmdline_grid.text,
                 )))
         };
-
-        // See the module documentation for each pipeline for more details
 
         self.pipelines.default_fill.render(
             &mut encoder,

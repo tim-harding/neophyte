@@ -4,6 +4,7 @@ type Message = MsgHistoryEntry;
 
 #[derive(Debug, Clone, Default)]
 pub struct Messages {
+    pub dirty_show: bool,
     pub show: Vec<Message>,
     pub history: Vec<Message>,
     pub showmode: Content,

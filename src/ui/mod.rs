@@ -121,6 +121,7 @@ impl Ui {
         self.did_flush = false;
         self.guifont_update = None;
         self.ignore_next_scroll = false;
+        self.messages.dirty_show = false;
         for grid in self.grids.iter_mut() {
             grid.clear_dirty();
         }
@@ -295,7 +296,12 @@ impl Ui {
             Event::CmdlineHide => self.cmdline.hide(),
             Event::CmdlineBlockHide => self.cmdline.hide_block(),
 
-            Event::MsgHistoryShow(MsgHistoryShow { entries }) => self.messages.history = entries,
+            Event::MsgHistoryShow(MsgHistoryShow { entries }) => {
+                self.messages.history = entries;
+                // TODO: Show message history in buffer
+                // Use extmarks for highlighting:
+                // https://medium.com/@ankochem/neovim-highlighting-the-text-programmatically-with-lua-837fecfa36d2
+            }
             Event::MsgRuler(MsgRuler { content }) => self.messages.ruler = content,
             Event::MsgSetPos(MsgSetPos {
                 grid,
@@ -308,11 +314,19 @@ impl Ui {
                 self.show_float(DrawItem::new(grid, Some(200)));
                 *self.get_or_create_grid(grid).window_mut() = Window::Messages { row };
             }
-            Event::MsgShow(event) => self.messages.show(event),
+            Event::MsgShow(event) => {
+                self.messages.show(event);
+                self.messages.dirty_show = true;
+            }
             Event::MsgShowmode(MsgShowmode { content }) => self.messages.showmode = content,
             Event::MsgShowcmd(MsgShowcmd { content }) => self.messages.showcmd = content,
-            Event::MsgClear => self.messages.show.clear(),
-            Event::MsgHistoryClear => self.messages.history.clear(),
+            Event::MsgClear => {
+                self.messages.show.clear();
+                self.messages.dirty_show = true;
+            }
+            Event::MsgHistoryClear => {
+                self.messages.history.clear();
+            }
 
             Event::TablineUpdate(event) => self.tabline = Some(event),
             Event::Chdir(Chdir { path }) => match std::env::set_current_dir(path) {
