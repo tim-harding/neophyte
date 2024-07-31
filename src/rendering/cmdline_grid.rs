@@ -27,7 +27,7 @@ impl CmdlineGrid {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         cmdline: &Cmdline,
-        position: Option<CellVec<f32>>,
+        base_grid_size: Vec2<u16>,
         grid_bind_group_layout: &wgpu::BindGroupLayout,
         highlights: &[Option<Attributes>],
         default_fg: Rgb,
@@ -35,7 +35,6 @@ impl CmdlineGrid {
         fonts: &Fonts,
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
-        width: u32,
     ) {
         if let Some(mode) = &cmdline.mode {
             match mode {
@@ -48,7 +47,7 @@ impl CmdlineGrid {
                     self.text.update_contents(
                         device,
                         queue,
-                        Some(CellVec(Vec2::new(width, 1))),
+                        Some(CellVec(Vec2::new(base_grid_size.x as u32, 1))),
                         std::iter::once(IterVariants::Head(
                             std::iter::once(CellContents {
                                 highlight: 0,
@@ -93,7 +92,8 @@ impl CmdlineGrid {
             )
         }
 
-        self.text.update_window(position);
+        self.text
+            .update_window(Some(CellVec::new(0.0, (base_grid_size.y - 1) as f32)));
     }
 }
 

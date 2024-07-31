@@ -1,6 +1,6 @@
 pub mod cmdline;
 pub mod grid;
-mod messages;
+pub mod messages;
 pub mod options;
 pub mod window;
 

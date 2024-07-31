@@ -81,10 +81,7 @@ impl RenderState {
             &self.wgpu_context.device,
             &self.wgpu_context.queue,
             &ui.cmdline,
-            Some(CellVec::new(
-                0.,
-                ui.grids[0].contents().size.0.y as f32 - 1.,
-            )),
+            ui.grids[0].contents().size.0,
             &self.text_bind_group_layout.bind_group_layout,
             &ui.highlights,
             fg,
@@ -92,7 +89,6 @@ impl RenderState {
             &self.fonts,
             &mut self.font_cache,
             &mut self.shape_context,
-            ui.grids.first().unwrap().contents().size.0.x as u32,
         );
 
         self.pipelines.update(

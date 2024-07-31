@@ -2,6 +2,7 @@ mod cmdline_grid;
 mod glyph_bind_group;
 mod glyph_push_constants;
 mod grids;
+mod message_grids;
 pub mod pipelines;
 mod scrolling_grids;
 pub mod state;
