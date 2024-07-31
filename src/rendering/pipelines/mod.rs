@@ -40,11 +40,7 @@ impl Pipelines {
                 text_bind_group_layout,
                 Texture::LINEAR_FORMAT,
             ),
-            monochrome: text::Pipeline::new(
-                device,
-                text_bind_group_layout,
-                text::Kind::Monochrome,
-            ),
+            monochrome: text::Pipeline::new(device, text_bind_group_layout, text::Kind::Monochrome),
             emoji: text::Pipeline::new(device, text_bind_group_layout, text::Kind::Emoji),
             lines: lines::Pipeline::new(device, text_bind_group_layout, Texture::LINEAR_FORMAT),
             gamma_blit_final: gamma_blit::Pipeline::new(
