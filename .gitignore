@@ -11,4 +11,3 @@
 **/*.png
 cachegrind.out.*
 writeup.md
-Cargo.lock

@@ -33,13 +33,13 @@ version = "0.30.0"
 features = ["rwh_05"]
 
 [dependencies.font-kit]
-version = "0.13.0"
-default_features = false
+version = "0.14.1"
+default-features = false
 features = ["source"]
 
 [dependencies.flexi_logger]
 version = "0.28.0"
-default_features = false
+default-features = false
 features = ["colors"]
 
 [profile.dev]
