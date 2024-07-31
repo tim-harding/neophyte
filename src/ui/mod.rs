@@ -121,7 +121,7 @@ impl Ui {
         self.did_flush = false;
         self.guifont_update = None;
         self.ignore_next_scroll = false;
-        self.messages.dirty_show = false;
+        self.messages.dirty = false;
         for grid in self.grids.iter_mut() {
             grid.clear_dirty();
         }
@@ -298,9 +298,7 @@ impl Ui {
 
             Event::MsgHistoryShow(MsgHistoryShow { entries }) => {
                 self.messages.history = entries;
-                // TODO: Show message history in buffer
-                // Use extmarks for highlighting:
-                // https://medium.com/@ankochem/neovim-highlighting-the-text-programmatically-with-lua-837fecfa36d2
+                self.messages.dirty = true;
             }
             Event::MsgRuler(MsgRuler { content }) => self.messages.ruler = content,
             Event::MsgSetPos(MsgSetPos {
@@ -316,13 +314,13 @@ impl Ui {
             }
             Event::MsgShow(event) => {
                 self.messages.show(event);
-                self.messages.dirty_show = true;
+                self.messages.dirty = true;
             }
             Event::MsgShowmode(MsgShowmode { content }) => self.messages.showmode = content,
             Event::MsgShowcmd(MsgShowcmd { content }) => self.messages.showcmd = content,
             Event::MsgClear => {
                 self.messages.show.clear();
-                self.messages.dirty_show = true;
+                self.messages.dirty = true;
             }
             Event::MsgHistoryClear => {
                 self.messages.history.clear();

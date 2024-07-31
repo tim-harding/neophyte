@@ -31,20 +31,32 @@ impl MessageGrids {
         font_cache: &mut FontCache,
         shape_context: &mut ShapeContext,
     ) {
-        if !messages.dirty_show {
+        if !messages.dirty {
             return;
         }
 
         self.texts.clear();
         let mut offset = 0;
-        for message in messages.show.iter().rev() {
+        let is_history = !messages.history.is_empty();
+        let to_display = if is_history {
+            &messages.history
+        } else {
+            &messages.show
+        };
+        for message in to_display.iter().rev() {
             let lines = lines(&message.content);
-            let line_count = lines.len();
+            offset += lines.len();
             let mut text = Text::new(CellVec::new(0, 0));
+
+            let size = if is_history {
+                Some(CellVec::new(base_grid_size.x as u32, lines.len() as u32))
+            } else {
+                None
+            };
             text.update_contents(
                 device,
                 queue,
-                None,
+                size,
                 lines
                     .into_iter()
                     .enumerate()
@@ -57,11 +69,17 @@ impl MessageGrids {
                 font_cache,
                 shape_context,
             );
-            offset += line_count;
-            text.update_window(Some(CellVec::new(
-                (base_grid_size.x as u32).saturating_sub(text.size().0.x) as f32,
-                base_grid_size.y as f32 - 1.0 - offset as f32,
-            )));
+
+            let position = if is_history {
+                CellVec::new(0.0, base_grid_size.y as f32 - offset as f32)
+            } else {
+                CellVec::new(
+                    (base_grid_size.x as u32).saturating_sub(text.size().0.x) as f32,
+                    base_grid_size.y as f32 - 1.0 - offset as f32,
+                )
+            };
+            text.update_window(Some(position));
+
             self.texts.push(text);
         }
     }
