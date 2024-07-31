@@ -2,7 +2,7 @@
 
 [![Crates.io Version](https://img.shields.io/crates/v/neophyte)](https://crates.io/crates/neophyte)
 
-Neophyte is a Neovim GUI rendered with WebGPU and written in Rust. 
+Neophyte is a Neovim GUI rendered with WebGPU and written in Rust.
 It offers several niceties over the default terminal-based UI:
 
 - Text shaping and rasterization by [Swash](https://github.com/dfrg/swash),
@@ -22,22 +22,25 @@ graphics driver, namely Vulkan, Metal, or DX12. Linux targets require the
 toolchain](https://www.rust-lang.org/tools/install).
 
 ### Crates.io
+
 ```bash
 cargo install neophyte
 ```
 
 ### Git
+
 ```bash
-git clone --recurse-submodules https://github.com/tim-harding/neophyte
+git clone https://github.com/tim-harding/neophyte
 cd neophyte
 cargo build --release
 ```
 
-The binary will be `target/release/neophyte`. 
+The binary will be `target/release/neophyte`.
 
 ### Releases
+
 Prebuilt binaries are available in the
-[releases](https://github.com/tim-harding/neophyte/releases/latest). 
+[releases](https://github.com/tim-harding/neophyte/releases/latest).
 
 ### Packages
 
@@ -67,18 +70,24 @@ Installs the latest binary release artifacts from GitHub.
 yay -S neophyte-bin
 ```
 
+## Cursor animation
+
+For best results, run Neophyte with the `--messages` flag unless you are using
+[Noice](https://github.com/folke/noice.nvim) or choose not to enable cursor
+animation. This option delegates commandline and
+message rendering to Neophyte, which fixes an issue with the cursor jumping
+around the screen during search naviation or in response to messages.
+
 ## Configuration
 
-### Scripting
-
 Neophyte is scriptable with Lua. The API is LuaLS type-annotated for
-discoverability. 
+discoverability.
 
 ```lua
 -- lazy.nvim example:
 {
   'tim-harding/neophyte',
-  tag = '0.2.5',
+  tag = '0.3.0',
   event = 'VeryLazy',
   opts = {
     -- Same as neophyte.setup({ ... })
@@ -97,11 +106,11 @@ neophyte.setup({
           value = 1,
         },
         -- Shorthand to set a feature to 1
-        'ss01', 
+        'ss01',
         'ss02',
       },
     },
-    -- Fallback fonts 
+    -- Fallback fonts
     {
       name = 'Monaspace Argon Var',
       -- Variable font axes
@@ -126,11 +135,11 @@ neophyte.setup({
   scroll_speed = 2,
   -- Increase or decrease the distance from the baseline for underlines.
   underline_offset = 1,
-  -- For transparent window effects, use this to set the default background color. 
+  -- For transparent window effects, use this to set the default background color.
   -- This is because most colorschemes in transparent mode unset the background,
-  -- which normally defaults to the terminal background, but we don't have that here. 
+  -- which normally defaults to the terminal background, but we don't have that here.
   -- You must also pass --transparent as a command-line argument to see the effect.
-  -- Channel values are in the range 0-255. 
+  -- Channel values are in the range 0-255.
   bg_override = {
     r = 48,
     g = 52,
@@ -164,52 +173,10 @@ end
 -- Neophyte can also record frames to a PNG sequence.
 -- You can convert to a video with ffmpeg:
 --
--- ffmpeg -framerate 60 -pattern_type glob -i '/my/frames/location/*.png' 
--- -pix_fmt yuv420p -c:v libx264 -vf 
--- "colorspace=all=bt709:iprimaries=bt709:itrc=srgb:ispace=bt709:range=tv:irange=pc"  
+-- ffmpeg -framerate 60 -pattern_type glob -i '/my/frames/location/*.png'
+-- -pix_fmt yuv420p -c:v libx264 -vf
+-- "colorspace=all=bt709:iprimaries=bt709:itrc=srgb:ispace=bt709:range=tv:irange=pc"
 -- -color_range 1 -colorspace 1 -color_primaries 1 -crf 23 -y /my/output/video.mp4
 neophyte.start_render('/directory/to/output/frames/')
 neophyte.end_render()
-```
-
-### Noice
-
-I recommend using Neophyte with [Noice](https://github.com/folke/noice.nvim) for
-best results, unless you choose to disable cursor animations. This is because
-Noice externalizes several UI features such that Neovim cedes responsibility
-for rendering them, namely the cmdline and messages. Without this, the cursor
-tends to jump around in a way that is jarring when combined with animations.
-Eventually we may support externalizing these UI elements without a plugin
-(this is already partially implemented), but in the meantime, Noice is the
-best option. If you want to try Noice without opting in to popup notifications
-or the popup cmdline, you can try these settings:
-
-```lua
--- lazy.nvim
-{
-  'folke/noice.nvim',
-  event = 'VeryLazy',
-  opts = {
-    presets = {
-      bottom_search = true,
-      command_palette = true,
-      long_message_to_split = true,
-    },
-    lsp = {
-      message = {
-        view = 'mini',
-      },
-    },
-    messages = {
-      view = 'mini',
-      view_search = false,
-    },
-    cmdline = {
-      view = 'cmdline',
-    },
-  },
-  dependencies = {
-    'MunifTanjim/nui.nvim',
-  },
-}
 ```
