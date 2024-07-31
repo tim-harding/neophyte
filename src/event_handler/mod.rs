@@ -649,6 +649,7 @@ impl EventHandler {
         }
         self.frame_number = self.frame_number.saturating_add(1);
 
+        log::debug!("Redraw: {elapsed:?}, {motion:?}");
         match motion {
             Motion::Still => self.last_render_time = None,
             Motion::Animating => {
