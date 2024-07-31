@@ -275,7 +275,7 @@ impl Ui {
                         .scroll_delta = scroll_delta;
                 }
             }
-            Event::WinExtmark(_) => {}
+            Event::WinViewportMargins(_) | Event::WinExtmark(_) => {}
 
             Event::PopupmenuShow(event) => self.popupmenu = Some(event),
             Event::PopupmenuSelect(PopupmenuSelect { selected }) => {

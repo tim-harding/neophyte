@@ -39,6 +39,7 @@ mod win_float_pos;
 mod win_hide;
 mod win_pos;
 mod win_viewport;
+mod win_viewport_margins;
 
 pub use self::{
     chdir::Chdir,
@@ -78,6 +79,7 @@ pub use self::{
     win_hide::WinHide,
     win_pos::WinPos,
     win_viewport::WinViewport,
+    win_viewport_margins::WinViewportMargins,
 };
 use crate::util::{Parse, Values};
 use rmpv::Value;
@@ -100,6 +102,7 @@ pub enum Event {
     WinClose(WinClose),
     WinExternalPos(WinExternalPos),
     WinExtmark(WinExtmark),
+    WinViewportMargins(WinViewportMargins),
 
     MsgHistoryShow(MsgHistoryShow),
     MsgShowmode(MsgShowmode),
@@ -209,6 +212,7 @@ event_from!(PopupmenuSelect);
 event_from!(CmdlineBlockShow);
 event_from!(CmdlineBlockAppend);
 event_from!(Chdir);
+event_from!(WinViewportMargins);
 
 fn parse<T>(iter: Values, error: Error) -> Result<Vec<Event>, Error>
 where
@@ -251,6 +255,7 @@ impl Event {
             "win_hide" => parse::<WinHide>(iter, Error::WinHide),
             "win_close" => parse::<WinClose>(iter, Error::WinClose),
             "win_external_pos" => parse::<WinExternalPos>(iter, Error::WinExternalPos),
+            "win_viewport_margins" => parse::<WinViewportMargins>(iter, Error::WinViewportMargins),
             "msg_set_pos" => parse::<MsgSetPos>(iter, Error::MsgSetPos),
             "msg_show" => parse::<MsgShow>(iter, Error::MsgShow),
             "win_extmark" => parse::<WinExtmark>(iter, Error::WinExtmark),
@@ -337,6 +342,8 @@ pub enum Error {
     WinClose,
     #[error("Failed to parse win_external_pos event")]
     WinExternalPos,
+    #[error("Failed to parse win_viewport_margins event")]
+    WinViewportMargins,
     #[error("Failed to parse msg_set_pos event")]
     MsgSetPos,
     #[error("Failed to parse msg_show event")]
