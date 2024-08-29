@@ -2,7 +2,7 @@
 Type=Application
 Name=Neophyte
 Version=0.2.5
-Exec=spotify
+Exec=neophyte
 Terminal=false
 Categories=Utility;TextEditor;
 Keywords=Neovim;
