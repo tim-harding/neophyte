@@ -38,13 +38,13 @@ impl Pipeline {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
-                entry_point: "vs_main",
+                entry_point: Some("vs_main"),
                 buffers: &[],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
-                entry_point: "fs_main",
+                entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: texture_format,
                     blend: Some(wgpu::BlendState::REPLACE),
@@ -117,7 +117,7 @@ impl Pipeline {
             let Some(bg_bind_group) = &grid.cell_fill_bind_group() else {
                 continue;
             };
-            render_pass.set_bind_group(0, bg_bind_group, &[]);
+            render_pass.set_bind_group(0, Some(*bg_bind_group), &[]);
 
             if let Some(offset) = grid.offset() {
                 let size = grid.size().into_pixels(cell_size);
