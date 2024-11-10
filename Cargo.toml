@@ -16,7 +16,7 @@ members = ["neophyte-log-analyzer"]
 
 [dependencies]
 swash = "0.1.8"
-thiserror = "1.0.44"
+thiserror = "2.0.1"
 log = "0.4.19"
 rmpv = "1.0.1"
 wgpu = "23.0.0"
