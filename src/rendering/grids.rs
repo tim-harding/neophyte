@@ -1,9 +1,9 @@
 use super::{scrolling_grids::ScrollingGrids, text::Text};
 use crate::{
-    event::rgb::Rgb,
     text::{cache::FontCache, fonts::Fonts},
     ui::{self, Ui},
 };
+use neophyte_ui_event::rgb::Rgb;
 use std::collections::HashMap;
 use swash::shape::ShapeContext;
 

@@ -1054,6 +1054,7 @@ dependencies = [
  "flexi_logger",
  "font-kit",
  "log",
+ "neophyte-ui-event",
  "packed-char",
  "png",
  "pollster",
@@ -1076,6 +1077,10 @@ dependencies = [
 [[package]]
 name = "neophyte-ui-event"
 version = "0.1.0"
+dependencies = [
+ "rmpv",
+ "thiserror 2.0.3",
+]
 
 [[package]]
 name = "nu-ansi-term"

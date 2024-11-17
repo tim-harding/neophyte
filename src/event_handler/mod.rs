@@ -3,7 +3,6 @@ pub mod settings;
 
 use self::{buttons::Buttons, settings::Settings};
 use crate::{
-    event::{self, rgb::Rgb},
     neovim::{action::Action, button::Button, Neovim},
     rendering::{state::RenderState, Motion},
     rpc::{self, Notification},
@@ -14,10 +13,12 @@ use crate::{
     },
     util::{
         vec2::{PixelVec, Vec2},
-        Values,
+        IntoSrgb,
     },
     UserEvent,
 };
+use event::{Rgb, Values};
+use neophyte_ui_event as event;
 use rmpv::Value;
 use std::{
     sync::Arc,

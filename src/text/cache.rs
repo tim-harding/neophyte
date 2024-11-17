@@ -1,10 +1,13 @@
-use super::{atlas::FontAtlas, fonts::FontStyle};
+use super::{
+    atlas::FontAtlas,
+    fonts::{FontStyle, SwashSetting},
+};
 use crate::util::vec2::Vec2;
 use bytemuck::{Pod, Zeroable};
 use std::collections::{hash_map::Entry, HashMap};
 use swash::{
     scale::{image::Content, Render, ScaleContext, Source, StrikeWith},
-    FontRef, GlyphId, Setting,
+    FontRef, GlyphId,
 };
 
 /// A cache of font glyphs
@@ -46,7 +49,7 @@ impl FontCache {
     pub fn get(
         &mut self,
         font: FontRef,
-        variations: &[Setting<f32>],
+        variations: &[SwashSetting<f32>],
         size: f32,
         glyph_id: GlyphId,
         style: FontStyle,
@@ -65,7 +68,7 @@ impl FontCache {
                     .builder(font)
                     .size(size)
                     .hint(true)
-                    .variations(variations.iter().cloned())
+                    .variations(variations.iter().cloned().map(|s| s.0))
                     .build();
                 match Render::new(&[
                     Source::ColorOutline(0),

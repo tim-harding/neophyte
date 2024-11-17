@@ -4,3 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+rmpv = "1.0.1"
+thiserror = "2.0.1"

@@ -3,19 +3,20 @@
 //! cursor appears to go underneath.
 
 use crate::{
-    event::{
-        mode_info_set::{CursorShape, ModeInfo},
-        rgb::Rgb,
-    },
     rendering::{nearest_sampler, texture::Texture, Motion},
     ui::{cmdline::Mode, Ui},
     util::{
         mat3::Mat3,
         nice_s_curve,
         vec2::{CellVec, PixelVec, Vec2},
+        IntoSrgb,
     },
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
+use neophyte_ui_event::{
+    mode_info_set::{CursorShape, ModeInfo},
+    rgb::Rgb,
+};
 use std::{mem::size_of, time::Duration};
 use wgpu::include_wgsl;
 

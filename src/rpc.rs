@@ -1,4 +1,4 @@
-use crate::util::{Parse, Values};
+use neophyte_ui_event::{Parse, Values};
 use rmpv::{decode::read_value, encode::write_value, Value};
 use std::io::{self, Read, Write};
 

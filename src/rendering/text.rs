@@ -1,13 +1,16 @@
 use crate::{
-    event::{hl_attr_define::Attributes, rgb::Rgb},
     text::{
         cache::{CacheValue, FontCache, GlyphKind},
         fonts::{FontStyle, Fonts},
     },
     ui::grid::CellContents,
-    util::vec2::{CellVec, PixelVec, Vec2},
+    util::{
+        vec2::{CellVec, PixelVec, Vec2},
+        IntoSrgb,
+    },
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
+use neophyte_ui_event::{hl_attr_define::Attributes, rgb::Rgb};
 use std::num::NonZeroU64;
 use swash::{
     shape::ShapeContext,
@@ -107,8 +110,8 @@ impl Text {
                     let font = font_info.style(current_font_unwrapped.style).unwrap();
                     let mut shaper = shape_context
                         .builder(font.as_ref())
-                        .features(font_info.setting.features.iter().cloned())
-                        .variations(font_info.setting.variations.iter().cloned())
+                        .features(font_info.setting.features.iter().cloned().map(|s| s.0))
+                        .variations(font_info.setting.variations.iter().cloned().map(|s| s.0))
                         .script(Script::Arabic)
                         .build();
                     shaper.add_cluster(&cluster);

@@ -1,4 +1,4 @@
-use crate::event::{CmdlineShow, CmdlineSpecialChar, Content};
+use neophyte_ui_event::{CmdlineShow, CmdlineSpecialChar, Content};
 
 #[derive(Debug, Clone, Default)]
 pub struct Cmdline {

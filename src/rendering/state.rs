@@ -3,13 +3,16 @@ use super::{
     targets::Targets, text::BindGroupLayout as TextBindGroup, wgpu_context::WgpuContext, Motion,
 };
 use crate::{
-    event::rgb::Rgb,
     event_handler::settings::Settings,
     text::{cache::FontCache, fonts::Fonts},
     ui::Ui,
-    util::vec2::{PixelVec, Vec2},
+    util::{
+        vec2::{PixelVec, Vec2},
+        IntoSrgb,
+    },
 };
 use bytemuck::cast_slice;
+use neophyte_ui_event::rgb::Rgb;
 use std::{
     fs::File,
     io::{self, BufWriter},

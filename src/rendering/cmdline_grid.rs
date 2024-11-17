@@ -1,6 +1,5 @@
 use super::text::Text;
 use crate::{
-    event::{hl_attr_define::Attributes, rgb::Rgb, Content},
     text::{cache::FontCache, fonts::Fonts},
     ui::{
         cmdline::{Cmdline, Mode},
@@ -8,6 +7,7 @@ use crate::{
     },
     util::vec2::{CellVec, Vec2},
 };
+use neophyte_ui_event::{hl_attr_define::Attributes, rgb::Rgb, Content};
 use swash::shape::ShapeContext;
 
 pub struct CmdlineGrid {

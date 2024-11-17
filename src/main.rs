@@ -6,7 +6,6 @@ mod assets;
     clippy::cast_sign_loss,
     clippy::unnecessary_cast
 )]
-mod event;
 mod event_handler;
 mod neovim;
 mod neovim_handler;

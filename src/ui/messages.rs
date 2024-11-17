@@ -1,4 +1,6 @@
-use crate::event::{msg_history_show::MsgHistoryEntry, msg_show::ReplaceLast, Content, MsgShow};
+use neophyte_ui_event::{
+    msg_history_show::MsgHistoryEntry, msg_show::ReplaceLast, Content, MsgShow,
+};
 
 type Message = MsgHistoryEntry;
 

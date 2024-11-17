@@ -1,10 +1,7 @@
 use super::font::{Font, FontFromFileError, Metrics};
-use crate::{
-    assets,
-    ui::options::FontSize,
-    util::{vec2::Vec2, MaybeInto, Parse},
-};
+use crate::{assets, ui::options::FontSize, util::vec2::Vec2};
 use font_kit::{error::SelectionError, handle::Handle, source::SystemSource};
+use neophyte_ui_event::{MaybeInto, Parse};
 use swash::{Setting, Style, Weight};
 
 /// Loaded fonts
@@ -247,11 +244,11 @@ impl FontStyle {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FontSetting {
     pub name: String,
-    pub features: Vec<Setting<u16>>,
-    pub variations: Vec<Setting<f32>>,
+    pub features: Vec<SwashSetting<u16>>,
+    pub variations: Vec<SwashSetting<f32>>,
 }
 
 impl FontSetting {
@@ -291,7 +288,10 @@ impl Parse for FontSetting {
     }
 }
 
-impl<T: Parse + Copy + SettingDefault> Parse for Setting<T> {
+#[derive(Debug, Clone, PartialEq)]
+pub struct SwashSetting<T: Copy>(pub Setting<T>);
+
+impl<T: Parse + Copy + SettingDefault> Parse for SwashSetting<T> {
     fn parse(value: rmpv::Value) -> Option<Self> {
         match value {
             rmpv::Value::Map(map) => {
@@ -305,12 +305,12 @@ impl<T: Parse + Copy + SettingDefault> Parse for Setting<T> {
                     }
                 }
                 if let (Some(name), Some(value)) = (name, value) {
-                    Some((name.as_str(), value).into())
+                    Some(Self((name.as_str(), value).into()))
                 } else {
                     None
                 }
             }
-            rmpv::Value::String(s) => Some((s.as_str()?, T::setting_default()).into()),
+            rmpv::Value::String(s) => Some(Self((s.as_str()?, T::setting_default()).into())),
             _ => None,
         }
     }
