@@ -12,7 +12,7 @@ readme = "README.md"
 exclude = ["/packaging", "/lua"]
 
 [workspace]
-members = ["neophyte-log-analyzer"]
+members = ["neophyte-log-analyzer", "neophyte-ui-event"]
 
 [dependencies]
 swash = "0.1.8"
