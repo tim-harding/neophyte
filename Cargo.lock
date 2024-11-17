@@ -1048,12 +1048,13 @@ dependencies = [
 
 [[package]]
 name = "neophyte"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "bytemuck",
  "flexi_logger",
  "font-kit",
  "log",
+ "neophyte-ui",
  "neophyte-ui-event",
  "packed-char",
  "png",
@@ -1073,6 +1074,10 @@ dependencies = [
  "prettytable-rs",
  "regex",
 ]
+
+[[package]]
+name = "neophyte-ui"
+version = "0.3.2"
 
 [[package]]
 name = "neophyte-ui-event"
