@@ -2,6 +2,11 @@
 name = "neophyte-linalg"
 version = "0.3.2"
 edition = "2021"
+authors = ["Tim Harding"]
+repository = "https://github.com/tim-harding/neophyte"
+license = "MIT"
+keywords = ["neovim"]
+description = "Linear algebra types for Neophyte"
 
 # TODO: Make dependencies for From impls optional
 
