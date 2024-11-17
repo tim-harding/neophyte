@@ -3,4 +3,10 @@ name = "neophyte-ui"
 version = "0.3.2"
 edition = "2021"
 
-[dependencies]
+[dependencies.neophyte-ui-event]
+path = "../neophyte-ui-event"
+version = "0.3.1"
+
+[dependencies.neophyte-linalg]
+path = "../neophyte-linalg"
+version = "0.3.2"

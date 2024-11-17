@@ -1088,6 +1088,10 @@ dependencies = [
 [[package]]
 name = "neophyte-ui"
 version = "0.3.2"
+dependencies = [
+ "neophyte-linalg",
+ "neophyte-ui-event",
+]
 
 [[package]]
 name = "neophyte-ui-event"
