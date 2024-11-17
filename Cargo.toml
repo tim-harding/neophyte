@@ -26,6 +26,7 @@ packed-char = "0.1.0"
 
 [dependencies.neophyte-ui-event]
 path = "./neophyte-ui-event"
+version = "0.3.1"
 
 [dependencies.bytemuck]
 version = "1.13.1"
