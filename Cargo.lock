@@ -1054,6 +1054,7 @@ dependencies = [
  "flexi_logger",
  "font-kit",
  "log",
+ "neophyte-linalg",
  "neophyte-ui",
  "neophyte-ui-event",
  "packed-char",
@@ -1065,6 +1066,10 @@ dependencies = [
  "wgpu",
  "winit",
 ]
+
+[[package]]
+name = "neophyte-linalg"
+version = "0.3.2"
 
 [[package]]
 name = "neophyte-log-analyzer"

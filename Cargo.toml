@@ -12,7 +12,7 @@ readme = "README.md"
 exclude = ["/packaging", "/lua"]
 
 [workspace]
-members = ["neophyte-log-analyzer", "neophyte-ui", "neophyte-ui-event"]
+members = [ "neophyte-linalg","neophyte-log-analyzer", "neophyte-ui", "neophyte-ui-event"]
 
 [dependencies]
 swash = "0.1.8"
@@ -23,6 +23,10 @@ wgpu = "23.0.0"
 pollster = "0.4.0"
 png = "0.17.10"
 packed-char = "0.1.0"
+
+[dependencies.neophyte-linalg]
+path = "./neophyte-linalg"
+version = "0.3.2"
 
 [dependencies.neophyte-ui-event]
 path = "./neophyte-ui-event"
