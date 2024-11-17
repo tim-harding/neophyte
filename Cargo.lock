@@ -1048,7 +1048,7 @@ dependencies = [
 
 [[package]]
 name = "neophyte"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "bytemuck",
  "flexi_logger",
@@ -1076,7 +1076,7 @@ dependencies = [
 
 [[package]]
 name = "neophyte-ui-event"
-version = "0.1.0"
+version = "0.3.1"
 dependencies = [
  "rmpv",
  "thiserror 2.0.3",
