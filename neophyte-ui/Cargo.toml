@@ -3,6 +3,10 @@ name = "neophyte-ui"
 version = "0.3.2"
 edition = "2021"
 
+[dependencies]
+packed-char = "0.1.0"
+log = "0.4.19"
+
 [dependencies.neophyte-ui-event]
 path = "../neophyte-ui-event"
 version = "0.3.1"

@@ -12,8 +12,9 @@ mod neovim_handler;
 mod rendering;
 mod rpc;
 pub mod text;
-mod ui;
 mod util;
+
+pub use neophyte_ui as ui;
 
 use event_handler::EventHandler;
 use flexi_logger::Logger;
