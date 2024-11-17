@@ -3,4 +3,16 @@ name = "neophyte-linalg"
 version = "0.3.2"
 edition = "2021"
 
+# TODO: Make dependencies for From impls optional
+
 [dependencies]
+# For From impl
+wgpu = "23.0.0"
+
+[dependencies.bytemuck]
+version = "1.13.1"
+features = ["derive"]
+
+# For From impl
+[dependencies.winit]
+version = "0.30.0"

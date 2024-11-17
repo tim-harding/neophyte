@@ -6,12 +6,10 @@ use crate::{
     event_handler::settings::Settings,
     text::{cache::FontCache, fonts::Fonts},
     ui::Ui,
-    util::{
-        vec2::{PixelVec, Vec2},
-        IntoSrgb,
-    },
+    util::IntoSrgb,
 };
 use bytemuck::cast_slice;
+use neophyte_linalg::{PixelVec, Vec2};
 use neophyte_ui_event::rgb::Rgb;
 use std::{
     fs::File,

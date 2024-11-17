@@ -7,10 +7,8 @@ pub mod window;
 use self::{
     cmdline::Cmdline, grid::Grid, messages::Messages, options::GuiFont, window::WindowOffset,
 };
-use crate::{
-    ui::window::{FloatingWindow, NormalWindow, Window},
-    util::vec2::{CellVec, PixelVec, Vec2},
-};
+use crate::ui::window::{FloatingWindow, NormalWindow, Window};
+use neophyte_linalg::{CellVec, PixelVec, Vec2};
 use neophyte_ui_event::{
     hl_attr_define::Attributes, mode_info_set::ModeInfo, Chdir, CmdlineBlockAppend,
     CmdlineBlockShow, CmdlinePos, DefaultColorsSet, Event, GridClear, GridCursorGoto, GridDestroy,

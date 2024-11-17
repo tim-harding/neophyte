@@ -1,5 +1,5 @@
-use crate::util::vec2::PixelVec;
 use bytemuck::{checked::cast_slice, Pod, Zeroable};
+use neophyte_linalg::PixelVec;
 use std::mem::size_of;
 
 #[repr(C)]

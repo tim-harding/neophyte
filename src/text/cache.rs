@@ -2,8 +2,8 @@ use super::{
     atlas::FontAtlas,
     fonts::{FontStyle, SwashSetting},
 };
-use crate::util::vec2::Vec2;
 use bytemuck::{Pod, Zeroable};
+use neophyte_linalg::Vec2;
 use std::collections::{hash_map::Entry, HashMap};
 use swash::{
     scale::{image::Content, Render, ScaleContext, Source, StrikeWith},

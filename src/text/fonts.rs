@@ -1,6 +1,7 @@
 use super::font::{Font, FontFromFileError, Metrics};
-use crate::{assets, ui::options::FontSize, util::vec2::Vec2};
+use crate::{assets, ui::options::FontSize};
 use font_kit::{error::SelectionError, handle::Handle, source::SystemSource};
+use neophyte_linalg::Vec2;
 use neophyte_ui_event::{MaybeInto, Parse};
 use swash::{Setting, Style, Weight};
 

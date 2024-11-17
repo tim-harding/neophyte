@@ -1,6 +1,6 @@
 mod node;
 
-use crate::util::vec2::Vec2;
+use neophyte_linalg::Vec2;
 use node::Node;
 use swash::{
     scale::image::{Content, Image},

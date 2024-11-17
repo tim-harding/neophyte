@@ -5,8 +5,8 @@ use crate::{
         cmdline::{Cmdline, Mode},
         grid::CellContents,
     },
-    util::vec2::{CellVec, Vec2},
 };
+use neophyte_linalg::{CellVec, Vec2};
 use neophyte_ui_event::{hl_attr_define::Attributes, rgb::Rgb, Content};
 use swash::shape::ShapeContext;
 

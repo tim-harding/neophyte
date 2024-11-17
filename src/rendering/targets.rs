@@ -1,5 +1,5 @@
 use super::texture::Texture;
-use crate::util::vec2::PixelVec;
+use neophyte_linalg::PixelVec;
 
 pub struct Targets {
     pub monochrome: Texture,

@@ -24,6 +24,16 @@ where
     }
 }
 
+impl<T> IntoIterator for Vec2<T> {
+    fn into_iter(self) -> Self::IntoIter {
+        [self.x, self.y].into_iter()
+    }
+
+    type Item = T;
+
+    type IntoIter = std::array::IntoIter<Self::Item, 2>;
+}
+
 impl<T> Vec2<T> {
     pub const fn new(x: T, y: T) -> Self {
         Self { x, y }
@@ -37,10 +47,6 @@ impl<T> Vec2<T> {
     /// Combines lhs and rhs with { x: f(lhs.x, rhs.x), y: f(lhs.y, rhs.y) }
     pub fn combine(lhs: Self, rhs: Self, f: fn(T, T) -> T) -> Self {
         Self::new(f(lhs.x, rhs.x), f(lhs.y, rhs.y))
-    }
-
-    pub fn into_iter(self) -> impl Iterator<Item = T> {
-        [self.x, self.y].into_iter()
     }
 
     /// Swaps the x and y components

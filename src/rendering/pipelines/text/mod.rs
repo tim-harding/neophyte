@@ -8,8 +8,8 @@ use crate::{
         texture::Texture,
     },
     text::cache::Cached,
-    util::vec2::{PixelVec, Vec2},
 };
+use neophyte_linalg::{PixelVec, Vec2};
 use wgpu::include_wgsl;
 
 pub enum Kind {

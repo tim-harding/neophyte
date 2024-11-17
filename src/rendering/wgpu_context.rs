@@ -1,4 +1,4 @@
-use crate::util::vec2::PixelVec;
+use neophyte_linalg::PixelVec;
 use std::sync::Arc;
 use winit::window::Window;
 

@@ -11,13 +11,11 @@ use crate::{
         options::{FontSize, GuiFont},
         Ui,
     },
-    util::{
-        vec2::{PixelVec, Vec2},
-        IntoSrgb,
-    },
+    util::IntoSrgb,
     UserEvent,
 };
 use event::{Rgb, Values};
+use neophyte_linalg::{PixelVec, Vec2};
 use neophyte_ui_event as event;
 use rmpv::Value;
 use std::{

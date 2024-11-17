@@ -3,8 +3,9 @@ mod range;
 use crate::{
     rendering::Motion,
     ui::grid::{CellContents, GridContents},
-    util::{nice_s_curve, vec2::CellVec},
+    util::nice_s_curve,
 };
+use neophyte_linalg::CellVec;
 use range::Range;
 use std::{collections::VecDeque, time::Duration};
 

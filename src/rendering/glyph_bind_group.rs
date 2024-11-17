@@ -1,6 +1,7 @@
 use super::nearest_sampler;
-use crate::{rendering::texture::Texture, text::cache::Cached, util::vec2::Vec2};
+use crate::{rendering::texture::Texture, text::cache::Cached};
 use bytemuck::cast_slice;
+use neophyte_linalg::Vec2;
 use wgpu::util::DeviceExt;
 
 pub struct GlyphBindGroup {

@@ -4,12 +4,10 @@ use crate::{
         fonts::{FontStyle, Fonts},
     },
     ui::grid::CellContents,
-    util::{
-        vec2::{CellVec, PixelVec, Vec2},
-        IntoSrgb,
-    },
+    util::IntoSrgb,
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
+use neophyte_linalg::{CellVec, PixelVec, Vec2};
 use neophyte_ui_event::{hl_attr_define::Attributes, rgb::Rgb};
 use std::num::NonZeroU64;
 use swash::{

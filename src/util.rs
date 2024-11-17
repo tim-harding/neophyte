@@ -1,6 +1,3 @@
-pub mod mat3;
-pub mod vec2;
-
 /// Convert the SRGB color channel to linear color space.
 pub fn srgb(c: u8) -> f32 {
     let c = c as f32 / 255.0;

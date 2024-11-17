@@ -2,8 +2,9 @@
 //! while applying gamma-correction and premultiplying by the alpha for window
 //! transparency as needed.
 
-use crate::{rendering::nearest_sampler, util::vec2::PixelVec};
+use crate::rendering::nearest_sampler;
 use bytemuck::{cast_slice, Pod, Zeroable};
+use neophyte_linalg::PixelVec;
 use wgpu::include_wgsl;
 
 pub struct Pipeline {

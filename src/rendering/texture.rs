@@ -1,4 +1,4 @@
-use crate::util::vec2::Vec2;
+use neophyte_linalg::Vec2;
 use wgpu::util::{DeviceExt, TextureDataOrder};
 
 pub struct Texture {

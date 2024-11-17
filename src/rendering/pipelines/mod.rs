@@ -8,7 +8,8 @@ pub mod png_blit;
 pub mod text;
 
 use super::{targets::Targets, texture::Texture, wgpu_context::WgpuContext};
-use crate::{text::cache::FontCache, ui::Ui, util::vec2::Vec2};
+use crate::{text::cache::FontCache, ui::Ui};
+use neophyte_linalg::Vec2;
 
 pub struct Pipelines {
     pub cursor: cursor::Pipeline,

@@ -1,4 +1,4 @@
-use crate::util::vec2::PixelVec;
+use neophyte_linalg::PixelVec;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq)]

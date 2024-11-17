@@ -1,5 +1,5 @@
 use super::grid;
-use crate::util::vec2::{CellVec, Vec2};
+use neophyte_linalg::{CellVec, Vec2};
 use neophyte_ui_event::Anchor;
 
 #[derive(Debug, Copy, Clone, Default, PartialEq)]

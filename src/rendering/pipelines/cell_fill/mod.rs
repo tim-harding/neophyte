@@ -2,14 +2,12 @@
 //! fill color. The default fill is already written by the default_fill
 //! pipeline.
 
-use crate::{
-    rendering::{
-        text::{set_scissor, Text},
-        texture::Texture,
-    },
-    util::vec2::{PixelVec, Vec2},
+use crate::rendering::{
+    text::{set_scissor, Text},
+    texture::Texture,
 };
 use bytemuck::{checked::cast_slice, Pod, Zeroable};
+use neophyte_linalg::{PixelVec, Vec2};
 use wgpu::include_wgsl;
 
 pub struct Pipeline {

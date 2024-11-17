@@ -1070,6 +1070,11 @@ dependencies = [
 [[package]]
 name = "neophyte-linalg"
 version = "0.3.2"
+dependencies = [
+ "bytemuck",
+ "wgpu",
+ "winit",
+]
 
 [[package]]
 name = "neophyte-log-analyzer"

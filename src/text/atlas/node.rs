@@ -1,4 +1,4 @@
-use crate::util::vec2::Vec2;
+use neophyte_linalg::Vec2;
 
 pub struct Node {
     origin: Vec2<u32>,
