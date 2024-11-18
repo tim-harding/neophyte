@@ -20,7 +20,7 @@ use event_handler::EventHandler;
 use flexi_logger::Logger;
 use neovim::Neovim;
 use neovim_handler::NeovimHandler;
-use std::{env, process::Output, thread};
+use std::{env, fs::File, process::Output, thread};
 use winit::event_loop::{ControlFlow, EventLoop};
 
 const HELP_TEXT: &str = "\
@@ -71,12 +71,21 @@ fn main() {
     let mut cmdline_ext = false;
     let mut messages_ext = false;
     let mut args = env::args().skip(1);
+    let mut expecting_tee_path = false;
+    let mut tee_path = String::new();
     for arg in &mut args {
+        let was_expecting_tee_path = expecting_tee_path;
+        expecting_tee_path = false;
+        if was_expecting_tee_path {
+            tee_path = arg.as_str().to_string();
+            continue;
+        }
         match arg.as_str() {
             "--" => break,
             "--transparent" | "-t" => transparent = true,
             "--cmdline" => cmdline_ext = true,
             "--messages" => messages_ext = true,
+            "--tee" => expecting_tee_path = true,
             "--help" | "-h" => {
                 print!("{}", HELP_TEXT);
                 return;
@@ -84,6 +93,12 @@ fn main() {
             other => log::warn!("Unrecognized argument: {}", other),
         }
     }
+
+    let tee_file = if !tee_path.is_empty() {
+        File::create(tee_path).ok()
+    } else {
+        None
+    };
 
     let event_loop = EventLoop::<UserEvent>::with_user_event()
         .build()
@@ -99,7 +114,7 @@ fn main() {
     });
 
     {
-        let mut handler = EventHandler::new(neovim, transparent);
+        let mut handler = EventHandler::new(neovim, transparent, tee_file);
         event_loop.set_control_flow(ControlFlow::Wait);
         event_loop
             .run_app(&mut handler)

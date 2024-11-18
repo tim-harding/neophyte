@@ -19,7 +19,8 @@ use neophyte_linalg::{PixelVec, Vec2};
 use neophyte_ui_event as event;
 use rmpv::Value;
 use std::{
-    sync::Arc,
+    fs::File,
+    sync::{mpsc, Arc},
     time::{Duration, Instant},
 };
 use winit::{
@@ -44,6 +45,7 @@ pub struct EventHandler {
     neovim: Neovim,
     frame_number: u32,
     last_render_time: Option<Instant>,
+    tee_tx: Option<mpsc::Sender<event::Event>>,
 }
 
 impl ApplicationHandler<UserEvent> for EventHandler {
@@ -131,7 +133,20 @@ impl ApplicationHandler<UserEvent> for EventHandler {
 }
 
 impl EventHandler {
-    pub fn new(neovim: Neovim, transparent: bool) -> Self {
+    pub fn new(neovim: Neovim, transparent: bool, tee_file: Option<File>) -> Self {
+        let tee_tx = tee_file.map(|mut f| {
+            let (tx, rx) = mpsc::channel::<event::Event>();
+            let _ = std::thread::spawn(move || {
+                for event in rx {
+                    match serde_json::ser::to_writer(&mut f, &event) {
+                        Ok(_) => {}
+                        Err(e) => log::error!("{e}"),
+                    }
+                }
+            });
+            tx
+        });
+
         Self {
             window: None,
             render_state: None,
@@ -142,6 +157,7 @@ impl EventHandler {
             modifiers: ModifiersState::default(),
             neovim,
             last_render_time: None,
+            tee_tx,
         }
     }
 
@@ -267,6 +283,9 @@ impl EventHandler {
                 Ok(events) => {
                     for event in events.into_iter() {
                         log::debug!("{event:?}");
+                        if let Some(tx) = &self.tee_tx {
+                            let _ = tx.send(event.clone());
+                        }
                         self.ui.process(event);
                     }
                 }
