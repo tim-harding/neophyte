@@ -1061,6 +1061,7 @@ dependencies = [
  "png",
  "pollster",
  "rmpv",
+ "serde",
  "serde_json",
  "swash",
  "thiserror 2.0.3",

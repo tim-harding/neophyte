@@ -25,6 +25,10 @@ png = "0.17.10"
 packed-char = "0.1.0"
 serde_json = "1.0"
 
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]
+
 [dependencies.neophyte-linalg]
 path = "./neophyte-linalg"
 version = "0.3.2"

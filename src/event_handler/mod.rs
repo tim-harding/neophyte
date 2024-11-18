@@ -18,8 +18,10 @@ use event::{Rgb, Values};
 use neophyte_linalg::{PixelVec, Vec2};
 use neophyte_ui_event as event;
 use rmpv::Value;
+use serde::Serialize;
 use std::{
     fs::File,
+    io::Write,
     sync::{mpsc, Arc},
     time::{Duration, Instant},
 };
@@ -132,17 +134,32 @@ impl ApplicationHandler<UserEvent> for EventHandler {
     fn memory_warning(&mut self, _event_loop: &ActiveEventLoop) {}
 }
 
+#[derive(Serialize)]
+struct TimedEvent {
+    time: Duration,
+    event: event::Event,
+}
+
 impl EventHandler {
     pub fn new(neovim: Neovim, transparent: bool, tee_file: Option<File>) -> Self {
         let tee_tx = tee_file.map(|mut f| {
             let (tx, rx) = mpsc::channel::<event::Event>();
             let _ = std::thread::spawn(move || {
+                let epoch = Instant::now();
+                let _ = f.write_all("[".as_bytes());
+                let mut is_first = true;
                 for event in rx {
-                    match serde_json::ser::to_writer(&mut f, &event) {
-                        Ok(_) => {}
-                        Err(e) => log::error!("{e}"),
+                    if !is_first {
+                        let _ = f.write_all(",".as_bytes());
                     }
+                    is_first = false;
+                    let event = TimedEvent {
+                        time: Instant::now().duration_since(epoch),
+                        event,
+                    };
+                    let _ = serde_json::ser::to_writer(&mut f, &event);
                 }
+                let _ = f.write_all("]".as_bytes());
             });
             tx
         });
