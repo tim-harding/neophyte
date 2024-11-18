@@ -9,5 +9,12 @@ keywords = ["neovim"]
 description = "Parsing for Neovim UI events"
 
 [dependencies]
-rmpv = "1.0.1"
 thiserror = "2.0.1"
+
+[dependencies.rmpv]
+version = "1.0.1"
+features = ["with-serde"]
+
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]

@@ -1,9 +1,10 @@
 use super::message_content::Content;
 use crate::{Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Triggered when the cmdline is displayed or changed.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CmdlineShow {
     /// The full content that should be displayed in the cmdline.
     pub content: Content,

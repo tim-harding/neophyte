@@ -1,10 +1,11 @@
 use super::messagepack_ext_types::Window;
 use crate::{Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Set the position and size of the outer grid size. If the window was
 /// previously hidden, it should now be shown again.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct WinPos {
     /// The grid to update
     pub grid: u32,

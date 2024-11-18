@@ -1,5 +1,6 @@
 use crate::{Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Scroll a grid region. This is semantically unrelated to editor scrolling,
 /// rather this is an optimized way to say "copy these screen cells".
@@ -37,7 +38,7 @@ use rmpv::Value;
 /// The scrolled-in area will be filled using ui-event-grid_line directly after
 /// the scroll event. The UI thus doesn't need to clear this area as part of
 /// handling the scroll event.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub struct GridScroll {
     /// The grid to scroll
     pub grid: u32,

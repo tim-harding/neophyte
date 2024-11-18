@@ -1,9 +1,10 @@
 use super::messagepack_ext_types::Window;
 use crate::{Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Updates the position of an extmark which is currently visible in a window.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct WinExtmark {
     /// The grid containing the extmark
     pub grid: u32,

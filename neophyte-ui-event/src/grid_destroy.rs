@@ -1,8 +1,9 @@
 use crate::{parse_first_element, MaybeInto, Parse};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Grid will not be used anymore and the UI can free any data associated with it.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct GridDestroy {
     pub grid: u32,
 }

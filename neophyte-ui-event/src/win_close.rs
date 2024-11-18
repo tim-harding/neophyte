@@ -1,8 +1,9 @@
 use crate::{parse_first_element, MaybeInto, Parse};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Stop displaying the window. The window can be shown again later.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct WinClose {
     pub grid: u32,
 }

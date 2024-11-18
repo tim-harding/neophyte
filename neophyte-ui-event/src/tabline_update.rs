@@ -1,9 +1,10 @@
 use super::messagepack_ext_types::{Buffer, Tabpage};
 use crate::{parse_map, MaybeInto, Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Tabline was updated.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TablineUpdate {
     /// Current tabpage
     pub curtab: Tabpage,
@@ -27,7 +28,7 @@ impl Parse for TablineUpdate {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TabpageInfo {
     pub tab: Tabpage,
     pub name: String,
@@ -53,7 +54,7 @@ impl Parse for TabpageInfo {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct BufferInfo {
     pub buffer: Buffer,
     pub name: String,

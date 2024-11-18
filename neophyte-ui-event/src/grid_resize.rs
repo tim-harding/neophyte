@@ -1,8 +1,9 @@
 use crate::{Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Resize a grid
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub struct GridResize {
     /// The grid to resize
     pub grid: u32,

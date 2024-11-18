@@ -1,10 +1,11 @@
 use super::messagepack_ext_types::Window;
 use crate::{Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Display or reconfigure external window. The window should be displayed as a
 /// separate top-level window in the desktop environment or something similar.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct WinExternalPos {
     /// The grid to display in the window
     pub grid: u32,

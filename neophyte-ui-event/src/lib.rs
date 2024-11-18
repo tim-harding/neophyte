@@ -47,6 +47,7 @@ mod win_viewport_margins;
 use rmpv::Value;
 
 pub use parse::{MaybeInto, Parse};
+use serde::Serialize;
 pub(crate) use util::*;
 pub use values::Values;
 
@@ -92,7 +93,7 @@ pub use win_viewport_margins::WinViewportMargins;
 
 /// A UI event sent by the Neovim instance. See here for detailed documentation:
 /// https://neovim.io/doc/user/ui.html
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum Event {
     GridResize(GridResize),
     GridClear(GridClear),

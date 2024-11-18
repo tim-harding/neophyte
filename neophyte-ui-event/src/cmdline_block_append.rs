@@ -1,9 +1,10 @@
 use super::message_content::Content;
 use crate::{parse_first_element, MaybeInto, Parse};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Append a line at the end of the currently shown block.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CmdlineBlockAppend {
     pub line: Content,
 }

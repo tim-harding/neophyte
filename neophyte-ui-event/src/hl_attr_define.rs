@@ -1,10 +1,11 @@
 use super::rgb::Rgb;
 use crate::{maybe_field, parse_map, Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 use std::fmt::{self, Debug, Formatter};
 
 /// Add a highlight with id to the highlight table
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct HlAttrDefine {
     pub id: u32,
     /// Highlights in RGB format
@@ -33,7 +34,7 @@ impl Parse for HlAttrDefine {
 
 /// Attributes of a highlight attribute definition. Colors may be given in RGB
 /// or terminal 256-color.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize)]
 pub struct Attributes {
     /// foreground color.
     pub foreground: Option<Rgb>,
@@ -183,7 +184,7 @@ impl Debug for Attributes {
 
 /// A semantic description of the highlights active in a cell. Activated by the
 /// ext_hlstate extension.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Info {
     pub kind: Kind,
     /// Highlight name from highlight-groups. Only for "ui" kind.
@@ -220,7 +221,7 @@ impl Parse for Info {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize)]
 pub enum Kind {
     /// Builtin UI highlight.
     Ui,

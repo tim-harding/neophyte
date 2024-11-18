@@ -1,8 +1,9 @@
 use crate::{Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Set the current grid and cursor position
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize)]
 pub struct GridCursorGoto {
     /// The current grid
     pub grid: u32,

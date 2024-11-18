@@ -1,9 +1,10 @@
 use crate::Parse;
 use rmpv::Value;
+use serde::Serialize;
 
 macro_rules! msgpack_ext {
     ($x:ident, $doc:meta) => {
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, Serialize)]
         #[$doc]
         pub struct $x(#[allow(unused)] Value);
 

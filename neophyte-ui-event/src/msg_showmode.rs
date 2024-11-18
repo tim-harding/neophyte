@@ -1,10 +1,11 @@
 use super::message_content::Content;
 use crate::{parse_first_element, MaybeInto, Parse};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Shows 'showmode' and recording messages. This event is sent with empty
 /// content to hide the last message.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MsgShowmode {
     pub content: Content,
 }

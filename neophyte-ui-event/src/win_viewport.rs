@@ -1,10 +1,11 @@
 use super::messagepack_ext_types::Window;
 use crate::{Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Indicates the range of buffer text displayed in the window, as well as the
 /// cursor position in the buffer.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct WinViewport {
     /// The grid to update
     pub grid: u32,

@@ -1,7 +1,8 @@
 use crate::Parse;
 use rmpv::Value;
+use serde::Serialize;
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
 pub struct Rgb {
     pub r: u8,
     pub g: u8,

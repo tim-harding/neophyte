@@ -1,13 +1,14 @@
 use super::messagepack_ext_types::Window;
 use crate::{Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 // TODO: Figure out how to use this event
 
 /// Indicates the margins of a window grid which are _not_ part of the viewport
 /// as indicated by the `win_viewport` event. This happens in the presence of
 /// `winbar` and floating window borders.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct WinViewportMargins {
     /// The grid to update
     pub grid: u32,

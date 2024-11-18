@@ -1100,6 +1100,7 @@ name = "neophyte-ui-event"
 version = "0.3.1"
 dependencies = [
  "rmpv",
+ "serde",
  "thiserror 2.0.3",
 ]
 
@@ -1683,6 +1684,8 @@ checksum = "58450723cd9ee93273ce44a20b6ec4efe17f8ed2e3631474387bfdecf18bb2a9"
 dependencies = [
  "num-traits",
  "rmp",
+ "serde",
+ "serde_bytes",
 ]
 
 [[package]]
@@ -1772,6 +1775,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6513c1ad0b11a9376da888e3e0baa0077f1aed55c17f50e7b2397136129fb88f"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde_bytes"
+version = "0.11.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab33ec92f677585af6d88c65593ae2375adde54efdbf16d597f2cbc7a6d368ff"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

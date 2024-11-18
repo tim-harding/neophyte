@@ -1,10 +1,11 @@
 use crate::{Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Display messages on grid. The grid will be displayed at row on the default
 /// grid (grid=1), covering the full column width. When ui-messages is active,
 /// no message grid is used, and this event will not be sent.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MsgSetPos {
     /// The grid to display on the default grid
     pub grid: u32,

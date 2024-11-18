@@ -1,9 +1,10 @@
 use super::message_content::Content;
 use crate::{Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Display a message to the user.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MsgShow {
     /// The kind of message
     pub kind: Kind,
@@ -25,7 +26,7 @@ impl Parse for MsgShow {
 }
 
 /// Whether to replace the previous message
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum ReplaceLast {
     /// Replace the message in the most-recent msg_show call, but any other
     /// visible message should still remain.
@@ -51,7 +52,7 @@ impl From<bool> for ReplaceLast {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum Kind {
     /// Unknown
     Unknown,

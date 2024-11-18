@@ -1,8 +1,9 @@
 use crate::{parse_first_element, parse_maybe_u32, Parse};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Select an item in the current popupmenu.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct PopupmenuSelect {
     /// The item to select, or None if no item is selected
     pub selected: Option<u32>,

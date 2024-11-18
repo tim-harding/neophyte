@@ -1,11 +1,12 @@
 use crate::{Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// The built-in highlight group name was set to use the attributes hl_id
 /// defined by a previous hl_attr_define call. This event is not needed to
 /// render the grids which use attribute ids directly, but is useful for a UI
 /// who want to render its own elements with consistent highlighting.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct HlGroupSet {
     /// The highlight group name
     pub name: String,

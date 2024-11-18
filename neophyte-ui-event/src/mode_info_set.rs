@@ -1,9 +1,10 @@
 use crate::{maybe_field, maybe_other_field, parse_map, Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 use std::fmt::{self, Debug, Formatter};
 
 /// Information about editor modes. These will be used by the mode_change event.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ModeInfoSet {
     /// Whether the UI should set the cursor style
     pub cursor_style_enabled: bool,
@@ -22,7 +23,7 @@ impl Parse for ModeInfoSet {
 }
 
 /// Information about a mode
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Serialize)]
 pub struct ModeInfo {
     /// The mode name
     pub name: Option<String>,
@@ -86,7 +87,7 @@ impl Debug for ModeInfo {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, Serialize)]
 pub enum CursorShape {
     #[default]
     Block,

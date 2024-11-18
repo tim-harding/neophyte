@@ -1,9 +1,10 @@
 use super::rgb::Rgb;
 use crate::{parse_maybe_u32, Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Sets the default foreground, background, and special colors.
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, Serialize)]
 pub struct DefaultColorsSet {
     /// Foreground in RGB
     pub rgb_fg: Option<Rgb>,

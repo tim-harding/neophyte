@@ -1,5 +1,6 @@
 use crate::{Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// UI-related option change.
 ///
@@ -9,7 +10,7 @@ use rmpv::Value;
 /// active. Some options like 'ambiwidth' have already taken effect on the grid,
 /// where appropriate empty cells are added, however a UI might still use such
 /// options when rendering raw text sent from Nvim, like for ui-cmdline.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum OptionSet {
     /// See https://neovim.io/doc/user/options.html#'arabicshape'
     Arabicshape(bool),
@@ -103,7 +104,7 @@ impl Parse for OptionSet {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize)]
 /// Tells Vim what to do with characters with East Asian Width Class Ambiguous
 pub enum Ambiwidth {
     /// Use the same width as characters in US-ASCII
@@ -125,7 +126,7 @@ impl Parse for Ambiwidth {
 }
 
 /// When the line with tab page labels will be displayed
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub enum Showtabline {
     #[default]
     Never,

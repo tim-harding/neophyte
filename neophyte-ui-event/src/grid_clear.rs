@@ -1,8 +1,9 @@
 use crate::{parse_first_element, MaybeInto, Parse};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Clear a grid
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct GridClear {
     pub grid: u32,
 }

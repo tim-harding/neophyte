@@ -1,9 +1,10 @@
 use super::messagepack_ext_types::Window;
 use crate::{Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Display or reconfigure a floating window.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct WinFloatPos {
     /// The grid to display in the window
     pub grid: u32,
@@ -40,7 +41,7 @@ impl Parse for WinFloatPos {
 }
 
 /// Which corner of the float to place at the anchor position
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub enum Anchor {
     /// Northwest
     Nw,

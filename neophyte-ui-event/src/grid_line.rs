@@ -2,9 +2,10 @@ use std::fmt::Debug;
 
 use crate::{Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Redraw a continuous part of a row on a grid.
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct GridLine {
     /// The grid to draw on
     pub grid: u32,
@@ -51,7 +52,7 @@ impl Debug for GridLine {
 }
 
 /// A portion of a grid line to draw
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Cell {
     /// The text to draw.
     pub text: String,

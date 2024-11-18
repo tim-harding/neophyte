@@ -1,9 +1,10 @@
 use crate::{Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Display a special char in the cmdline at the cursor position. This is
 /// typically used to indicate a pending state, such as after <C-V>.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub struct CmdlineSpecialChar {
     /// The special character.
     pub c: char,

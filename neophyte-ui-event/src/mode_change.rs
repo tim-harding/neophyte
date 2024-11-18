@@ -1,8 +1,9 @@
 use crate::{Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Editor mode changed.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ModeChange {
     /// The current mode
     pub mode: String,

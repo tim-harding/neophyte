@@ -1,8 +1,9 @@
 use crate::{MaybeInto, Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// A text sequence with highlighting.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct Content {
     /// Chunks to be concatenated without extra spacing
     pub chunks: Vec<ContentChunk>,
@@ -17,7 +18,7 @@ impl Parse for Content {
 }
 
 /// A highlighted portion of text
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ContentChunk {
     /// The ID of the highlight to apply
     pub attr_id: u32,

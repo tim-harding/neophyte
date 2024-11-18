@@ -1,8 +1,9 @@
 use crate::{parse_maybe_u32, Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Show popupmenu completion
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct PopupmenuShow {
     /// The completion items to show
     pub items: Vec<Item>,
@@ -30,7 +31,7 @@ impl Parse for PopupmenuShow {
 }
 
 /// A popupmenu item
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Item {
     /// The text that will be inserted
     pub word: String,
@@ -55,7 +56,7 @@ impl Parse for Item {
 }
 
 /// Indicates the type of completion
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum Kind {
     /// Variable
     Variable,

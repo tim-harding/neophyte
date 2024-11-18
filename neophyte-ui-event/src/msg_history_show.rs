@@ -1,9 +1,10 @@
 use super::{message_content::Content, msg_show::Kind};
 use crate::{Parse, Values};
 use rmpv::Value;
+use serde::Serialize;
 
 /// Sent when :messages command is invoked
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MsgHistoryShow {
     pub entries: Vec<MsgHistoryEntry>,
 }
@@ -17,7 +18,7 @@ impl Parse for MsgHistoryShow {
 }
 
 /// A message history item in the msg_history_show event
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MsgHistoryEntry {
     /// The message kind
     pub kind: Kind,
