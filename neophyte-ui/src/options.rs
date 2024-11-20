@@ -23,7 +23,10 @@ impl From<String> for GuiFont {
                     }
                 }
 
-                ParseState::Escape => current.push(c),
+                ParseState::Escape => {
+                    current.push(c);
+                    state = ParseState::Normal;
+                }
 
                 ParseState::OptionStart => {
                     state = match c {
@@ -64,6 +67,10 @@ impl From<String> for GuiFont {
                     _ => {}
                 },
             }
+        }
+
+        if let ParseState::OptionSize(size, kind) = state {
+            out.size = FontSize::new(size as f32, kind);
         }
 
         if !current.is_empty() {
