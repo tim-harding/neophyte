@@ -259,7 +259,7 @@ pub enum OnceOrChars<'a> {
     Chars(std::str::Chars<'a>),
 }
 
-impl<'a> From<char> for OnceOrChars<'a> {
+impl From<char> for OnceOrChars<'_> {
     fn from(c: char) -> Self {
         Self::Char(std::iter::once(c))
     }
@@ -271,7 +271,7 @@ impl<'a> From<std::str::Chars<'a>> for OnceOrChars<'a> {
     }
 }
 
-impl<'a> Iterator for OnceOrChars<'a> {
+impl Iterator for OnceOrChars<'_> {
     type Item = char;
 
     fn next(&mut self) -> Option<Self::Item> {

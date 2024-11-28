@@ -265,7 +265,7 @@ impl EventHandler {
                     let g = args.next()?;
                     let b = args.next()?;
                     let a: u8 = args.next()?;
-                    let rgba = Rgb::new(r, g, b).into_srgb(a as f32 / 255.);
+                    let rgba = Rgb::new(r, g, b).into_srgb(f32::from(a) / 255.);
                     self.settings.bg_override = Some(rgba);
                 }
 
@@ -662,7 +662,7 @@ impl EventHandler {
                     .current_monitor()
                     // TODO: Use refresh rate of of VideoModeHandle for exclusive fullscreen
                     .and_then(|monitor| monitor.refresh_rate_millihertz())
-                    .map(|mhz| Duration::from_secs_f64(1000.0 / mhz as f64))
+                    .map(|mhz| Duration::from_secs_f64(1000.0 / f64::from(mhz)))
                     .unwrap_or(Duration::from_millis(16))
             });
 

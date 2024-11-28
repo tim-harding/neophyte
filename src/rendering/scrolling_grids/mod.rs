@@ -75,7 +75,7 @@ impl ScrollingGrids {
 
     pub fn rows<'a, 'b: 'a>(
         &'a self,
-    ) -> impl Iterator<Item = (i32, impl Iterator<Item = CellContents<'a>> + '_ + Clone)> + '_ + Clone
+    ) -> impl Iterator<Item = (i32, impl Iterator<Item = CellContents<'a>> + 'a + Clone)> + 'a + Clone
     {
         self.scrolling.iter().rev().flat_map(|part| {
             part.grid
