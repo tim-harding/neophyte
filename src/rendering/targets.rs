@@ -26,7 +26,7 @@ impl Targets {
             color: Texture::target(
                 device,
                 &Texture::descriptor(
-                    "Monochrome texture",
+                    "Color texture",
                     size.into(),
                     Texture::LINEAR_FORMAT,
                     Texture::ATTACHMENT_AND_BINDING,
@@ -44,7 +44,7 @@ impl Targets {
             png: Texture::target(
                 device,
                 &Texture::descriptor(
-                    "Monochrome texture",
+                    "PNG texture",
                     png_size.into(),
                     Texture::SRGB_FORMAT,
                     Texture::ATTACHMENT_AND_BINDING | wgpu::TextureUsages::COPY_SRC,
