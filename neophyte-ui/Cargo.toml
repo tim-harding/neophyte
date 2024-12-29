@@ -14,7 +14,7 @@ log = "0.4.19"
 
 [dependencies.neophyte-ui-event]
 path = "../neophyte-ui-event"
-version = "0.3.1"
+version = "0.3.3"
 
 [dependencies.neophyte-linalg]
 path = "../neophyte-linalg"

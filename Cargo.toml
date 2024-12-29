@@ -35,11 +35,11 @@ version = "0.3.2"
 
 [dependencies.neophyte-ui-event]
 path = "./neophyte-ui-event"
-version = "0.3.1"
+version = "0.3.3"
 
 [dependencies.neophyte-ui]
 path = "./neophyte-ui"
-version = "0.3.2"
+version = "0.3.3"
 
 [dependencies.bytemuck]
 version = "1.13.1"
