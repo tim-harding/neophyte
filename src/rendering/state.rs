@@ -362,7 +362,7 @@ impl RenderState {
                     png::Encoder::new(w, self.targets.png_size.0.x, self.targets.png_size.0.y);
                 w.set_color(png::ColorType::Rgba);
                 w.set_depth(png::BitDepth::Eight);
-                w.set_srgb(png::SrgbRenderingIntent::Perceptual);
+                w.set_source_srgb(png::SrgbRenderingIntent::Perceptual);
                 let mut w = w.write_header()?;
                 w.write_image_data(cast_slice(&data))?;
                 drop(data);
