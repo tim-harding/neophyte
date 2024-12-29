@@ -1083,7 +1083,7 @@ dependencies = [
 
 [[package]]
 name = "neophyte-ui"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "log",
  "neophyte-linalg",
@@ -1093,7 +1093,7 @@ dependencies = [
 
 [[package]]
 name = "neophyte-ui-event"
-version = "0.3.1"
+version = "0.3.3"
 dependencies = [
  "rmpv",
  "serde",

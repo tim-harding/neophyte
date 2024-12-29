@@ -1,6 +1,6 @@
 [package]
 name = "neophyte-ui-event"
-version = "0.3.1"
+version = "0.3.3"
 edition = "2021"
 authors = ["Tim Harding"]
 repository = "https://github.com/tim-harding/neophyte"
