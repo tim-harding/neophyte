@@ -34,7 +34,7 @@ impl Pipelines {
         Pipelines {
             cursor: cursor::Pipeline::new(device, &targets.monochrome.view),
             cmdline_cursor: cursor::Pipeline::new(device, &targets.monochrome.view),
-            blend: blend::Pipeline::new(device, &targets.color.view),
+            blend: blend::Pipeline::new(device, &targets.monochrome.view),
             default_fill: default_fill::Pipeline::new(device, Texture::LINEAR_FORMAT),
             cell_fill: cell_fill::Pipeline::new(
                 device,
