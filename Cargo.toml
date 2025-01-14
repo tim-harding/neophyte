@@ -15,7 +15,7 @@ exclude = ["/packaging", "/lua"]
 members = [ "neophyte-linalg","neophyte-log-analyzer", "neophyte-ui", "neophyte-ui-event"]
 
 [dependencies]
-swash = "0.1.8"
+swash = "0.2.0"
 thiserror = "2.0.1"
 log = "0.4.19"
 rmpv = "1.0.1"
