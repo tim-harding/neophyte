@@ -1,5 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use wgpu_types::Extent3d;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 
 /// A 2D vector type
@@ -195,13 +196,13 @@ impl<T> From<[T; 2]> for Vec2<T> {
     }
 }
 
-impl From<wgpu::Extent3d> for PixelVec<u32> {
-    fn from(value: wgpu::Extent3d) -> Self {
+impl From<Extent3d> for PixelVec<u32> {
+    fn from(value: Extent3d) -> Self {
         Self::new(value.width, value.height)
     }
 }
 
-impl From<PixelVec<u32>> for wgpu::Extent3d {
+impl From<PixelVec<u32>> for Extent3d {
     fn from(value: PixelVec<u32>) -> Self {
         Self {
             width: value.0.x,

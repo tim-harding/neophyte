@@ -13,11 +13,10 @@ impl WgpuContext {
     pub fn new(window: Arc<Window>, transparent: bool) -> Self {
         let surface_size: PixelVec<u32> = window.inner_size().into();
 
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
-            dx12_shader_compiler: Default::default(),
             flags: wgpu::InstanceFlags::default(),
-            gles_minor_version: wgpu::Gles3MinorVersion::Automatic,
+            backend_options: wgpu::BackendOptions::default(),
         });
 
         let surface = instance

@@ -11,8 +11,7 @@ description = "Linear algebra types for Neophyte"
 # TODO: Make dependencies for From impls optional
 
 [dependencies]
-# For From impl
-wgpu = "23.0.0"
+wgpu-types = "24.0.0"
 
 [dependencies.bytemuck]
 version = "1.13.1"
