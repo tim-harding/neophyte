@@ -1,10 +1,10 @@
 use super::vec2::Vec2;
-use bytemuck::{Pod, Zeroable};
 use std::ops::{Add, Mul};
 
 /// A 3x3 matrix type
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[cfg_attr(feature = "bytemuck", derive(bytemuck::Pod, bytemuck::Zeroable))]
 pub struct Mat3 {
     // Columns
     x: Vec3,
@@ -79,7 +79,8 @@ impl Mul for Mat3 {
 // Align is useful to make sure padding is handled correctly in push constant
 // structs
 #[repr(C, align(16))]
-#[derive(Debug, Clone, Copy, PartialEq, Default, Pod, Zeroable)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[cfg_attr(feature = "bytemuck", derive(bytemuck::Pod, bytemuck::Zeroable))]
 pub struct Vec3 {
     x: f32,
     y: f32,
