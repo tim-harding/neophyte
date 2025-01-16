@@ -8,15 +8,22 @@ license = "MIT"
 keywords = ["neovim"]
 description = "Linear algebra types for Neophyte"
 
-# TODO: Make dependencies for From impls optional
-
-[dependencies]
-wgpu-types = "24.0.0"
-
 [dependencies.bytemuck]
 version = "1.13.1"
 features = ["derive"]
+optional = true
 
-# For From impl
+[dependencies.wgpu-types]
+version = "24.0.0"
+optional = true
+
 [dependencies.winit]
 version = "0.30.0"
+optional = true
+
+[features]
+bytemuck = ["dep:bytemuck"]
+wgpu = ["dep:wgpu-types"]
+winit = ["dep:winit"]
+from-impls = ["wgpu", "winit"]
+all = ["bytemuck", "from-impls"]

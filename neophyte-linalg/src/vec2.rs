@@ -1,7 +1,4 @@
-use bytemuck::{Pod, Zeroable};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use wgpu_types::Extent3d;
-use winit::dpi::{PhysicalPosition, PhysicalSize};
 
 /// A 2D vector type
 // Align is useful to make sure padding is handled correctly in push constant
@@ -13,8 +10,10 @@ pub struct Vec2<T> {
     pub y: T,
 }
 
-unsafe impl<T> Pod for Vec2<T> where T: Pod {}
-unsafe impl<T> Zeroable for Vec2<T> where T: Zeroable {}
+#[cfg(feature = "bytemuck")]
+unsafe impl<T> bytemuck::Pod for Vec2<T> where T: bytemuck::Pod {}
+#[cfg(feature = "bytemuck")]
+unsafe impl<T> bytemuck::Zeroable for Vec2<T> where T: bytemuck::Zeroable {}
 
 impl<T> Vec2<T>
 where
@@ -140,31 +139,36 @@ macro_rules! float_impl {
 float_impl!(f32);
 float_impl!(f64);
 
-impl<T> From<PhysicalSize<T>> for PixelVec<T> {
-    fn from(value: PhysicalSize<T>) -> Self {
+#[cfg(feature = "winit")]
+impl<T> From<winit::dpi::PhysicalSize<T>> for PixelVec<T> {
+    fn from(value: winit::dpi::PhysicalSize<T>) -> Self {
         Self::new(value.width, value.height)
     }
 }
 
-impl<T> From<PixelVec<T>> for PhysicalSize<T> {
+#[cfg(feature = "winit")]
+impl<T> From<PixelVec<T>> for winit::dpi::PhysicalSize<T> {
     fn from(value: PixelVec<T>) -> Self {
         Self::new(value.0.x, value.0.y)
     }
 }
 
-impl<T> From<PhysicalPosition<T>> for PixelVec<T> {
-    fn from(value: PhysicalPosition<T>) -> Self {
+#[cfg(feature = "winit")]
+impl<T> From<winit::dpi::PhysicalPosition<T>> for PixelVec<T> {
+    fn from(value: winit::dpi::PhysicalPosition<T>) -> Self {
         Self::new(value.x, value.y)
     }
 }
 
-impl<T> From<PhysicalPosition<T>> for Vec2<T> {
-    fn from(value: PhysicalPosition<T>) -> Self {
+#[cfg(feature = "winit")]
+impl<T> From<winit::dpi::PhysicalPosition<T>> for Vec2<T> {
+    fn from(value: winit::dpi::PhysicalPosition<T>) -> Self {
         Self::new(value.x, value.y)
     }
 }
 
-impl<T> From<PixelVec<T>> for PhysicalPosition<T> {
+#[cfg(feature = "winit")]
+impl<T> From<PixelVec<T>> for winit::dpi::PhysicalPosition<T> {
     fn from(value: PixelVec<T>) -> Self {
         Self::new(value.0.x, value.0.y)
     }
@@ -196,13 +200,15 @@ impl<T> From<[T; 2]> for Vec2<T> {
     }
 }
 
-impl From<Extent3d> for PixelVec<u32> {
-    fn from(value: Extent3d) -> Self {
+#[cfg(feature = "wgpu")]
+impl From<wgpu_types::Extent3d> for PixelVec<u32> {
+    fn from(value: wgpu_types::Extent3d) -> Self {
         Self::new(value.width, value.height)
     }
 }
 
-impl From<PixelVec<u32>> for Extent3d {
+#[cfg(feature = "wgpu")]
+impl From<PixelVec<u32>> for wgpu_types::Extent3d {
     fn from(value: PixelVec<u32>) -> Self {
         Self {
             width: value.0.x,
@@ -733,7 +739,8 @@ macro_rules! newtype_impls {
 
 /// A [Vec2] in units of pixels
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Pod, Zeroable)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "bytemuck", derive(bytemuck::Pod, bytemuck::Zeroable))]
 pub struct PixelVec<T>(pub Vec2<T>);
 
 impl<T> PixelVec<T>
@@ -747,7 +754,8 @@ where
 
 /// A [Vec2] in units of grid cells
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Pod, Zeroable)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "bytemuck", derive(bytemuck::Pod, bytemuck::Zeroable))]
 pub struct CellVec<T>(pub Vec2<T>);
 
 impl<T> CellVec<T>
