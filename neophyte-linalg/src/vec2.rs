@@ -19,6 +19,7 @@ impl<T> Vec2<T>
 where
     T: Copy,
 {
+    /// Create a vector with the same x and y coordinates
     pub fn splat(xy: T) -> Self {
         Self::new(xy, xy)
     }
@@ -35,6 +36,7 @@ impl<T> IntoIterator for Vec2<T> {
 }
 
 impl<T> Vec2<T> {
+    /// Create a new vector
     pub const fn new(x: T, y: T) -> Self {
         Self { x, y }
     }
@@ -103,6 +105,7 @@ impl<T> Vec2<T>
 where
     T: Mul<Output = T> + Copy,
 {
+    /// The area subtended of a box with the vector's dimensions
     pub fn area(&self) -> T {
         self.x * self.y
     }
@@ -112,6 +115,7 @@ impl<T> Vec2<T>
 where
     T: Mul<Output = T> + Add<Output = T> + Copy,
 {
+    /// The square of the vector's length
     pub fn length_squared(&self) -> T {
         self.x * self.x + self.y * self.y
     }
@@ -120,14 +124,17 @@ where
 macro_rules! float_impl {
     ($t:ty) => {
         impl Vec2<$t> {
+            /// The length of the vector
             pub fn length(&self) -> $t {
                 self.length_squared().sqrt()
             }
 
+            /// A vector pointing in the same direction with a length of 1
             pub fn normalized(self) -> Self {
                 self / self.length()
             }
 
+            /// Interpolate between vectors by the given parameter
             pub fn lerp(self, other: Self, t: $t) -> Self {
                 let t = t.max(0.0).min(1.0);
                 self * (1.0 - t) + other * t
@@ -412,7 +419,9 @@ where
     }
 }
 
+/// Trait equivalent to the `as` keyword
 pub trait As<T> {
+    /// Converts to the destination type with `as`
     fn r#as(self) -> T;
 }
 
@@ -747,6 +756,7 @@ impl<T> PixelVec<T>
 where
     T: Div<Output = T>,
 {
+    /// Convert to [`CellVec`] by scaling down by the given factor
     pub fn into_cells(self, cell_size: Vec2<T>) -> CellVec<T> {
         CellVec(self.0 / cell_size)
     }
@@ -762,12 +772,14 @@ impl<T> CellVec<T>
 where
     T: Mul<Output = T>,
 {
+    /// Convert to [`PixelVec`] by scaling up by the given factor
     pub fn into_pixels(self, cell_size: Vec2<T>) -> PixelVec<T> {
         PixelVec(self.0 * cell_size)
     }
 }
 
 impl CellVec<f32> {
+    /// Convert to a [`PixelVec`] while rounding to the nearest integer pixel
     pub fn round_to_pixels(self, cell_size: Vec2<u32>) -> PixelVec<i32> {
         PixelVec((self.0 * cell_size.cast_as()).cast_as())
     }

@@ -13,14 +13,15 @@ pub struct Mat3 {
 }
 
 impl Mat3 {
-    #[allow(unused)]
+    /// The identity matrix
     pub const IDENTITY: Self = Self::with_columns(Vec3::X, Vec3::Y, Vec3::Z);
 
-    #[allow(unused)]
+    /// Creates a matrix with the given columns
     pub const fn with_columns(x: Vec3, y: Vec3, z: Vec3) -> Self {
         Self { x, y, z }
     }
 
+    /// Creates a rotation matrix
     pub fn rotate(radians: f32) -> Self {
         let (sin, cos) = radians.sin_cos();
         Self {
@@ -30,6 +31,7 @@ impl Mat3 {
         }
     }
 
+    /// Creates a translation matrix
     pub fn translate(axes: Vec2<f32>) -> Self {
         Self {
             x: Vec3::X,
@@ -38,6 +40,7 @@ impl Mat3 {
         }
     }
 
+    /// Creates a scaling matrix
     pub fn scale(axes: Vec2<f32>) -> Self {
         Self {
             x: Vec3::X * axes.x,
@@ -46,7 +49,7 @@ impl Mat3 {
         }
     }
 
-    #[allow(unused)]
+    /// Creates a skew matrix
     pub fn skew(axes: Vec2<f32>) -> Self {
         Self {
             x: Vec3::new(1.0, axes.x, 0.0),
@@ -89,12 +92,22 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
+    /// A vector of zeroes
     pub const ZERO: Self = Self::splat(0.0);
+
+    /// A vector of ones
     pub const ONE: Self = Self::splat(1.0);
+
+    /// Unit vector along x
     pub const X: Self = Self::new(1.0, 0.0, 0.0);
+
+    /// Unit vector along y
     pub const Y: Self = Self::new(0.0, 1.0, 0.0);
+
+    /// Unit vector along z
     pub const Z: Self = Self::new(0.0, 0.0, 1.0);
 
+    /// Create a vector with the given coordinates
     pub const fn new(x: f32, y: f32, z: f32) -> Self {
         Self {
             x,
@@ -104,6 +117,7 @@ impl Vec3 {
         }
     }
 
+    /// Create a vector with equal coordinates
     pub const fn splat(n: f32) -> Self {
         Self::new(n, n, n)
     }
