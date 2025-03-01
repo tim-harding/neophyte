@@ -1,6 +1,11 @@
 use super::{
-    Motion, cmdline_grid::CmdlineGrid, grids::Grids, message_grids::MessageGrids,
-    pipelines::Pipelines, targets::Targets, text::BindGroupLayout as TextBindGroup,
+    Motion,
+    cmdline_grid::CmdlineGrid,
+    grids::Grids,
+    message_grids::MessageGrids,
+    pipelines::{Pipelines, composite},
+    targets::Targets,
+    text::BindGroupLayout as TextBindGroup,
     wgpu_context::WgpuContext,
 };
 use crate::{
@@ -10,7 +15,7 @@ use crate::{
     util::IntoSrgb,
 };
 use bytemuck::cast_slice;
-use neophyte_linalg::{PixelVec, Vec2};
+use neophyte_linalg::{CellVec, PixelVec, Vec2};
 use neophyte_ui_event::rgb::Rgb;
 use std::{
     fs::File,
@@ -240,7 +245,7 @@ impl RenderState {
             a: (self.clear_color[3] as f64).powf(2.2),
         };
 
-        for (_, _, grid) in grids() {
+        for (i, (_, offset, grid)) in grids().enumerate() {
             // TODO: Only repaint dirty grids
             self.pipelines
                 .cell_fill
@@ -250,9 +255,7 @@ impl RenderState {
             self.pipelines
                 .lines
                 .render(&mut encoder, grid, settings.underline_offset);
-        }
 
-        for (i, (_, _, grid)) in grids().enumerate() {
             let Some((monochrome, color)) = grid.targets() else {
                 continue;
             };
@@ -261,11 +264,27 @@ impl RenderState {
                 .pipelines
                 .composite
                 .bind_group(&self.wgpu_context.device, &monochrome.view);
+
+            let src_sz: PixelVec<_> = monochrome.texture.size().into();
+            let dst_sz: PixelVec<_> = self.targets.monochrome.size();
+            let push_constants = composite::PushConstants {
+                src: Vec2::new(0.0, offset.0.y as f32),
+                src_sz: src_sz.0.cast_as(),
+                dst: grid
+                    .window_position()
+                    .unwrap_or(CellVec::splat(0.0))
+                    .round_to_pixels(cell_size)
+                    .0
+                    .cast_as(),
+                dst_sz: dst_sz.0.cast_as(),
+            };
+
             self.pipelines.composite.render(
                 &mut encoder,
                 &self.targets.monochrome.view,
                 &bind_group,
                 (i == 0).then_some(wgpu::Color::TRANSPARENT),
+                push_constants,
             );
 
             let bind_group = self
@@ -277,6 +296,7 @@ impl RenderState {
                 &self.targets.color.view,
                 &bind_group,
                 (i == 0).then_some(wgpu::Color::TRANSPARENT),
+                push_constants,
             );
         }
 

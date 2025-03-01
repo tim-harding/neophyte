@@ -411,7 +411,8 @@ impl Text {
             PixelVec::splat(0)
         };
 
-        let new_target_size = self.size.into_pixels(cell_size);
+        // TODO: Only use double tall for scrolling grids
+        let new_target_size = self.size.into_pixels(cell_size) * PixelVec::new(1, 2);
 
         if old_target_size != new_target_size {
             let target_size = new_target_size.into();
@@ -466,7 +467,7 @@ impl Text {
         self.size
     }
 
-    pub fn offset(&self) -> Option<CellVec<f32>> {
+    pub fn window_position(&self) -> Option<CellVec<f32>> {
         self.window_position
     }
 

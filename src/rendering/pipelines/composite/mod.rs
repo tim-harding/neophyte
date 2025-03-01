@@ -1,4 +1,6 @@
 use crate::rendering::{nearest_sampler, texture::Texture};
+use bytemuck::{Pod, Zeroable, cast_slice};
+use neophyte_linalg::{PixelVec, Vec2};
 use wgpu::include_wgsl;
 
 pub struct Pipeline {
@@ -39,7 +41,10 @@ impl Pipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Composite pipeline"),
             bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
+            push_constant_ranges: &[wgpu::PushConstantRange {
+                stages: wgpu::ShaderStages::VERTEX,
+                range: 0..PushConstants::SIZE,
+            }],
         });
 
         Self {
@@ -57,6 +62,7 @@ impl Pipeline {
         color_target: &wgpu::TextureView,
         bind_group: &wgpu::BindGroup,
         clear_color: Option<wgpu::Color>,
+        push_constants: PushConstants,
     ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Composite render pass"),
@@ -78,6 +84,11 @@ impl Pipeline {
 
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, bind_group, &[]);
+        render_pass.set_push_constants(
+            wgpu::ShaderStages::VERTEX,
+            0,
+            cast_slice(&[push_constants]),
+        );
         render_pass.draw(0..6, 0..1);
     }
 
@@ -145,4 +156,17 @@ fn pipeline(
         multiview: None,
         cache: None,
     })
+}
+
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
+pub struct PushConstants {
+    pub src: Vec2<f32>,
+    pub src_sz: Vec2<f32>,
+    pub dst: Vec2<f32>,
+    pub dst_sz: Vec2<f32>,
+}
+
+impl PushConstants {
+    pub const SIZE: u32 = size_of::<Self>() as u32;
 }
