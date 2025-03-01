@@ -48,7 +48,6 @@ features = ["derive"]
 
 [dependencies.winit]
 version = "0.30.0"
-features = ["rwh_05"]
 
 [dependencies.font-kit]
 version = "0.14.1"
