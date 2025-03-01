@@ -270,6 +270,9 @@ impl RenderState {
                 .unwrap_or(CellVec::splat(0.0))
                 .round_to_pixels(cell_size);
 
+            // TODO:
+            // Only use blend pipeline here to merge grid targets...
+
             let bind_group = self
                 .pipelines
                 .composite
@@ -308,6 +311,8 @@ impl RenderState {
             a: (self.clear_color[3] as f64).powf(2.2),
         };
 
+        // TODO:
+        // And do composite here instead of blend to fix layering
         self.pipelines
             .blend
             .render(&mut encoder, &self.targets.color.view);
