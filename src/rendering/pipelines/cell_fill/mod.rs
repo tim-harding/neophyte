@@ -78,6 +78,7 @@ impl Pipeline {
         encoder: &'a mut wgpu::CommandEncoder,
         grid: &Text,
         cell_size: Vec2<u32>,
+        clear_color: wgpu::Color,
     ) {
         let Some((_, target)) = grid.targets() else {
             return;
@@ -91,7 +92,7 @@ impl Pipeline {
                 view: &target.view,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    load: wgpu::LoadOp::Clear(clear_color),
                     store: wgpu::StoreOp::Store,
                 },
             })],

@@ -239,17 +239,17 @@ impl RenderState {
         };
 
         let clear_color = wgpu::Color {
-            r: (self.clear_color[0] as f64).powf(2.2),
-            g: (self.clear_color[1] as f64).powf(2.2),
-            b: (self.clear_color[2] as f64).powf(2.2),
-            a: (self.clear_color[3] as f64).powf(2.2),
+            r: (self.clear_color[0] as f64),
+            g: (self.clear_color[1] as f64),
+            b: (self.clear_color[2] as f64),
+            a: (self.clear_color[3] as f64),
         };
 
         for (i, (_, offset, grid)) in grids().enumerate() {
             // TODO: Only repaint dirty grids
             self.pipelines
                 .cell_fill
-                .render(&mut encoder, grid, cell_size);
+                .render(&mut encoder, grid, cell_size, clear_color);
             self.pipelines.monochrome.render(&mut encoder, grid);
             self.pipelines.emoji.render(&mut encoder, grid);
             self.pipelines
@@ -300,6 +300,13 @@ impl RenderState {
                 dst_sz,
             );
         }
+
+        let clear_color = wgpu::Color {
+            r: (self.clear_color[0] as f64).powf(2.2),
+            g: (self.clear_color[1] as f64).powf(2.2),
+            b: (self.clear_color[2] as f64).powf(2.2),
+            a: (self.clear_color[3] as f64).powf(2.2),
+        };
 
         self.pipelines
             .blend
