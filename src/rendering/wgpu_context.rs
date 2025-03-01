@@ -14,9 +14,17 @@ impl WgpuContext {
         let surface_size: PixelVec<u32> = window.inner_size().into();
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::PRIMARY,
-            flags: wgpu::InstanceFlags::default(),
-            backend_options: wgpu::BackendOptions::default(),
+            backends: wgpu::Backends::SECONDARY,
+            flags: wgpu::InstanceFlags::VALIDATION,
+            backend_options: wgpu::BackendOptions {
+                gl: wgpu::GlBackendOptions {
+                    gles_minor_version: wgpu::Gles3MinorVersion::Automatic,
+                },
+                dx12: wgpu::Dx12BackendOptions {
+                    // TODO: Consider static option for perf
+                    shader_compiler: wgpu::Dx12Compiler::Fxc,
+                },
+            },
         });
 
         let surface = instance
