@@ -240,16 +240,6 @@ impl RenderState {
         }
 
         /*
-        self.pipelines.default_fill.render(
-            &mut encoder,
-            grids().map(|(z, _, grid)| (z, grid)),
-            &self.targets.color.view,
-            &self.targets.depth.view,
-            target_size,
-            cell_size,
-            self.clear_color,
-        );
-
         self.pipelines.cell_fill.render(
             &mut encoder,
             grids(),
