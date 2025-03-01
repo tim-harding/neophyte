@@ -213,7 +213,7 @@ impl RenderState {
         let grid_count = self.grids.grid_count() as f32;
         let grids = || {
             self.grids
-                .front_to_back()
+                .back_to_front()
                 .map(|(z, grid)| {
                     (
                         (z as f32 + 1.) / (grid_count + 1.),
@@ -233,6 +233,13 @@ impl RenderState {
                 )))
         };
 
+        let clear_color = wgpu::Color {
+            r: (self.clear_color[0] as f64).powf(2.2),
+            g: (self.clear_color[1] as f64).powf(2.2),
+            b: (self.clear_color[2] as f64).powf(2.2),
+            a: (self.clear_color[3] as f64).powf(2.2),
+        };
+
         for (_, _, grid) in grids() {
             // TODO: Only repaint dirty grids
             self.pipelines
@@ -245,82 +252,77 @@ impl RenderState {
                 .render(&mut encoder, grid, settings.underline_offset);
         }
 
-        for (_, _, grid) in grids() {
+        for (i, (_, _, grid)) in grids().enumerate() {
             let Some((monochrome, color)) = grid.targets() else {
                 continue;
             };
-            for texture in [monochrome, color] {
-                let bind_group = self
-                    .pipelines
-                    .composite
-                    .bind_group(&self.wgpu_context.device, &texture.view);
-                self.pipelines.composite.render(
-                    &mut encoder,
-                    &self.targets.color.view,
-                    &bind_group,
-                );
-            }
+
+            let bind_group = self
+                .pipelines
+                .composite
+                .bind_group(&self.wgpu_context.device, &monochrome.view);
+            self.pipelines.composite.render(
+                &mut encoder,
+                &self.targets.monochrome.view,
+                &bind_group,
+                (i == 0).then_some(wgpu::Color::TRANSPARENT),
+            );
+
+            let bind_group = self
+                .pipelines
+                .composite
+                .bind_group(&self.wgpu_context.device, &color.view);
+            self.pipelines.composite.render(
+                &mut encoder,
+                &self.targets.color.view,
+                &bind_group,
+                (i == 0).then_some(wgpu::Color::TRANSPARENT),
+            );
         }
 
-        /*
         self.pipelines
             .blend
             .render(&mut encoder, &self.targets.color.view);
 
+        let target_size: PixelVec<_> = output.texture.size().into();
         self.pipelines.cursor.render(
             &mut encoder,
             &self.targets.color.view,
             target_size.cast_as(),
         );
-
         self.pipelines.cmdline_cursor.render(
             &mut encoder,
             &self.targets.color.view,
             target_size.cast_as(),
         );
-        */
 
-        self.pipelines.gamma_blit_final.render(
-            &mut encoder,
-            &output_view,
-            wgpu::Color {
-                r: (self.clear_color[0] as f64).powf(2.2),
-                g: (self.clear_color[1] as f64).powf(2.2),
-                b: (self.clear_color[2] as f64).powf(2.2),
-                a: (self.clear_color[3] as f64).powf(2.2),
-            },
-        );
+        self.pipelines
+            .gamma_blit_final
+            .render(&mut encoder, &output_view, clear_color);
 
         if settings.render_target.is_some() {
-            self.pipelines.blit_png.render(
-                &mut encoder,
-                &self.targets.png.view,
-                wgpu::Color {
-                    r: (self.clear_color[0] as f64).powf(2.2),
-                    g: (self.clear_color[1] as f64).powf(2.2),
-                    b: (self.clear_color[2] as f64).powf(2.2),
-                    a: (self.clear_color[3] as f64).powf(2.2),
+            self.pipelines
+                .blit_png
+                .render(&mut encoder, &self.targets.png.view, clear_color);
+
+            encoder.copy_texture_to_buffer(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &self.targets.png.texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
+                    aspect: wgpu::TextureAspect::All,
                 },
+                wgpu::TexelCopyBufferInfo {
+                    buffer: &self.targets.png_staging,
+                    layout: wgpu::TexelCopyBufferLayout {
+                        offset: 0,
+                        bytes_per_row: Some(self.targets.png_size.0.x * 4),
+                        rows_per_image: Some(self.targets.png_size.0.y),
+                    },
+                },
+                self.targets.png_size.into(),
             );
         }
-
-        encoder.copy_texture_to_buffer(
-            wgpu::TexelCopyTextureInfo {
-                texture: &self.targets.png.texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
-                aspect: wgpu::TextureAspect::All,
-            },
-            wgpu::TexelCopyBufferInfo {
-                buffer: &self.targets.png_staging,
-                layout: wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(self.targets.png_size.0.x * 4),
-                    rows_per_image: Some(self.targets.png_size.0.y),
-                },
-            },
-            self.targets.png_size.into(),
-        );
 
         let submission = self
             .wgpu_context

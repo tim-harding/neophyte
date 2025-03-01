@@ -56,6 +56,7 @@ impl Pipeline {
         encoder: &mut wgpu::CommandEncoder,
         color_target: &wgpu::TextureView,
         bind_group: &wgpu::BindGroup,
+        clear_color: Option<wgpu::Color>,
     ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Composite render pass"),
@@ -63,7 +64,10 @@ impl Pipeline {
                 view: color_target,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
+                    load: match clear_color {
+                        Some(clear_color) => wgpu::LoadOp::Clear(clear_color),
+                        None => wgpu::LoadOp::Load,
+                    },
                     store: wgpu::StoreOp::Store,
                 },
             })],

@@ -110,10 +110,9 @@ impl Grids {
         self.draw_order.len()
     }
 
-    pub fn front_to_back(&self) -> impl Iterator<Item = (usize, &Grid)> {
+    pub fn back_to_front(&self) -> impl Iterator<Item = (usize, &Grid)> {
         self.draw_order
             .iter()
-            .rev()
             .enumerate()
             .map(move |(i, &grid_id)| (i, self.grids.get(&grid_id).unwrap()))
     }
