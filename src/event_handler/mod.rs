@@ -515,15 +515,14 @@ impl EventHandler {
         };
         self.mouse.position = position;
         if let Some(grid) = self.ui.grid_under_cursor(position, self.cell_size().cast()) {
-            let position = position.into_cells(cell_size);
             self.neovim.input_mouse(
                 self.mouse.buttons.first().unwrap_or(Button::Move),
                 // Irrelevant for move
                 Action::ButtonDrag,
                 self.modifiers.into(),
                 grid.grid,
-                position.0.y,
-                position.0.x,
+                grid.position.0.y,
+                grid.position.0.x,
             );
         }
     }
