@@ -1,5 +1,5 @@
 use super::messagepack_ext_types::{Buffer, Tabpage};
-use crate::{parse_map, MaybeInto, Parse, Values};
+use crate::{MaybeInto, Parse, Values, parse_map};
 use rmpv::Value;
 use serde::Serialize;
 

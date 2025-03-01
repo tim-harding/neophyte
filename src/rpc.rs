@@ -1,5 +1,5 @@
 use neophyte_ui_event::{Parse, Values};
-use rmpv::{decode::read_value, encode::write_value, Value};
+use rmpv::{Value, decode::read_value, encode::write_value};
 use std::io::{self, Read, Write};
 
 macro_rules! value_vec {

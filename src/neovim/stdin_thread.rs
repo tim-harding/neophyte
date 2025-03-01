@@ -1,4 +1,4 @@
-use crate::rpc::{encode, Message};
+use crate::rpc::{Message, encode};
 use std::{io::BufWriter, process::ChildStdin, sync::mpsc::Receiver};
 
 pub struct StdinThread {

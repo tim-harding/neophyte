@@ -1,5 +1,5 @@
 use neophyte_ui_event::{
-    msg_history_show::MsgHistoryEntry, msg_show::ReplaceLast, Content, MsgShow,
+    Content, MsgShow, msg_history_show::MsgHistoryEntry, msg_show::ReplaceLast,
 };
 
 type Message = MsgHistoryEntry;

@@ -1,7 +1,7 @@
 use crate::ui::options::FontSize;
 use neophyte_linalg::Vec2;
 use std::{fs, io, path::Path, sync::Arc};
-use swash::{proxy::CharmapProxy, CacheKey, Charmap, FontRef};
+use swash::{CacheKey, Charmap, FontRef, proxy::CharmapProxy};
 
 /// Wrapper over a Swash font
 #[derive(Debug, Clone)]

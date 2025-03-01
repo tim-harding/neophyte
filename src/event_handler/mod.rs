@@ -3,16 +3,16 @@ pub mod settings;
 
 use self::{buttons::Buttons, settings::Settings};
 use crate::{
-    neovim::{action::Action, button::Button, Neovim},
-    rendering::{state::RenderState, Motion},
+    UserEvent,
+    neovim::{Neovim, action::Action, button::Button},
+    rendering::{Motion, state::RenderState},
     rpc::{self, Notification},
     text::{font::Metrics, fonts::FontSetting},
     ui::{
-        options::{FontSize, GuiFont},
         Ui,
+        options::{FontSize, GuiFont},
     },
     util::IntoSrgb,
-    UserEvent,
 };
 use event::{Rgb, Values};
 use neophyte_linalg::{PixelVec, Vec2};
@@ -22,7 +22,7 @@ use serde::Serialize;
 use std::{
     fs::File,
     io::Write,
-    sync::{mpsc, Arc},
+    sync::{Arc, mpsc},
     time::{Duration, Instant},
 };
 use winit::{

@@ -1,5 +1,5 @@
 use super::rgb::Rgb;
-use crate::{parse_maybe_u32, Parse, Values};
+use crate::{Parse, Values, parse_maybe_u32};
 use rmpv::Value;
 use serde::Serialize;
 

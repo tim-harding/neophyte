@@ -1,11 +1,11 @@
 #![allow(unused)]
 
 use super::{
-    window::{Window, WindowOffset},
     HlId,
+    window::{Window, WindowOffset},
 };
 use neophyte_linalg::{CellVec, Vec2};
-use neophyte_ui_event::{grid_line, hl_attr_define::Attributes, Anchor, GridScroll, HlAttrDefine};
+use neophyte_ui_event::{Anchor, GridScroll, HlAttrDefine, grid_line, hl_attr_define::Attributes};
 use packed_char::{Contents, PackedChar, U22};
 use std::{
     collections::HashMap,

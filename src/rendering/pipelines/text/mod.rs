@@ -4,7 +4,7 @@ use crate::{
     rendering::{
         glyph_bind_group::GlyphBindGroup,
         glyph_push_constants::GlyphPushConstants,
-        text::{set_scissor, Text},
+        text::{Text, set_scissor},
         texture::Texture,
     },
     text::cache::Cached,

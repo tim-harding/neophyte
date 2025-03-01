@@ -44,11 +44,7 @@ impl Parse for ReplaceLast {
 
 impl From<bool> for ReplaceLast {
     fn from(value: bool) -> Self {
-        if value {
-            Self::Replace
-        } else {
-            Self::Keep
-        }
+        if value { Self::Replace } else { Self::Keep }
     }
 }
 

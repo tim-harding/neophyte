@@ -1,4 +1,4 @@
-use bytemuck::{checked::cast_slice, Pod, Zeroable};
+use bytemuck::{Pod, Zeroable, checked::cast_slice};
 use neophyte_linalg::PixelVec;
 use std::mem::size_of;
 

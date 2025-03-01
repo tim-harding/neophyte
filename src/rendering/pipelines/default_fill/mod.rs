@@ -6,10 +6,10 @@
 //! front-to-back rendering and overlapping windows.
 
 use crate::rendering::{
-    text::{set_scissor, Text},
+    text::{Text, set_scissor},
     texture::Texture,
 };
-use bytemuck::{checked::cast_slice, Pod, Zeroable};
+use bytemuck::{Pod, Zeroable, checked::cast_slice};
 use neophyte_linalg::{PixelVec, Vec2};
 use wgpu::include_wgsl;
 

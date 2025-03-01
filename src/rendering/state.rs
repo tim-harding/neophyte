@@ -1,6 +1,7 @@
 use super::{
-    cmdline_grid::CmdlineGrid, grids::Grids, message_grids::MessageGrids, pipelines::Pipelines,
-    targets::Targets, text::BindGroupLayout as TextBindGroup, wgpu_context::WgpuContext, Motion,
+    Motion, cmdline_grid::CmdlineGrid, grids::Grids, message_grids::MessageGrids,
+    pipelines::Pipelines, targets::Targets, text::BindGroupLayout as TextBindGroup,
+    wgpu_context::WgpuContext,
 };
 use crate::{
     event_handler::settings::Settings,

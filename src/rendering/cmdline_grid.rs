@@ -7,7 +7,7 @@ use crate::{
     },
 };
 use neophyte_linalg::{CellVec, Vec2};
-use neophyte_ui_event::{hl_attr_define::Attributes, rgb::Rgb, Content};
+use neophyte_ui_event::{Content, hl_attr_define::Attributes, rgb::Rgb};
 use swash::shape::ShapeContext;
 
 pub struct CmdlineGrid {

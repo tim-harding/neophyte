@@ -6,15 +6,15 @@ use crate::{
     ui::grid::CellContents,
     util::IntoSrgb,
 };
-use bytemuck::{cast_slice, Pod, Zeroable};
+use bytemuck::{Pod, Zeroable, cast_slice};
 use neophyte_linalg::{CellVec, PixelVec, Vec2};
 use neophyte_ui_event::{hl_attr_define::Attributes, rgb::Rgb};
 use std::num::NonZeroU64;
 use swash::{
     shape::ShapeContext,
     text::{
-        cluster::{CharCluster, Parser, Status, Token},
         Script,
+        cluster::{CharCluster, Parser, Status, Token},
     },
 };
 

@@ -3,11 +3,11 @@
 //! cursor appears to go underneath.
 
 use crate::{
-    rendering::{nearest_sampler, texture::Texture, Motion},
-    ui::{cmdline::Mode, Ui},
-    util::{nice_s_curve, IntoSrgb},
+    rendering::{Motion, nearest_sampler, texture::Texture},
+    ui::{Ui, cmdline::Mode},
+    util::{IntoSrgb, nice_s_curve},
 };
-use bytemuck::{cast_slice, Pod, Zeroable};
+use bytemuck::{Pod, Zeroable, cast_slice};
 use neophyte_linalg::{CellVec, Mat3, PixelVec, Vec2};
 use neophyte_ui_event::{
     mode_info_set::{CursorShape, ModeInfo},

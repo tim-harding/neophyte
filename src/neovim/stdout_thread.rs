@@ -1,5 +1,5 @@
 use super::Incoming;
-use crate::rpc::{self, decode, DecodeError, Message};
+use crate::rpc::{self, DecodeError, Message, decode};
 use rmpv::Value;
 use std::{
     io::{BufReader, ErrorKind},

@@ -3,7 +3,7 @@
 //! transparency as needed.
 
 use crate::rendering::nearest_sampler;
-use bytemuck::{cast_slice, Pod, Zeroable};
+use bytemuck::{Pod, Zeroable, cast_slice};
 use neophyte_linalg::PixelVec;
 use wgpu::include_wgsl;
 

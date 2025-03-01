@@ -1,7 +1,7 @@
 use prettytable::Table;
 use regex::Regex;
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     io::{self, BufRead},
 };
 

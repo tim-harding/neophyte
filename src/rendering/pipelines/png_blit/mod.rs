@@ -2,7 +2,7 @@
 //! appropriate padding to copy to buffer for transfer to the CPU.
 
 use crate::rendering::{nearest_sampler, texture::Texture};
-use bytemuck::{cast_slice, Pod, Zeroable};
+use bytemuck::{Pod, Zeroable, cast_slice};
 use wgpu::include_wgsl;
 
 pub struct Pipeline {

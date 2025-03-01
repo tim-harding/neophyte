@@ -9,11 +9,11 @@ use self::{
 };
 use neophyte_linalg::{CellVec, PixelVec, Vec2};
 use neophyte_ui_event::{
-    hl_attr_define::Attributes, mode_info_set::ModeInfo, Chdir, CmdlineBlockAppend,
-    CmdlineBlockShow, CmdlinePos, DefaultColorsSet, Event, GridClear, GridCursorGoto, GridDestroy,
-    GridLine, GridResize, GridScroll, HlGroupSet, ModeChange, ModeInfoSet, MsgHistoryShow,
-    MsgRuler, MsgSetPos, MsgShowcmd, MsgShowmode, OptionSet, PopupmenuSelect, PopupmenuShow,
-    TablineUpdate, WinClose, WinExternalPos, WinFloatPos, WinHide, WinPos, WinViewport,
+    Chdir, CmdlineBlockAppend, CmdlineBlockShow, CmdlinePos, DefaultColorsSet, Event, GridClear,
+    GridCursorGoto, GridDestroy, GridLine, GridResize, GridScroll, HlGroupSet, ModeChange,
+    ModeInfoSet, MsgHistoryShow, MsgRuler, MsgSetPos, MsgShowcmd, MsgShowmode, OptionSet,
+    PopupmenuSelect, PopupmenuShow, TablineUpdate, WinClose, WinExternalPos, WinFloatPos, WinHide,
+    WinPos, WinViewport, hl_attr_define::Attributes, mode_info_set::ModeInfo,
 };
 use std::{collections::HashMap, fmt::Debug};
 use window::{FloatingWindow, NormalWindow, Window};

@@ -15,7 +15,7 @@ use std::{
     ffi::OsStr,
     io::{self, ErrorKind},
     process::{Child, Command, Stdio},
-    sync::{mpsc, Arc, RwLock},
+    sync::{Arc, RwLock, mpsc},
 };
 
 #[derive(Debug, Clone)]

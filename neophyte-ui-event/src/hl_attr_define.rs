@@ -1,5 +1,5 @@
 use super::rgb::Rgb;
-use crate::{maybe_field, parse_map, Parse, Values};
+use crate::{Parse, Values, maybe_field, parse_map};
 use rmpv::Value;
 use serde::Serialize;
 use std::fmt::{self, Debug, Formatter};

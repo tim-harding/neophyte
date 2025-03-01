@@ -4,10 +4,10 @@ use super::{
 };
 use bytemuck::{Pod, Zeroable};
 use neophyte_linalg::Vec2;
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{HashMap, hash_map::Entry};
 use swash::{
-    scale::{image::Content, Render, ScaleContext, Source, StrikeWith},
     FontRef, GlyphId,
+    scale::{Render, ScaleContext, Source, StrikeWith, image::Content},
 };
 
 /// A cache of font glyphs

@@ -1,4 +1,4 @@
-use crate::{parse_first_element, parse_maybe_u32, Parse};
+use crate::{Parse, parse_first_element, parse_maybe_u32};
 use rmpv::Value;
 use serde::Serialize;
 
