@@ -245,8 +245,24 @@ impl RenderState {
                 .render(&mut encoder, grid, settings.underline_offset);
         }
 
-        /*
+        for (_, _, grid) in grids() {
+            let Some((monochrome, color)) = grid.targets() else {
+                continue;
+            };
+            for texture in [monochrome, color] {
+                let bind_group = self
+                    .pipelines
+                    .composite
+                    .bind_group(&self.wgpu_context.device, &texture.view);
+                self.pipelines.composite.render(
+                    &mut encoder,
+                    &self.targets.color.view,
+                    &bind_group,
+                );
+            }
+        }
 
+        /*
         self.pipelines
             .blend
             .render(&mut encoder, &self.targets.color.view);
@@ -262,15 +278,7 @@ impl RenderState {
             &self.targets.color.view,
             target_size.cast_as(),
         );
-
-        self.pipelines.emoji.render(
-            &mut encoder,
-            grids(),
-            &self.targets.color.view,
-            &self.targets.depth.view,
-            target_size,
-            cell_size,
-        );
+        */
 
         self.pipelines.gamma_blit_final.render(
             &mut encoder,
@@ -295,7 +303,6 @@ impl RenderState {
                 },
             );
         }
-        */
 
         encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo {

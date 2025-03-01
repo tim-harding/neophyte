@@ -1,5 +1,6 @@
 pub mod blend;
 pub mod cell_fill;
+pub mod composite;
 pub mod cursor;
 pub mod gamma_blit;
 pub mod lines;
@@ -14,6 +15,7 @@ pub struct Pipelines {
     pub cursor: cursor::Pipeline,
     pub cmdline_cursor: cursor::Pipeline,
     pub blend: blend::Pipeline,
+    pub composite: composite::Pipeline,
     pub cell_fill: cell_fill::Pipeline,
     pub monochrome: text::Pipeline,
     pub emoji: text::Pipeline,
@@ -33,6 +35,7 @@ impl Pipelines {
             cursor: cursor::Pipeline::new(device, &targets.monochrome.view),
             cmdline_cursor: cursor::Pipeline::new(device, &targets.monochrome.view),
             blend: blend::Pipeline::new(device, &targets.monochrome.view),
+            composite: composite::Pipeline::new(device, &targets.monochrome.view),
             cell_fill: cell_fill::Pipeline::new(
                 device,
                 text_bind_group_layout,
