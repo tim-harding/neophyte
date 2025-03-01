@@ -235,19 +235,15 @@ impl RenderState {
         };
 
         for grid in grids() {
+            // TODO: Only repaint dirty grids
+            self.pipelines
+                .cell_fill
+                .render(&mut encoder, grid.2, cell_size);
             self.pipelines.monochrome.render(&mut encoder, grid.2);
             self.pipelines.emoji.render(&mut encoder, grid.2);
         }
 
         /*
-        self.pipelines.cell_fill.render(
-            &mut encoder,
-            grids(),
-            &self.targets.color.view,
-            &self.targets.depth.view,
-            target_size,
-            cell_size,
-        );
 
         self.pipelines.monochrome.render(
             &mut encoder,

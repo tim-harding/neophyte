@@ -59,13 +59,7 @@ impl Pipeline {
                 unclipped_depth: false,
                 conservative: false,
             },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: Texture::DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::LessEqual,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
+            depth_stencil: None,
             multisample: wgpu::MultisampleState {
                 count: 1,
                 mask: !0,
@@ -79,59 +73,48 @@ impl Pipeline {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn render<'a, 'b>(
+    pub fn render<'a>(
         &'a self,
         encoder: &'a mut wgpu::CommandEncoder,
-        grids: impl Iterator<Item = (f32, PixelVec<i32>, &'b Text)>,
-        color_target: &wgpu::TextureView,
-        depth_target: &wgpu::TextureView,
-        target_size: PixelVec<u32>,
+        grid: &Text,
         cell_size: Vec2<u32>,
     ) {
+        let Some((_, target)) = grid.targets() else {
+            return;
+        };
+
+        let target_size: PixelVec<_> = target.texture.size().into();
+
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Cell fill render pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: color_target,
+                view: &target.view,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Load,
                     store: wgpu::StoreOp::Store,
                 },
             })],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: depth_target,
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: wgpu::StoreOp::Store,
-                }),
-                stencil_ops: None,
-            }),
+            depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
         });
 
         render_pass.set_pipeline(&self.pipeline);
-        for (z, scroll_offset, grid) in grids {
-            let Some(bg_bind_group) = &grid.cell_fill_bind_group() else {
-                continue;
-            };
-            render_pass.set_bind_group(0, Some(*bg_bind_group), &[]);
+        let Some(bg_bind_group) = &grid.cell_fill_bind_group() else {
+            return;
+        };
+        render_pass.set_bind_group(0, Some(*bg_bind_group), &[]);
 
-            if let Some(offset) = grid.offset() {
-                let size = grid.size().into_pixels(cell_size);
-                let offset = offset.round_to_pixels(cell_size);
-                set_scissor(size, offset, target_size, &mut render_pass);
-                PushConstants {
-                    target_size: target_size.try_cast().unwrap(),
-                    cell_size: cell_size.try_cast().unwrap(),
-                    offset: offset + scroll_offset,
-                    z,
-                    padding: 0,
-                }
-                .set(&mut render_pass);
-                render_pass.draw(0..grid.cell_fill_count() * 6, 0..1);
-            }
+        PushConstants {
+            target_size: target_size.try_cast().unwrap(),
+            cell_size: cell_size.try_cast().unwrap(),
+            offset: PixelVec::splat(0), // TODO: Remove
+            z: 0.0,                     // TODO: Remove
+            padding: 0,
         }
+        .set(&mut render_pass);
+        render_pass.draw(0..grid.cell_fill_count() * 6, 0..1);
     }
 }
 
