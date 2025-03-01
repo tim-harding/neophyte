@@ -209,7 +209,6 @@ impl RenderState {
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                     label: Some("Render encoder"),
                 });
-        //let target_size = self.targets.color.texture.size().into();
 
         let grid_count = self.grids.grid_count() as f32;
         let grids = || {
@@ -234,35 +233,19 @@ impl RenderState {
                 )))
         };
 
-        for grid in grids() {
+        for (_, _, grid) in grids() {
             // TODO: Only repaint dirty grids
             self.pipelines
                 .cell_fill
-                .render(&mut encoder, grid.2, cell_size);
-            self.pipelines.monochrome.render(&mut encoder, grid.2);
-            self.pipelines.emoji.render(&mut encoder, grid.2);
+                .render(&mut encoder, grid, cell_size);
+            self.pipelines.monochrome.render(&mut encoder, grid);
+            self.pipelines.emoji.render(&mut encoder, grid);
+            self.pipelines
+                .lines
+                .render(&mut encoder, grid, settings.underline_offset);
         }
 
         /*
-
-        self.pipelines.monochrome.render(
-            &mut encoder,
-            grids(),
-            &self.targets.monochrome.view,
-            &self.targets.depth.view,
-            target_size,
-            cell_size,
-        );
-
-        self.pipelines.lines.render(
-            &mut encoder,
-            grids(),
-            &self.targets.monochrome.view,
-            &self.targets.depth.view,
-            target_size,
-            cell_size,
-            settings.underline_offset,
-        );
 
         self.pipelines
             .blend

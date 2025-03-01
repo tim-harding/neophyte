@@ -1,4 +1,4 @@
-use neophyte_linalg::Vec2;
+use neophyte_linalg::{PixelVec, Vec2};
 use wgpu::util::{DeviceExt, TextureDataOrder};
 
 pub struct Texture {
@@ -78,5 +78,9 @@ impl Texture {
 
         let view = texture.create_view(&Default::default());
         Self { texture, view }
+    }
+
+    pub fn size(&self) -> PixelVec<u32> {
+        self.texture.size().into()
     }
 }
