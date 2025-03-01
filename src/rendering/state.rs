@@ -236,6 +236,7 @@ impl RenderState {
 
         for grid in grids() {
             self.pipelines.monochrome.render(&mut encoder, grid.2);
+            self.pipelines.emoji.render(&mut encoder, grid.2);
         }
 
         /*

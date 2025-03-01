@@ -2,14 +2,12 @@
 
 use crate::{
     rendering::{
-        glyph_bind_group::GlyphBindGroup,
-        glyph_push_constants::GlyphPushConstants,
-        text::{Text, set_scissor},
+        glyph_bind_group::GlyphBindGroup, glyph_push_constants::GlyphPushConstants, text::Text,
         texture::Texture,
     },
     text::cache::Cached,
 };
-use neophyte_linalg::{PixelVec, Vec2};
+use neophyte_linalg::PixelVec;
 use wgpu::include_wgsl;
 
 pub enum Kind {
