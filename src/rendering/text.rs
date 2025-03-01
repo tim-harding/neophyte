@@ -18,6 +18,8 @@ use swash::{
     },
 };
 
+use super::texture::Texture;
+
 pub struct Text {
     monochrome: Vec<MonochromeCell>,
     emoji: Vec<EmojiCell>,
@@ -30,6 +32,7 @@ pub struct Text {
     emoji_bind_group: Option<wgpu::BindGroup>,
     lines_bind_group: Option<wgpu::BindGroup>,
     window_position: Option<CellVec<f32>>,
+    targets: Option<(Texture, Texture)>,
     size: CellVec<u32>,
 }
 
@@ -49,6 +52,7 @@ impl Text {
             // TODO: Should be initialized to grid position. This may be
             // causing the initial Telescope scroll.
             window_position: None,
+            targets: None,
             size,
         }
     }
@@ -400,6 +404,38 @@ impl Text {
                 }],
             })
         });
+
+        let old_target_size = if let Some((target, _)) = &self.targets {
+            target.texture.size().into()
+        } else {
+            PixelVec::splat(0)
+        };
+
+        let new_target_size = self.size.into_pixels(cell_size);
+
+        if old_target_size != new_target_size {
+            let target_size = new_target_size.into();
+            self.targets = Some((
+                Texture::target(
+                    device,
+                    &Texture::descriptor(
+                        "Text monochrome target",
+                        target_size,
+                        Texture::LINEAR_FORMAT,
+                        Texture::ATTACHMENT_AND_BINDING,
+                    ),
+                ),
+                Texture::target(
+                    device,
+                    &Texture::descriptor(
+                        "Text color target",
+                        target_size,
+                        Texture::LINEAR_FORMAT,
+                        Texture::ATTACHMENT_AND_BINDING,
+                    ),
+                ),
+            ))
+        }
     }
 
     pub fn update_window(&mut self, window_position: Option<CellVec<f32>>) {
