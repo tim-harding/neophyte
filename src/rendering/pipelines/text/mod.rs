@@ -75,13 +75,7 @@ impl Pipeline {
                 unclipped_depth: false,
                 conservative: false,
             },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: Texture::DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: wgpu::CompareFunction::LessEqual,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
+            depth_stencil: None,
             multisample: wgpu::MultisampleState {
                 count: 1,
                 mask: !0,
@@ -113,67 +107,58 @@ impl Pipeline {
         self.atlas_size = cached_glyphs.atlas.size();
     }
 
-    pub fn render<'a, 'b>(
-        &'a self,
-        encoder: &'a mut wgpu::CommandEncoder,
-        grids: impl Iterator<Item = (f32, PixelVec<i32>, &'b Text)>,
-        color_target: &wgpu::TextureView,
-        depth_target: &wgpu::TextureView,
-        target_size: PixelVec<u32>,
-        cell_size: Vec2<u32>,
-    ) {
-        let color_load_op = match self.kind {
-            Kind::Monochrome => wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
-            Kind::Emoji => wgpu::LoadOp::Load,
+    pub fn render<'a>(&'a self, encoder: &'a mut wgpu::CommandEncoder, grid: &Text) {
+        let Some((monochrome, color)) = grid.targets() else {
+            return;
         };
+
+        let (color_load_op, target) = match self.kind {
+            Kind::Monochrome => (wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT), monochrome),
+            Kind::Emoji => (wgpu::LoadOp::Load, color),
+        };
+
+        let size: PixelVec<_> = target.texture.size().into();
+
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Glyph render pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: color_target,
+                view: &target.view,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: color_load_op,
                     store: wgpu::StoreOp::Store,
                 },
             })],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: depth_target,
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: wgpu::StoreOp::Store,
-                }),
-                stencil_ops: None,
-            }),
+            depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
         });
 
-        if let Some(glyph_bind_group) = self.bind_group.bind_group() {
-            render_pass.set_pipeline(&self.pipeline);
-            render_pass.set_bind_group(0, glyph_bind_group, &[]);
-            for (z, scroll_offset, grid) in grids {
-                let (bind_group, count) = match self.kind {
-                    Kind::Monochrome => (grid.monochrome_bind_group(), grid.monochrome_count()),
-                    Kind::Emoji => (grid.emoji_bind_group(), grid.emoji_count()),
-                };
-                let Some(bind_group) = bind_group else {
-                    continue;
-                };
-                render_pass.set_bind_group(1, bind_group, &[]);
-                let size = grid.size().into_pixels(cell_size);
-                if let Some(offset) = grid.offset() {
-                    let offset = offset.round_to_pixels(cell_size);
-                    set_scissor(size, offset, target_size, &mut render_pass);
-                    GlyphPushConstants {
-                        target_size: target_size.try_cast().unwrap(),
-                        offset: offset + scroll_offset,
-                        z,
-                        atlas_size: self.atlas_size.try_into().unwrap(),
-                    }
-                    .set(&mut render_pass);
-                    render_pass.draw(0..count * 6, 0..1);
-                }
-            }
+        let Some(glyph_bind_group) = self.bind_group.bind_group() else {
+            return;
+        };
+
+        render_pass.set_pipeline(&self.pipeline);
+        render_pass.set_bind_group(0, glyph_bind_group, &[]);
+        let (bind_group, count) = match self.kind {
+            Kind::Monochrome => (grid.monochrome_bind_group(), grid.monochrome_count()),
+            Kind::Emoji => (grid.emoji_bind_group(), grid.emoji_count()),
+        };
+        let Some(bind_group) = bind_group else {
+            return;
+        };
+
+        render_pass.set_bind_group(1, bind_group, &[]);
+        GlyphPushConstants {
+            target_size: size.try_cast().unwrap(),
+            // TODO: Used to include scroll offset, but now we want to render to a
+            // double-height texture and clip it properly when we composite grids later.
+            // This is no longer needed here.
+            offset: PixelVec::splat(0),
+            z: 0.0, // TODO: No longer needed
+            atlas_size: self.atlas_size.try_into().unwrap(),
         }
+        .set(&mut render_pass);
+        render_pass.draw(0..count * 6, 0..1);
     }
 }

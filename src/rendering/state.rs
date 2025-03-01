@@ -209,7 +209,7 @@ impl RenderState {
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                     label: Some("Render encoder"),
                 });
-        let target_size = self.targets.color.texture.size().into();
+        //let target_size = self.targets.color.texture.size().into();
 
         let grid_count = self.grids.grid_count() as f32;
         let grids = || {
@@ -234,6 +234,11 @@ impl RenderState {
                 )))
         };
 
+        for grid in grids() {
+            self.pipelines.monochrome.render(&mut encoder, grid.2);
+        }
+
+        /*
         self.pipelines.default_fill.render(
             &mut encoder,
             grids().map(|(z, _, grid)| (z, grid)),
@@ -320,6 +325,7 @@ impl RenderState {
                 },
             );
         }
+        */
 
         encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo {

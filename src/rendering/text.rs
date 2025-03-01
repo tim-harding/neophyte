@@ -458,6 +458,10 @@ impl Text {
         self.lines_bind_group.as_ref()
     }
 
+    pub fn targets(&self) -> Option<&(Texture, Texture)> {
+        self.targets.as_ref()
+    }
+
     pub fn size(&self) -> CellVec<u32> {
         self.size
     }
