@@ -260,31 +260,29 @@ impl RenderState {
                 continue;
             };
 
+            let clear_color = (i == 0).then_some(wgpu::Color::TRANSPARENT);
+            let src_sz: PixelVec<_> = monochrome.texture.size().into();
+            let src_sz = src_sz / PixelVec::new(1, 2);
+            let dst_sz: PixelVec<_> = self.targets.monochrome.size();
+            let src = offset;
+            let dst = grid
+                .window_position()
+                .unwrap_or(CellVec::splat(0.0))
+                .round_to_pixels(cell_size);
+
             let bind_group = self
                 .pipelines
                 .composite
                 .bind_group(&self.wgpu_context.device, &monochrome.view);
-
-            let src_sz: PixelVec<_> = monochrome.texture.size().into();
-            let dst_sz: PixelVec<_> = self.targets.monochrome.size();
-            let push_constants = composite::PushConstants {
-                src: Vec2::new(0.0, offset.0.y as f32),
-                src_sz: src_sz.0.cast_as(),
-                dst: grid
-                    .window_position()
-                    .unwrap_or(CellVec::splat(0.0))
-                    .round_to_pixels(cell_size)
-                    .0
-                    .cast_as(),
-                dst_sz: dst_sz.0.cast_as(),
-            };
-
             self.pipelines.composite.render(
                 &mut encoder,
                 &self.targets.monochrome.view,
                 &bind_group,
-                (i == 0).then_some(wgpu::Color::TRANSPARENT),
-                push_constants,
+                clear_color,
+                src,
+                src_sz,
+                dst,
+                dst_sz,
             );
 
             let bind_group = self
@@ -295,8 +293,11 @@ impl RenderState {
                 &mut encoder,
                 &self.targets.color.view,
                 &bind_group,
-                (i == 0).then_some(wgpu::Color::TRANSPARENT),
-                push_constants,
+                clear_color,
+                src,
+                src_sz,
+                dst,
+                dst_sz,
             );
         }
 

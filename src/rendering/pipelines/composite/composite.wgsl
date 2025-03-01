@@ -25,10 +25,9 @@ fn vs_main(
         f32(in_vertex_index % 2u),
         f32(((in_vertex_index + 5u) % 6u) / 3u),
     );
-    let src_window = info.src_sz * vec2<f32>(1.0, 0.5);
-    out.uv = (info.src + uv * src_window) / info.src_sz;
+    out.uv = (info.src + uv * info.src_sz) / (info.src_sz * vec2<f32>(1.0, 2.0));
     out.clip_position = vec4<f32>(
-        (vec2<f32>(uv) * src_window + info.dst) / info.dst_sz * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
+        (vec2<f32>(uv) * info.src_sz + info.dst) / info.dst_sz * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
         1.0,
         1.0
     );

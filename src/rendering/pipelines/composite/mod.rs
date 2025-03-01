@@ -1,4 +1,4 @@
-use crate::rendering::{nearest_sampler, texture::Texture};
+use crate::rendering::{nearest_sampler, text::set_scissor, texture::Texture};
 use bytemuck::{Pod, Zeroable, cast_slice};
 use neophyte_linalg::{PixelVec, Vec2};
 use wgpu::include_wgsl;
@@ -56,13 +56,17 @@ impl Pipeline {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn render(
         &self,
         encoder: &mut wgpu::CommandEncoder,
         color_target: &wgpu::TextureView,
         bind_group: &wgpu::BindGroup,
         clear_color: Option<wgpu::Color>,
-        push_constants: PushConstants,
+        src: PixelVec<i32>,
+        src_sz: PixelVec<u32>,
+        dst: PixelVec<i32>,
+        dst_sz: PixelVec<u32>,
     ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Composite render pass"),
@@ -82,12 +86,18 @@ impl Pipeline {
             occlusion_query_set: None,
         });
 
+        set_scissor(src_sz, dst, dst_sz, &mut render_pass);
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, bind_group, &[]);
         render_pass.set_push_constants(
             wgpu::ShaderStages::VERTEX,
             0,
-            cast_slice(&[push_constants]),
+            cast_slice(&[PushConstants {
+                src: src.0.cast_as(),
+                src_sz: src_sz.0.cast_as(),
+                dst: dst.0.cast_as(),
+                dst_sz: dst_sz.0.cast_as(),
+            }]),
         );
         render_pass.draw(0..6, 0..1);
     }
