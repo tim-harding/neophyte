@@ -540,11 +540,16 @@ impl EventHandler {
             _ => unreachable!(),
         };
         match button {
-            Button::Left => self.mouse.buttons = self.mouse.buttons.with_left(depressed),
-            Button::Right => self.mouse.buttons = self.mouse.buttons.with_right(depressed),
-            Button::Middle => self.mouse.buttons = self.mouse.buttons.with_middle(depressed),
+            Button::Left => self.mouse.buttons.left = depressed,
+            Button::Right => self.mouse.buttons.right = depressed,
+            Button::Middle => self.mouse.buttons.middle = depressed,
             _ => unreachable!(),
         }
+
+        if !depressed {
+            return;
+        }
+
         if let Some(grid) = self
             .ui
             .grid_under_cursor(self.mouse.position, self.cell_size().cast())
