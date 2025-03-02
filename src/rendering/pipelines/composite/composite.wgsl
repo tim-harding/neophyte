@@ -1,8 +1,9 @@
 struct Info {
-    src: vec2<f32>,
-    src_sz: vec2<f32>,
-    dst: vec2<f32>,
-    dst_sz: vec2<f32>,
+    size: vec2<f32>,
+    src_pos: vec2<f32>,
+    src_tex_size: vec2<f32>,
+    dst_pos: vec2<f32>,
+    dst_tex_size: vec2<f32>,
 }
 
 @group(0) @binding(0)
@@ -25,9 +26,9 @@ fn vs_main(
         f32(in_vertex_index % 2u),
         f32(((in_vertex_index + 5u) % 6u) / 3u),
     );
-    out.uv = (info.src + uv * info.src_sz) / (info.src_sz * vec2<f32>(1.0, 2.0));
+    out.uv = (info.src_pos + uv * info.size) / info.src_tex_size;
     out.clip_position = vec4<f32>(
-        (vec2<f32>(uv) * info.src_sz + info.dst) / info.dst_sz * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
+        (vec2<f32>(uv) * info.size + info.dst_pos) / info.dst_tex_size * vec2<f32>(2.0, -2.0) + vec2<f32>(-1.0, 1.0),
         1.0,
         1.0
     );

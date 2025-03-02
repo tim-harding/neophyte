@@ -35,7 +35,7 @@ impl Pipelines {
             cursor: cursor::Pipeline::new(device, &targets.monochrome.view),
             cmdline_cursor: cursor::Pipeline::new(device, &targets.monochrome.view),
             blend: blend::Pipeline::new(device, &targets.monochrome.view),
-            composite: composite::Pipeline::new(device, &targets.monochrome.view),
+            composite: composite::Pipeline::new(device),
             cell_fill: cell_fill::Pipeline::new(
                 device,
                 text_bind_group_layout,

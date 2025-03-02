@@ -12,7 +12,7 @@ pub struct Pipeline {
 }
 
 impl Pipeline {
-    pub fn new(device: &wgpu::Device, texture_view: &wgpu::TextureView) -> Self {
+    pub fn new(device: &wgpu::Device) -> Self {
         let sampler = nearest_sampler(device);
         let shader = device.create_shader_module(include_wgsl!("composite.wgsl"));
 
@@ -93,10 +93,11 @@ impl Pipeline {
             wgpu::ShaderStages::VERTEX,
             0,
             cast_slice(&[PushConstants {
-                src: src.0.cast_as(),
-                src_sz: src_sz.0.cast_as(),
-                dst: dst.0.cast_as(),
-                dst_sz: dst_sz.0.cast_as(),
+                size: src_sz.0.cast_as(),
+                src_pos: src.0.cast_as(),
+                src_tex_size: (src_sz.0 * Vec2::new(1, 2)).cast_as(),
+                dst_pos: dst.0.cast_as(),
+                dst_tex_size: dst_sz.0.cast_as(),
             }]),
         );
         render_pass.draw(0..6, 0..1);
@@ -171,10 +172,11 @@ fn pipeline(
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy, Pod, Zeroable)]
 pub struct PushConstants {
-    pub src: Vec2<f32>,
-    pub src_sz: Vec2<f32>,
-    pub dst: Vec2<f32>,
-    pub dst_sz: Vec2<f32>,
+    pub size: Vec2<f32>,
+    pub src_pos: Vec2<f32>,
+    pub src_tex_size: Vec2<f32>,
+    pub dst_pos: Vec2<f32>,
+    pub dst_tex_size: Vec2<f32>,
 }
 
 impl PushConstants {

@@ -313,6 +313,7 @@ impl RenderState {
 
         // TODO:
         // And do composite here instead of blend to fix layering
+
         self.pipelines
             .blend
             .render(&mut encoder, &self.targets.color.view);
