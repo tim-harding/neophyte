@@ -318,7 +318,7 @@ impl RenderState {
             .blend
             .render(&mut encoder, &self.targets.color.view);
 
-        let target_size: PixelVec<_> = output.texture.size().into();
+        let target_size: PixelVec<_> = self.targets.monochrome.texture.size().into();
         self.pipelines.cursor.render(
             &mut encoder,
             &self.targets.color.view,
