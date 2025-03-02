@@ -222,7 +222,7 @@ impl RenderState {
                 .map(|(z, grid)| {
                     (
                         (z as f32 + 1.) / (grid_count + 1.),
-                        grid.scrolling.offset().round_to_pixels(cell_size),
+                        -grid.scrolling.offset().round_to_pixels(cell_size),
                         &grid.text,
                     )
                 })
@@ -281,11 +281,11 @@ impl RenderState {
                 &color.view,
                 &bind_group,
                 None,
-                src_window,
+                src_sz,
                 PixelVec::splat(0),
-                src_window,
+                src_sz,
                 PixelVec::splat(0),
-                src_window,
+                src_sz,
             );
 
             let bind_group = self
