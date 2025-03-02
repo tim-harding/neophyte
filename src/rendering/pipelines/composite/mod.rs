@@ -63,10 +63,11 @@ impl Pipeline {
         color_target: &wgpu::TextureView,
         bind_group: &wgpu::BindGroup,
         clear_color: Option<wgpu::Color>,
-        src: PixelVec<i32>,
-        src_sz: PixelVec<u32>,
-        dst: PixelVec<i32>,
-        dst_sz: PixelVec<u32>,
+        size: PixelVec<u32>,
+        src_pos: PixelVec<i32>,
+        src_tex_size: PixelVec<u32>,
+        dst_pos: PixelVec<i32>,
+        dst_tex_size: PixelVec<u32>,
     ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Composite render pass"),
@@ -86,18 +87,18 @@ impl Pipeline {
             occlusion_query_set: None,
         });
 
-        set_scissor(src_sz, dst, dst_sz, &mut render_pass);
+        set_scissor(src_tex_size, dst_pos, dst_tex_size, &mut render_pass);
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, bind_group, &[]);
         render_pass.set_push_constants(
             wgpu::ShaderStages::VERTEX,
             0,
             cast_slice(&[PushConstants {
-                size: src_sz.0.cast_as(),
-                src_pos: src.0.cast_as(),
-                src_tex_size: (src_sz.0 * Vec2::new(1, 2)).cast_as(),
-                dst_pos: dst.0.cast_as(),
-                dst_tex_size: dst_sz.0.cast_as(),
+                size: size.0.cast_as(),
+                src_pos: src_pos.0.cast_as(),
+                src_tex_size: src_tex_size.0.cast_as(),
+                dst_pos: dst_pos.0.cast_as(),
+                dst_tex_size: dst_tex_size.0.cast_as(),
             }]),
         );
         render_pass.draw(0..6, 0..1);

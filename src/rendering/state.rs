@@ -260,9 +260,8 @@ impl RenderState {
                 continue;
             };
 
-            let clear_color = (i == 0).then_some(wgpu::Color::TRANSPARENT);
             let src_sz: PixelVec<_> = monochrome.texture.size().into();
-            let src_sz = src_sz / PixelVec::new(1, 2);
+            let src_window = src_sz / PixelVec::new(1, 2);
             let dst_sz: PixelVec<_> = self.targets.monochrome.size();
             let src = offset;
             let dst = grid
@@ -279,13 +278,14 @@ impl RenderState {
                 .bind_group(&self.wgpu_context.device, &monochrome.view);
             self.pipelines.composite.render(
                 &mut encoder,
-                &self.targets.monochrome.view,
+                &color.view,
                 &bind_group,
-                clear_color,
-                src,
-                src_sz,
-                dst,
-                dst_sz,
+                None,
+                src_window,
+                PixelVec::splat(0),
+                src_window,
+                PixelVec::splat(0),
+                src_window,
             );
 
             let bind_group = self
@@ -296,7 +296,8 @@ impl RenderState {
                 &mut encoder,
                 &self.targets.color.view,
                 &bind_group,
-                clear_color,
+                (i == 0).then_some(wgpu::Color::TRANSPARENT),
+                src_window,
                 src,
                 src_sz,
                 dst,
@@ -314,9 +315,11 @@ impl RenderState {
         // TODO:
         // And do composite here instead of blend to fix layering
 
+        /*
         self.pipelines
             .blend
             .render(&mut encoder, &self.targets.color.view);
+        */
 
         let target_size: PixelVec<_> = self.targets.monochrome.texture.size().into();
         self.pipelines.cursor.render(
